@@ -12,6 +12,25 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (do not commit sensitive config)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Documentation files (local only, not in version control)
+API_SPECIFICATION.md
+IMPLEMENTATION_REPORT.md
+MOCK_API_EXAMPLES.md
+TEST_CASES.md
+BACKEND_*.md
+DATABASE_*.md
+PROJECT_*.md
+QUICK_*.md
+TEST_EXECUTION_*.md
+test-verify.sh
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +41,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+Thumbs.db
