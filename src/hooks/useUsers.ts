@@ -9,7 +9,7 @@ import {
   resetUserPasswordThunk,
   updateUserThunk,
 } from '@features/users/usersSlice';
-import type { CreateUserRequest, UpdateUserRequest } from '@types';
+import type { CreateUserRequest, UpdateUserRequest } from '@app/types';
 
 export const useUsers = () => {
   const dispatch = useDispatch<AppDispatch>();

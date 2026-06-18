@@ -1,11 +1,19 @@
+import { Suspense } from 'react';
+import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from '@constants/routes';
-import LoginPage from '@pages/LoginPage';
-import ChangePasswordPage from '@pages/ChangePasswordPage';
-import UserManagementPage from '@pages/UserManagementPage';
-import PrivateRoute from '@components/common/PrivateRoute';
-import RoleGuard from '@components/common/RoleGuard';
-import ComingSoonPage from '@components/common/ComingSoonPage';
+import {
+  ChangePasswordPage,
+  ComingSoonPage,
+  LoginPage,
+  PrivateRoute,
+  RoleGuard,
+  UserManagementPage,
+} from './lazyRoutes';
+
+const withSuspense = (element: ReactNode) => (
+  <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>{element}</Suspense>
+);
 
 export const router = createBrowserRouter([
   {
@@ -14,42 +22,44 @@ export const router = createBrowserRouter([
   },
   {
     path: ROUTES.LOGIN,
-    element: <LoginPage />,
+    element: withSuspense(<LoginPage />),
   },
   {
-    element: <PrivateRoute />,
+    element: withSuspense(<PrivateRoute />),
     children: [
       {
         path: ROUTES.CHANGE_PASSWORD,
-        element: <ChangePasswordPage />,
+        element: withSuspense(<ChangePasswordPage />),
       },
       {
         path: ROUTES.DASHBOARD,
-        element: <ComingSoonPage title="Tổng quan" />,
+        element: withSuspense(<ComingSoonPage title="Tổng quan" />),
       },
       {
         path: ROUTES.ADMIN_USERS,
         element: (
-          <RoleGuard requiredRole="Admin">
-            <UserManagementPage />
-          </RoleGuard>
+          withSuspense(
+            <RoleGuard requiredRole="Admin">
+              <UserManagementPage />
+            </RoleGuard>,
+          )
         ),
       },
       {
         path: ROUTES.ADMIN_TASKS,
-        element: <ComingSoonPage title="Quản lý nhiệm vụ" />,
+        element: withSuspense(<ComingSoonPage title="Quản lý nhiệm vụ" />),
       },
       {
         path: ROUTES.INSPECTION,
-        element: <ComingSoonPage title="Kiểm tra lưới điện" />,
+        element: withSuspense(<ComingSoonPage title="Kiểm tra lưới điện" />),
       },
       {
         path: ROUTES.MAINTENANCE,
-        element: <ComingSoonPage title="Bảo trì" />,
+        element: withSuspense(<ComingSoonPage title="Bảo trì" />),
       },
       {
         path: ROUTES.ANALYTICS,
-        element: <ComingSoonPage title="Phân tích" />,
+        element: withSuspense(<ComingSoonPage title="Phân tích" />),
       },
     ],
   },

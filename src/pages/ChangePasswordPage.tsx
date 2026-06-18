@@ -8,7 +8,7 @@ import { LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@constants/routes';
-import { COLORS, SPACING, RADIUS } from '@styles/tokens';
+import { COLORS, SPACING, RADIUS } from '@theme/tokens';
 
 const { Title, Text } = Typography;
 

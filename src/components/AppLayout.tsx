@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Layout } from 'antd';
 import { useIsMobile } from '@hooks/useIsMobile';
-import { COLORS, SPACING, TYPOGRAPHY } from '@styles/tokens';
+import { COLORS, SPACING, TYPOGRAPHY } from '@theme/tokens';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
 
@@ -34,12 +34,33 @@ interface AppLayoutProps {
  */
 const AppLayout = ({ children }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
+  const sidebarCollapsed = isMobile ? !mobileMenuOpen : collapsed;
 
+  const handleSidebarToggle = () => {
+    if (isMobile) {
+      setMobileMenuOpen((prev) => !prev);
+      return;
+    }
+    setCollapsed((prev) => !prev);
+  };
 
   return (
     <Layout style={{ minHeight: '100vh', display: 'flex' }}>
-      <Sidebar collapsed={collapsed} isMobile={isMobile} onToggle={() => setCollapsed((prev) => !prev)} />
+      <Sidebar collapsed={sidebarCollapsed} isMobile={isMobile} onToggle={handleSidebarToggle} />
+      {isMobile && mobileMenuOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.28)',
+            zIndex: 998,
+          }}
+        />
+      )}
 
       <Layout
         style={{
@@ -50,7 +71,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           transition: 'margin-left 0.2s ease',
         }}
       >
-        <Header isMobile={isMobile} />
+        <Header isMobile={isMobile} onMenuToggle={handleSidebarToggle} />
 
         <Layout.Content
           style={{

@@ -1,4 +1,4 @@
-import type { UserRole } from '@types';
+import type { UserRole } from '@app/types';
 
 export const ROLES: { [key: string]: UserRole } = {
   ADMIN: 'Admin',

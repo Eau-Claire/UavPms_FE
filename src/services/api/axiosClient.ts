@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { storage } from '@utils/storage';
-import type { ApiResponse, AuthTokens } from '@types';
-import { setupMockInterceptors } from '@mocks/setupMockInterceptors';
+import type { ApiResponse, AuthTokens } from '@app/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 /**
@@ -24,8 +23,8 @@ export const axiosClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Kích hoạt mock interceptor khi chạy development (xem src/mocks/setupMockInterceptors.ts)
 if (USE_MOCK) {
+  const { setupMockInterceptors } = await import('@mocks/setupMockInterceptors');
   setupMockInterceptors(axiosClient);
 }
 

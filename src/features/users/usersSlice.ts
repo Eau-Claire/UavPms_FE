@@ -8,7 +8,7 @@ import type {
   ResetPasswordResponse,
   UpdateUserRequest,
   User,
-} from '@types';
+} from '@app/types';
 
 interface UsersState {
   users: User[];
@@ -137,8 +137,25 @@ const usersSlice = createSlice({
         state.isSubmitting = false;
       })
 
+      .addCase(resetUserPasswordThunk.pending, (state) => {
+        state.isSubmitting = true;
+      })
+      .addCase(resetUserPasswordThunk.fulfilled, (state) => {
+        state.isSubmitting = false;
+      })
+      .addCase(resetUserPasswordThunk.rejected, (state) => {
+        state.isSubmitting = false;
+      })
+
+      .addCase(deleteUserThunk.pending, (state) => {
+        state.isSubmitting = true;
+      })
       .addCase(deleteUserThunk.fulfilled, (state, action) => {
+        state.isSubmitting = false;
         state.users = state.users.filter((u) => u.id !== action.payload);
+      })
+      .addCase(deleteUserThunk.rejected, (state) => {
+        state.isSubmitting = false;
       });
   },
 });

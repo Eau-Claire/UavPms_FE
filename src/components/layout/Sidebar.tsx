@@ -10,7 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@hooks/usePermission';
 import { ROUTES } from '@constants/routes';
-import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@styles/tokens';
+import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@theme/tokens';
 
 interface SidebarProps {
   /** Sidebar đang thu gọn (chỉ hiện icon) */
@@ -37,6 +37,10 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
   const navigate = useNavigate();
   const { isAdmin } = usePermission();
   const { t } = useTranslation();
+
+  if (isMobile && collapsed) {
+    return null;
+  }
 
   // Danh sách menu item — Admin có thêm mục Quản lý người dùng
   const menuItems = [
@@ -66,14 +70,14 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
       collapsible
       trigger={null}
       width={LAYOUT.sidebarWidth}
-      collapsedWidth={LAYOUT.sidebarCollapsedWidth}
+      collapsedWidth={isMobile ? 0 : LAYOUT.sidebarCollapsedWidth}
       style={{
         backgroundColor: COLORS.bgWhite,
         position: isMobile ? 'fixed' : 'relative',
         height: '100vh',
         left: 0,
         top: 0,
-        zIndex: isMobile ? 999 : 'auto',
+        zIndex: isMobile ? 1000 : 'auto',
         borderRight: `1px solid ${COLORS.border}`,
         overflow: 'auto',
         boxShadow: isMobile ? '2px 0 8px rgba(0, 0, 0, 0.08)' : 'none',
@@ -104,7 +108,10 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
       <Menu
         mode="inline"
         selectedKeys={[location.pathname]}
-        onClick={({ key }) => navigate(key)}
+        onClick={({ key }) => {
+          navigate(key);
+          if (isMobile) onToggle();
+        }}
         items={menuItems}
         style={{
           backgroundColor: COLORS.bgWhite,

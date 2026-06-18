@@ -1,17 +1,18 @@
 import { Button, Avatar, Dropdown } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import { MenuOutlined, UserOutlined } from '@ant-design/icons';
 import { Layout } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { getInitials } from '@utils/formatters';
 import { ROUTES } from '@constants/routes';
-import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@styles/tokens';
+import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@theme/tokens';
 import { getUserMenuItems } from './UserMenu';
 
 interface HeaderProps {
   /** Đang chạy trên thiết bị mobile */
   isMobile: boolean;
+  onMenuToggle: () => void;
 }
 
 /**
@@ -22,7 +23,7 @@ interface HeaderProps {
  * - Nút chuyển ngôn ngữ
  * - Dropdown menu người dùng (phải)
  */
-const Header = ({ isMobile }: HeaderProps) => {
+const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
@@ -52,7 +53,15 @@ const Header = ({ isMobile }: HeaderProps) => {
       }}
     >
       {/* Logo - hiển thị bên trái trên navbar */}
-      {!isMobile && (
+      {isMobile ? (
+        <Button
+          type="text"
+          shape="circle"
+          aria-label={t('common.open_menu')}
+          icon={<MenuOutlined style={{ fontSize: TYPOGRAPHY.fontSizeLg }} />}
+          onClick={onMenuToggle}
+        />
+      ) : (
         <div
           style={{
             display: 'flex',

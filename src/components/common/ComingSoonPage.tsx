@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { COLORS, TYPOGRAPHY, SPACING } from '@styles/tokens';
+import { COLORS, TYPOGRAPHY, SPACING } from '@theme/tokens';
 
 const { Title, Text } = Typography;
 

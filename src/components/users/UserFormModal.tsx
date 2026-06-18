@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import type { User, UserRole, UserStatus } from '@types';
+import type { User, UserRole, UserStatus } from '@app/types';
 import { ROLES, ROLE_LABELS } from '@constants/roles';
 import { STATUS_LABELS } from '@constants/status';
 

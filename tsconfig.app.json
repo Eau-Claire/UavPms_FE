@@ -47,8 +47,14 @@
       "@utils/*": [
         "src/utils/*"
       ],
-      "@types": [
+      "@app/*": [
+        "src/app/*"
+      ],
+      "@app/types": [
         "src/types/index.ts"
+      ],
+      "@assets/*": [
+        "src/assets/*"
       ],
       "@constants/*": [
         "src/constants/*"
@@ -59,8 +65,8 @@
       "@mocks/*": [
         "src/mocks/*"
       ],
-      "@styles/*": [
-        "src/styles/*"
+      "@theme/*": [
+        "src/theme/*"
       ],
       "@locales/*": [
         "src/locales/*"

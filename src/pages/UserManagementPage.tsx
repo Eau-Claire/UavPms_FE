@@ -13,10 +13,10 @@ import {
   Popconfirm,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
-import type { User } from '@types';
+import type { User } from '@app/types';
 import { ROLE_COLORS, ROLE_LABELS } from '@constants/roles';
 import { STATUS_COLORS, STATUS_LABELS } from '@constants/status';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@styles/tokens';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@theme/tokens';
 import { getInitials } from '@utils/formatters';
 import { useTranslation } from 'react-i18next';
 import { useUsers } from '@hooks/useUsers';

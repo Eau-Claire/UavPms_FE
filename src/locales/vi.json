@@ -13,6 +13,8 @@
     "cancel": "Hủy",
     "confirm": "Xác nhận",
     "close": "Đóng",
+    "open_menu": "Mở menu",
+    "copy_failed": "Không thể sao chép",
     "total_records": "Tổng cộng {{total}} bản ghi",
     "copyright": "© 2026 UAV-PMS. All rights reserved."
   },

@@ -1,6 +1,6 @@
 import { useSelector } from 'react-redux';
 import type { RootState } from '@store/store';
-import type { UserRole } from '@types';
+import type { UserRole } from '@app/types';
 
 /**
  * Hook kiểm tra quyền hạn của người dùng hiện tại.

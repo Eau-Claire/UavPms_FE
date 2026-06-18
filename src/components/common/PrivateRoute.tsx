@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Spin } from 'antd';
 import type { RootState } from '@store/store';
-import type { UserRole } from '@types';
+import type { UserRole } from '@app/types';
 import { ROUTES } from '@constants/routes';
 import AppLayout from '@components/AppLayout';
 

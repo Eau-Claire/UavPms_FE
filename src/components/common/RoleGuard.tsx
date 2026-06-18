@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@store/store';
-import type { UserRole } from '@types';
+import type { UserRole } from '@app/types';
 import { ROUTES } from '@constants/routes';
 
 interface RoleGuardProps {

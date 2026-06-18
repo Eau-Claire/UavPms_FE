@@ -5,7 +5,7 @@
  * Khi cần thay đổi giao diện, chỉ cần sửa file này — tự động áp dụng toàn app.
  *
  * @example
- * import { COLORS, TYPOGRAPHY, SPACING } from '@styles/tokens';
+ * import { COLORS, TYPOGRAPHY, SPACING } from '@theme/tokens';
  * style={{ color: COLORS.textPrimary, fontSize: TYPOGRAPHY.fontSizeBase }}
  */
 

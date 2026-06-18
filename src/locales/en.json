@@ -13,6 +13,8 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
+    "open_menu": "Open menu",
+    "copy_failed": "Copy failed",
     "total_records": "Total {{total}} records",
     "copyright": "© 2026 UAV-PMS. All rights reserved."
   },

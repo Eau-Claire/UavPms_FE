@@ -2,7 +2,7 @@ import { Modal, Typography, Space, Button, message } from 'antd';
 import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { COLORS, TYPOGRAPHY } from '@styles/tokens';
+import { COLORS, TYPOGRAPHY } from '@theme/tokens';
 
 const { Text, Paragraph } = Typography;
 
@@ -20,10 +20,14 @@ const CredentialModal = ({ open, title, username, password, onClose }: Credentia
 
   const handleCopy = async () => {
     const text = `${t('user.credential_username')}: ${username}\n${t('user.credential_password')}: ${password}`;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    message.success(t('user.credential_copied'));
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      message.success(t('user.credential_copied'));
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      message.error(t('common.copy_failed'));
+    }
   };
 
   return (

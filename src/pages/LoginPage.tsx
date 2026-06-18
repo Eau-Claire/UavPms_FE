@@ -8,7 +8,8 @@ import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@constants/routes';
-import { COLORS, SPACING, RADIUS } from '@styles/tokens';
+import { COLORS, SPACING, RADIUS } from '@theme/tokens';
+import logoUrl from '@assets/images/Logo.png';
 
 const { Title, Text } = Typography;
 
@@ -104,12 +105,12 @@ const LoginPage = () => {
       >
         <div style={{ textAlign: 'center', marginBottom: SPACING.xl }}>
           <img
-            src='..\src\assets\images\Logo.png'
+            src={logoUrl}
             alt="EVN Logo"
             style={{ width: 80, height: 'auto', marginBottom: SPACING.sm }}
           />
           <Title level={4} style={{ margin: 0, color: COLORS.textPrimary }}>
-            {/* {t('common.app_name')} */}
+            {t('common.app_name')}
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>{t('common.app_tagline')}</Text>
         </div>

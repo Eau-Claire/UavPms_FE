@@ -1,4 +1,4 @@
-import type { UserStatus } from '@types';
+import type { UserStatus } from '@app/types';
 
 /**
  * Label tiếng Việt cho từng trạng thái tài khoản.
