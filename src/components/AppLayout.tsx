@@ -1,6 +1,8 @@
 import { Layout } from 'antd';
+import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '@hooks/useIsMobile';
 import { useUiStore } from '@store/uiStore';
+import { ROUTES } from '@router/routes';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
 
@@ -18,7 +20,6 @@ interface AppLayoutProps {
  *   <Layout>
  *     <Header />         ← sticky, toggle sidebar + user menu
  *     <Content />        ← vùng cuộn, render children
- *     <Footer />         ← cố định, copyright
  *   </Layout>
  * </Layout>
  * ```
@@ -33,12 +34,14 @@ interface AppLayoutProps {
  */
 const AppLayout = ({ children }: AppLayoutProps) => {
   const isMobile = useIsMobile();
+  const location = useLocation();
   const sidebarCollapsedState = useUiStore((state) => state.sidebarCollapsed);
   const mobileMenuOpen = useUiStore((state) => state.mobileMenuOpen);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const toggleMobileMenu = useUiStore((state) => state.toggleMobileMenu);
   const closeMobileMenu = useUiStore((state) => state.closeMobileMenu);
   const sidebarCollapsed = isMobile ? !mobileMenuOpen : sidebarCollapsedState;
+  const isAssetRoute = location.pathname === ROUTES.ASSETS;
 
   const handleSidebarToggle = () => {
     if (isMobile) {
@@ -62,13 +65,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       <Layout className="app-main">
         <Header isMobile={isMobile} onMenuToggle={handleSidebarToggle} />
 
-        <Layout.Content className="app-content">
+        <Layout.Content className={isAssetRoute ? 'app-content app-content-flush' : 'app-content'}>
           <div className="app-content-inner">{children}</div>
         </Layout.Content>
-
-        <footer className="app-footer">
-          © 2026 UAV-PMS. All rights reserved.
-        </footer>
       </Layout>
     </Layout>
   );

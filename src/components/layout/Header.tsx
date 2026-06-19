@@ -1,10 +1,15 @@
-import { Button, Avatar, Dropdown } from 'antd';
-import { MenuOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Input } from 'antd';
+import {
+  AppstoreOutlined,
+  BellOutlined,
+  MenuOutlined,
+  SearchOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { Layout } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
-import { getInitials } from '@utils/formatters';
 import { ROUTES } from '@router/routes';
 import { LAYOUT } from '@theme/layout';
 import { getUserMenuItems } from './UserMenu';
@@ -25,8 +30,10 @@ interface HeaderProps {
  */
 const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const showAssetSearch = !isMobile && location.pathname === ROUTES.ASSETS;
 
   const handleLogout = async () => {
     await logout();
@@ -44,7 +51,6 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
         paddingLeft: isMobile ? 12 : 24,
       }}
     >
-      {/* Logo - hiển thị bên trái trên navbar */}
       {isMobile ? (
         <Button
           type="text"
@@ -54,85 +60,44 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
           onClick={onMenuToggle}
         />
       ) : (
-        <div className="app-brand">
-          <div className="app-brand-mark">
-            U
-          </div>
-          <div className="app-brand-copy">
-            <div className="app-brand-title">
-              UAV-PMS
-            </div>
-            <div className="app-brand-tagline">
-              {t('common.app_tagline')}
-            </div>
-          </div>
+        <div className="app-header-spacer">
+          {showAssetSearch && (
+            <Input
+              prefix={<SearchOutlined />}
+              placeholder={t('asset.search_placeholder')}
+              className="asset-header-search"
+            />
+          )}
         </div>
       )}
 
-      {/* Phần phải: thông tin user + dropdown */}
       <div
         className="app-header-actions"
         style={{
-          gap: isMobile ? 8 : 16,
+          gap: isMobile ? 8 : 18,
         }}
       >
-        {/* Desktop: hiện tên + vai trò (không avatar) */}
-        {!isMobile && (
-          <div className="app-user-summary">
-            <div className="app-user-name-wrap">
-              <div className="app-user-name">
-                {user?.fullName}
-              </div>
-            </div>
-          </div>
-        )}
+        <button type="button" className="app-header-icon" aria-label={t('common.notifications')}>
+          <BellOutlined />
+          <span className="app-header-dot" />
+        </button>
+        <button type="button" className="app-header-icon" aria-label={t('common.apps')}>
+          <AppstoreOutlined />
+        </button>
 
-        {/* Language Switcher - Badge Style */}
-        <div className="language-switcher">
-          <Button
-            type={i18n.language === 'vi' ? 'primary' : 'text'}
-            size="small"
-            className="language-button"
-            style={{
-              fontWeight: i18n.language === 'vi' ? 'bold' : 'normal',
-            }}
-            onClick={() => i18n.changeLanguage('vi')}
-          >
-            VI
-          </Button>
-          <div className="language-divider" />
-          <Button
-            type={i18n.language === 'en' ? 'primary' : 'text'}
-            size="small"
-            className="language-button"
-            style={{
-              fontWeight: i18n.language === 'en' ? 'bold' : 'normal',
-            }}
-            onClick={() => i18n.changeLanguage('en')}
-          >
-            EN
-          </Button>
-        </div>
-
-        {/* Dropdown menu — luôn hiện (icon user trên mobile, avatar nhỏ trên desktop) */}
+        <div className="app-header-divider" />
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
-          <Button
-            type="text"
-            shape="circle"
-            icon={
-              isMobile ? (
-                <UserOutlined className="icon-lg" />
-              ) : (
-                <Avatar
-                  size={36}
-                  className="app-avatar"
-                >
-                  {user && getInitials(user.fullName)}
-                </Avatar>
-              )
-            }
-            className="app-user-button"
-          />
+          <button type="button" className="app-profile-button">
+            {isMobile ? (
+              <UserOutlined className="icon-lg" />
+            ) : null}
+            {!isMobile && (
+              <span className="app-user-name-wrap">
+                <span className="app-user-name">{user?.role === 'Admin' ? 'Administrator' : user?.fullName}</span>
+                <span className="app-user-role">System Admin</span>
+              </span>
+            )}
+          </button>
         </Dropdown>
       </div>
     </Layout.Header>

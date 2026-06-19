@@ -1,6 +1,6 @@
 export const ANT_THEME_TOKEN = {
   colorPrimary: '#20398B',
-  borderRadius: 6,
+  borderRadius: 4,
   colorBgContainer: '#FFFFFF',
-  colorBorder: '#D9D9D9',
+  colorBorder: '#E2E8F0',
 } as const;

@@ -1,5 +1,5 @@
 export const LAYOUT = {
-  sidebarWidth: 200,
+  sidebarWidth: 256,
   sidebarCollapsedWidth: 64,
   headerHeight: 64,
   mobileBreakpoint: 768,
