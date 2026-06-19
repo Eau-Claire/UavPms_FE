@@ -1,4 +1,4 @@
-export const USER_ROLES = ['Admin', 'Manager', 'Technician', 'Viewer'] as const;
+export const USER_ROLES = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
 
@@ -11,6 +11,7 @@ export interface User {
   username: string;
   fullName: string;
   email: string;
+  phone?: string;
   role: UserRole;
   status: UserStatus;
   mustChangePassword?: boolean;
@@ -20,7 +21,10 @@ export interface User {
 
 export interface CreateUserRequest {
   fullName: string;
+  email: string;
+  phone?: string;
   role: UserRole;
+  temporaryPassword?: string;
 }
 
 export interface UpdateUserRequest {

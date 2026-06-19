@@ -91,15 +91,21 @@ const handleMockRequest = (config: InternalAxiosRequestConfig) => {
   }
 
   if (url.match(/\/users\/?$/) && method === 'post') {
-    const { fullName, role } = body as { fullName: string; role: UserRole };
-    if (!fullName?.trim() || !role) {
-      return mockError(400, 'Họ tên và vai trò là bắt buộc');
+    const { fullName, email, phone, role, temporaryPassword } = body as {
+      fullName: string;
+      email: string;
+      phone?: string;
+      role: UserRole;
+      temporaryPassword?: string;
+    };
+    if (!fullName?.trim() || !email?.trim() || !role) {
+      return mockError(400, 'Họ tên, email và vai trò là bắt buộc');
     }
 
-    const { user, temporaryPassword } = mockUserStore.create(fullName, role);
+    const result = mockUserStore.create(fullName, role, email, phone, temporaryPassword);
     return Promise.resolve(
       mockSuccess(
-        { user, username: user.username, temporaryPassword },
+        { user: result.user, username: result.user.username, temporaryPassword: result.temporaryPassword },
         'Tạo tài khoản thành công',
         201,
       ),

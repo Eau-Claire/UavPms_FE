@@ -10,8 +10,9 @@ const INITIAL_MOCK_USERS: Record<string, MockUserRecord> = {
     id: '1',
     username: 'admin',
     password: 'admin@123',
-    fullName: 'Nguyễn Văn Admin',
-    email: 'admin@evn.com',
+    fullName: 'Nguyễn Văn An',
+    email: 'an.nv@evn.com.vn',
+    phone: '0901234567',
     role: 'Admin',
     status: 'Active',
     mustChangePassword: false,
@@ -22,9 +23,10 @@ const INITIAL_MOCK_USERS: Record<string, MockUserRecord> = {
     id: '2',
     username: 'manager',
     password: 'manager@123',
-    fullName: 'Trần Thị Manager',
-    email: 'manager@evn.com',
-    role: 'Manager',
+    fullName: 'Trần Thị Bích',
+    email: 'bich.tt@evn.com.vn',
+    phone: '0901234568',
+    role: 'Inspector',
     status: 'Active',
     mustChangePassword: false,
     createdAt: '2026-01-02T00:00:00Z',
@@ -34,10 +36,11 @@ const INITIAL_MOCK_USERS: Record<string, MockUserRecord> = {
     id: '3',
     username: 'technician',
     password: 'tech@123',
-    fullName: 'Lê Văn Technician',
-    email: 'tech@evn.com',
+    fullName: 'Lê Văn Cường',
+    email: 'cuong.lv@evn.com.vn',
+    phone: '0901234569',
     role: 'Technician',
-    status: 'Active',
+    status: 'Locked',
     mustChangePassword: false,
     createdAt: '2026-01-03T00:00:00Z',
     updatedAt: '2026-01-03T00:00:00Z',
@@ -46,18 +49,45 @@ const INITIAL_MOCK_USERS: Record<string, MockUserRecord> = {
     id: '4',
     username: 'locked',
     password: 'locked@123',
-    fullName: 'Phạm Văn Locked',
-    email: 'locked@evn.com',
-    role: 'Viewer',
-    status: 'Locked',
+    fullName: 'Phạm Minh Đức',
+    email: 'duc.pm@evn.com.vn',
+    phone: '0901234570',
+    role: 'Manager',
+    status: 'Active',
     mustChangePassword: false,
     createdAt: '2026-01-04T00:00:00Z',
     updatedAt: '2026-01-04T00:00:00Z',
   },
+  analyst: {
+    id: '5',
+    username: 'analyst',
+    password: 'analyst@123',
+    fullName: 'Hoàng Thu Hà',
+    email: 'ha.ht@evn.com.vn',
+    phone: '0901234571',
+    role: 'Analyst',
+    status: 'Active',
+    mustChangePassword: false,
+    createdAt: '2026-01-05T00:00:00Z',
+    updatedAt: '2026-01-05T00:00:00Z',
+  },
+  viewer: {
+    id: '6',
+    username: 'viewer',
+    password: 'viewer@123',
+    fullName: 'Võ Minh Quân',
+    email: 'quan.vm@evn.com.vn',
+    phone: '0901234572',
+    role: 'Technician',
+    status: 'Active',
+    mustChangePassword: false,
+    createdAt: '2026-01-06T00:00:00Z',
+    updatedAt: '2026-01-06T00:00:00Z',
+  },
 };
 
 let mockUsers: Record<string, MockUserRecord> = structuredClone(INITIAL_MOCK_USERS);
-let nextId = 5;
+let nextId = 7;
 
 const toPublicUser = (record: MockUserRecord): User => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -73,10 +103,16 @@ export const mockUserStore = {
   findById: (id: string): MockUserRecord | undefined =>
     Object.values(mockUsers).find((u) => u.id === id),
 
-  create: (fullName: string, role: UserRole): { user: User; temporaryPassword: string } => {
+  create: (
+    fullName: string,
+    role: UserRole,
+    email: string,
+    phone?: string,
+    password?: string,
+  ): { user: User; temporaryPassword: string } => {
     const usernames = Object.values(mockUsers).map((u) => u.username);
     const username = generateUsername(fullName, usernames);
-    const temporaryPassword = generatePassword();
+    const temporaryPassword = password || generatePassword();
     const now = new Date().toISOString();
 
     const record: MockUserRecord = {
@@ -84,7 +120,8 @@ export const mockUserStore = {
       username,
       password: temporaryPassword,
       fullName: fullName.trim(),
-      email: `${username.toLowerCase()}@evn.com`,
+      email: email.trim(),
+      phone: phone?.trim(),
       role,
       status: 'Active',
       mustChangePassword: true,
@@ -146,6 +183,6 @@ export const mockUserStore = {
 
   reset: () => {
     mockUsers = structuredClone(INITIAL_MOCK_USERS);
-    nextId = 5;
+    nextId = 7;
   },
 };
