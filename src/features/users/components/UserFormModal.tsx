@@ -4,9 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import type { User, UserRole, UserStatus } from '@app/types';
-import { ROLES, ROLE_LABELS } from '@constants/roles';
-import { STATUS_LABELS } from '@constants/status';
+import { USER_ROLES, USER_STATUSES, type User, type UserRole, type UserStatus } from '@shared/types';
 
 type FormMode = 'create' | 'edit';
 
@@ -37,40 +35,40 @@ const UserFormModal = ({
 
   const createSchema = z.object({
     fullName: z.string().min(2, t('user.fullname_required')),
-    role: z.enum(['Admin', 'Manager', 'Technician', 'Viewer']),
+    role: z.enum(USER_ROLES),
   });
 
   const editSchema = z.object({
-    role: z.enum(['Admin', 'Manager', 'Technician', 'Viewer']),
-    status: z.enum(['Active', 'Inactive', 'Locked']),
+    role: z.enum(USER_ROLES),
+    status: z.enum(USER_STATUSES),
   });
 
   const createForm = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fullName: '', role: ROLES.TECHNICIAN },
+    defaultValues: { fullName: '', role: 'Technician' },
   });
 
   const editForm = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
-    defaultValues: { role: ROLES.TECHNICIAN, status: 'Active' },
+    defaultValues: { role: 'Technician', status: 'Active' },
   });
 
   useEffect(() => {
     if (open && isCreate) {
-      createForm.reset({ fullName: '', role: ROLES.TECHNICIAN });
+      createForm.reset({ fullName: '', role: 'Technician' });
     }
     if (open && !isCreate && user) {
       editForm.reset({ role: user.role, status: user.status });
     }
   }, [open, isCreate, user, createForm, editForm]);
 
-  const roleOptions = Object.values(ROLES)
-    .filter((role) => isCreate || role !== ROLES.ADMIN || user?.role === ROLES.ADMIN)
-    .map((role) => ({ value: role, label: ROLE_LABELS[role] }));
+  const roleOptions = USER_ROLES
+    .filter((role) => isCreate || role !== 'Admin' || user?.role === 'Admin')
+    .map((role) => ({ value: role, label: t(`user.roles.${role}`) }));
 
-  const statusOptions = (['Active', 'Inactive'] as UserStatus[]).map((status) => ({
+  const statusOptions = USER_STATUSES.filter((status) => status !== 'Locked').map((status) => ({
     value: status,
-    label: STATUS_LABELS[status],
+    label: t(`user.statuses.${status}`),
   }));
 
   const handleCreateSubmit = createForm.handleSubmit((data) => {
@@ -116,7 +114,7 @@ const UserFormModal = ({
               name="role"
               control={createForm.control}
               render={({ field }) => (
-                <Select {...field} options={roleOptions.filter((o) => o.value !== ROLES.ADMIN)} />
+                <Select {...field} options={roleOptions.filter((o) => o.value !== 'Admin')} />
               )}
             />
           </Form.Item>

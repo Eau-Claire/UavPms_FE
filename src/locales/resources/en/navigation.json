@@ -1,0 +1,15 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "user_management": "User Management",
+    "task_management": "Task Management",
+    "inspection": "Grid Inspection",
+    "maintenance": "Maintenance",
+    "analytics": "Analytics"
+  },
+  "header": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout"
+  }
+}

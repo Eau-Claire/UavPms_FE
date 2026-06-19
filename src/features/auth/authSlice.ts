@@ -10,7 +10,7 @@ import type {
   AuthTokens,
   ApiError,
   ChangePasswordRequest,
-} from '@app/types';
+} from '@shared/types';
 
 const storedUser = storage.getUser();
 const hasToken = !!storage.getAccessToken();

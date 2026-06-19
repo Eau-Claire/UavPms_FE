@@ -26,6 +26,9 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
+      "@/*": [
+        "src/*"
+      ],
       "@components/*": [
         "src/components/*"
       ],
@@ -47,20 +50,17 @@
       "@utils/*": [
         "src/utils/*"
       ],
-      "@app/*": [
-        "src/app/*"
-      ],
-      "@app/types": [
+      "@shared/types": [
         "src/types/index.ts"
       ],
       "@assets/*": [
         "src/assets/*"
       ],
-      "@constants/*": [
-        "src/constants/*"
-      ],
       "@router": [
         "src/router/index.tsx"
+      ],
+      "@router/*": [
+        "src/router/*"
       ],
       "@mocks/*": [
         "src/mocks/*"

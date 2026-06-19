@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LAYOUT } from '@theme/tokens';
+import { LAYOUT } from '@theme/layout';
 
 /**
  * Hook kiểm tra màn hình có phải mobile không.

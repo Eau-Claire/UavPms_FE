@@ -2,7 +2,6 @@ import { Modal, Typography, Space, Button, message } from 'antd';
 import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { COLORS, TYPOGRAPHY } from '@theme/tokens';
 
 const { Text, Paragraph } = Typography;
 
@@ -48,27 +47,13 @@ const CredentialModal = ({ open, title, username, password, onClose }: Credentia
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <div>
           <Text type="secondary">{t('user.credential_username')}</Text>
-          <div
-            style={{
-              fontFamily: 'monospace',
-              fontSize: TYPOGRAPHY.fontSizeLg,
-              fontWeight: TYPOGRAPHY.fontWeightMedium,
-              color: COLORS.textPrimary,
-            }}
-          >
+          <div className="credential-value">
             {username}
           </div>
         </div>
         <div>
           <Text type="secondary">{t('user.credential_password')}</Text>
-          <div
-            style={{
-              fontFamily: 'monospace',
-              fontSize: TYPOGRAPHY.fontSizeLg,
-              fontWeight: TYPOGRAPHY.fontWeightMedium,
-              color: COLORS.primary,
-            }}
-          >
+          <div className="credential-value credential-value-primary">
             {password}
           </div>
         </div>

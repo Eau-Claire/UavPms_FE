@@ -13,16 +13,26 @@ import {
   Popconfirm,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
-import type { User } from '@app/types';
-import { ROLE_COLORS, ROLE_LABELS } from '@constants/roles';
-import { STATUS_COLORS, STATUS_LABELS } from '@constants/status';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@theme/tokens';
+import type { User, UserRole, UserStatus } from '@shared/types';
 import { getInitials } from '@utils/formatters';
 import { useTranslation } from 'react-i18next';
 import { useUsers } from '@hooks/useUsers';
 import { useAuth } from '@hooks/useAuth';
-import UserFormModal from '@components/users/UserFormModal';
-import CredentialModal from '@components/users/CredentialModal';
+import UserFormModal from '@features/users/components/UserFormModal';
+import CredentialModal from '@features/users/components/CredentialModal';
+
+const ROLE_COLORS: Record<UserRole, string> = {
+  Admin: '#FF4D4F',
+  Manager: '#1890FF',
+  Technician: '#52C41A',
+  Viewer: '#FAAD14',
+};
+
+const STATUS_COLORS: Record<UserStatus, string> = {
+  Active: 'green',
+  Inactive: 'orange',
+  Locked: 'red',
+};
 
 const UserManagementPage = () => {
   const { t } = useTranslation();
@@ -146,19 +156,19 @@ const UserManagementPage = () => {
       title: t('user.col_user'),
       key: 'user',
       render: (_: unknown, record: User) => (
-        <Space size={SPACING.sm}>
-          <Avatar style={{ backgroundColor: COLORS.primary }}>
+        <div className="user-cell">
+          <Avatar className="user-avatar">
             {getInitials(record.fullName)}
           </Avatar>
           <div>
-            <div style={{ fontWeight: TYPOGRAPHY.fontWeightMedium, color: COLORS.textPrimary }}>
+            <div className="user-name">
               {record.fullName}
             </div>
-            <div style={{ fontSize: TYPOGRAPHY.fontSizeSm, color: COLORS.textSecondary }}>
+            <div className="user-email">
               {record.email}
             </div>
           </div>
-        </Space>
+        </div>
       ),
     },
     {
@@ -166,7 +176,7 @@ const UserManagementPage = () => {
       dataIndex: 'username',
       key: 'username',
       render: (text: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: TYPOGRAPHY.fontSizeSm }}>{text}</span>
+        <span className="mono-sm">{text}</span>
       ),
     },
     {
@@ -174,7 +184,7 @@ const UserManagementPage = () => {
       dataIndex: 'role',
       key: 'role',
       render: (role: User['role']) => (
-        <Tag color={ROLE_COLORS[role]}>{ROLE_LABELS[role]}</Tag>
+        <Tag color={ROLE_COLORS[role]}>{t(`user.roles.${role}`)}</Tag>
       ),
     },
     {
@@ -182,7 +192,7 @@ const UserManagementPage = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status: User['status']) => (
-        <Tag color={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Tag>
+        <Tag color={STATUS_COLORS[status]}>{t(`user.statuses.${status}`)}</Tag>
       ),
     },
     {
@@ -219,26 +229,13 @@ const UserManagementPage = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: SPACING.lg }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page-stack">
+      <div className="page-header">
         <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: TYPOGRAPHY.fontSizeXxl,
-              fontWeight: TYPOGRAPHY.fontWeightBold,
-              color: COLORS.textPrimary,
-            }}
-          >
+          <h1 className="page-title">
             {t('user.title')}
           </h1>
-          <p
-            style={{
-              margin: `${SPACING.xs}px 0 0 0`,
-              fontSize: TYPOGRAPHY.fontSizeBase,
-              color: COLORS.textSecondary,
-            }}
-          >
+          <p className="page-subtitle">
             {t('user.subtitle')}
           </p>
         </div>
@@ -248,18 +245,14 @@ const UserManagementPage = () => {
       </div>
 
       <Card
-        style={{
-          borderRadius: RADIUS.lg,
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-          border: `1px solid ${COLORS.border}`,
-        }}
+        className="surface-card"
       >
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Input
               placeholder={t('user.search_placeholder')}
-              prefix={<SearchOutlined style={{ color: COLORS.textDisabled }} />}
-              style={{ borderRadius: RADIUS.md }}
+              prefix={<SearchOutlined className="icon-muted" />}
+              className="input-rounded"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onPressEnter={handleSearch}
@@ -279,11 +272,7 @@ const UserManagementPage = () => {
       </Card>
 
       <Card
-        style={{
-          borderRadius: RADIUS.lg,
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-          border: `1px solid ${COLORS.border}`,
-        }}
+        className="surface-card"
         styles={{ body: { padding: 0 } }}
       >
         <Table
@@ -295,7 +284,7 @@ const UserManagementPage = () => {
             showSizeChanger: true,
             showTotal: (total) => t('common.total_records', { total }),
           }}
-          style={{ borderRadius: RADIUS.lg }}
+          className="input-rounded"
         />
       </Card>
 

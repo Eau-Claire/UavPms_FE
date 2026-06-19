@@ -1,13 +1,16 @@
+import type { ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import enUS from 'antd/locale/en_US';
 import viVN from 'antd/locale/vi_VN';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { store } from '@store/store';
-import { ANT_THEME_TOKEN } from '@theme/tokens';
+import { queryClient } from '@services/queryClient';
+import { ANT_THEME_TOKEN } from '@theme/antd';
 
 interface AppProvidersProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 const ANT_LOCALES = {
@@ -21,9 +24,11 @@ const AppProviders = ({ children }: AppProvidersProps) => {
 
   return (
     <Provider store={store}>
-      <ConfigProvider locale={ANT_LOCALES[localeKey]} theme={{ token: ANT_THEME_TOKEN }}>
-        {children}
-      </ConfigProvider>
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider locale={ANT_LOCALES[localeKey]} theme={{ token: ANT_THEME_TOKEN }}>
+          {children}
+        </ConfigProvider>
+      </QueryClientProvider>
     </Provider>
   );
 };

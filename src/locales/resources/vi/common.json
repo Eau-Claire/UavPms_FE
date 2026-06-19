@@ -1,0 +1,21 @@
+{
+  "common": {
+    "app_name": "UAV-PMS",
+    "app_tagline": "Hệ thống quản lý kiểm tra lưới điện bằng UAV",
+    "coming_soon_title": "Tính năng {{title}} đang được phát triển (Coming Soon)",
+    "add_new": "Thêm mới",
+    "search": "Tìm kiếm",
+    "clear_filter": "Xóa bộ lọc",
+    "action": "Hành động",
+    "edit": "Chỉnh sửa",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "open_menu": "Mở menu",
+    "copy_failed": "Không thể sao chép",
+    "total_records": "Tổng cộng {{total}} bản ghi",
+    "copyright": "© 2026 UAV-PMS. All rights reserved."
+  }
+}

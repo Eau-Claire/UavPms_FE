@@ -7,8 +7,7 @@ import { z } from 'zod';
 import { LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
-import { ROUTES } from '@constants/routes';
-import { COLORS, SPACING, RADIUS } from '@theme/tokens';
+import { ROUTES } from '@router/routes';
 
 const { Title, Text } = Typography;
 
@@ -63,27 +62,10 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: COLORS.bgBase,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: SPACING.lg,
-      }}
-    >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          borderRadius: RADIUS.lg,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-          border: `1px solid ${COLORS.border}`,
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: SPACING.xl }}>
-          <Title level={4} style={{ margin: 0, color: COLORS.textPrimary }}>
+    <div className="auth-shell">
+      <Card className="auth-card auth-card-wide">
+        <div className="auth-header">
+          <Title level={4} className="auth-title">
             {t('change_password.title')}
           </Title>
           <Text type="secondary">
@@ -94,7 +76,7 @@ const ChangePasswordPage = () => {
         </div>
 
         {apiError && (
-          <Alert title={apiError} type="error" showIcon style={{ marginBottom: SPACING.lg }} />
+          <Alert title={apiError} type="error" showIcon className="auth-alert" />
         )}
 
         <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
@@ -109,7 +91,7 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="icon-muted" />}
                   size="large"
                 />
               )}
@@ -127,7 +109,7 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="icon-muted" />}
                   size="large"
                 />
               )}
@@ -145,7 +127,7 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="icon-muted" />}
                   size="large"
                 />
               )}

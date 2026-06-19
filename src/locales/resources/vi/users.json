@@ -1,0 +1,53 @@
+{
+  "user": {
+    "title": "Quản lý người dùng",
+    "subtitle": "Quản lý tài khoản người dùng hệ thống",
+    "add_user": "Thêm người dùng",
+    "search_placeholder": "Tìm theo tên hoặc email",
+    "col_user": "Người dùng",
+    "col_account": "Tài khoản",
+    "col_role": "Vai trò",
+    "col_status": "Trạng thái",
+    "edit_user": "Chỉnh sửa người dùng",
+    "fullname_label": "Họ và tên",
+    "fullname_placeholder": "Ví dụ: Nguyễn Quốc Khánh",
+    "fullname_required": "Họ tên phải có ít nhất 2 ký tự",
+    "create_account": "Tạo tài khoản",
+    "create_success": "Tạo tài khoản thành công",
+    "create_success_title": "Thông tin tài khoản mới",
+    "create_error": "Không thể tạo tài khoản",
+    "update_success": "Cập nhật người dùng thành công",
+    "update_error": "Không thể cập nhật người dùng",
+    "delete_confirm": "Bạn có chắc muốn xóa người dùng này?",
+    "delete_success": "Xóa người dùng thành công",
+    "delete_error": "Không thể xóa người dùng",
+    "cannot_delete_self": "Không thể xóa tài khoản đang đăng nhập",
+    "reset_password": "Đặt lại mật khẩu",
+    "reset_password_confirm": "Tạo mật khẩu mới? Người dùng sẽ phải đổi mật khẩu khi đăng nhập lần tiếp theo.",
+    "reset_password_success": "Đặt lại mật khẩu thành công",
+    "reset_password_success_title": "Mật khẩu mới",
+    "reset_password_error": "Không thể đặt lại mật khẩu",
+    "credential_username": "Tên đăng nhập",
+    "credential_password": "Mật khẩu",
+    "credential_warning": "Vui lòng sao chép và gửi thông tin này cho người dùng. Mật khẩu chỉ hiển thị một lần.",
+    "credential_copy": "Sao chép thông tin",
+    "credential_copied": "Đã sao chép vào clipboard",
+    "roles": {
+      "Admin": "Quản trị viên",
+      "Manager": "Quản lý",
+      "Technician": "Kỹ thuật viên",
+      "Viewer": "Người xem"
+    },
+    "role_descriptions": {
+      "Admin": "Truy cập toàn bộ hệ thống",
+      "Manager": "Quản lý nhiệm vụ và người dùng",
+      "Technician": "Thực hiện kiểm tra và báo cáo",
+      "Viewer": "Xem thông tin chỉ đọc"
+    },
+    "statuses": {
+      "Active": "Hoạt động",
+      "Inactive": "Không hoạt động",
+      "Locked": "Đã khóa"
+    }
+  }
+}

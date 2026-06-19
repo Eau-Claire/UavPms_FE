@@ -1,6 +1,10 @@
-export type UserRole = 'Admin' | 'Manager' | 'Technician' | 'Viewer';
+export const USER_ROLES = ['Admin', 'Manager', 'Technician', 'Viewer'] as const;
 
-export type UserStatus = 'Active' | 'Inactive' | 'Locked';
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const USER_STATUSES = ['Active', 'Inactive', 'Locked'] as const;
+
+export type UserStatus = (typeof USER_STATUSES)[number];
 
 export interface User {
   id: string;

@@ -9,8 +9,8 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '@hooks/usePermission';
-import { ROUTES } from '@constants/routes';
-import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@theme/tokens';
+import { ROUTES } from '@router/routes';
+import { LAYOUT } from '@theme/layout';
 
 interface SidebarProps {
   /** Sidebar đang thu gọn (chỉ hiện icon) */
@@ -71,16 +71,13 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
       trigger={null}
       width={LAYOUT.sidebarWidth}
       collapsedWidth={isMobile ? 0 : LAYOUT.sidebarCollapsedWidth}
+      className={isMobile ? 'app-sidebar app-sidebar-mobile' : 'app-sidebar'}
       style={{
-        backgroundColor: COLORS.bgWhite,
         position: isMobile ? 'fixed' : 'relative',
         height: '100vh',
         left: 0,
         top: 0,
         zIndex: isMobile ? 1000 : 'auto',
-        borderRight: `1px solid ${COLORS.border}`,
-        overflow: 'auto',
-        boxShadow: isMobile ? '2px 0 8px rgba(0, 0, 0, 0.08)' : 'none',
       }}
     >
       {/* Toggle button - positioned at top right of sidebar */}
@@ -90,17 +87,7 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
           size="small"
           icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           onClick={onToggle}
-          style={{
-            position: 'absolute',
-            top: SPACING.md,
-            right: SPACING.smMd,
-            fontSize: TYPOGRAPHY.fontSizeBase,
-            color: COLORS.textPrimary,
-            transition: 'all 0.3s ease',
-            padding: '4px 8px',
-            height: 'auto',
-            zIndex: 10,
-          }}
+          className="app-sidebar-toggle"
           title={collapsed ? 'Mở sidebar' : 'Đóng sidebar'}
         />
       )}
@@ -113,13 +100,7 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
           if (isMobile) onToggle();
         }}
         items={menuItems}
-        style={{
-          backgroundColor: COLORS.bgWhite,
-          color: COLORS.textPrimary,
-          borderRight: 'none',
-          marginTop: SPACING.lg,
-          paddingTop: SPACING.md,
-        }}
+        className="app-sidebar-menu"
         theme="light"
       />
     </Layout.Sider>

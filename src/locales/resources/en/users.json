@@ -1,0 +1,53 @@
+{
+  "user": {
+    "title": "User Management",
+    "subtitle": "Manage system user accounts",
+    "add_user": "Add User",
+    "search_placeholder": "Search by name or email",
+    "col_user": "User",
+    "col_account": "Account",
+    "col_role": "Role",
+    "col_status": "Status",
+    "edit_user": "Edit User",
+    "fullname_label": "Full Name",
+    "fullname_placeholder": "e.g. Nguyen Quoc Khanh",
+    "fullname_required": "Full name must be at least 2 characters",
+    "create_account": "Create Account",
+    "create_success": "Account created successfully",
+    "create_success_title": "New Account Credentials",
+    "create_error": "Failed to create account",
+    "update_success": "User updated successfully",
+    "update_error": "Failed to update user",
+    "delete_confirm": "Are you sure you want to delete this user?",
+    "delete_success": "User deleted successfully",
+    "delete_error": "Failed to delete user",
+    "cannot_delete_self": "Cannot delete your own account",
+    "reset_password": "Reset Password",
+    "reset_password_confirm": "Generate a new password? User must change it on next login.",
+    "reset_password_success": "Password reset successfully",
+    "reset_password_success_title": "New Password",
+    "reset_password_error": "Failed to reset password",
+    "credential_username": "Username",
+    "credential_password": "Password",
+    "credential_warning": "Please copy and share these credentials. The password is shown only once.",
+    "credential_copy": "Copy credentials",
+    "credential_copied": "Copied to clipboard",
+    "roles": {
+      "Admin": "Administrator",
+      "Manager": "Manager",
+      "Technician": "Technician",
+      "Viewer": "Viewer"
+    },
+    "role_descriptions": {
+      "Admin": "Full system access",
+      "Manager": "Manage tasks and users",
+      "Technician": "Perform inspections and reports",
+      "Viewer": "Read-only access"
+    },
+    "statuses": {
+      "Active": "Active",
+      "Inactive": "Inactive",
+      "Locked": "Locked"
+    }
+  }
+}

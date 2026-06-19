@@ -1,0 +1,15 @@
+{
+  "sidebar": {
+    "dashboard": "Tổng quan",
+    "user_management": "Quản lý người dùng",
+    "task_management": "Quản lý nhiệm vụ",
+    "inspection": "Kiểm tra lưới điện",
+    "maintenance": "Bảo trì",
+    "analytics": "Phân tích"
+  },
+  "header": {
+    "profile": "Thông tin cá nhân",
+    "settings": "Cài đặt",
+    "logout": "Đăng xuất"
+  }
+}

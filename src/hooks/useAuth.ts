@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '@store/store';
 import { loginThunk, logoutThunk, clearError, changePasswordThunk } from '@features/auth/authSlice';
-import type { ChangePasswordRequest, LoginRequest } from '@app/types';
+import type { ChangePasswordRequest, LoginRequest } from '@shared/types';
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();

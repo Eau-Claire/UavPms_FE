@@ -1,4 +1,4 @@
-import type { User, UserRole, UserStatus } from '@app/types';
+import type { User, UserRole, UserStatus } from '@shared/types';
 import { generatePassword, generateUsername } from '@utils/userGenerator';
 
 export interface MockUserRecord extends User {

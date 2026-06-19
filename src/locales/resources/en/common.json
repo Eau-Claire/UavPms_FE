@@ -1,0 +1,21 @@
+{
+  "common": {
+    "app_name": "UAV-PMS",
+    "app_tagline": "UAV Power Grid Inspection Management System",
+    "coming_soon_title": "Feature {{title}} is under development (Coming Soon)",
+    "add_new": "Add New",
+    "search": "Search",
+    "clear_filter": "Clear Filters",
+    "action": "Action",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "open_menu": "Open menu",
+    "copy_failed": "Copy failed",
+    "total_records": "Total {{total}} records",
+    "copyright": "© 2026 UAV-PMS. All rights reserved."
+  }
+}

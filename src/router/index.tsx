@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { ROUTES } from '@constants/routes';
+import { ROUTES } from '@router/routes';
 import {
   ChangePasswordPage,
   ComingSoonPage,

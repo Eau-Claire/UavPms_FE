@@ -6,7 +6,7 @@ import type {
   ResetPasswordResponse,
   UpdateUserRequest,
   User,
-} from '@app/types';
+} from '@shared/types';
 
 export const userService = {
   getAll: async (): Promise<User[]> => {

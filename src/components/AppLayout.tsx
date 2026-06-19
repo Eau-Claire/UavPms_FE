@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Layout } from 'antd';
 import { useIsMobile } from '@hooks/useIsMobile';
-import { COLORS, SPACING, TYPOGRAPHY } from '@theme/tokens';
+import { useUiStore } from '@store/uiStore';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
 
@@ -33,69 +32,41 @@ interface AppLayoutProps {
  * <AppLayout><Outlet /></AppLayout>
  */
 const AppLayout = ({ children }: AppLayoutProps) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-  const sidebarCollapsed = isMobile ? !mobileMenuOpen : collapsed;
+  const sidebarCollapsedState = useUiStore((state) => state.sidebarCollapsed);
+  const mobileMenuOpen = useUiStore((state) => state.mobileMenuOpen);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const toggleMobileMenu = useUiStore((state) => state.toggleMobileMenu);
+  const closeMobileMenu = useUiStore((state) => state.closeMobileMenu);
+  const sidebarCollapsed = isMobile ? !mobileMenuOpen : sidebarCollapsedState;
 
   const handleSidebarToggle = () => {
     if (isMobile) {
-      setMobileMenuOpen((prev) => !prev);
+      toggleMobileMenu();
       return;
     }
-    setCollapsed((prev) => !prev);
+    toggleSidebar();
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', display: 'flex' }}>
+    <Layout className="app-shell">
       <Sidebar collapsed={sidebarCollapsed} isMobile={isMobile} onToggle={handleSidebarToggle} />
       {isMobile && mobileMenuOpen && (
         <div
           aria-hidden="true"
-          onClick={() => setMobileMenuOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.28)',
-            zIndex: 998,
-          }}
+          onClick={closeMobileMenu}
+          className="app-backdrop"
         />
       )}
 
-      <Layout
-        style={{
-          marginLeft: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          transition: 'margin-left 0.2s ease',
-        }}
-      >
+      <Layout className="app-main">
         <Header isMobile={isMobile} onMenuToggle={handleSidebarToggle} />
 
-        <Layout.Content
-          style={{
-            padding: isMobile ? SPACING.md : SPACING.md,
-            backgroundColor: COLORS.bgBase,
-            flex: 1,
-            overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div style={{ flex: 1 }}>{children}</div>
+        <Layout.Content className="app-content">
+          <div className="app-content-inner">{children}</div>
         </Layout.Content>
 
-        <footer
-          style={{
-            backgroundColor: COLORS.bgWhite,
-            borderTop: `1px solid ${COLORS.border}`,
-            padding: `${SPACING.smMd}px ${SPACING.lg}px`,
-            textAlign: 'center',
-            fontSize: TYPOGRAPHY.fontSizeSm,
-            color: COLORS.textSecondary,
-          }}
-        >
+        <footer className="app-footer">
           © 2026 UAV-PMS. All rights reserved.
         </footer>
       </Layout>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { storage } from '@utils/storage';
-import type { ApiResponse, AuthTokens } from '@app/types';
+import type { ApiResponse, AuthTokens } from '@shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';

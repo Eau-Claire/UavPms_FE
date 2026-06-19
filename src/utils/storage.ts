@@ -1,4 +1,4 @@
-import type { User, AuthTokens } from '@app/types';
+import type { User, AuthTokens } from '@shared/types';
 
 /**
  * Keys localStorage dùng trong app — tập trung để tránh typo và dễ đổi tên.

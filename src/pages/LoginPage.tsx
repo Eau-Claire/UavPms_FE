@@ -7,8 +7,7 @@ import { z } from 'zod';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
-import { ROUTES } from '@constants/routes';
-import { COLORS, SPACING, RADIUS } from '@theme/tokens';
+import { ROUTES } from '@router/routes';
 import logoUrl from '@assets/images/Logo.png';
 
 const { Title, Text } = Typography;
@@ -84,35 +83,18 @@ const LoginPage = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: COLORS.bgBase,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: SPACING.lg,
-      }}
-    >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: RADIUS.lg,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-          border: `1px solid ${COLORS.border}`,
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: SPACING.xl }}>
+    <div className="auth-shell">
+      <Card className="auth-card">
+        <div className="auth-header">
           <img
             src={logoUrl}
             alt="EVN Logo"
-            style={{ width: 80, height: 'auto', marginBottom: SPACING.sm }}
+            className="auth-logo"
           />
-          <Title level={4} style={{ margin: 0, color: COLORS.textPrimary }}>
+          <Title level={4} className="auth-title">
             {t('common.app_name')}
           </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>{t('common.app_tagline')}</Text>
+          <Text type="secondary" className="auth-subtitle">{t('common.app_tagline')}</Text>
         </div>
 
         {apiError && (
@@ -120,7 +102,7 @@ const LoginPage = () => {
             title={apiError}
             type="error"
             showIcon
-            style={{ marginBottom: SPACING.lg }}
+            className="auth-alert"
           />
         )}
 
@@ -138,7 +120,7 @@ const LoginPage = () => {
                   {...field}
                   placeholder={t('login.username_placeholder')}
                   disabled={isLoading || isAccountLocked}
-                  prefix={<UserOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<UserOutlined className="icon-muted" />}
                   size="large"
                 />
               )}
@@ -158,14 +140,14 @@ const LoginPage = () => {
                   {...field}
                   placeholder={t('login.password_placeholder')}
                   disabled={isLoading || isAccountLocked}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="icon-muted" />}
                   size="large"
                 />
               )}
             />
           </Form.Item>
 
-          <Form.Item style={{ marginBottom: SPACING.sm }}>
+          <Form.Item className="auth-submit-item">
             <Button
               type="primary"
               htmlType="submit"
@@ -178,8 +160,8 @@ const LoginPage = () => {
             </Button>
           </Form.Item>
 
-          <div style={{ textAlign: 'center' }}>
-            <Button type="link" size="small" style={{ color: COLORS.textSecondary }}>
+          <div className="auth-footer-action">
+            <Button type="link" size="small" className="auth-link-muted">
               {t('login.forgot_password')}
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import type { ApiResponse, AuthTokens, User, UserRole, UserStatus } from '@app/types';
+import type { ApiResponse, AuthTokens, User, UserRole, UserStatus } from '@shared/types';
 import { mockUserStore } from './mockUserStore';
 
 const parseBody = (data: unknown): Record<string, string> => {

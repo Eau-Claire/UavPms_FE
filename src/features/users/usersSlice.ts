@@ -8,7 +8,7 @@ import type {
   ResetPasswordResponse,
   UpdateUserRequest,
   User,
-} from '@app/types';
+} from '@shared/types';
 
 interface UsersState {
   users: User[];

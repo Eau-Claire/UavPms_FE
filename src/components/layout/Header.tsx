@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { getInitials } from '@utils/formatters';
-import { ROUTES } from '@constants/routes';
-import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@theme/tokens';
+import { ROUTES } from '@router/routes';
+import { LAYOUT } from '@theme/layout';
 import { getUserMenuItems } from './UserMenu';
 
 interface HeaderProps {
@@ -37,19 +37,11 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
 
   return (
     <Layout.Header
+      className="app-header"
       style={{
-        backgroundColor: COLORS.bgWhite,
         height: LAYOUT.headerHeight,
-        paddingRight: isMobile ? SPACING.smMd : SPACING.lg,
-        paddingLeft: isMobile ? SPACING.smMd : SPACING.lg,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottom: `1px solid ${COLORS.border}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 998,
-        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
+        paddingRight: isMobile ? 12 : 24,
+        paddingLeft: isMobile ? 12 : 24,
       }}
     >
       {/* Logo - hiển thị bên trái trên navbar */}
@@ -58,38 +50,19 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
           type="text"
           shape="circle"
           aria-label={t('common.open_menu')}
-          icon={<MenuOutlined style={{ fontSize: TYPOGRAPHY.fontSizeLg }} />}
+          icon={<MenuOutlined className="icon-lg" />}
           onClick={onMenuToggle}
         />
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: SPACING.sm,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryHover} 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: COLORS.bgWhite,
-              fontWeight: 'bold',
-              fontSize: TYPOGRAPHY.fontSizeMd,
-            }}
-          >
+        <div className="app-brand">
+          <div className="app-brand-mark">
             U
           </div>
-          <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontSize: TYPOGRAPHY.fontSizeBase, fontWeight: 'bold', color: COLORS.textPrimary }}>
+          <div className="app-brand-copy">
+            <div className="app-brand-title">
               UAV-PMS
             </div>
-            <div style={{ fontSize: TYPOGRAPHY.fontSizeXxs, color: COLORS.textSecondary }}>
+            <div className="app-brand-tagline">
               {t('common.app_tagline')}
             </div>
           </div>
@@ -98,40 +71,16 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
 
       {/* Phần phải: thông tin user + dropdown */}
       <div
+        className="app-header-actions"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: isMobile ? SPACING.sm : SPACING.md,
-          flex: 'none',
+          gap: isMobile ? 8 : 16,
         }}
       >
         {/* Desktop: hiện tên + vai trò (không avatar) */}
         {!isMobile && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: SPACING.sm,
-              paddingLeft: SPACING.md,
-              borderLeft: `1px solid ${COLORS.border}`,
-              height: '100%',
-              minWidth: 0,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, minWidth: 0, overflow: 'hidden' }}>
-              <div
-                style={{
-                  fontSize: TYPOGRAPHY.fontSizeBase,
-                  fontWeight: TYPOGRAPHY.fontWeightSemibold,
-                  color: COLORS.textPrimary,
-                  lineHeight: 1.2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: 200,
-                }}
-              >
+          <div className="app-user-summary">
+            <div className="app-user-name-wrap">
+              <div className="app-user-name">
                 {user?.fullName}
               </div>
             </div>
@@ -139,40 +88,25 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
         )}
 
         {/* Language Switcher - Badge Style */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 0,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 5,
-            overflow: 'hidden',
-            backgroundColor: COLORS.bgBase,
-          }}
-        >
+        <div className="language-switcher">
           <Button
             type={i18n.language === 'vi' ? 'primary' : 'text'}
             size="small"
+            className="language-button"
             style={{
-              borderRadius: 0,
-              border: 'none',
               fontWeight: i18n.language === 'vi' ? 'bold' : 'normal',
-              padding: '3px 10px',
-              height: 'auto',
             }}
             onClick={() => i18n.changeLanguage('vi')}
           >
             VI
           </Button>
-          <div style={{ width: 1,  backgroundColor: COLORS.border }} />
+          <div className="language-divider" />
           <Button
             type={i18n.language === 'en' ? 'primary' : 'text'}
             size="small"
+            className="language-button"
             style={{
-              borderRadius: 0,
-              border: 'none',
               fontWeight: i18n.language === 'en' ? 'bold' : 'normal',
-              padding: '3px 10px',
-              height: 'auto',
             }}
             onClick={() => i18n.changeLanguage('en')}
           >
@@ -187,26 +121,17 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
             shape="circle"
             icon={
               isMobile ? (
-                <UserOutlined style={{ fontSize: TYPOGRAPHY.fontSizeLg }} />
+                <UserOutlined className="icon-lg" />
               ) : (
                 <Avatar
                   size={36}
-                  style={{
-                    backgroundColor: COLORS.primary,
-                    color: COLORS.bgWhite,
-                    fontWeight: TYPOGRAPHY.fontWeightSemibold,
-                  }}
+                  className="app-avatar"
                 >
                   {user && getInitials(user.fullName)}
                 </Avatar>
               )
             }
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-            }}
+            className="app-user-button"
           />
         </Dropdown>
       </div>
