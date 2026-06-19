@@ -244,14 +244,13 @@ const UserManagementPage = () => {
 
   return (
     <div className="page-stack user-management-page">
-      <div className="page-breadcrumb">
-        <span>{t('sidebar.settings').toUpperCase()}</span>
-        <span>/</span>
-        <strong>{t('user.breadcrumb')}</strong>
-      </div>
-
       <div className="page-header user-page-header">
-        <div>
+        <div className="page-heading-group">
+          <div className="page-breadcrumb">
+            <span>{t('sidebar.settings').toUpperCase()}</span>
+            <span>/</span>
+            <strong>{t('user.breadcrumb')}</strong>
+          </div>
           <h1 className="page-title">
             {t('user.title')}
           </h1>
@@ -273,27 +272,33 @@ const UserManagementPage = () => {
           onChange={(e) => setSearchText(e.target.value)}
           onPressEnter={handleSearch}
         />
-        <Select
-          allowClear
-          placeholder={t('user.role_filter')}
-          className="filter-select"
-          popupMatchSelectWidth={false}
-          value={roleFilter}
-          options={USER_ROLES.map((role) => ({ value: role, label: t(`user.roles.${role}`) }))}
-          onChange={(value) => setRoleFilter(value)}
-        />
-        <Select
-          allowClear
-          placeholder={t('user.status_filter')}
-          className="filter-select"
-          popupMatchSelectWidth={false}
-          value={statusFilter}
-          options={USER_STATUSES.map((status) => ({
-            value: status,
-            label: t(`user.statuses.${status}`),
-          }))}
-          onChange={(value) => setStatusFilter(value)}
-        />
+        <label className="filter-control">
+          <span>{t('user.col_role').toUpperCase()}:</span>
+          <Select
+            allowClear
+            placeholder={t('common.all')}
+            className="filter-select"
+            popupMatchSelectWidth={false}
+            value={roleFilter}
+            options={USER_ROLES.map((role) => ({ value: role, label: t(`user.roles.${role}`) }))}
+            onChange={(value) => setRoleFilter(value)}
+          />
+        </label>
+        <label className="filter-control filter-control-status">
+          <span>{t('user.col_status').toUpperCase()}:</span>
+          <Select
+            allowClear
+            placeholder={t('common.all')}
+            className="filter-select"
+            popupMatchSelectWidth={false}
+            value={statusFilter}
+            options={USER_STATUSES.map((status) => ({
+              value: status,
+              label: t(`user.statuses.${status}`),
+            }))}
+            onChange={(value) => setStatusFilter(value)}
+          />
+        </label>
         <Button className="filter-icon-button" icon={<FilterOutlined />} onClick={handleSearch} />
       </section>
 

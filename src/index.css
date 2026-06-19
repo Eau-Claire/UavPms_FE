@@ -155,7 +155,8 @@
 }
 
 .auth-card-login {
-  min-height: 566px;
+  height: 566px;
+  min-height: 0;
   padding: 40px;
 }
 
@@ -184,6 +185,11 @@
 
 .auth-card-header {
   text-align: center;
+}
+
+.auth-card-login .auth-form-title,
+.auth-card-login .auth-form-copy {
+  text-align: left;
 }
 
 .auth-system-title {
@@ -258,6 +264,10 @@
   margin-bottom: 16px;
 }
 
+.auth-card-login .ant-form-item {
+  margin-bottom: 20px;
+}
+
 .auth-card .ant-form-item-label {
   padding-bottom: 6px;
 }
@@ -296,12 +306,33 @@
   line-height: 16px;
 }
 
+.auth-card-login .ant-form-item-explain {
+  margin-top: 10px;
+}
+
+.auth-field-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--evn-red);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 20px;
+}
+
 .auth-input.ant-input-affix-wrapper,
 .auth-input.ant-input-password {
   min-height: 42px;
   border-color: var(--evn-border);
   border-radius: 2px;
+  padding-inline: 13px 12px;
   font-size: 16px;
+}
+
+.auth-input.ant-input-affix-wrapper .ant-input-prefix,
+.auth-input.ant-input-password .ant-input-prefix {
+  margin-inline-end: 13px;
 }
 
 .auth-card-forgot .auth-input.ant-input-affix-wrapper {
@@ -344,6 +375,7 @@
 .auth-card-flow form .ant-btn-primary {
   min-height: 48px;
   border-radius: 2px;
+  color: #fff;
   font-size: 16px;
   font-weight: 600;
 }
@@ -1845,7 +1877,52 @@ html, body {
 }
 
 /* Figma SEP final overrides. Must remain last. */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+.auth-split {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.auth-brand-panel,
+.auth-form-panel {
+  height: 100vh;
+  min-height: 0;
+}
+
+.app-shell {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-main {
+  min-width: 0;
+  height: 100vh;
+}
+
+.app-sidebar .ant-layout-sider-children {
+  height: 100vh;
+  min-height: 0;
+}
+
+.app-content {
+  height: calc(100vh - 64px);
+  min-height: 0;
+  overflow: auto;
+}
+
 .app-content.app-content-flush {
+  height: calc(100vh - 64px);
   padding: 0;
   overflow: hidden;
 }
@@ -1867,7 +1944,7 @@ html, body {
 .asset-page {
   display: flex;
   height: calc(100vh - 64px);
-  min-height: 899px;
+  min-height: 0;
   flex-direction: column;
   gap: 0;
 }
@@ -2052,6 +2129,7 @@ html, body {
 .asset-map {
   position: relative;
   height: 568px;
+  flex: 0 0 568px;
   border-radius: 0;
   background:
     linear-gradient(rgba(7, 20, 28, 0.14), rgba(7, 20, 28, 0.14)),
@@ -2212,7 +2290,9 @@ html, body {
 }
 
 .asset-table-shell {
-  flex: 1;
+  flex: 1 1 256px;
+  min-height: 0;
+  overflow: hidden;
   border: 0;
   border-top: 1px solid var(--evn-border);
   border-radius: 0;
@@ -2315,6 +2395,11 @@ html, body {
   background: var(--evn-auth-action);
 }
 
+.auth-submit-item .evn-primary-button.ant-btn-primary,
+.auth-submit-item .evn-primary-button.ant-btn-primary:not(:disabled):hover {
+  color: #fff;
+}
+
 .app-shell,
 .app-main,
 .app-content {
@@ -2377,7 +2462,7 @@ html, body {
 
 .app-content {
   min-height: calc(100vh - 64px);
-  padding: 32px 32px 64px;
+  padding: 32px 32px 44px;
   overflow: auto;
 }
 
@@ -2480,6 +2565,12 @@ html, body {
   justify-content: space-between;
 }
 
+.page-heading-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .page-title {
   margin: 0;
   color: #101c2e;
@@ -2528,11 +2619,35 @@ html, body {
   min-width: 107px;
 }
 
+.filter-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.filter-control span {
+  color: #75777d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 16px;
+}
+
+.filter-control-status .filter-select {
+  min-width: 141px;
+}
+
 .filter-select .ant-select-selector {
   min-height: 38px !important;
   border-color: var(--evn-border) !important;
   border-radius: 4px !important;
   background: #fff !important;
+}
+
+.filter-select .ant-select-selection-placeholder {
+  color: #0b1c30;
+  font-weight: 500;
 }
 
 .filter-icon-button {
@@ -2560,6 +2675,13 @@ html, body {
   box-shadow: none;
 }
 
+.asset-table-shell {
+  margin-top: 0;
+  border: 0;
+  border-top: 1px solid var(--evn-border);
+  border-radius: 0;
+}
+
 .evn-table .ant-table-thead > tr > th {
   height: 52px;
   border-bottom: 0;
@@ -2570,6 +2692,10 @@ html, body {
   letter-spacing: 0.7px;
   line-height: 20px;
   text-align: center;
+}
+
+.evn-table .ant-table-thead > tr > th::before {
+  display: none;
 }
 
 .evn-table .ant-table-tbody > tr > td {
@@ -2939,5 +3065,99 @@ html, body {
   .modal-action-buttons .ant-btn,
   .modal-action-bar > .ant-btn {
     width: 100%;
+  }
+}
+
+/* Final Figma geometry locks. Keep this block last. */
+@media (min-width: 769px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+  }
+
+  body {
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-main {
+    min-width: 0;
+    height: 100vh;
+  }
+
+  .app-content {
+    height: calc(100vh - 64px);
+    min-height: 0;
+    padding: 32px 32px 44px;
+    overflow: auto;
+  }
+
+  .app-content.app-content-flush {
+    height: calc(100vh - 64px);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .app-content-flush .app-content-inner,
+  .asset-page,
+  .asset-workspace,
+  .asset-tree-panel,
+  .asset-main-panel {
+    height: calc(100vh - 64px);
+    min-height: 0;
+  }
+
+  .asset-page {
+    gap: 0;
+  }
+
+  .asset-workspace {
+    grid-template-columns: 256px minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .asset-tabs-row {
+    height: 75px;
+    min-height: 75px;
+    flex: 0 0 75px;
+    margin-bottom: 0;
+  }
+
+  .asset-map {
+    height: 568px;
+    flex: 0 0 568px;
+    margin: 0;
+  }
+
+  .asset-table-shell {
+    height: 256px;
+    flex: 0 0 256px;
+    margin-top: 0;
+    border: 0;
+    border-top: 1px solid var(--evn-border);
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    overflow: auto;
+  }
+
+  .auth-split {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .auth-card-login {
+    height: auto;
+    min-height: 566px;
   }
 }
