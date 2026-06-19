@@ -4,7 +4,7 @@ import { Form, Input, Button, Divider } from 'antd';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRightOutlined, InfoCircleFilled, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, ExclamationCircleOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@router/routes';
@@ -82,7 +82,7 @@ const LoginPage = () => {
   const renderAuthError = (message?: string | null) => (
     message ? (
       <span className="auth-field-error">
-        <InfoCircleFilled />
+        <ExclamationCircleOutlined />
         {message}
       </span>
     ) : undefined
@@ -100,6 +100,7 @@ const LoginPage = () => {
 
         <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
           <Form.Item
+            className="auth-email-item"
             validateStatus={errors.email ? 'error' : ''}
             help={renderAuthError(errors.email?.message)}
           >
@@ -120,6 +121,7 @@ const LoginPage = () => {
           </Form.Item>
 
           <Form.Item
+            className="auth-password-item"
             validateStatus={errors.password || apiError ? 'error' : ''}
             help={renderAuthError(errors.password?.message ?? apiError)}
           >
