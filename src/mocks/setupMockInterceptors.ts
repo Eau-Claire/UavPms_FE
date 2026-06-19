@@ -29,10 +29,10 @@ const handleMockRequest = (config: InternalAxiosRequestConfig) => {
   // ── Auth ───────────────────────────────────────────────────────────────────
   if (url.includes('/auth/login') && method === 'post') {
     const { username, password } = body;
-    const user = mockUserStore.findByUsername(username);
+    const user = mockUserStore.findByEmail(username);
 
     if (!user || user.password !== password) {
-      return mockError(401, 'Sai tên đăng nhập hoặc mật khẩu');
+      return mockError(401, 'Email hoặc mật khẩu không đúng');
     }
 
     if (user.status === 'Locked' || user.status === 'Inactive') {

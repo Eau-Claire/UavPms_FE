@@ -52,7 +52,7 @@ const UserManagementPage = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [credentialModal, setCredentialModal] = useState<{
     title: string;
-    username: string;
+    email: string;
     password: string;
   } | null>(null);
 
@@ -108,7 +108,7 @@ const UserManagementPage = () => {
       setModalOpen(false);
       setCredentialModal({
         title: t('user.create_success_title'),
-        username: result.username,
+        email: result.user.email,
         password: result.temporaryPassword,
       });
       message.success(t('user.create_success'));
@@ -144,7 +144,7 @@ const UserManagementPage = () => {
       setModalOpen(false);
       setCredentialModal({
         title: t('user.reset_password_success_title'),
-        username: result.username,
+        email: selectedUser.email,
         password: result.temporaryPassword,
       });
       message.success(t('user.reset_password_success'));
@@ -332,7 +332,7 @@ const UserManagementPage = () => {
         <CredentialModal
           open
           title={credentialModal.title}
-          username={credentialModal.username}
+          email={credentialModal.email}
           password={credentialModal.password}
           onClose={() => setCredentialModal(null)}
         />

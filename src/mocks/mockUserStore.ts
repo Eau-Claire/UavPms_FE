@@ -98,7 +98,8 @@ const toPublicUser = (record: MockUserRecord): User => {
 export const mockUserStore = {
   getAll: (): User[] => Object.values(mockUsers).map(toPublicUser),
 
-  findByUsername: (username: string): MockUserRecord | undefined => mockUsers[username],
+  findByEmail: (email: string): MockUserRecord | undefined =>
+    Object.values(mockUsers).find((u) => u.email.toLowerCase() === email.trim().toLowerCase()),
 
   findById: (id: string): MockUserRecord | undefined =>
     Object.values(mockUsers).find((u) => u.id === id),

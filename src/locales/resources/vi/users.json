@@ -46,7 +46,7 @@
     "unlock": "Mở khóa",
     "unlock_success": "Đã mở khóa người dùng",
     "pagination_summary": "Hiển thị 1-10 trong tổng số 47 người dùng",
-    "credential_username": "Tên đăng nhập",
+    "credential_email": "Email đăng nhập",
     "credential_password": "Mật khẩu",
     "credential_warning": "Vui lòng sao chép và gửi thông tin này cho người dùng. Mật khẩu chỉ hiển thị một lần.",
     "credential_copy": "Sao chép thông tin",

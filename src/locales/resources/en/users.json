@@ -46,7 +46,7 @@
     "unlock": "Unlock",
     "unlock_success": "User unlocked",
     "pagination_summary": "Showing 1-10 of 47 users",
-    "credential_username": "Username",
+    "credential_email": "Sign-in email",
     "credential_password": "Password",
     "credential_warning": "Please copy and share these credentials. The password is shown only once.",
     "credential_copy": "Copy credentials",

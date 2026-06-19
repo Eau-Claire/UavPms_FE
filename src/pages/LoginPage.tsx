@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Form, Input, Button, Alert, Divider } from 'antd';
+import { Form, Input, Button, Divider } from 'antd';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRightOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, InfoCircleFilled, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@router/routes';
 import AuthFrame from '@features/auth/components/AuthFrame';
 
 type LoginFormInputs = {
-  username: string;
+  email: string;
   password: string;
 };
 
@@ -24,7 +24,7 @@ const LoginPage = () => {
   const [isAccountLocked, setIsAccountLocked] = useState(false);
 
   const loginSchema = z.object({
-    username: z.string().min(1, t('login.username_required')),
+    email: z.string().min(1, t('login.email_required')).email(t('login.email_invalid')),
     password: z.string().min(6, t('login.password_required')),
   });
 
@@ -36,7 +36,7 @@ const LoginPage = () => {
   } = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
@@ -57,7 +57,7 @@ const LoginPage = () => {
     setIsAccountLocked(false);
 
     try {
-      const result = await login(data).unwrap();
+      const result = await login({ username: data.email, password: data.password }).unwrap();
       if (result.user.mustChangePassword) {
         navigate(ROUTES.CHANGE_PASSWORD, { replace: true });
         return;
@@ -79,6 +79,15 @@ const LoginPage = () => {
     }
   };
 
+  const renderAuthError = (message?: string | null) => (
+    message ? (
+      <span className="auth-field-error">
+        <InfoCircleFilled />
+        {message}
+      </span>
+    ) : undefined
+  );
+
   return (
     <AuthFrame>
       <div className="auth-card auth-card-login">
@@ -89,28 +98,18 @@ const LoginPage = () => {
           <p className="auth-form-copy">{t('login.form_subtitle')}</p>
         </header>
 
-        {apiError && (
-          <Alert
-            title={apiError}
-            type="error"
-            showIcon
-            className="auth-alert"
-          />
-        )}
-
         <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
           <Form.Item
-            label={t('login.username_label')}
-            validateStatus={errors.username ? 'error' : ''}
-            help={errors.username?.message}
+            validateStatus={errors.email ? 'error' : ''}
+            help={renderAuthError(errors.email?.message)}
           >
             <Controller
-              name="username"
+              name="email"
               control={control}
               render={({ field }) => (
                 <Input
                   {...field}
-                  placeholder={t('login.username_placeholder')}
+                  placeholder={t('login.email_placeholder')}
                   disabled={isLoading || isAccountLocked}
                   prefix={<MailOutlined className="auth-input-icon" />}
                   size="large"
@@ -121,9 +120,8 @@ const LoginPage = () => {
           </Form.Item>
 
           <Form.Item
-            label={t('login.password_label')}
-            validateStatus={errors.password ? 'error' : ''}
-            help={errors.password?.message}
+            validateStatus={errors.password || apiError ? 'error' : ''}
+            help={renderAuthError(errors.password?.message ?? apiError)}
           >
             <Controller
               name="password"

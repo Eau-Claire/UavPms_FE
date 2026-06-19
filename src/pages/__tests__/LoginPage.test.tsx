@@ -58,7 +58,7 @@ describe('LoginPage', () => {
     
     // Kiểm tra các phần tử hiển thị (sử dụng keys do đã mock t() trả về key)
     expect(screen.getByText('common.app_name')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('login.username_placeholder')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('login.email_placeholder')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('login.password_placeholder')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'login.login_btn' })).toBeInTheDocument();
   });
@@ -73,7 +73,7 @@ describe('LoginPage', () => {
 
     // Form dùng react-hook-form nên cần waitFor để đợi validation update DOM
     await waitFor(() => {
-      expect(screen.getByText('login.username_required')).toBeInTheDocument();
+      expect(screen.getByText('login.email_required')).toBeInTheDocument();
       expect(screen.getByText('login.password_required')).toBeInTheDocument();
     });
     
@@ -87,17 +87,17 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     
     // Nhập thôngত্তিn hợp lệ
-    const usernameInput = screen.getByPlaceholderText('login.username_placeholder');
+    const emailInput = screen.getByPlaceholderText('login.email_placeholder');
     const passwordInput = screen.getByPlaceholderText('login.password_placeholder');
     const loginButton = screen.getByRole('button', { name: 'login.login_btn' });
 
-    await user.type(usernameInput, 'admin');
+    await user.type(emailInput, 'an.nv@evn.com.vn');
     await user.type(passwordInput, 'admin@123');
     await user.click(loginButton);
 
     // Kiểm tra hàm login được gọi với đúng data
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith({ username: 'admin', password: 'admin@123' });
+      expect(mockLogin).toHaveBeenCalledWith({ username: 'an.nv@evn.com.vn', password: 'admin@123' });
     });
   });
 
@@ -109,7 +109,7 @@ describe('LoginPage', () => {
     renderComponent();
     const user = userEvent.setup();
     
-    await user.type(screen.getByPlaceholderText('login.username_placeholder'), 'admin');
+    await user.type(screen.getByPlaceholderText('login.email_placeholder'), 'an.nv@evn.com.vn');
     await user.type(screen.getByPlaceholderText('login.password_placeholder'), 'wrongpass');
     await user.click(screen.getByRole('button', { name: 'login.login_btn' }));
 

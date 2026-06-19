@@ -8,17 +8,17 @@ const { Text, Paragraph } = Typography;
 interface CredentialModalProps {
   open: boolean;
   title: string;
-  username: string;
+  email: string;
   password: string;
   onClose: () => void;
 }
 
-const CredentialModal = ({ open, title, username, password, onClose }: CredentialModalProps) => {
+const CredentialModal = ({ open, title, email, password, onClose }: CredentialModalProps) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    const text = `${t('user.credential_username')}: ${username}\n${t('user.credential_password')}: ${password}`;
+    const text = `${t('user.credential_email')}: ${email}\n${t('user.credential_password')}: ${password}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -46,9 +46,9 @@ const CredentialModal = ({ open, title, username, password, onClose }: Credentia
       <Paragraph type="secondary">{t('user.credential_warning')}</Paragraph>
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <div>
-          <Text type="secondary">{t('user.credential_username')}</Text>
+          <Text type="secondary">{t('user.credential_email')}</Text>
           <div className="credential-value">
-            {username}
+            {email}
           </div>
         </div>
         <div>
