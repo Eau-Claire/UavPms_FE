@@ -91,13 +91,13 @@ describe('LoginPage', () => {
     const passwordInput = screen.getByPlaceholderText('login.password_placeholder');
     const loginButton = screen.getByRole('button', { name: 'login.login_btn' });
 
-    await user.type(emailInput, 'an.nv@evn.com.vn');
+    await user.type(emailInput, 'admin@evn.vn');
     await user.type(passwordInput, 'admin@123');
     await user.click(loginButton);
 
     // Kiểm tra hàm login được gọi với đúng data
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith({ username: 'an.nv@evn.com.vn', password: 'admin@123' });
+      expect(mockLogin).toHaveBeenCalledWith({ username: 'admin@evn.vn', password: 'admin@123' });
     });
   });
 
@@ -109,7 +109,7 @@ describe('LoginPage', () => {
     renderComponent();
     const user = userEvent.setup();
     
-    await user.type(screen.getByPlaceholderText('login.email_placeholder'), 'an.nv@evn.com.vn');
+    await user.type(screen.getByPlaceholderText('login.email_placeholder'), 'admin@evn.vn');
     await user.type(screen.getByPlaceholderText('login.password_placeholder'), 'wrongpass');
     await user.click(screen.getByRole('button', { name: 'login.login_btn' }));
 

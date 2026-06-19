@@ -11,7 +11,7 @@ const INITIAL_MOCK_USERS: Record<string, MockUserRecord> = {
     username: 'admin',
     password: 'admin@123',
     fullName: 'Nguyễn Văn An',
-    email: 'an.nv@evn.com.vn',
+    email: 'admin@evn.vn',
     phone: '0901234567',
     role: 'Admin',
     status: 'Active',
