@@ -2,6 +2,11 @@
   "sidebar": {
     "dashboard": "Dashboard",
     "user_management": "User Management",
+    "asset_management": "Asset Management",
+    "missions": "Missions",
+    "reports": "Reports",
+    "settings": "System",
+    "support": "Support",
     "task_management": "Task Management",
     "inspection": "Grid Inspection",
     "maintenance": "Maintenance",
@@ -11,5 +16,8 @@
     "profile": "Profile",
     "settings": "Settings",
     "logout": "Logout"
+  },
+  "asset": {
+    "search_placeholder": "Search assets..."
   }
 }

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Form, Input, Button, Alert, Card, Typography } from 'antd';
+import { Form, Input, Button, Alert, Divider } from 'antd';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@router/routes';
-import logoUrl from '@assets/images/Logo.png';
-
-const { Title, Text } = Typography;
-
+import AuthFrame from '@features/auth/components/AuthFrame';
 
 type LoginFormInputs = {
   username: string;
@@ -83,19 +80,14 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="auth-shell">
-      <Card className="auth-card">
-        <div className="auth-header">
-          <img
-            src={logoUrl}
-            alt="EVN Logo"
-            className="auth-logo"
-          />
-          <Title level={4} className="auth-title">
-            {t('common.app_name')}
-          </Title>
-          <Text type="secondary" className="auth-subtitle">{t('common.app_tagline')}</Text>
-        </div>
+    <AuthFrame>
+      <div className="auth-card auth-card-login">
+        <header className="auth-card-header">
+          <h1 className="auth-system-title">{t('common.app_name')}</h1>
+          <div className="auth-title-rule" />
+          <h2 className="auth-form-title">{t('login.form_title')}</h2>
+          <p className="auth-form-copy">{t('login.form_subtitle')}</p>
+        </header>
 
         {apiError && (
           <Alert
@@ -120,8 +112,9 @@ const LoginPage = () => {
                   {...field}
                   placeholder={t('login.username_placeholder')}
                   disabled={isLoading || isAccountLocked}
-                  prefix={<UserOutlined className="icon-muted" />}
+                  prefix={<MailOutlined className="auth-input-icon" />}
                   size="large"
+                  className="auth-input"
                 />
               )}
             />
@@ -140,12 +133,23 @@ const LoginPage = () => {
                   {...field}
                   placeholder={t('login.password_placeholder')}
                   disabled={isLoading || isAccountLocked}
-                  prefix={<LockOutlined className="icon-muted" />}
+                  prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
+                  className="auth-input"
                 />
               )}
             />
           </Form.Item>
+
+          <div className="auth-form-row">
+            <Button
+              type="link"
+              className="auth-link"
+              onClick={() => navigate(ROUTES.FORGOT_PASSWORD)}
+            >
+              {t('login.forgot_password')}
+            </Button>
+          </div>
 
           <Form.Item className="auth-submit-item">
             <Button
@@ -155,19 +159,20 @@ const LoginPage = () => {
               size="large"
               loading={isLoading}
               disabled={isLoading || isAccountLocked}
+              className="evn-primary-button"
+              aria-label={isLoading ? t('login.logging_in') : t('login.login_btn')}
+              icon={<ArrowRightOutlined />}
+              iconPlacement="end"
             >
               {isLoading ? t('login.logging_in') : t('login.login_btn')}
             </Button>
           </Form.Item>
-
-          <div className="auth-footer-action">
-            <Button type="link" size="small" className="auth-link-muted">
-              {t('login.forgot_password')}
-            </Button>
-          </div>
         </Form>
-      </Card>
-    </div>
+        <Divider className="auth-divider" />
+        <p className="auth-support">{t('login.support_note')}</p>
+        <p className="auth-copyright">{t('common.copyright')}</p>
+      </div>
+    </AuthFrame>
   );
 };
 

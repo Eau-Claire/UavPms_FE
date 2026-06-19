@@ -9,13 +9,17 @@
     "action": "Action",
     "edit": "Edit",
     "delete": "Delete",
+    "more": "More",
     "save": "Save",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
     "open_menu": "Open menu",
+    "main_navigation": "Main navigation",
+    "notifications": "Notifications",
+    "apps": "Apps",
     "copy_failed": "Copy failed",
     "total_records": "Total {{total}} records",
-    "copyright": "© 2026 UAV-PMS. All rights reserved."
+    "copyright": "© 2024 Vietnam Electricity (EVN)."
   }
 }

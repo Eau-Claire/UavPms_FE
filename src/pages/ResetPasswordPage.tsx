@@ -1,105 +1,67 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Alert } from 'antd';
-import { useForm, Controller } from 'react-hook-form';
+import { Button, Form, Input } from 'antd';
+import { ArrowLeftOutlined, ArrowRightOutlined, LockOutlined } from '@ant-design/icons';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRightOutlined, LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@hooks/useAuth';
 import AuthFrame from '@features/auth/components/AuthFrame';
 import { ROUTES } from '@router/routes';
 
-type ChangePasswordForm = {
-  currentPassword: string;
+type ResetPasswordForm = {
   newPassword: string;
   confirmPassword: string;
 };
 
-const ChangePasswordPage = () => {
+const ResetPasswordPage = () => {
   const navigate = useNavigate();
-  const { changePassword, isLoading, user } = useAuth();
   const { t } = useTranslation();
-  const [apiError, setApiError] = useState<string | null>(null);
 
   const schema = z
     .object({
-      currentPassword: z.string().min(1, t('change_password.current_required')),
       newPassword: z.string().min(8, t('change_password.new_min_length')),
       confirmPassword: z.string().min(1, t('change_password.confirm_required')),
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
       message: t('change_password.confirm_mismatch'),
       path: ['confirmPassword'],
-    })
-    .refine((data) => data.newPassword !== data.currentPassword, {
-      message: t('change_password.same_as_current'),
-      path: ['newPassword'],
     });
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<ChangePasswordForm>({
+  } = useForm<ResetPasswordForm>({
     resolver: zodResolver(schema),
-    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
+    defaultValues: { newPassword: '', confirmPassword: '' },
   });
 
-  const onSubmit = async (data: ChangePasswordForm) => {
-    setApiError(null);
-    try {
-      await changePassword({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      }).unwrap();
-      navigate(ROUTES.DASHBOARD, { replace: true });
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      setApiError(error?.message ?? t('change_password.error_generic'));
-    }
+  const onSubmit = () => {
+    navigate(ROUTES.LOGIN);
   };
 
   return (
     <AuthFrame>
-      <div className="auth-card auth-card-flow">
-        <header className="auth-flow-header auth-flow-header-bordered">
-          <h1>{t('change_password.title')}</h1>
-          <p>
-            {user?.mustChangePassword
-              ? t('change_password.first_login_subtitle')
-              : t('change_password.subtitle')}
-          </p>
-        </header>
+      <div className="auth-card auth-card-flow auth-card-reset">
+        <Button
+          type="link"
+          className="auth-back-link"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate(ROUTES.OTP)}
+        >
+          {t('otp.back')}
+        </Button>
 
-        {apiError && (
-          <Alert title={apiError} type="error" showIcon className="auth-alert" />
-        )}
+        <header className="auth-flow-header auth-flow-header-bordered">
+          <h1>{t('reset_password.title')}</h1>
+          <p>{t('reset_password.subtitle')}</p>
+        </header>
 
         <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
           <Form.Item
-            label={t('change_password.current_label')}
-            validateStatus={errors.currentPassword ? 'error' : ''}
-            help={errors.currentPassword?.message}
-          >
-            <Controller
-              name="currentPassword"
-              control={control}
-              render={({ field }) => (
-                <Input.Password
-                  {...field}
-                  prefix={<LockOutlined className="auth-input-icon" />}
-                  size="large"
-                  className="auth-input"
-                />
-              )}
-            />
-          </Form.Item>
-
-          <Form.Item
             label={t('change_password.new_label')}
             validateStatus={errors.newPassword ? 'error' : ''}
-            help={errors.newPassword?.message}
+            help={errors.newPassword?.message ?? t('reset_password.password_helper')}
           >
             <Controller
               name="newPassword"
@@ -139,19 +101,20 @@ const ChangePasswordPage = () => {
             htmlType="submit"
             block
             size="large"
-            loading={isLoading}
-            disabled={isLoading}
             className="evn-primary-button"
-            aria-label={t('change_password.submit')}
+            aria-label={t('reset_password.submit')}
             icon={<ArrowRightOutlined />}
             iconPlacement="end"
           >
-            {t('change_password.submit')}
+            {t('reset_password.submit')}
           </Button>
         </Form>
+
+        <p className="auth-muted-note">{t('reset_password.helper')}</p>
+        <p className="auth-copyright">{t('common.copyright')}</p>
       </div>
     </AuthFrame>
   );
 };
 
-export default ChangePasswordPage;
+export default ResetPasswordPage;

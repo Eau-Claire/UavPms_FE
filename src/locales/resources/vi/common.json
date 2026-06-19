@@ -9,13 +9,17 @@
     "action": "Hành động",
     "edit": "Chỉnh sửa",
     "delete": "Xóa",
+    "more": "Thêm",
     "save": "Lưu",
     "cancel": "Hủy",
     "confirm": "Xác nhận",
     "close": "Đóng",
     "open_menu": "Mở menu",
+    "main_navigation": "Điều hướng chính",
+    "notifications": "Thông báo",
+    "apps": "Ứng dụng",
     "copy_failed": "Không thể sao chép",
     "total_records": "Tổng cộng {{total}} bản ghi",
-    "copyright": "© 2026 UAV-PMS. All rights reserved."
+    "copyright": "© 2024 Tập đoàn Điện lực Việt Nam (EVN)."
   }
 }

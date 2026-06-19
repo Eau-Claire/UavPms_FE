@@ -1,8 +1,12 @@
 export const ROUTES = {
   ROOT: '/',
   LOGIN: '/login',
+  FORGOT_PASSWORD: '/forgot-password',
+  OTP: '/otp',
+  RESET_PASSWORD: '/reset-password',
   CHANGE_PASSWORD: '/change-password',
   DASHBOARD: '/dashboard',
+  ASSETS: '/assets',
   ADMIN_USERS: '/admin/users',
   ADMIN_TASKS: '/admin/tasks',
   INSPECTION: '/inspection',

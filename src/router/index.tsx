@@ -3,10 +3,14 @@ import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ROUTES } from '@router/routes';
 import {
+  AssetManagementPage,
   ChangePasswordPage,
   ComingSoonPage,
+  ForgotPasswordPage,
   LoginPage,
+  OtpPage,
   PrivateRoute,
+  ResetPasswordPage,
   RoleGuard,
   UserManagementPage,
 } from './lazyRoutes';
@@ -25,6 +29,18 @@ export const router = createBrowserRouter([
     element: withSuspense(<LoginPage />),
   },
   {
+    path: ROUTES.FORGOT_PASSWORD,
+    element: withSuspense(<ForgotPasswordPage />),
+  },
+  {
+    path: ROUTES.OTP,
+    element: withSuspense(<OtpPage />),
+  },
+  {
+    path: ROUTES.RESET_PASSWORD,
+    element: withSuspense(<ResetPasswordPage />),
+  },
+  {
     element: withSuspense(<PrivateRoute />),
     children: [
       {
@@ -34,6 +50,10 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.DASHBOARD,
         element: withSuspense(<ComingSoonPage title="Tổng quan" />),
+      },
+      {
+        path: ROUTES.ASSETS,
+        element: withSuspense(<AssetManagementPage />),
       },
       {
         path: ROUTES.ADMIN_USERS,
