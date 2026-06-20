@@ -466,6 +466,10 @@
   gap: 20px;
 }
 
+.otp-email.ant-input-affix-wrapper {
+  margin-bottom: 16px;
+}
+
 .otp-input.ant-input {
   width: 56px;
   height: 56px;

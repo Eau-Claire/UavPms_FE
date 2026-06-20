@@ -26,68 +26,93 @@ const handleMockRequest = (config: InternalAxiosRequestConfig) => {
   const method = (config.method ?? 'get').toLowerCase();
   const body = parseBody(config.data);
 
-  // ── Auth ───────────────────────────────────────────────────────────────────
   if (url.includes('/auth/login') && method === 'post') {
-    const { username, password } = body;
-    const user = mockUserStore.findByEmail(username);
+    const { email, password } = body;
+    const user = mockUserStore.findByEmail(email);
 
     if (!user || user.password !== password) {
-      return mockError(401, 'Email hoặc mật khẩu không đúng');
+      return mockError(401, 'Invalid email or password');
     }
 
     if (user.status === 'Locked' || user.status === 'Inactive') {
-      return mockError(423, 'Tài khoản đã bị vô hiệu hóa hoặc khóa');
+      return mockError(423, 'Account is locked or inactive');
     }
 
     const mockTokens: AuthTokens = {
-      accessToken: `mock_access_${username}`,
-      refreshToken: `mock_refresh_${username}`,
+      accessToken: `mock_access_${email}`,
+      refreshToken: `mock_refresh_${email}`,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _pwd, ...mockUser } = user;
+    void _pwd;
 
-    return Promise.resolve(
-      mockSuccess({ user: mockUser as User, tokens: mockTokens }, 'Đăng nhập thành công'),
-    );
+    return Promise.resolve(mockSuccess({ user: mockUser as User, tokens: mockTokens }, 'Login ok'));
   }
 
-  if (url.includes('/auth/logout') && method === 'post') {
-    return Promise.resolve(mockSuccess(null, 'Đăng xuất thành công'));
-  }
-
-  if (url.includes('/auth/refresh') && method === 'post') {
+  if (url.includes('/auth/refresh-token') && method === 'post') {
     return Promise.resolve(
       mockSuccess(
         { accessToken: 'mock_new_access_token', refreshToken: 'mock_new_refresh_token' },
-        'Token đã được làm mới',
+        'Token refreshed',
       ),
     );
   }
 
-  if (url.includes('/auth/change-password') && method === 'post') {
+  if (url.includes('/auth/otp/send') && method === 'post') {
+    return Promise.resolve(mockSuccess(null, 'OTP sent'));
+  }
+
+  if (url.includes('/auth/otp/verify') && method === 'post') {
+    const { email, otp, purpose } = body;
+    if (!otp || otp.length !== 6) {
+      return mockError(400, 'Invalid OTP');
+    }
+    const mockUser = mockUserStore.findByEmail(email);
+    const data = purpose === 'ForgotPassword'
+      ? { token: 'mock_verification_token', authResult: null }
+      : {
+          token: null,
+          authResult: {
+            accessToken: `mock_access_${email}`,
+            refreshToken: `mock_refresh_${email}`,
+            user: mockUser ?? { id: 'mock-user', email, username: email, fullName: email },
+          },
+        };
+    return Promise.resolve(mockSuccess(data, 'OTP verified'));
+  }
+
+  if (url.includes('/auth/reset-password') && method === 'post') {
+    const { verificationToken, newPassword } = body;
+    if (!verificationToken || !newPassword) {
+      return mockError(400, 'Invalid reset password request');
+    }
+    return Promise.resolve(mockSuccess(null, 'Password reset'));
+  }
+
+  if (url.includes('/users/change-password') && method === 'post') {
     const { currentPassword, newPassword } = body;
     const authHeader =
       (config.headers?.Authorization as string | undefined) ??
       (config.headers?.authorization as string | undefined);
-    const tokenUsername = authHeader?.replace(/^Bearer\s+mock_access_/, '');
+    const tokenEmail = authHeader?.replace(/^Bearer\s+mock_access_/, '');
 
-    if (!tokenUsername) {
-      return mockError(401, 'Chưa đăng nhập');
+    if (!tokenEmail) {
+      return mockError(401, 'Unauthenticated');
     }
 
-    const updated = mockUserStore.changePassword(tokenUsername, currentPassword, newPassword);
+    const record = mockUserStore.findByEmail(tokenEmail);
+    const current = currentPassword || record?.password || '';
+    const updated = record ? mockUserStore.changePassword(record.username, current, newPassword) : null;
 
     if (!updated) {
-      return mockError(400, 'Không thể đổi mật khẩu');
+      return mockError(400, 'Cannot change password');
     }
 
-    return Promise.resolve(mockSuccess(updated, 'Đổi mật khẩu thành công'));
+    return Promise.resolve(mockSuccess(updated, 'Password changed'));
   }
 
-  // ── Users CRUD ─────────────────────────────────────────────────────────────
   if (url.match(/\/users\/?$/) && method === 'get') {
-    return Promise.resolve(mockSuccess(mockUserStore.getAll(), 'Lấy danh sách thành công'));
+    return Promise.resolve(mockSuccess(mockUserStore.getAll(), 'Users loaded'));
   }
 
   if (url.match(/\/users\/?$/) && method === 'post') {
@@ -99,14 +124,14 @@ const handleMockRequest = (config: InternalAxiosRequestConfig) => {
       temporaryPassword?: string;
     };
     if (!fullName?.trim() || !email?.trim() || !role) {
-      return mockError(400, 'Họ tên, email và vai trò là bắt buộc');
+      return mockError(400, 'Full name, email, and role are required');
     }
 
     const result = mockUserStore.create(fullName, role, email, phone, temporaryPassword);
     return Promise.resolve(
       mockSuccess(
         { user: result.user, username: result.user.username, temporaryPassword: result.temporaryPassword },
-        'Tạo tài khoản thành công',
+        'User created',
         201,
       ),
     );
@@ -118,35 +143,31 @@ const handleMockRequest = (config: InternalAxiosRequestConfig) => {
 
     if (url.includes('/reset-password') && method === 'post') {
       const result = mockUserStore.resetPassword(userId);
-      if (!result) return mockError(404, 'Không tìm thấy người dùng');
-      return Promise.resolve(mockSuccess(result, 'Đặt lại mật khẩu thành công'));
+      if (!result) return mockError(404, 'User not found');
+      return Promise.resolve(mockSuccess(result, 'Password reset'));
     }
 
     if (method === 'patch') {
       const { role, status } = body as { role?: UserRole; status?: UserStatus };
       const updated = mockUserStore.update(userId, { role, status });
-      if (!updated) return mockError(404, 'Không tìm thấy người dùng');
-      return Promise.resolve(mockSuccess(updated, 'Cập nhật thành công'));
+      if (!updated) return mockError(404, 'User not found');
+      return Promise.resolve(mockSuccess(updated, 'User updated'));
     }
 
     if (method === 'delete') {
       const record = mockUserStore.findById(userId);
-      if (!record) return mockError(404, 'Không tìm thấy người dùng');
+      if (!record) return mockError(404, 'User not found');
       if (record.role === 'Admin') {
-        return mockError(403, 'Không thể xóa tài khoản quản trị viên');
+        return mockError(403, 'Cannot delete admin account');
       }
       mockUserStore.delete(userId);
-      return Promise.resolve(mockSuccess(null, 'Xóa người dùng thành công'));
+      return Promise.resolve(mockSuccess(null, 'User deleted'));
     }
   }
 
   return null;
 };
 
-/**
- * Cài đặt mock interceptor cho axiosInstance.
- * Chỉ được gọi khi `VITE_USE_MOCK=true` (môi trường development).
- */
 const toAxiosResponse = (
   config: InternalAxiosRequestConfig,
   result: { data: ApiResponse<unknown> },

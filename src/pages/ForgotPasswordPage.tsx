@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import AuthFrame from '@features/auth/components/AuthFrame';
 import { ROUTES } from '@router/routes';
+import { useAuth } from '@hooks/useAuth';
 
 type ForgotPasswordForm = {
   email: string;
@@ -16,6 +17,7 @@ type ForgotPasswordForm = {
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { sendOtp, isLoading } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
 
   const schema = z.object({
@@ -25,15 +27,22 @@ const ForgotPasswordPage = () => {
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordForm>({
     resolver: zodResolver(schema),
     defaultValues: { email: '' },
   });
+  const isBusy = isLoading || isSubmitting;
 
-  const onSubmit = (data: ForgotPasswordForm) => {
+  const onSubmit = async (data: ForgotPasswordForm) => {
     setApiError(null);
-    navigate(ROUTES.OTP, { state: { email: data.email } });
+    try {
+      await sendOtp({ email: data.email, purpose: 'ForgotPassword' }).unwrap();
+      navigate(ROUTES.OTP, { state: { email: data.email, purpose: 'ForgotPassword' } });
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setApiError(error?.message ?? t('forgot_password.error_generic'));
+    }
   };
 
   return (
@@ -71,6 +80,7 @@ const ForgotPasswordPage = () => {
                   prefix={<MailOutlined className="auth-input-icon" />}
                   size="large"
                   className="auth-input"
+                  disabled={isBusy}
                   onBlur={() => setApiError(null)}
                 />
               )}
@@ -82,6 +92,8 @@ const ForgotPasswordPage = () => {
             htmlType="submit"
             block
             size="large"
+            loading={isBusy}
+            disabled={isBusy}
             className="evn-primary-button"
             aria-label={t('forgot_password.submit')}
             icon={<ArrowRightOutlined />}

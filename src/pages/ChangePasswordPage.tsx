@@ -40,11 +40,12 @@ const ChangePasswordPage = () => {
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(schema),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
+  const isBusy = isLoading || isSubmitting;
 
   const onSubmit = async (data: ChangePasswordForm) => {
     setApiError(null);
@@ -91,6 +92,7 @@ const ChangePasswordPage = () => {
                   prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
                   className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -110,6 +112,7 @@ const ChangePasswordPage = () => {
                   prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
                   className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -129,6 +132,7 @@ const ChangePasswordPage = () => {
                   prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
                   className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -139,8 +143,8 @@ const ChangePasswordPage = () => {
             htmlType="submit"
             block
             size="large"
-            loading={isLoading}
-            disabled={isLoading}
+            loading={isBusy}
+            disabled={isBusy}
             className="evn-primary-button"
             aria-label={t('change_password.submit')}
             icon={<ArrowRightOutlined />}
