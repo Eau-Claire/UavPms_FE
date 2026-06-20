@@ -44,3 +44,4 @@ test-verify.sh
 
 # OS
 Thumbs.db
+.vercel
