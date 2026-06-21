@@ -61,7 +61,7 @@ axiosClient.interceptors.response.use(
   const is401 = error.response?.status === 401;
   const isLoginEndpoint = originalRequest?.url?.includes("/auth/login");
 
-  if (is401 && !originalRequest._retry && !isLoginEndpoint) {
+  if (is401 && originalRequest && !originalRequest._retry && !isLoginEndpoint) {
    originalRequest._retry = true;
 
    try {
