@@ -87,7 +87,7 @@ const normalizeUser = (payload: BackendUser): User => {
 };
 
 const normalizeVerificationResult = (payload: unknown): VerifyOtpResponse => {
- if (payload == null) return {};
+ if (payload === null || payload === undefined) return {};
 
  if (typeof payload === "string") {
   return { verificationToken: payload };
