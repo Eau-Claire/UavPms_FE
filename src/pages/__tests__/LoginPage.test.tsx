@@ -164,7 +164,7 @@ describe("LoginPage", () => {
   mockLogin.mockReturnValue({
    unwrap: vi
     .fn()
-    .mockRejectedValue({ statusCode: 401, message: "Email not verified" }),
+    .mockRejectedValue({ statusCode: 401, message: "Email is not verified" }),
   });
   mockSendOtp.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(undefined) });
   renderComponent();
@@ -208,6 +208,51 @@ describe("LoginPage", () => {
 
   await waitFor(() => expect(screen.getByText("otp page")).toBeInTheDocument());
   expect(screen.getByText("otp purpose: Login")).toBeInTheDocument();
+ expect(mockSendOtp).not.toHaveBeenCalled();
+ });
+
+ it("opens Login OTP for rejected OTP-required response", async () => {
+  mockLogin.mockReturnValue({
+   unwrap: vi.fn().mockRejectedValue({
+    statusCode: 401,
+    message: "OTP is required",
+   }),
+  });
+  renderComponent();
+  const user = userEvent.setup();
+
+  await user.type(
+   screen.getByPlaceholderText("login.email_placeholder"),
+   "user@example.com",
+  );
+  await user.type(screen.getByPlaceholderText("login.password_placeholder"), "123");
+  await user.click(screen.getByRole("button", { name: "login.login_btn" }));
+
+  await waitFor(() => expect(screen.getByText("otp page")).toBeInTheDocument());
+  expect(screen.getByText("otp purpose: Login")).toBeInTheDocument();
   expect(mockSendOtp).not.toHaveBeenCalled();
+ });
+
+ it.each([
+  ["wrong password", "Invalid credentials"],
+  ["unknown email", "Invalid credentials"],
+ ])("maps %s 401 to generic credentials error", async (_case, message) => {
+  mockLogin.mockReturnValue({
+   unwrap: vi.fn().mockRejectedValue({ statusCode: 401, message }),
+  });
+  renderComponent();
+  const user = userEvent.setup();
+
+  await user.type(
+   screen.getByPlaceholderText("login.email_placeholder"),
+   "user@example.com",
+  );
+  await user.type(screen.getByPlaceholderText("login.password_placeholder"), "wrong");
+  await user.click(screen.getByRole("button", { name: "login.login_btn" }));
+
+  await waitFor(() => {
+   expect(screen.getByText("login.error_invalid_credentials")).toBeInTheDocument();
+  });
+  expect(screen.queryByText("otp page")).not.toBeInTheDocument();
  });
 });

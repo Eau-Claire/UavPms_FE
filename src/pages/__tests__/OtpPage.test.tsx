@@ -126,6 +126,25 @@ describe('OtpPage', () => {
     });
   });
 
+  it('opens dashboard when email verification returns authentication', async () => {
+    verifyOtp.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({
+        authentication: {
+          tokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
+          user: { id: '1', email: 'user@example.com' },
+        },
+      }),
+    });
+    renderPage('EmailVerification');
+    fireEvent.paste(screen.getByLabelText('OTP digit 1'), {
+      clipboardData: { getData: () => '123456' },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'otp.submit' }));
+
+    await waitFor(() => expect(screen.getByText('dashboard page')).toBeInTheDocument());
+  });
+
   it('dispatches one verification request for rapid repeated clicks', () => {
     verifyOtp.mockReturnValue({ unwrap: vi.fn(() => new Promise(() => undefined)) });
     renderPage();

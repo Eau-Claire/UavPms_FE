@@ -33,6 +33,7 @@ type LoginResponseShape = {
  authResult?: LoginResponseShape | null;
  otpRequired?: boolean;
  email?: string | null;
+ deviceTrustToken?: string | null;
 };
 
 const DEFAULT_ROLE: UserRole = "Viewer";
@@ -110,14 +111,14 @@ const normalizeVerificationResult = (payload: unknown): VerifyOtpResponse => {
 };
 
 export const authService = {
- login: async (
-  credentials: LoginRequest,
- ): Promise<LoginResult> => {
+ login: async (credentials: LoginRequest): Promise<LoginResult> => {
   const response = await axiosClient.post<
    ApiResponse<LoginResponseShape> | LoginResponseShape
   >("/auth/login", credentials);
   const responseMessage =
-   response.data && typeof response.data === "object" && "message" in response.data
+   response.data &&
+   typeof response.data === "object" &&
+   "message" in response.data
     ? String(response.data.message)
     : "";
   const data = unwrapData(response.data);

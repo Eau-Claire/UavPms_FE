@@ -20,6 +20,12 @@ type LoginFormInputs = {
  password: string;
 };
 
+const isEmailVerificationRequired = (message: string) =>
+ /\bemail(?:\s+is)?\s+not\s+verified\b/i.test(message);
+
+const isLoginOtpRequired = (message: string) =>
+ /\botp(?:\s+is)?\s+required\b/i.test(message);
+
 const LoginPage = () => {
  const navigate = useNavigate();
  const location = useLocation();
@@ -66,9 +72,9 @@ const LoginPage = () => {
 
   try {
    const result = await login({
-   email: data.email,
-   password: data.password,
-  }).unwrap();
+    email: data.email,
+    password: data.password,
+   }).unwrap();
    if (result.otpRequired) {
     navigate(ROUTES.OTP, {
      state: { email: result.email, purpose: "Login" },
@@ -83,8 +89,8 @@ const LoginPage = () => {
    navigate(from);
   } catch (err: unknown) {
    const error = err as { statusCode?: number; message?: string };
-   const message = error?.message?.toLowerCase() ?? "";
-   if (message.includes("email not verified")) {
+   const message = error?.message ?? "";
+   if (isEmailVerificationRequired(message)) {
     try {
      await sendOtp({
       email: data.email,
@@ -97,7 +103,7 @@ const LoginPage = () => {
      const otpError = sendError as { message?: string };
      setApiError(otpError.message ?? t("login.error_generic"));
     }
-   } else if (message.includes("otp required")) {
+   } else if (isLoginOtpRequired(message)) {
     navigate(ROUTES.OTP, {
      state: { email: data.email, purpose: "Login" },
     });

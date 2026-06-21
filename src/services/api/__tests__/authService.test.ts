@@ -37,6 +37,37 @@ describe('authService', () => {
     });
   });
 
+  it('normalizes direct successful login response', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        success: true,
+        message: 'Sucess',
+        data: {
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresIn: 3600,
+          deviceTrustToken: 'device-trust-token',
+          user: {
+            id: '1',
+            email: 'user@example.com',
+            username: 'user@example.com',
+            fullName: 'User',
+            roles: [],
+          },
+        },
+        errors: null,
+      },
+    });
+
+    await expect(
+      authService.login({ email: 'user@example.com', password: '123' }),
+    ).resolves.toMatchObject({
+      otpRequired: false,
+      tokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
+      user: { email: 'user@example.com' },
+    });
+  });
+
   it('returns OTP-required login without demanding tokens', async () => {
     mockPost.mockResolvedValue({
       data: {

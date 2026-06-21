@@ -99,6 +99,10 @@ const OtpPage = () => {
         purpose,
       }).unwrap();
       if (purpose === 'EmailVerification') {
+        if (result.authentication) {
+          navigate(ROUTES.DASHBOARD, { replace: true });
+          return;
+        }
         navigate(ROUTES.LOGIN, { replace: true, state: { email } });
         return;
       }

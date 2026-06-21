@@ -101,7 +101,10 @@ export const verifyOtpThunk = createAsyncThunk<
 >('auth/verifyOtp', async (data, { rejectWithValue }) => {
   try {
     const result = await authService.verifyOtp(data);
-    if (data.purpose === 'Login' && result.authentication) {
+    if (
+      (data.purpose === 'Login' || data.purpose === 'EmailVerification') &&
+      result.authentication
+    ) {
       storage.setToken(result.authentication.tokens);
       storage.setUser(result.authentication.user);
     }
@@ -215,7 +218,11 @@ const authSlice = createSlice({
       })
       .addCase(verifyOtpThunk.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (action.meta.arg.purpose === 'Login' && action.payload.authentication) {
+        if (
+          (action.meta.arg.purpose === 'Login' ||
+            action.meta.arg.purpose === 'EmailVerification') &&
+          action.payload.authentication
+        ) {
           state.user = action.payload.authentication.user;
           state.isAuthenticated = true;
         }
