@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import '@features/users/users.css';
 import {
   Button,
   Table,

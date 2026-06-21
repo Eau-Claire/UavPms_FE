@@ -11,7 +11,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
 import { ROUTES } from '@router/routes';
-import { LAYOUT } from '@theme/layout';
 import { getUserMenuItems } from './UserMenu';
 
 interface HeaderProps {
@@ -43,14 +42,7 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
   const userMenuItems = getUserMenuItems(handleLogout, t);
 
   return (
-    <Layout.Header
-      className="app-header"
-      style={{
-        height: LAYOUT.headerHeight,
-        paddingRight: isMobile ? 12 : 24,
-        paddingLeft: isMobile ? 12 : 24,
-      }}
-    >
+    <Layout.Header className="app-header">
       {isMobile ? (
         <Button
           type="text"
@@ -71,12 +63,7 @@ const Header = ({ isMobile, onMenuToggle }: HeaderProps) => {
         </div>
       )}
 
-      <div
-        className="app-header-actions"
-        style={{
-          gap: isMobile ? 8 : 18,
-        }}
-      >
+      <div className="app-header-actions">
         <button type="button" className="app-header-icon" aria-label={t('common.notifications')}>
           <BellOutlined />
           <span className="app-header-dot" />

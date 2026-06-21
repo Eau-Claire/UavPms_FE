@@ -17,14 +17,7 @@ const PrivateRoute = ({ requiredRole }: PrivateRouteProps) => {
 
   if (auth.isLoading) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
+      <div className="flex h-screen items-center justify-center">
         <Spin size="large" />
       </div>
     );

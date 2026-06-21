@@ -16,7 +16,7 @@ import {
 } from './lazyRoutes';
 
 const withSuspense = (element: ReactNode) => (
-  <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>{element}</Suspense>
+  <Suspense fallback={<div className="min-h-screen" />}>{element}</Suspense>
 );
 
 export const router = createBrowserRouter([

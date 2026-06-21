@@ -117,13 +117,6 @@ const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
       width={LAYOUT.sidebarWidth}
       collapsedWidth={isMobile ? 0 : LAYOUT.sidebarCollapsedWidth}
       className={isMobile ? 'app-sidebar app-sidebar-mobile' : 'app-sidebar'}
-      style={{
-        position: isMobile ? 'fixed' : 'relative',
-        height: '100vh',
-        left: 0,
-        top: 0,
-        zIndex: isMobile ? 1000 : 'auto',
-      }}
     >
       <div className="app-sidebar-brand">
         <img src={logoUrl} alt="EVN Logo" className="app-sidebar-logo" />

@@ -5,6 +5,7 @@ import { useUiStore } from '@store/uiStore';
 import { ROUTES } from '@router/routes';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
+import './layout/layout.css';
 
 interface AppLayoutProps {
   children: React.ReactNode;

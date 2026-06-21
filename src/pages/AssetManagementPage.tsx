@@ -1,4 +1,5 @@
 import { Button, Input, Table } from 'antd';
+import './AssetManagementPage.css';
 import {
   DownOutlined,
   EnvironmentFilled,

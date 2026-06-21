@@ -44,7 +44,7 @@ const CredentialModal = ({ open, title, email, password, onClose }: CredentialMo
       ]}
     >
       <Paragraph type="secondary">{t('user.credential_warning')}</Paragraph>
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="middle" className="w-full">
         <div>
           <Text type="secondary">{t('user.credential_email')}</Text>
           <div className="credential-value">

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import logoUrl from '@assets/images/Logo.png';
+import '../auth.css';
 
 interface AuthFrameProps {
   children: ReactNode;
