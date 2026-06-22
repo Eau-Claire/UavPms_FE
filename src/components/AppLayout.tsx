@@ -1,9 +1,11 @@
-import { useState } from 'react';
 import { Layout } from 'antd';
+import { useLocation } from 'react-router-dom';
 import { useIsMobile } from '@hooks/useIsMobile';
-import { COLORS, SPACING, TYPOGRAPHY } from '@styles/tokens';
+import { useUiStore } from '@store/uiStore';
+import { ROUTES } from '@router/routes';
 import Sidebar from './layout/Sidebar';
 import Header from './layout/Header';
+import './layout/layout.css';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -19,7 +21,6 @@ interface AppLayoutProps {
  *   <Layout>
  *     <Header />         ← sticky, toggle sidebar + user menu
  *     <Content />        ← vùng cuộn, render children
- *     <Footer />         ← cố định, copyright
  *   </Layout>
  * </Layout>
  * ```
@@ -33,50 +34,41 @@ interface AppLayoutProps {
  * <AppLayout><Outlet /></AppLayout>
  */
 const AppLayout = ({ children }: AppLayoutProps) => {
-  const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
+  const location = useLocation();
+  const sidebarCollapsedState = useUiStore((state) => state.sidebarCollapsed);
+  const mobileMenuOpen = useUiStore((state) => state.mobileMenuOpen);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const toggleMobileMenu = useUiStore((state) => state.toggleMobileMenu);
+  const closeMobileMenu = useUiStore((state) => state.closeMobileMenu);
+  const sidebarCollapsed = isMobile ? !mobileMenuOpen : sidebarCollapsedState;
+  const isAssetRoute = location.pathname === ROUTES.ASSETS;
 
+  const handleSidebarToggle = () => {
+    if (isMobile) {
+      toggleMobileMenu();
+      return;
+    }
+    toggleSidebar();
+  };
 
   return (
-    <Layout style={{ minHeight: '100vh', display: 'flex' }}>
-      <Sidebar collapsed={collapsed} isMobile={isMobile} onToggle={() => setCollapsed((prev) => !prev)} />
+    <Layout className="app-shell">
+      <Sidebar collapsed={sidebarCollapsed} isMobile={isMobile} onToggle={handleSidebarToggle} />
+      {isMobile && mobileMenuOpen && (
+        <div
+          aria-hidden="true"
+          onClick={closeMobileMenu}
+          className="app-backdrop"
+        />
+      )}
 
-      <Layout
-        style={{
-          marginLeft: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          transition: 'margin-left 0.2s ease',
-        }}
-      >
-        <Header isMobile={isMobile} />
+      <Layout className="app-main">
+        <Header isMobile={isMobile} onMenuToggle={handleSidebarToggle} />
 
-        <Layout.Content
-          style={{
-            padding: isMobile ? SPACING.md : SPACING.md,
-            backgroundColor: COLORS.bgBase,
-            flex: 1,
-            overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div style={{ flex: 1 }}>{children}</div>
+        <Layout.Content className={isAssetRoute ? 'app-content app-content-flush' : 'app-content'}>
+          <div className="app-content-inner">{children}</div>
         </Layout.Content>
-
-        <footer
-          style={{
-            backgroundColor: COLORS.bgWhite,
-            borderTop: `1px solid ${COLORS.border}`,
-            padding: `${SPACING.smMd}px ${SPACING.lg}px`,
-            textAlign: 'center',
-            fontSize: TYPOGRAPHY.fontSizeSm,
-            color: COLORS.textSecondary,
-          }}
-        >
-          © 2026 UAV-PMS. All rights reserved.
-        </footer>
       </Layout>
     </Layout>
   );

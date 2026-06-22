@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Alert, Card, Typography } from 'antd';
+import { Form, Input, Button, Alert } from 'antd';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { LockOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, LockOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@hooks/useAuth';
-import { ROUTES } from '@constants/routes';
-import { COLORS, SPACING, RADIUS } from '@styles/tokens';
-
-const { Title, Text } = Typography;
+import AuthFrame from '@features/auth/components/AuthFrame';
+import { ROUTES } from '@router/routes';
 
 type ChangePasswordForm = {
   currentPassword: string;
@@ -42,11 +40,12 @@ const ChangePasswordPage = () => {
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(schema),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
+  const isBusy = isLoading || isSubmitting;
 
   const onSubmit = async (data: ChangePasswordForm) => {
     setApiError(null);
@@ -63,38 +62,19 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: COLORS.bgBase,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: SPACING.lg,
-      }}
-    >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          borderRadius: RADIUS.lg,
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-          border: `1px solid ${COLORS.border}`,
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: SPACING.xl }}>
-          <Title level={4} style={{ margin: 0, color: COLORS.textPrimary }}>
-            {t('change_password.title')}
-          </Title>
-          <Text type="secondary">
+    <AuthFrame>
+      <div className="auth-card auth-card-flow">
+        <header className="auth-flow-header auth-flow-header-bordered">
+          <h1>{t('change_password.title')}</h1>
+          <p>
             {user?.mustChangePassword
               ? t('change_password.first_login_subtitle')
               : t('change_password.subtitle')}
-          </Text>
-        </div>
+          </p>
+        </header>
 
         {apiError && (
-          <Alert title={apiError} type="error" showIcon style={{ marginBottom: SPACING.lg }} />
+          <Alert title={apiError} type="error" showIcon className="auth-alert" />
         )}
 
         <Form layout="vertical" onFinish={handleSubmit(onSubmit)}>
@@ -109,8 +89,10 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
+                  className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -127,8 +109,10 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
+                  className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -145,8 +129,10 @@ const ChangePasswordPage = () => {
               render={({ field }) => (
                 <Input.Password
                   {...field}
-                  prefix={<LockOutlined style={{ color: COLORS.textDisabled }} />}
+                  prefix={<LockOutlined className="auth-input-icon" />}
                   size="large"
+                  className="auth-input"
+                  disabled={isBusy}
                 />
               )}
             />
@@ -157,14 +143,18 @@ const ChangePasswordPage = () => {
             htmlType="submit"
             block
             size="large"
-            loading={isLoading}
-            disabled={isLoading}
+            loading={isBusy}
+            disabled={isBusy}
+            className="evn-primary-button"
+            aria-label={t('change_password.submit')}
+            icon={<ArrowRightOutlined />}
+            iconPlacement="end"
           >
             {t('change_password.submit')}
           </Button>
         </Form>
-      </Card>
-    </div>
+      </div>
+    </AuthFrame>
   );
 };
 

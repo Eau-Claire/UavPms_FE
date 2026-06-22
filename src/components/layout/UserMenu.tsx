@@ -1,6 +1,7 @@
 import { Space } from 'antd';
 import { UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
+import type { TFunction } from 'i18next';
 
 /**
  * Tạo danh sách menu item cho dropdown người dùng.
@@ -15,7 +16,7 @@ import type { MenuProps } from 'antd';
  * const items = getUserMenuItems(handleLogout);
  * <Dropdown menu={{ items }} placement="bottomRight">...</Dropdown>
  */
-export const getUserMenuItems = (onLogout: () => void, t: any): MenuProps['items'] => [
+export const getUserMenuItems = (onLogout: () => void, t: TFunction): MenuProps['items'] => [
   {
     key: 'profile',
     label: (

@@ -1,7 +1,21 @@
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '@store/store';
-import { loginThunk, logoutThunk, clearError, changePasswordThunk } from '@features/auth/authSlice';
-import type { ChangePasswordRequest, LoginRequest } from '@types';
+import {
+  changePasswordThunk,
+  clearError,
+  loginThunk,
+  logoutThunk,
+  resetPasswordThunk,
+  sendOtpThunk,
+  verifyOtpThunk,
+} from '@features/auth/authSlice';
+import type {
+  ChangePasswordRequest,
+  LoginRequest,
+  ResetPasswordRequest,
+  SendOtpRequest,
+  VerifyOtpRequest,
+} from '@shared/types';
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -17,6 +31,9 @@ export const useAuth = () => {
     login: (credentials: LoginRequest) => dispatch(loginThunk(credentials)),
     logout: () => dispatch(logoutThunk()),
     changePassword: (data: ChangePasswordRequest) => dispatch(changePasswordThunk(data)),
+    sendOtp: (data: SendOtpRequest) => dispatch(sendOtpThunk(data)),
+    verifyOtp: (data: VerifyOtpRequest) => dispatch(verifyOtpThunk(data)),
+    resetPassword: (data: ResetPasswordRequest) => dispatch(resetPasswordThunk(data)),
     clearError: () => dispatch(clearError()),
     mustChangePassword: user?.mustChangePassword ?? false,
   };

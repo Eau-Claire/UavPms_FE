@@ -1,16 +1,19 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { isAxiosError } from 'axios';
-import axiosClient from '@services/api/axiosClient';
+import { authService } from '@services/api/authService';
 import { storage } from '@utils/storage';
 import type {
-  AuthState,
-  User,
-  LoginRequest,
-  ApiResponse,
-  AuthTokens,
   ApiError,
+  AuthState,
   ChangePasswordRequest,
-} from '@types';
+  LoginRequest,
+  LoginResult,
+  ResetPasswordRequest,
+  SendOtpRequest,
+  User,
+  VerifyOtpRequest,
+  VerifyOtpResponse,
+} from '@shared/types';
 
 const storedUser = storage.getUser();
 const hasToken = !!storage.getAccessToken();
@@ -22,69 +25,108 @@ const initialState: AuthState = {
   error: null,
 };
 
-/**
- * Thunk đăng nhập.
- * Gọi POST /auth/login, lưu tokens + user vào storage khi thành công.
- *
- * @rejects ApiError khi server trả về lỗi (401 sai mật khẩu, 423 bị khóa, v.v.)
- */
+const networkError = (): ApiError => ({
+  statusCode: 0,
+  message: 'Network connection error',
+  success: false,
+});
+
+const unknownError = (): ApiError => ({
+  statusCode: 0,
+  message: 'Unknown error',
+  success: false,
+});
+
+const toRejectValue = (error: unknown): ApiError => {
+  if (isAxiosError(error) && error.response) {
+    const response = error.response.data as Partial<ApiError> | undefined;
+    return {
+      statusCode: error.response.status,
+      message: response?.message ?? error.message,
+      success: false,
+    };
+  }
+  if (error instanceof Error) {
+    return { statusCode: 0, message: error.message, success: false };
+  }
+  return networkError();
+};
+
 export const loginThunk = createAsyncThunk<
-  { user: User; tokens: AuthTokens },
+  LoginResult,
   LoginRequest,
   { rejectValue: ApiError }
 >('auth/login', async (credentials, { rejectWithValue }) => {
   try {
-    const response = await axiosClient.post<ApiResponse<{ user: User; tokens: AuthTokens }>>(
-      '/auth/login',
-      credentials,
-    );
-
-    const { user, tokens } = response.data.data;
-
-    // Lưu token và user vào localStorage thông qua storage utility (tập trung, không hardcode key)
-    storage.setToken(tokens);
-    storage.setUser(user);
-
-    return { user, tokens };
-  } catch (error) {
-    if (isAxiosError(error) && error.response) {
-      return rejectWithValue(error.response.data as ApiError);
+    const result = await authService.login(credentials);
+    if (!result.otpRequired) {
+      storage.setToken(result.tokens);
+      storage.setUser(result.user);
     }
-    return rejectWithValue({ statusCode: 0, message: 'Lỗi kết nối mạng', success: false });
+    return result;
+  } catch (error) {
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
-/**
- * Thunk đăng xuất.
- * Gọi POST /auth/logout để invalidate token phía server, sau đó xóa storage.
- * Frontend luôn logout dù API có thất bại (mất mạng, token hết hạn, v.v.).
- */
 export const changePasswordThunk = createAsyncThunk<
-  User,
+  User | null,
   ChangePasswordRequest,
   { rejectValue: ApiError }
 >('auth/changePassword', async (data, { rejectWithValue }) => {
   try {
-    const response = await axiosClient.post<ApiResponse<User>>('/auth/change-password', data);
-    const updatedUser = response.data.data;
-    storage.setUser(updatedUser);
+    const updatedUser = await authService.changePassword(data);
+    if (updatedUser) storage.setUser(updatedUser);
     return updatedUser;
   } catch (error) {
-    if (isAxiosError(error) && error.response) {
-      return rejectWithValue(error.response.data as ApiError);
+    return rejectWithValue(toRejectValue(error));
+  }
+});
+
+export const sendOtpThunk = createAsyncThunk<void, SendOtpRequest, { rejectValue: ApiError }>(
+  'auth/sendOtp',
+  async (data, { rejectWithValue }) => {
+    try {
+      await authService.sendOtp(data);
+    } catch (error) {
+      return rejectWithValue(toRejectValue(error));
     }
-    return rejectWithValue({ statusCode: 0, message: 'Lỗi kết nối mạng', success: false });
+  },
+);
+
+export const verifyOtpThunk = createAsyncThunk<
+  VerifyOtpResponse,
+  VerifyOtpRequest,
+  { rejectValue: ApiError }
+>('auth/verifyOtp', async (data, { rejectWithValue }) => {
+  try {
+    const result = await authService.verifyOtp(data);
+    if (
+      (data.purpose === 'Login' || data.purpose === 'EmailVerification') &&
+      result.authentication
+    ) {
+      storage.setToken(result.authentication.tokens);
+      storage.setUser(result.authentication.user);
+    }
+    return result;
+  } catch (error) {
+    return rejectWithValue(toRejectValue(error));
+  }
+});
+
+export const resetPasswordThunk = createAsyncThunk<
+  void,
+  ResetPasswordRequest,
+  { rejectValue: ApiError }
+>('auth/resetPassword', async (data, { rejectWithValue }) => {
+  try {
+    await authService.resetPassword(data);
+  } catch (error) {
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
 export const logoutThunk = createAsyncThunk('auth/logout', async () => {
-  try {
-    await axiosClient.post('/auth/logout');
-  } catch (error) {
-    // Vẫn xóa session frontend dù API thất bại
-    console.error('[Auth] Logout API error:', error);
-  }
-
   storage.clear();
   return null;
 });
@@ -93,18 +135,10 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    /**
-     * Xóa lỗi đăng nhập.
-     * Dùng khi user bắt đầu nhập lại sau khi thấy thông báo lỗi.
-     */
     clearError: (state) => {
       state.error = null;
     },
 
-    /**
-     * Logout đồng bộ — không gọi API.
-     * Dùng trong interceptor khi refresh token cũng thất bại.
-     */
     logout: (state) => {
       state.user = null;
       state.isAuthenticated = false;
@@ -119,27 +153,23 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // ── Login ──────────────────────────────────────────────────────────────
       .addCase(loginThunk.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+        if (!action.payload.otpRequired) {
+          state.user = action.payload.user;
+          state.isAuthenticated = true;
+        }
         state.error = null;
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload ?? {
-          statusCode: 0,
-          message: 'Lỗi không xác định',
-          success: false,
-        };
+        state.error = action.payload ?? unknownError();
       })
 
-      // ── Logout ─────────────────────────────────────────────────────────────
       .addCase(logoutThunk.pending, (state) => {
         state.isLoading = true;
       })
@@ -150,23 +180,70 @@ const authSlice = createSlice({
         state.error = null;
       })
 
-      // ── Change Password ────────────────────────────────────────────────────
       .addCase(changePasswordThunk.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(changePasswordThunk.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload;
+        if (action.payload) {
+          state.user = action.payload;
+        } else if (state.user) {
+          state.user.mustChangePassword = false;
+          storage.setUser(state.user);
+        }
         state.error = null;
       })
       .addCase(changePasswordThunk.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload ?? {
-          statusCode: 0,
-          message: 'Lỗi không xác định',
-          success: false,
-        };
+        state.error = action.payload ?? unknownError();
+      })
+
+      .addCase(sendOtpThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(sendOtpThunk.fulfilled, (state) => {
+        state.isLoading = false;
+        state.error = null;
+      })
+      .addCase(sendOtpThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload ?? unknownError();
+      })
+
+      .addCase(verifyOtpThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(verifyOtpThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (
+          (action.meta.arg.purpose === 'Login' ||
+            action.meta.arg.purpose === 'EmailVerification') &&
+          action.payload.authentication
+        ) {
+          state.user = action.payload.authentication.user;
+          state.isAuthenticated = true;
+        }
+        state.error = null;
+      })
+      .addCase(verifyOtpThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload ?? unknownError();
+      })
+
+      .addCase(resetPasswordThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(resetPasswordThunk.fulfilled, (state) => {
+        state.isLoading = false;
+        state.error = null;
+      })
+      .addCase(resetPasswordThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload ?? unknownError();
       });
   },
 });

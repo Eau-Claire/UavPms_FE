@@ -1,16 +1,19 @@
-import { Layout, Menu, Button } from 'antd';
+import { Layout } from 'antd';
+import type { ReactNode } from 'react';
 import {
+  AppstoreOutlined,
   DashboardOutlined,
-  TeamOutlined,
+  DatabaseOutlined,
+  FileTextOutlined,
+  QuestionCircleOutlined,
   SettingOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { usePermission } from '@hooks/usePermission';
-import { ROUTES } from '@constants/routes';
-import { COLORS, LAYOUT, SPACING, TYPOGRAPHY } from '@styles/tokens';
+import { ROUTES } from '@router/routes';
+import { LAYOUT } from '@theme/layout';
+import logoUrl from '@assets/images/evn-sidebar-logo.png';
 
 interface SidebarProps {
   /** Sidebar đang thu gọn (chỉ hiện icon) */
@@ -19,6 +22,12 @@ interface SidebarProps {
   isMobile: boolean;
   /** Callback khi nhấn nút toggle sidebar */
   onToggle: () => void;
+}
+
+interface SidebarNavItem {
+  key: string;
+  label: string;
+  icon: ReactNode;
 }
 
 /**
@@ -35,86 +44,90 @@ interface SidebarProps {
 const Sidebar = ({ collapsed, isMobile, onToggle }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAdmin } = usePermission();
   const { t } = useTranslation();
 
-  // Danh sách menu item — Admin có thêm mục Quản lý người dùng
-  const menuItems = [
+  if (isMobile && collapsed) {
+    return null;
+  }
+
+  const primaryItems: SidebarNavItem[] = [
     {
       key: ROUTES.DASHBOARD,
       label: t('sidebar.dashboard'),
       icon: <DashboardOutlined />,
     },
-    ...(isAdmin
-      ? [
-          {
-            key: ROUTES.ADMIN_USERS,
-            label: t('sidebar.user_management'),
-            icon: <TeamOutlined />,
-          },
-        ]
-      : []),
-    { key: 'tasks', label: t('sidebar.task_management'), disabled: true, icon: <SettingOutlined /> },
-    { key: 'inspection', label: t('sidebar.inspection'), disabled: true, icon: <SettingOutlined /> },
-    { key: 'maintenance', label: t('sidebar.maintenance'), disabled: true, icon: <SettingOutlined /> },
-    { key: 'analytics', label: t('sidebar.analytics'), disabled: true, icon: <SettingOutlined /> },
+    {
+      key: ROUTES.ADMIN_USERS,
+      label: t('sidebar.user_management'),
+      icon: <TeamOutlined />,
+    },
+    {
+      key: ROUTES.ASSETS,
+      label: t('sidebar.asset_management'),
+      icon: <DatabaseOutlined />,
+    },
+    {
+      key: ROUTES.ADMIN_TASKS,
+      label: t('sidebar.missions'),
+      icon: <AppstoreOutlined />,
+    },
+    {
+      key: ROUTES.ANALYTICS,
+      label: t('sidebar.reports'),
+      icon: <FileTextOutlined />,
+    },
   ];
+
+  const secondaryItems: SidebarNavItem[] = [
+    {
+      key: ROUTES.MAINTENANCE,
+      label: t('sidebar.settings'),
+      icon: <SettingOutlined />,
+    },
+    {
+      key: ROUTES.INSPECTION,
+      label: t('sidebar.support'),
+      icon: <QuestionCircleOutlined />,
+    },
+  ];
+
+  const renderNavItem = (item: SidebarNavItem) => {
+    const isActive = location.pathname === item.key;
+    return (
+      <button
+        key={item.key}
+        type="button"
+        className={isActive ? 'app-nav-item app-nav-item-active' : 'app-nav-item'}
+        onClick={() => {
+          navigate(item.key);
+          if (isMobile) onToggle();
+        }}
+      >
+        <span className="app-nav-icon">{item.icon}</span>
+        {!collapsed && <span className="app-nav-label">{item.label}</span>}
+      </button>
+    );
+  };
 
   return (
     <Layout.Sider
       collapsed={collapsed}
-      collapsible
+      collapsible={isMobile}
       trigger={null}
       width={LAYOUT.sidebarWidth}
-      collapsedWidth={LAYOUT.sidebarCollapsedWidth}
-      style={{
-        backgroundColor: COLORS.bgWhite,
-        position: isMobile ? 'fixed' : 'relative',
-        height: '100vh',
-        left: 0,
-        top: 0,
-        zIndex: isMobile ? 999 : 'auto',
-        borderRight: `1px solid ${COLORS.border}`,
-        overflow: 'auto',
-        boxShadow: isMobile ? '2px 0 8px rgba(0, 0, 0, 0.08)' : 'none',
-      }}
+      collapsedWidth={isMobile ? 0 : LAYOUT.sidebarCollapsedWidth}
+      className={isMobile ? 'app-sidebar app-sidebar-mobile' : 'app-sidebar'}
     >
-      {/* Toggle button - positioned at top right of sidebar */}
-      {!isMobile && (
-        <Button
-          type="text"
-          size="small"
-          icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          onClick={onToggle}
-          style={{
-            position: 'absolute',
-            top: SPACING.md,
-            right: SPACING.smMd,
-            fontSize: TYPOGRAPHY.fontSizeBase,
-            color: COLORS.textPrimary,
-            transition: 'all 0.3s ease',
-            padding: '4px 8px',
-            height: 'auto',
-            zIndex: 10,
-          }}
-          title={collapsed ? 'Mở sidebar' : 'Đóng sidebar'}
-        />
-      )}
+      <div className="app-sidebar-brand">
+        <img src={logoUrl} alt="EVN Logo" className="app-sidebar-logo" />
+      </div>
 
-      <Menu
-        mode="inline"
-        selectedKeys={[location.pathname]}
-        onClick={({ key }) => navigate(key)}
-        items={menuItems}
-        style={{
-          backgroundColor: COLORS.bgWhite,
-          color: COLORS.textPrimary,
-          borderRight: 'none',
-          marginTop: SPACING.lg,
-          paddingTop: SPACING.md,
-        }}
-        theme="light"
-      />
+      <nav className="app-sidebar-nav" aria-label={t('common.main_navigation')}>
+        <div className="app-sidebar-nav-primary">{primaryItems.map(renderNavItem)}</div>
+        <div className="app-sidebar-nav-secondary">
+          {secondaryItems.map(renderNavItem)}
+        </div>
+      </nav>
     </Layout.Sider>
   );
 };

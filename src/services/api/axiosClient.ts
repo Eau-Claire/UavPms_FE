@@ -1,10 +1,11 @@
-import axios from 'axios';
-import { storage } from '@utils/storage';
-import type { ApiResponse, AuthTokens } from '@types';
-import { setupMockInterceptors } from '@mocks/setupMockInterceptors';
+import axios from "axios";
+import { storage } from "@utils/storage";
+import type { ApiResponse, AuthTokens } from "@shared/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const API_BASE_URL =
+ import.meta.env.VITE_API_BASE_URL || `${BACKEND_URL}/api/v1`;
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
 /**
  * Instance axios dùng chung cho toàn bộ app.
@@ -20,13 +21,13 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
  * const res = await axiosClient.get('/users');
  */
 export const axiosClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+ baseURL: API_BASE_URL,
+ headers: { "Content-Type": "application/json" },
 });
 
-// Kích hoạt mock interceptor khi chạy development (xem src/mocks/setupMockInterceptors.ts)
 if (USE_MOCK) {
-  setupMockInterceptors(axiosClient);
+ const { setupMockInterceptors } = await import("@mocks/setupMockInterceptors");
+ setupMockInterceptors(axiosClient);
 }
 
 // ─── Request Interceptor ──────────────────────────────────────────────────────
@@ -36,11 +37,11 @@ if (USE_MOCK) {
  * Dùng storage.getAccessToken() thay vì truy cập localStorage trực tiếp.
  */
 axiosClient.interceptors.request.use((config) => {
-  const token = storage.getAccessToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+ const token = storage.getAccessToken();
+ if (token) {
+  config.headers.Authorization = `Bearer ${token}`;
+ }
+ return config;
 });
 
 // ─── Response Interceptor ─────────────────────────────────────────────────────
@@ -54,41 +55,42 @@ axiosClient.interceptors.request.use((config) => {
  * Không áp dụng cho endpoint /auth/login (đang lấy token lần đầu).
  */
 axiosClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    const is401 = error.response?.status === 401;
-    const isLoginEndpoint = originalRequest?.url?.includes('/auth/login');
+ (response) => response,
+ async (error) => {
+  const originalRequest = error.config;
+  const is401 = error.response?.status === 401;
+  const isLoginEndpoint = originalRequest?.url?.includes("/auth/login");
 
-    if (is401 && !originalRequest._retry && !isLoginEndpoint) {
-      originalRequest._retry = true;
+  if (is401 && originalRequest && !originalRequest._retry && !isLoginEndpoint) {
+   originalRequest._retry = true;
 
-      try {
-        const refreshToken = storage.getRefreshToken();
-        if (!refreshToken) throw new Error('No refresh token available');
+   try {
+    const refreshToken = storage.getRefreshToken();
+    if (!refreshToken) throw new Error("No refresh token available");
 
-        // Dùng axios trực tiếp (không dùng axiosClient) để tránh interceptor này chạy lại
-        const response = await axios.post<ApiResponse<AuthTokens>>(
-          `${API_BASE_URL}/auth/refresh`,
-          { refreshToken },
-        );
+    // Dùng axios trực tiếp (không dùng axiosClient) để tránh interceptor này chạy lại
+    const response = await axios.post<ApiResponse<AuthTokens> | AuthTokens>(
+     `${API_BASE_URL}/auth/refresh-token`,
+     { refreshToken },
+    );
 
-        const newTokens = response.data.data;
-        storage.setToken(newTokens);
+    const newTokens =
+     "data" in response.data ? response.data.data : response.data;
+    storage.setToken(newTokens);
 
-        originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-        return axiosClient(originalRequest);
-      } catch {
-        storage.clear();
-        // Hard reload về login để clear toàn bộ React state
-        // Dùng window.location.href vì interceptor không có access đến React Router
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-    }
-
+    originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
+    return axiosClient(originalRequest);
+   } catch {
+    storage.clear();
+    // Hard reload về login để clear toàn bộ React state
+    // Dùng window.location.href vì interceptor không có access đến React Router
+    window.location.href = "/login";
     return Promise.reject(error);
-  },
+   }
+  }
+
+  return Promise.reject(error);
+ },
 );
 
 export default axiosClient;
