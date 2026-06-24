@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "test:e2e": "playwright test"
   },
   "private": true,
   "overrides": {
@@ -33,6 +34,7 @@
     "@angular/cli": "^21.2.17",
     "@angular/compiler-cli": "^21.2.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.12",
     "angular-eslint": "21.4.0",
     "eslint": "^10.3.0",
