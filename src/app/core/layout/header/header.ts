@@ -7,6 +7,7 @@ import { Auth } from '../../auth/auth';
 
 @Component({
   selector: 'app-header',
+  host: { style: 'display: contents' },
   imports: [NzIconModule],
   templateUrl: './header.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

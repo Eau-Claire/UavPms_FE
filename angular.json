@@ -31,6 +31,12 @@
               }
             ],
             "styles": [
+              "node_modules/ng-zorro-antd/style/index.min.css",
+              "node_modules/ng-zorro-antd/layout/style/index.min.css",
+              "node_modules/ng-zorro-antd/button/style/index.min.css",
+              "node_modules/ng-zorro-antd/form/style/index.min.css",
+              "node_modules/ng-zorro-antd/input/style/index.min.css",
+              "node_modules/ng-zorro-antd/divider/style/index.min.css",
               "src/tailwind.css",
               "src/styles/reference/globals.css",
               "src/styles.scss",

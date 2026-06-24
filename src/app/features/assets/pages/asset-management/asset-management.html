@@ -2,32 +2,32 @@
   <div class="asset-workspace">
     <aside class="asset-tree-panel">
       <h1>Asset Management</h1>
-      <div class="ant-input-affix-wrapper asset-filter"><span nz-icon nzType="search"></span><input class="ant-input" placeholder="Filter assets..." /></div>
+      <div class="ant-input-affix-wrapper asset-filter"><span nz-icon nzType="search"></span><input class="ant-input" placeholder="Lọc thiết bị..." /></div>
       <div class="asset-tree">
-        <div class="asset-tree-group"><span nz-icon nzType="down"></span><span>Southern Region</span></div>
-        <div class="asset-tree-subgroup"><span nz-icon nzType="down"></span><span>Tan Binh Substation (110kV)</span></div>
-        <div class="asset-tree-item asset-tree-item-active"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span><span>Tan Binh - Hoc Mon Line</span><i></i></div>
+        <div class="asset-tree-group"><span nz-icon nzType="down"></span><span>Miền Nam</span></div>
+        <div class="asset-tree-subgroup"><span nz-icon nzType="down"></span><span>TBA Tân Bình (110kV)</span></div>
+        <div class="asset-tree-item asset-tree-item-active"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span><span>ĐD Tân Bình - Hóc Môn</span><i></i></div>
         @for (tower of towers; track tower.code) {
           <div class="asset-tree-tower" [class.asset-tree-tower-active]="tower.code === 'T04'">
-            <span nz-icon nzType="environment" nzTheme="fill"></span><span>Tower {{ tower.code }}</span>@if (tower.alerts > 1) { <i></i> }
+            <span nz-icon nzType="environment" nzTheme="fill"></span><span>Cột {{ tower.code }}</span>@if (tower.alerts > 1) { <i></i> }
           </div>
         }
-        <div class="asset-tree-group asset-tree-group-muted"><span nz-icon nzType="right"></span><span>Central Region</span></div>
+        <div class="asset-tree-group asset-tree-group-muted"><span nz-icon nzType="right"></span><span>Miền Trung</span></div>
       </div>
     </aside>
     <main class="asset-main-panel">
       <div class="asset-tabs-row">
         <div class="asset-tabs"><button type="button">Overview</button><button type="button" class="asset-tab-active">Map View</button><button type="button">Grid View</button></div>
-        <div class="asset-view-toggle"><button type="button">List</button><button type="button" class="asset-view-active">Map</button></div>
+        <div class="asset-view-toggle"><button type="button">Danh sách</button><button type="button" class="asset-view-active">Bản đồ</button></div>
       </div>
       <section class="asset-map">
         <div class="map-grid-lines"></div>
         <svg viewBox="0 0 900 420" class="map-route" aria-hidden="true"><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="#2ddf91" stroke-width="6" stroke-linecap="round"/><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="rgba(45, 223, 145, 0.22)" stroke-width="22" stroke-linecap="round"/></svg>
         @for (tower of towers; track tower.code) { <span class="map-marker marker-{{ tower.code.toLowerCase() }} map-marker-{{ tower.tone }}">{{ tower.code }}</span> }
-        <div class="map-tooltip"><strong>Tower T04</strong><span>Health:</span><small>Devices: 12</small><button type="button">View details</button></div>
-        <div class="map-legend"><strong>STATUS LEGEND</strong><span><i class="legend-ok"></i>Good (&gt;= 80)</span><span><i class="legend-warning"></i>Warning (50-79)</span><span><i class="legend-critical"></i>Critical (&lt; 50)</span><span><i class="legend-pulse"></i>Emergency alert</span></div>
+        <div class="map-tooltip"><strong>Cột T04</strong><span>Sức khỏe:</span><small>Số thiết bị: 12</small><button type="button">Xem chi tiết</button></div>
+        <div class="map-legend"><strong>CHÚ GIẢI TÌNH TRẠNG</strong><span><i class="legend-ok"></i>Tốt (&gt;= 80)</span><span><i class="legend-warning"></i>Cảnh báo (50-79)</span><span><i class="legend-critical"></i>Nguy hiểm (&lt; 50)</span><span><i class="legend-pulse"></i>Cảnh báo khẩn cấp</span></div>
       </section>
-      <section class="asset-table-shell"><div class="ant-table-wrapper evn-table asset-table"><div class="ant-table"><div class="ant-table-container"><div class="ant-table-content"><table><thead class="ant-table-thead"><tr><th>TOWER ID</th><th>STATUS</th><th>DEVICES</th><th>ALERTS</th><th>ACTION</th></tr></thead><tbody class="ant-table-tbody">@for (tower of towers; track tower.code) { <tr class="ant-table-row" [class.asset-row-active]="tower.code === 'T04'"><td>{{ tower.code }}</td><td><span class="asset-status asset-status-{{ tower.tone }}">{{ tower.status }}</span></td><td>{{ tower.devices }}</td><td><span class="asset-alert asset-alert-{{ tower.tone }}">{{ tower.alerts }}</span></td><td><button type="button" class="ant-btn asset-table-action" [class.ant-btn-primary]="tower.code === 'T04'">View details</button></td></tr> }</tbody></table></div></div></div></div></section>
+      <section class="asset-table-shell"><div class="ant-table-wrapper evn-table asset-table"><div class="ant-table"><div class="ant-table-container"><div class="ant-table-content"><table><thead class="ant-table-thead"><tr><th>MÃ CỘT</th><th>TÌNH TRẠNG</th><th>SỐ THIẾT BỊ</th><th>CẢNH BÁO</th><th>HÀNH ĐỘNG</th></tr></thead><tbody class="ant-table-tbody">@for (tower of towers; track tower.code) { <tr class="ant-table-row" [class.asset-row-active]="tower.code === 'T04'"><td>{{ tower.code }}</td><td><span class="asset-status asset-status-{{ tower.tone }}">{{ tower.status }}</span></td><td>{{ tower.devices }}</td><td><span class="asset-alert asset-alert-{{ tower.tone }}">{{ tower.alerts }}</span></td><td><button type="button" class="ant-btn asset-table-action" [class.ant-btn-primary]="tower.code === 'T04'">Xem chi tiết</button></td></tr> }</tbody></table></div></div></div></div></section>
     </main>
   </div>
 </div>

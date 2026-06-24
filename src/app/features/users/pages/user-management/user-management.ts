@@ -25,4 +25,6 @@ export class UserManagement {
   protected changeStatus(user: UserRecord, status: UserStatus): void { this.api.update(user.id, { status }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (updated) => this.users.update((users) => users.map((item) => item.id === updated.id ? updated : item)), error: () => this.error.set('User status could not be updated.') }); }
   protected resetPassword(user: UserRecord): void { this.api.resetPassword(user.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (value) => this.credential.set(value), error: () => this.error.set('Password could not be reset.') }); }
   protected roleClass(role: UserRole): string { return `role-${role.toLowerCase()}`; } protected statusClass(status: UserStatus): string { return `status-${status.toLowerCase()}`; }
+  protected roleLabel(role: UserRole): string { return ({ Admin: 'Quản trị viên', Manager: 'Quản lý', Inspector: 'Thanh tra', Technician: 'Kỹ thuật viên', Analyst: 'Phân tích viên', Viewer: 'Người xem' } as const)[role]; }
+  protected statusLabel(status: UserStatus): string { return ({ Active: 'Hoạt động', Inactive: 'Không hoạt động', Locked: 'Đã khóa' } as const)[status]; }
 }

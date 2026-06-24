@@ -1,13 +1,10 @@
 <header class="app-header ant-layout-header">
-  <button type="button" class="app-mobile-menu" aria-label="Open menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
-  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Search assets</span><input class="ant-input" placeholder="Search assets..." /></label> }</div>
+  <button type="button" class="app-mobile-menu" aria-label="Mở menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
+  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Tìm kiếm tài sản</span><input class="ant-input" placeholder="Tìm kiếm tài sản..." /></label> }</div>
   <div class="app-header-actions">
-    <button type="button" class="app-header-icon" aria-label="Notifications"><span nz-icon nzType="bell"></span><span class="app-header-dot"></span></button>
-    <button type="button" class="app-header-icon" aria-label="Apps"><span nz-icon nzType="appstore"></span></button>
+    <button type="button" class="app-header-icon" aria-label="Thông báo"><span nz-icon nzType="bell"></span><span class="app-header-dot"></span></button>
+    <button type="button" class="app-header-icon" aria-label="Ứng dụng"><span nz-icon nzType="appstore"></span></button>
     <div class="app-header-divider"></div>
-    <div class="app-profile-wrap">
-      <button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Administrator' : user()?.fullName }}</span><span class="app-user-role">System Admin</span></span></button>
-      @if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Profile</button><button type="button"><span nz-icon nzType="setting"></span> Settings</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Logout</button></div> }
-    </div>
+    <div class="app-profile-wrap"><button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Quản trị viên' : user()?.fullName }}</span><span class="app-user-role">Quản trị hệ thống</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Thông tin cá nhân</button><button type="button"><span nz-icon nzType="setting"></span> Cài đặt</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button></div> }</div>
   </div>
 </header>
