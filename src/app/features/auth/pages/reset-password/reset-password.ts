@@ -4,12 +4,16 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
+import { NgOptimizedImage } from '@angular/common';
+import { NzButtonModule } from 'ng-zorro-antd/button';
+import { NzFormModule } from 'ng-zorro-antd/form';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { NzInputModule } from 'ng-zorro-antd/input';
 
 @Component({
   selector: 'app-reset-password',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzFormModule, NzIconModule, NzInputModule],
   templateUrl: './reset-password.html',
-  styleUrl: './reset-password.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResetPassword {

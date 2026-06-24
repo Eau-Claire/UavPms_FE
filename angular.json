@@ -30,7 +30,15 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/tailwind.css", "src/styles.scss"]
+            "styles": [
+              "src/tailwind.css",
+              "src/styles/reference/globals.css",
+              "src/styles.scss",
+              "src/styles/reference/layout.css",
+              "src/styles/reference/auth.css",
+              "src/styles/reference/users.css",
+              "src/styles/reference/assets.css"
+            ]
           },
           "configurations": {
             "production": {

@@ -1,1 +1,33 @@
-<section class="asset-page"><header><div><p>Network intelligence</p><h1>Asset management</h1><span>Transmission line assets and inspection coverage.</span></div><button type="button" class="button primary">Add asset</button></header><div class="asset-grid"><article class="map panel"><img ngSrc="/images/asset-map-canvas.png" fill priority alt="Transmission asset map overview" /><div class="map-copy"><span>Live coverage map</span><strong>Southern transmission network</strong></div></article><aside><article class="panel metric"><span>◇</span><div><small>Total assets</small><strong>—</strong><p>Connect Asset API</p></div></article><article class="panel metric"><span>✓</span><div><small>Inspected</small><strong>—</strong><p>Current cycle</p></div></article><article class="panel"><h2>Asset data ready</h2><p>This Angular feature preserves the existing asset workspace and is structured for typed Asset API integration.</p></article></aside></div></section>
+<div class="asset-page">
+  <div class="asset-workspace">
+    <aside class="asset-tree-panel">
+      <h1>Asset Management</h1>
+      <div class="ant-input-affix-wrapper asset-filter"><span nz-icon nzType="search"></span><input class="ant-input" placeholder="Filter assets..." /></div>
+      <div class="asset-tree">
+        <div class="asset-tree-group"><span nz-icon nzType="down"></span><span>Southern Region</span></div>
+        <div class="asset-tree-subgroup"><span nz-icon nzType="down"></span><span>Tan Binh Substation (110kV)</span></div>
+        <div class="asset-tree-item asset-tree-item-active"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span><span>Tan Binh - Hoc Mon Line</span><i></i></div>
+        @for (tower of towers; track tower.code) {
+          <div class="asset-tree-tower" [class.asset-tree-tower-active]="tower.code === 'T04'">
+            <span nz-icon nzType="environment" nzTheme="fill"></span><span>Tower {{ tower.code }}</span>@if (tower.alerts > 1) { <i></i> }
+          </div>
+        }
+        <div class="asset-tree-group asset-tree-group-muted"><span nz-icon nzType="right"></span><span>Central Region</span></div>
+      </div>
+    </aside>
+    <main class="asset-main-panel">
+      <div class="asset-tabs-row">
+        <div class="asset-tabs"><button type="button">Overview</button><button type="button" class="asset-tab-active">Map View</button><button type="button">Grid View</button></div>
+        <div class="asset-view-toggle"><button type="button">List</button><button type="button" class="asset-view-active">Map</button></div>
+      </div>
+      <section class="asset-map">
+        <div class="map-grid-lines"></div>
+        <svg viewBox="0 0 900 420" class="map-route" aria-hidden="true"><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="#2ddf91" stroke-width="6" stroke-linecap="round"/><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="rgba(45, 223, 145, 0.22)" stroke-width="22" stroke-linecap="round"/></svg>
+        @for (tower of towers; track tower.code) { <span class="map-marker marker-{{ tower.code.toLowerCase() }} map-marker-{{ tower.tone }}">{{ tower.code }}</span> }
+        <div class="map-tooltip"><strong>Tower T04</strong><span>Health:</span><small>Devices: 12</small><button type="button">View details</button></div>
+        <div class="map-legend"><strong>STATUS LEGEND</strong><span><i class="legend-ok"></i>Good (&gt;= 80)</span><span><i class="legend-warning"></i>Warning (50-79)</span><span><i class="legend-critical"></i>Critical (&lt; 50)</span><span><i class="legend-pulse"></i>Emergency alert</span></div>
+      </section>
+      <section class="asset-table-shell"><div class="ant-table-wrapper evn-table asset-table"><div class="ant-table"><div class="ant-table-container"><div class="ant-table-content"><table><thead class="ant-table-thead"><tr><th>TOWER ID</th><th>STATUS</th><th>DEVICES</th><th>ALERTS</th><th>ACTION</th></tr></thead><tbody class="ant-table-tbody">@for (tower of towers; track tower.code) { <tr class="ant-table-row" [class.asset-row-active]="tower.code === 'T04'"><td>{{ tower.code }}</td><td><span class="asset-status asset-status-{{ tower.tone }}">{{ tower.status }}</span></td><td>{{ tower.devices }}</td><td><span class="asset-alert asset-alert-{{ tower.tone }}">{{ tower.alerts }}</span></td><td><button type="button" class="ant-btn asset-table-action" [class.ant-btn-primary]="tower.code === 'T04'">View details</button></td></tr> }</tbody></table></div></div></div></div></section>
+    </main>
+  </div>
+</div>

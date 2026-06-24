@@ -1,5 +1,13 @@
-<header>
-  <button type="button" class="menu-button" aria-label="Open navigation" (click)="menuOpened.emit()">☰</button>
-  <div><p class="eyebrow">EVN transmission operations</p><strong>Operational monitoring</strong></div>
-  <div class="actions"><button type="button" class="icon-button" aria-label="Notifications">♢<span class="notification-dot"></span></button><div class="profile"><span class="avatar" aria-hidden="true">{{ user()?.fullName?.charAt(0) || 'U' }}</span><span><strong>{{ user()?.fullName || 'Operator' }}</strong><small>{{ user()?.role || 'Viewer' }}</small></span></div><button type="button" class="logout" (click)="logout()">Sign out</button></div>
+<header class="app-header ant-layout-header">
+  <button type="button" class="app-mobile-menu" aria-label="Open menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
+  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Search assets</span><input class="ant-input" placeholder="Search assets..." /></label> }</div>
+  <div class="app-header-actions">
+    <button type="button" class="app-header-icon" aria-label="Notifications"><span nz-icon nzType="bell"></span><span class="app-header-dot"></span></button>
+    <button type="button" class="app-header-icon" aria-label="Apps"><span nz-icon nzType="appstore"></span></button>
+    <div class="app-header-divider"></div>
+    <div class="app-profile-wrap">
+      <button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Administrator' : user()?.fullName }}</span><span class="app-user-role">System Admin</span></span></button>
+      @if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Profile</button><button type="button"><span nz-icon nzType="setting"></span> Settings</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Logout</button></div> }
+    </div>
+  </div>
 </header>
