@@ -21,7 +21,10 @@ export class Login {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     this.busy.set(true); this.error.set('');
     this.auth.login(this.form.getRawValue()).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({
-      next: (session) => void this.router.navigateByUrl(session.user.mustChangePassword ? '/change-password' : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard'),
+      next: (result) => {
+        if (result.otpRequired) { void this.router.navigate(['/otp'], { queryParams: { email: result.email, purpose: 'Login' } }); return; }
+        void this.router.navigateByUrl(result.session.user.mustChangePassword ? '/change-password' : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard');
+      },
       error: (error: HttpErrorResponse) => this.error.set(error.status === 401 ? 'Email or password is incorrect.' : 'Sign in failed. Check the API connection and try again.'),
     });
   }
