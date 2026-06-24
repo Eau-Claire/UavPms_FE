@@ -1,0 +1,6 @@
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<div class="app-shell">
+  <app-sidebar [open]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+  @if (sidebarOpen()) { <button type="button" class="backdrop" aria-label="Close navigation" (click)="sidebarOpen.set(false)"></button> }
+  <div class="app-frame"><app-header (menuOpened)="sidebarOpen.set(true)" /><main id="main-content" tabindex="-1"><router-outlet /></main></div>
+</div>

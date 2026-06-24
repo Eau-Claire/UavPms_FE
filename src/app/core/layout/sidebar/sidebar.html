@@ -1,0 +1,5 @@
+<aside [class.mobile-open]="open()" aria-label="Primary navigation">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">EVN</span><span><strong>UAV-PMS</strong><small>Powerline intelligence</small></span></div>
+  <nav>@for (item of primaryLinks; track item.path) { <a [routerLink]="item.path" routerLinkActive="active" (click)="closed.emit()"><span aria-hidden="true">{{ item.icon }}</span>{{ item.label }}</a> }</nav>
+  <div class="sidebar-foot"><span class="pulse" aria-hidden="true"></span><span><strong>System online</strong><small>All services operational</small></span></div>
+</aside>

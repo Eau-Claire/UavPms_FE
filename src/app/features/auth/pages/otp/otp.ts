@@ -1,0 +1,20 @@
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
+import { Auth } from '../../../../core/auth/auth';
+
+@Component({
+  selector: 'app-otp',
+  imports: [ReactiveFormsModule, RouterLink],
+  templateUrl: './otp.html',
+  styleUrl: './otp.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class Otp {
+  private readonly fb = inject(FormBuilder); private readonly auth = inject(Auth); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly destroyRef = inject(DestroyRef);
+  protected readonly email = this.route.snapshot.queryParamMap.get('email') ?? ''; protected readonly purpose = this.route.snapshot.queryParamMap.get('purpose') ?? 'Login'; protected readonly busy = signal(false); protected readonly error = signal('');
+  protected readonly form = this.fb.nonNullable.group({ otp: ['', [Validators.required, Validators.pattern(/^\d{6}$/)]] });
+  protected submit(): void { if (this.form.invalid) { this.form.markAllAsTouched(); return; } this.busy.set(true); this.error.set(''); this.auth.verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: (response) => { const data = response as { data?: { verificationToken?: string; token?: string } }; const token = data.data?.verificationToken ?? data.data?.token ?? ''; void this.router.navigate(this.purpose === 'ForgotPassword' ? ['/reset-password'] : ['/login'], { queryParams: token ? { token } : undefined }); }, error: () => this.error.set('Code is invalid or expired.') }); }
+}

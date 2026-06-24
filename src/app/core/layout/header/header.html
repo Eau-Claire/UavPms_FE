@@ -1,0 +1,5 @@
+<header>
+  <button type="button" class="menu-button" aria-label="Open navigation" (click)="menuOpened.emit()">☰</button>
+  <div><p class="eyebrow">EVN transmission operations</p><strong>Operational monitoring</strong></div>
+  <div class="actions"><button type="button" class="icon-button" aria-label="Notifications">♢<span class="notification-dot"></span></button><div class="profile"><span class="avatar" aria-hidden="true">{{ user()?.fullName?.charAt(0) || 'U' }}</span><span><strong>{{ user()?.fullName || 'Operator' }}</strong><small>{{ user()?.role || 'Viewer' }}</small></span></div><button type="button" class="logout" (click)="logout()">Sign out</button></div>
+</header>

@@ -1,0 +1,6 @@
+:host { display: block; min-height: 100dvh; }
+.app-shell { display: grid; grid-template-columns: 16rem minmax(0, 1fr); min-height: 100dvh; background: var(--color-bg); }
+.app-frame { min-width: 0; } main { min-height: calc(100dvh - 4.5rem); padding: clamp(1rem, 2vw, 2rem); }
+.skip-link { position: fixed; z-index: 100; left: 1rem; top: -4rem; padding: .75rem 1rem; background: #fff; color: var(--color-brand); border-radius: .5rem; }.skip-link:focus { top: 1rem; }
+.backdrop { display: none; }
+@media (max-width: 900px) { .app-shell { grid-template-columns: 1fr; } .backdrop { display: block; position: fixed; inset: 0; z-index: 20; border: 0; background: rgb(15 23 42 / .52); } }

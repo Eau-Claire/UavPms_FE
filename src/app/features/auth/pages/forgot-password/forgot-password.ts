@@ -1,0 +1,19 @@
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
+import { Auth } from '../../../../core/auth/auth';
+
+@Component({
+  selector: 'app-forgot-password',
+  imports: [ReactiveFormsModule, RouterLink],
+  templateUrl: './forgot-password.html',
+  styleUrl: './forgot-password.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class ForgotPassword {
+  private readonly fb = inject(FormBuilder); private readonly auth = inject(Auth); private readonly router = inject(Router); private readonly destroyRef = inject(DestroyRef);
+  protected readonly busy = signal(false); protected readonly error = signal(''); protected readonly form = this.fb.nonNullable.group({ email: ['', [Validators.required, Validators.email]] });
+  protected submit(): void { if (this.form.invalid) { this.form.markAllAsTouched(); return; } this.busy.set(true); this.error.set(''); const email = this.form.controls.email.value; this.auth.sendOtp({ email, purpose: 'ForgotPassword' }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: () => void this.router.navigate(['/otp'], { queryParams: { email, purpose: 'ForgotPassword' } }), error: () => this.error.set('OTP could not be sent. Try again.') }); }
+}
