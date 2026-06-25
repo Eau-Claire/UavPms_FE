@@ -1,21 +1,90 @@
-<section class="page-heading"><div><p class="eyebrow">Real-time operations</p><h1>Monitoring dashboard</h1><p>Mission activity, AI inspection output, and system health in one view.</p></div><div class="live"><span aria-hidden="true"></span>Auto-refresh · 30s</div></section>
-@if (store.loading() && !store.dashboard()) { <app-data-state kind="loading" title="Loading operational data" message="Connecting to Monitor services…" /> }
-@else if (store.error() && !store.dashboard()) { <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" /> }
-@else if (store.summary(); as summary) {
+﻿<section class="page-heading">
+  <div>
+    <p class="eyebrow">Real-time operations</p>
+    <h1>Monitoring dashboard</h1>
+    <p>Mission activity, AI inspection output, and system health in one view.</p>
+  </div>
+  <div class="live"><span aria-hidden="true"></span>Auto-refresh · 30s</div>
+</section>
+
+@if (store.loading() && !store.dashboard()) {
+  <app-data-state kind="loading" title="Loading operational data" message="Connecting to Monitor services…" />
+} @else if (store.error() && !store.dashboard()) {
+  <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
+} @else if (store.summary(); as summary) {
   <section class="summary-grid" aria-label="Monitoring summary">
     <app-summary-card label="Total missions" [value]="summary.totalMissions" icon="◫" />
-    <app-summary-card label="Pending" [value]="summary.pendingMissions" icon="◷" tone="amber" />
+    <app-summary-card label="Pending" [value]="summary.pendingMissions" icon="▷" tone="amber" />
     <app-summary-card label="In progress" [value]="summary.inProgressMissions" icon="↻" />
     <app-summary-card label="Completed" [value]="summary.completedMissions" icon="✓" tone="green" />
     <app-summary-card label="Inspections" [value]="summary.totalInspections" icon="◎" tone="violet" />
     <app-summary-card label="Total defects" [value]="summary.totalDefects" icon="◇" tone="amber" />
     <app-summary-card label="Critical defects" [value]="summary.criticalDefects" icon="!" tone="red" note="Requires attention" />
   </section>
-  @if (store.error()) { <div class="stale-warning" role="status">{{ store.error() }} Showing last successful update.</div> }
+
+  @if (store.error()) {
+    <div class="stale-warning" role="status">{{ store.error() }} Showing last successful update.</div>
+  }
+
   <section class="dashboard-grid">
-    <article class="panel span-two"><header><div><p class="kicker">AI findings</p><h2>Recent defects</h2></div><a routerLink="/inspections">View all inspections →</a></header>@if (store.recentDefects(); as defects) { @if (defects.items.length) { <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" /> } @else { <app-data-state kind="empty" title="No recent defects" message="AI findings will appear here when detected." /> } }</article>
-    <article class="panel"><header><div><p class="kicker">Distribution</p><h2>Defect statistics</h2></div></header>@if (store.defectStatistics().length) { <app-defect-statistics-chart [data]="store.defectStatistics()" /> } @else { <app-data-state kind="empty" title="No defect statistics" /> }</article>
-    <article class="panel"><header><div><p class="kicker">Execution</p><h2>Mission status</h2></div></header>@if (store.missionStatus().length) { <app-mission-status-overview [data]="store.missionStatus()" /> } @else { <app-data-state kind="empty" title="No mission activity" /> }</article>
-    <article class="panel"><header><div><p class="kicker">Attention</p><h2>Active alerts</h2></div><span class="count">{{ store.alerts().length }}</span></header>@if (store.alerts().length) { <app-active-alerts-panel [alerts]="store.alerts()" /> } @else { <app-data-state kind="empty" title="No active alerts" message="The system is operating normally." /> }</article>
+    <article class="panel panel-alerts">
+      <header>
+        <div>
+          <p class="kicker">Attention</p>
+          <h2>Active alerts</h2>
+        </div>
+        <span class="count">{{ store.alerts().length }}</span>
+      </header>
+      @if (store.alerts().length) {
+        <app-active-alerts-panel [alerts]="store.alerts()" />
+      } @else {
+        <app-data-state kind="empty" title="No active alerts" message="The system is operating normally." />
+      }
+    </article>
+
+    <article class="panel panel-statistics">
+      <header>
+        <div>
+          <p class="kicker">Distribution</p>
+          <h2>Defect statistics</h2>
+        </div>
+      </header>
+      @if (store.defectStatistics().length) {
+        <app-defect-statistics-chart [data]="store.defectStatistics()" />
+      } @else {
+        <app-data-state kind="empty" title="No defect statistics" />
+      }
+    </article>
+
+    <article class="panel panel-missions">
+      <header>
+        <div>
+          <p class="kicker">Execution</p>
+          <h2>Mission status</h2>
+        </div>
+      </header>
+      @if (store.missionStatus().length) {
+        <app-mission-status-overview [data]="store.missionStatus()" />
+      } @else {
+        <app-data-state kind="empty" title="No mission activity" />
+      }
+    </article>
+
+    <article class="panel panel-defects">
+      <header>
+        <div>
+          <p class="kicker">AI findings</p>
+          <h2>Recent defects</h2>
+        </div>
+        <a routerLink="/inspections">View all inspections →</a>
+      </header>
+      @if (store.recentDefects(); as defects) {
+        @if (defects.items.length) {
+          <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" />
+        } @else {
+          <app-data-state kind="empty" title="No recent defects" message="AI findings will appear here when detected." />
+        }
+      }
+    </article>
   </section>
 }

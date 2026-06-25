@@ -1,1 +1,22 @@
-<div class="chart-wrap"><div class="chart" role="img" [attr.aria-label]="'Defect distribution chart, ' + total() + ' total defects'" [style.background]="gradient()"><div class="chart-hole"><strong>{{ total() }}</strong><span>Total defects</span></div></div><ul>@for (item of data(); track item.defectType; let index = $index) { <li><span [style.background]="colors[index % colors.length]" aria-hidden="true"></span><span>{{ item.defectType }}</span><strong>{{ item.count }}</strong></li> }</ul></div>
+﻿<div class="chart-wrap">
+  <div
+    class="chart"
+    role="img"
+    [attr.aria-label]="'Defect distribution pie chart, ' + total() + ' total defects'"
+    [style.background]="gradient()"
+  ></div>
+
+  <div class="chart-meta">
+    <strong class="chart-total">{{ total() }}</strong>
+    <span class="chart-caption">Total defects</span>
+    <ul>
+      @for (item of data(); track item.defectType; let index = $index) {
+        <li>
+          <span [style.background]="colors[index % colors.length]" aria-hidden="true"></span>
+          <span>{{ item.defectType }}</span>
+          <strong>{{ item.count }}</strong>
+        </li>
+      }
+    </ul>
+  </div>
+</div>
