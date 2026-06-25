@@ -39,11 +39,7 @@
               "node_modules/ng-zorro-antd/divider/style/index.min.css",
               "src/tailwind.css",
               "src/styles/reference/globals.css",
-              "src/styles.scss",
-              "src/styles/reference/layout.css",
-              "src/styles/reference/auth.css",
-              "src/styles/reference/users.css",
-              "src/styles/reference/assets.css"
+              "src/styles.scss"
             ]
           },
           "configurations": {

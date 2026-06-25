@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -7,7 +7,7 @@ import { UserRole } from '../../../../core/auth/auth.models';
 import { UsersApi } from '../../data-access/users-api';
 import { UserRecord, UserStatus } from '../../data-access/users.models';
 
-@Component({ selector: 'app-user-management', imports: [ReactiveFormsModule, NzIconModule], templateUrl: './user-management.html', changeDetection: ChangeDetectionStrategy.OnPush })
+@Component({ selector: 'app-user-management', imports: [ReactiveFormsModule, NzIconModule], templateUrl: './user-management.html', styleUrl: './user-management.scss', encapsulation: ViewEncapsulation.None, changeDetection: ChangeDetectionStrategy.OnPush })
 export class UserManagement {
   private readonly api = inject(UsersApi); private readonly fb = inject(FormBuilder); private readonly destroyRef = inject(DestroyRef);
   protected readonly users = signal<readonly UserRecord[]>([]); protected readonly loading = signal(true); protected readonly busy = signal(false); protected readonly error = signal(''); protected readonly search = signal(''); protected readonly roleFilter = signal<UserRole | ''>(''); protected readonly statusFilter = signal<UserStatus | ''>(''); protected readonly modalOpen = signal(false); protected readonly editing = signal<UserRecord | null>(null); protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);

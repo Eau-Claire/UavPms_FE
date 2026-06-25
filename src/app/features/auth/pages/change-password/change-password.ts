@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -14,6 +14,8 @@ import { NzInputModule } from 'ng-zorro-antd/input';
   selector: 'app-change-password',
   imports: [ReactiveFormsModule, NgOptimizedImage, NzButtonModule, NzFormModule, NzIconModule, NzInputModule],
   templateUrl: './change-password.html',
+  styleUrl: './change-password.scss',
+  encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChangePassword {

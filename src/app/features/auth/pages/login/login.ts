@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,6 +16,8 @@ import { NzInputModule } from 'ng-zorro-antd/input';
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzDividerModule, NzFormModule, NzIconModule, NzInputModule],
   templateUrl: './login.html',
+  styleUrl: './login.scss',
+  encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Login {
