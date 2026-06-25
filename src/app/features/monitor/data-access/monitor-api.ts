@@ -1,9 +1,9 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+﻿import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { forkJoin, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { unwrapApiData } from '../../../core/api/api.models';
-import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../core/api/models/monitor.models';
+import { unwrapApiData } from '../../../models/api.models';
+import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../models/monitor.models';
 
 @Injectable({
   providedIn: 'root',
@@ -83,3 +83,4 @@ const normalizeMissionStatuses = (value: unknown): readonly MissionStatus[] => {
   if (list.length) return list.map((item) => { const s = record(item); return { status: stringValue(pick(s, 'status', 'name', 'label')), count: numberValue(pick(s, 'count', 'value', 'total')) }; });
   return [{ status: 'Pending', count: numberValue(pick(source, 'pending', 'pendingMissions')) }, { status: 'InProgress', count: numberValue(pick(source, 'inProgress', 'inProgressMissions')) }, { status: 'Completed', count: numberValue(pick(source, 'completed', 'completedMissions')) }];
 };
+

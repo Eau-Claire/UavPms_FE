@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { MissionStatus } from '../../../../core/api/models/monitor.models';
+﻿import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { MissionStatus } from '../../../../models/monitor.models';
 
 @Component({
   selector: 'app-mission-status-overview',
@@ -13,3 +13,4 @@ export class MissionStatusOverview {
   protected percent(count: number): number { return this.total() ? Math.round(count / this.total() * 100) : 0; }
   protected label(status: string): string { return status.replace(/([a-z])([A-Z])/g, '$1 $2'); }
 }
+

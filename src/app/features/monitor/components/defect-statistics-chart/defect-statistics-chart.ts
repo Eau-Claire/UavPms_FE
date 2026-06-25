@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DefectStatistic } from '../../../../core/api/models/monitor.models';
+﻿import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { DefectStatistic } from '../../../../models/monitor.models';
 
 @Component({
   selector: 'app-defect-statistics-chart',
@@ -16,3 +16,4 @@ export class DefectStatisticsChart {
     return `conic-gradient(${this.data().map((item, index) => { const start = cursor; cursor += item.count / total * 100; return `${this.colors[index % this.colors.length]} ${start}% ${cursor}%`; }).join(',')})`;
   });
 }
+

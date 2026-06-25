@@ -1,9 +1,9 @@
-import { HttpClient } from '@angular/common/http';
+﻿import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { unwrapApiData } from '../../../core/api/api.models';
-import { CreateUserRequest, UserRecord, UserStatus } from '../../../core/api/models/users.models';
+import { unwrapApiData } from '../../../models/api.models';
+import { CreateUserRequest, UserRecord, UserStatus } from '../../../models/users.models';
 
 @Injectable({ providedIn: 'root' })
 export class UsersApi {
@@ -14,3 +14,4 @@ export class UsersApi {
   resetPassword(id: string) { return this.http.post<unknown>(`${this.url}/${id}/reset-password`, {}).pipe(map((value) => unwrapApiData<{ username: string; temporaryPassword: string }>(value))); }
   delete(id: string) { return this.http.delete(`${this.url}/${id}`); }
 }
+

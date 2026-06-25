@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { InspectionFilters as Filters } from '../../../../core/api/models/monitor.models';
+import { InspectionFilters as Filters } from '../../../../models/monitor.models';
 
 @Component({
   selector: 'app-inspection-filters',
@@ -15,3 +15,4 @@ export class InspectionFilters {
   protected apply(): void { const value = this.form.getRawValue(); this.filtersChanged.emit({ missionId: value.missionId.trim(), isDefect: value.defectStatus === 'all' ? null : value.defectStatus === 'defect', fromDate: value.fromDate, toDate: value.toDate, page: 1, pageSize: 10 }); }
   protected clear(): void { this.form.reset(); this.apply(); }
 }
+

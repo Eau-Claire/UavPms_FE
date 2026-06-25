@@ -1,4 +1,4 @@
-import { UserRole } from '../../auth/auth.models';
+﻿import { UserRole } from './auth.models';
 
 export type UserStatus = 'Active' | 'Inactive' | 'Locked';
 
@@ -19,3 +19,5 @@ export interface CreateUserRequest {
   readonly phone?: string;
   readonly role: UserRole;
 }
+
+

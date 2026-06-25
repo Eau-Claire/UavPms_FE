@@ -1,6 +1,6 @@
-import { DatePipe } from '@angular/common';
+﻿import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { MonitorAlert } from '../../../../core/api/models/monitor.models';
+import { MonitorAlert } from '../../../../models/monitor.models';
 
 @Component({
   selector: 'app-active-alerts-panel',
@@ -12,3 +12,4 @@ import { MonitorAlert } from '../../../../core/api/models/monitor.models';
 export class ActiveAlertsPanel {
   readonly alerts = input.required<readonly MonitorAlert[]>(); readonly limit = input(5);
 }
+
