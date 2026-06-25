@@ -14,25 +14,73 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzDividerModule, NzFormModule, NzIconModule, NzInputModule],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgOptimizedImage,
+    NzButtonModule,
+    NzDividerModule,
+    NzFormModule,
+    NzIconModule,
+    NzInputModule,
+  ],
   templateUrl: './login.html',
   styleUrl: './login.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Login {
-  private readonly fb = inject(FormBuilder); private readonly auth = inject(Auth); private readonly router = inject(Router); private readonly route = inject(ActivatedRoute); private readonly destroyRef = inject(DestroyRef);
-  protected readonly busy = signal(false); protected readonly error = signal('');
-  protected readonly form = this.fb.nonNullable.group({ email: ['', [Validators.required, Validators.email]], password: ['', [Validators.required, Validators.minLength(6)]] });
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(Auth);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+  protected readonly form = this.fb.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(3)]],
+  });
   protected submit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.busy.set(true); this.error.set('');
-    this.auth.login(this.form.getRawValue()).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({
-      next: (result) => {
-        if (result.otpRequired) { void this.router.navigate(['/otp'], { queryParams: { email: result.email, purpose: 'Login' } }); return; }
-        void this.router.navigateByUrl(result.session.user.mustChangePassword ? '/change-password' : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard');
-      },
-      error: (error: HttpErrorResponse) => this.error.set(error.status === 401 ? 'Email or password is incorrect.' : 'Sign in failed. Check the API connection and try again.'),
-    });
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    this.auth
+      .login(this.form.getRawValue())
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.busy.set(false)),
+      )
+      .subscribe({
+        next: (result) => {
+          if (result.otpRequired) {
+            void this.router.navigate(['/otp'], {
+              queryParams: { email: result.email, purpose: 'Login' },
+            });
+            return;
+          }
+          void this.router.navigateByUrl(
+            result.session.user.mustChangePassword
+              ? '/change-password'
+              : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard',
+          );
+        },
+        error: (error: HttpErrorResponse) =>
+          this.error.set(
+            error.status === 401
+              ? 'Email or password is incorrect.'
+              : this.errorMessage(error),
+          ),
+      });
+  }
+
+  private errorMessage(error: HttpErrorResponse): string {
+    const body = error.error as { message?: unknown } | null;
+    return typeof body?.message === 'string' && body.message.trim()
+      ? body.message
+      : 'Sign in failed. Check the API connection and try again.';
   }
 }

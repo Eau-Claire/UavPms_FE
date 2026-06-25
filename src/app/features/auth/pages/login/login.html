@@ -1,19 +1,20 @@
-<main class="auth-split">
+﻿<main class="auth-split">
   <section class="auth-brand-panel" aria-label="EVN">
     <img ngSrc="/images/Logo.png" width="412" height="310" priority alt="EVN Logo" class="auth-brand-logo" />
-    <div class="auth-brand-vi">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</div>
+    <div class="auth-brand-vi">Táº¬P ÄOÃ€N ÄIá»†N Lá»°C VIá»†T NAM</div>
     <div class="auth-brand-en">VIETNAM ELECTRICITY</div>
   </section>
   <section class="auth-form-panel">
     <div class="auth-card auth-card-login">
-      <header class="auth-card-header"><h1 class="auth-system-title">UAV-PMS</h1><div class="auth-title-rule"></div><h2 class="auth-form-title">Đăng nhập hệ thống</h2><p class="auth-form-copy">Vui lòng nhập thông tin tài khoản được cấp bởi Quản trị viên</p></header>
+      <header class="auth-card-header"><h1 class="auth-system-title">UAV-PMS</h1><div class="auth-title-rule"></div><h2 class="auth-form-title">ÄÄƒng nháº­p há»‡ thá»‘ng</h2><p class="auth-form-copy">Vui lÃ²ng nháº­p thÃ´ng tin tÃ i khoáº£n Ä‘Æ°á»£c cáº¥p bá»Ÿi Quáº£n trá»‹ viÃªn</p></header>
       <form nz-form [formGroup]="form" (ngSubmit)="submit()">
-        <nz-form-item class="auth-email-item" [class.ant-form-item-has-error]="form.controls.email.touched && form.controls.email.invalid"><nz-form-control><nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input"><input nz-input type="email" autocomplete="username" formControlName="email" placeholder="nguyenvana@evn.com.vn" /></nz-input-group>@if (form.controls.email.touched && form.controls.email.invalid) { <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Email không được để trống</span></div> }</nz-form-control></nz-form-item>
-        <nz-form-item class="auth-password-item" [class.ant-form-item-has-error]="(form.controls.password.touched && form.controls.password.invalid) || error()"><nz-form-control><nz-input-group nzSize="large" nzPrefixIcon="lock" [nzSuffix]="passwordSuffix" class="auth-input ant-input-password"><input nz-input type="password" autocomplete="current-password" formControlName="password" placeholder="Nhập mật khẩu" /></nz-input-group><ng-template #passwordSuffix><span nz-icon nzType="eye-invisible"></span></ng-template>@if (form.controls.password.touched && form.controls.password.invalid) { <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Mật khẩu phải có ít nhất 6 ký tự</span></div> } @else if (error()) { <div class="ant-form-item-explain" role="alert"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ error() }}</span></div> }</nz-form-control></nz-form-item>
-        <div class="auth-form-row"><a class="auth-link" routerLink="/forgot-password">Quên mật khẩu?</a></div>
-        <nz-form-item class="auth-submit-item"><button nz-button nzType="primary" nzSize="large" [nzBlock]="true" type="submit" class="evn-primary-button" [nzLoading]="busy()" [disabled]="busy()"><span>{{ busy() ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span><span nz-icon nzType="arrow-right"></span></button></nz-form-item>
+        <nz-form-item class="auth-email-item" [class.ant-form-item-has-error]="form.controls.email.touched && form.controls.email.invalid"><nz-form-control><nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input"><input nz-input type="email" autocomplete="username" formControlName="email" placeholder="nguyenvana@evn.com.vn" /></nz-input-group>@if (form.controls.email.touched && form.controls.email.invalid) { <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Email khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng</span></div> }</nz-form-control></nz-form-item>
+        <nz-form-item class="auth-password-item" [class.ant-form-item-has-error]="(form.controls.password.touched && form.controls.password.invalid) || error()"><nz-form-control><nz-input-group nzSize="large" nzPrefixIcon="lock" [nzSuffix]="passwordSuffix" class="auth-input ant-input-password"><input nz-input type="password" autocomplete="current-password" formControlName="password" placeholder="Nháº­p máº­t kháº©u" /></nz-input-group><ng-template #passwordSuffix><span nz-icon nzType="eye-invisible"></span></ng-template>@if (form.controls.password.touched && form.controls.password.invalid) { <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Máº­t kháº©u pháº£i cÃ³ Ã­t nháº¥t 3 kÃ½ tá»±</span></div> } @else if (error()) { <div class="ant-form-item-explain" role="alert"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ error() }}</span></div> }</nz-form-control></nz-form-item>
+        <div class="auth-form-row"><a class="auth-link" routerLink="/forgot-password">QuÃªn máº­t kháº©u?</a></div>
+        <nz-form-item class="auth-submit-item"><button nz-button nzType="primary" nzSize="large" [nzBlock]="true" type="submit" class="evn-primary-button" [nzLoading]="busy()" [disabled]="busy()"><span>{{ busy() ? 'Äang Ä‘Äƒng nháº­p...' : 'ÄÄƒng nháº­p' }}</span><span nz-icon nzType="arrow-right"></span></button></nz-form-item>
       </form>
-      <nz-divider class="auth-divider"></nz-divider><p class="auth-support">Cần hỗ trợ? Liên hệ bộ phận quản trị hệ thống</p><p class="auth-copyright">© 2024 Tập đoàn Điện lực Việt Nam (EVN).</p>
+      <nz-divider class="auth-divider"></nz-divider><p class="auth-support">Cáº§n há»— trá»£? LiÃªn há»‡ bá»™ pháº­n quáº£n trá»‹ há»‡ thá»‘ng</p><p class="auth-copyright">Â© 2024 Táº­p Ä‘oÃ n Äiá»‡n lá»±c Viá»‡t Nam (EVN).</p>
     </div>
   </section>
 </main>
+
