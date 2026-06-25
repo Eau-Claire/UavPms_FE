@@ -72,15 +72,8 @@ export class Login {
           this.error.set(
             error.status === 401
               ? 'Email or password is incorrect.'
-              : this.errorMessage(error),
+              : 'Sign in failed. Check the API connection and try again.',
           ),
       });
-  }
-
-  private errorMessage(error: HttpErrorResponse): string {
-    const body = error.error as { message?: unknown } | null;
-    return typeof body?.message === 'string' && body.message.trim()
-      ? body.message
-      : 'Sign in failed. Check the API connection and try again.';
   }
 }
