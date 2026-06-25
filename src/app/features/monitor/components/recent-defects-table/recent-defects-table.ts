@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
-import { PagedResponse, RecentDefect } from '../../data-access/monitor.models';
+import { PagedResponse, RecentDefect } from '../../../../core/api/models/monitor.models';
 
 @Component({
   selector: 'app-recent-defects-table',

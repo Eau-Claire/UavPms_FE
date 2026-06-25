@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { MissionStatus } from '../../data-access/monitor.models';
+import { MissionStatus } from '../../../../core/api/models/monitor.models';
 
 @Component({
   selector: 'app-mission-status-overview',

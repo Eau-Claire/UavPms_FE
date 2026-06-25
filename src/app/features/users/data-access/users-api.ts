@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../core/api/api.models';
-import { CreateUserRequest, UserRecord, UserStatus } from './users.models';
+import { CreateUserRequest, UserRecord, UserStatus } from '../../../core/api/models/users.models';
 
 @Injectable({ providedIn: 'root' })
 export class UsersApi {

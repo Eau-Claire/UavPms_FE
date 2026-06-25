@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { InspectionFilters as Filters } from '../../data-access/monitor.models';
+import { InspectionFilters as Filters } from '../../../../core/api/models/monitor.models';
 
 @Component({
   selector: 'app-inspection-filters',

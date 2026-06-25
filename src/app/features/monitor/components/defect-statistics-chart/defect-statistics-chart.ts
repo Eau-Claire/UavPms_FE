@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DefectStatistic } from '../../data-access/monitor.models';
+import { DefectStatistic } from '../../../../core/api/models/monitor.models';
 
 @Component({
   selector: 'app-defect-statistics-chart',

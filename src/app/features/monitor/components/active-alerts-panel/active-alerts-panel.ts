@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { MonitorAlert } from '../../data-access/monitor.models';
+import { MonitorAlert } from '../../../../core/api/models/monitor.models';
 
 @Component({
   selector: 'app-active-alerts-panel',

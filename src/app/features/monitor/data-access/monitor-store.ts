@@ -2,7 +2,7 @@ import { DestroyRef, computed, inject, Injectable, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, catchError, finalize, timer } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { DashboardSnapshot, InspectionFilters, PagedResponse, InspectionRecord } from './monitor.models';
+import { DashboardSnapshot, InspectionFilters, PagedResponse, InspectionRecord } from '../../../core/api/models/monitor.models';
 import { MonitorApi } from './monitor-api';
 
 @Injectable({

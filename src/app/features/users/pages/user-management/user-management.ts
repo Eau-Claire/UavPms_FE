@@ -3,9 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { UserRecord, UserStatus } from '../../../../core/api/models/users.models';
 import { UserRole } from '../../../../core/auth/auth.models';
 import { UsersApi } from '../../data-access/users-api';
-import { UserRecord, UserStatus } from '../../data-access/users.models';
 
 @Component({ selector: 'app-user-management', imports: [ReactiveFormsModule, NzIconModule], templateUrl: './user-management.html', styleUrl: './user-management.scss', encapsulation: ViewEncapsulation.None, changeDetection: ChangeDetectionStrategy.OnPush })
 export class UserManagement {
