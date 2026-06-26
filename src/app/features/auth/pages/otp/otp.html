@@ -1,1 +1,35 @@
-<main class="auth-split"><section class="auth-brand-panel" aria-label="EVN"><img ngSrc="/images/Logo.png" width="412" height="310" priority alt="EVN Logo" class="auth-brand-logo" /><div class="auth-brand-vi">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</div><div class="auth-brand-en">VIETNAM ELECTRICITY</div></section><section class="auth-form-panel"><div class="auth-card auth-card-flow auth-card-otp"><a nz-button nzType="link" class="auth-back-link" routerLink="/login"><span nz-icon nzType="arrow-left"></span>Quay lại</a><header class="auth-flow-header"><h1>Nhập Mã OTP</h1><p>Mã xác nhận đã được gửi đến {{ email }}</p></header><div class="otp-label">NHẬP MÃ XÁC NHẬN (OTP)</div>@if (error()) { <div class="auth-alert" role="alert">{{ error() }}</div> }<nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input otp-email"><input nz-input [value]="email" readonly aria-label="Email" /></nz-input-group><div class="otp-grid" aria-label="Nhập mã xác nhận OTP">@for (digit of digits(); track $index) { <input nz-input class="otp-input" inputmode="numeric" maxlength="1" placeholder="-" [value]="digit" [attr.aria-label]="'OTP digit ' + ($index + 1)" (input)="updateDigit($index, $event)" /> }</div><div class="otp-meta"><span>3:00</span><button nz-button nzType="link" class="auth-link" type="button">Gửi lại mã</button></div><button nz-button nzType="primary" nzSize="large" [nzBlock]="true" class="evn-primary-button" type="button" [nzLoading]="busy()" (click)="submit()">Xác nhận OTP <span nz-icon nzType="arrow-right"></span></button><p class="auth-muted-note">Không chia sẻ mã OTP cho bất kỳ ai.</p><p class="auth-copyright">© 2024 Tập đoàn Điện lực Việt Nam (EVN).</p></div></section></main>
+<main class="auth-split">
+  <section class="auth-brand-panel" aria-label="EVN">
+    <img ngSrc="/images/Logo.png" width="412" height="310" priority alt="EVN Logo" class="auth-brand-logo" />
+    <div class="auth-brand-vi">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</div>
+    <div class="auth-brand-en">VIETNAM ELECTRICITY</div>
+  </section>
+  <section class="auth-form-panel">
+    <div class="auth-card auth-card-flow auth-card-otp">
+      <a nz-button nzType="link" class="auth-back-link" routerLink="/login"><span nz-icon nzType="arrow-left"></span>Quay lại</a>
+      <header class="auth-flow-header">
+        <h1>Nhập Mã OTP</h1>
+        <p>Mã xác nhận đã được gửi đến {{ email }}</p>
+      </header>
+      <div class="otp-label">NHẬP MÃ XÁC NHẬN (OTP)</div>
+      @if (error()) {
+        <div class="auth-alert" role="alert">{{ error() }}</div>
+      }
+      <nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input otp-email">
+        <input nz-input [value]="email" readonly aria-label="Email" />
+      </nz-input-group>
+      <div class="otp-grid" aria-label="Nhập mã xác nhận OTP">
+        @for (digit of digits(); track $index) {
+          <input nz-input class="otp-input" inputmode="numeric" maxlength="1" placeholder="-" [value]="digit" [attr.aria-label]="'OTP digit ' + ($index + 1)" (input)="updateDigit($index, $event)" />
+        }
+      </div>
+      <div class="otp-meta">
+        <span aria-live="polite">{{ countdown() }}</span>
+        <button nz-button nzType="link" class="auth-link" type="button" [disabled]="remainingSeconds() > 0 || resendBusy()" [nzLoading]="resendBusy()" (click)="resendCode()">Gửi lại mã</button>
+      </div>
+      <button nz-button nzType="primary" nzSize="large" [nzBlock]="true" class="evn-primary-button" type="button" [nzLoading]="busy()" (click)="submit()">Xác nhận OTP <span nz-icon nzType="arrow-right"></span></button>
+      <p class="auth-muted-note">Không chia sẻ mã OTP cho bất kỳ ai.</p>
+      <p class="auth-copyright">© 2024 Tập đoàn Điện lực Việt Nam (EVN).</p>
+    </div>
+  </section>
+</main>
