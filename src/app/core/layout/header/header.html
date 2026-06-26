@@ -1,10 +1,52 @@
 <header class="app-header ant-layout-header">
-  <button type="button" class="app-mobile-menu" aria-label="Mở menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
-  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Tìm kiếm tài sản</span><input class="ant-input" placeholder="Tìm kiếm tài sản..." /></label> }</div>
+  <button type="button" class="app-mobile-menu" aria-label="Open menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
+  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Search assets</span><input class="ant-input" placeholder="Search assets..." /></label> }</div>
   <div class="app-header-actions">
-    <button type="button" class="app-header-icon" aria-label="Thông báo"><span nz-icon nzType="bell"></span><span class="app-header-dot"></span></button>
-    <button type="button" class="app-header-icon" aria-label="Ứng dụng"><span nz-icon nzType="appstore"></span></button>
+    <div class="app-notification-wrap">
+      <button type="button" class="app-header-icon" [class.app-header-icon-active]="notificationOpen()" aria-label="Notifications" (click)="toggleNotifications()"><span nz-icon nzType="bell"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
+      @if (notificationOpen()) {
+        <section class="notification-popover" aria-label="Notifications popover">
+          <header class="notification-popover-header">
+            <div><p>Notifications</p><strong>{{ notifications.unreadCount() }} unread</strong></div>
+            <button type="button" aria-label="Close notifications" (click)="closeNotifications()">x</button>
+          </header>
+          <div class="notification-filters">
+            <label><span>Search</span><input type="search" placeholder="Title, body, type" [value]="notifications.filters().query" (input)="updateQuery($event)" /></label>
+            <label><span>Status</span><select [value]="notifications.filters().read" (change)="updateReadFilter($event)"><option value="all">All</option><option value="unread">Unread</option><option value="read">Read</option></select></label>
+            <label><span>Type</span><select [value]="notifications.filters().type" (change)="updateTypeFilter($event)"><option value="">All types</option>@for (type of notifications.types(); track type) { <option [value]="type">{{ type }}</option> }</select></label>
+          </div>
+          @if (notifications.error()) { <div class="notification-error" role="alert">{{ notifications.error() }}</div> }
+          @if (notifications.selected(); as selected) {
+            <article class="notification-detail">
+              <button type="button" class="notification-back" (click)="notifications.clearSelection()">Back to list</button>
+              <div class="notification-detail-heading"><span class="notification-type">{{ selected.type || 'General' }}</span><time>{{ formatDate(selected.createdAt) }}</time></div>
+              <h3>{{ selected.title }}</h3>
+              <p>{{ selected.body || 'No notification body.' }}</p>
+              @if (selected.referenceType || selected.referenceId) { <dl><dt>Reference</dt><dd>{{ selected.referenceType || 'Item' }} @if (selected.referenceId) { <span>{{ selected.referenceId }}</span> }</dd></dl> }
+              <div class="notification-detail-actions">
+                @if (!selected.isRead) { <button type="button" (click)="notifications.markRead(selected.id)">Mark read</button> }
+                <button type="button" class="danger" [disabled]="notifications.deletingId() === selected.id" (click)="deleteNotification($event, selected.id)">Delete</button>
+              </div>
+            </article>
+          } @else if (notifications.loading()) {
+            <div class="notification-empty">Loading notifications...</div>
+          } @else if (notifications.filteredNotifications().length) {
+            <div class="notification-list" role="list">
+              @for (item of notifications.filteredNotifications(); track item.id) {
+                <button type="button" class="notification-item" [class.notification-item-unread]="!item.isRead" role="listitem" (click)="selectNotification(item)">
+                  <span class="notification-item-main"><strong>{{ item.title }}</strong><small>{{ item.body || 'No body' }}</small></span>
+                  <span class="notification-item-meta"><small>{{ item.type || 'General' }}</small><time>{{ formatDate(item.createdAt) }}</time></span>
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="notification-empty">No notifications match these filters.</div>
+          }
+        </section>
+      }
+    </div>
+    <button type="button" class="app-header-icon" aria-label="Apps"><span nz-icon nzType="appstore"></span></button>
     <div class="app-header-divider"></div>
-    <div class="app-profile-wrap"><button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Quản trị viên' : user()?.fullName }}</span><span class="app-user-role">Quản trị hệ thống</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Thông tin cá nhân</button><button type="button"><span nz-icon nzType="setting"></span> Cài đặt</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button></div> }</div>
+    <div class="app-profile-wrap"><button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Administrator' : user()?.fullName }}</span><span class="app-user-role">System Admin</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Profile</button><button type="button"><span nz-icon nzType="setting"></span> Settings</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Logout</button></div> }</div>
   </div>
 </header>
