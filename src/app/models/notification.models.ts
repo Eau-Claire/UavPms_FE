@@ -1,4 +1,5 @@
 export type NotificationReadFilter = 'all' | 'unread' | 'read';
+export type NotificationSort = 'newest' | 'oldest';
 
 export interface AppNotification {
   readonly id: string;
@@ -15,5 +16,5 @@ export interface AppNotification {
 export interface NotificationFilters {
   readonly read: NotificationReadFilter;
   readonly type: string;
-  readonly query: string;
+  readonly sort: NotificationSort;
 }

@@ -3,13 +3,17 @@ import { NavigationEnd, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { AppNotification, NotificationReadFilter } from '../../../models/notification.models';
+import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 
 @Component({
   selector: 'app-header',
-  host: { style: 'display: contents' },
+  host: {
+    style: 'display: contents',
+    '(document:click)': 'handleDocumentClick($event)',
+    '(document:keydown.escape)': 'closeNotifications()',
+  },
   imports: [NzIconModule],
   templateUrl: './header.html',
   styleUrl: './header.scss',
@@ -25,25 +29,136 @@ export class Header {
   protected readonly user = this.auth.user;
   protected readonly menuOpen = signal(false);
   protected readonly notificationOpen = signal(false);
+  protected readonly notificationFiltersOpen = signal(false);
+  protected readonly groupedNotifications = computed(() => {
+    const list = this.notifications.filteredNotifications();
+    const groups: { dateLabel: string; items: AppNotification[] }[] = [];
+    list.forEach((item) => {
+      const date = new Date(item.createdAt);
+      let label = 'Unknown Date';
+      if (!Number.isNaN(date.getTime())) {
+        label = new Intl.DateTimeFormat('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(date);
+      }
+      let group = groups.find((g) => g.dateLabel === label);
+      if (!group) {
+        group = { dateLabel: label, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    });
+    return groups;
+  });
   protected readonly showAssetSearch = computed(() => this.path() === '/assets');
   constructor() {
     this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef)).subscribe((event) => this.path.set(event.urlAfterRedirects));
     effect(() => {
       const userId = this.user()?.id;
-      if (userId) this.notifications.load(userId);
+      if (userId) {
+        this.notifications.startPolling(userId);
+      } else {
+        this.notifications.stopPolling();
+      }
     });
   }
   protected logout(): void { this.auth.logout(); void this.router.navigate(['/login']); }
-  protected toggleNotifications(): void { this.notificationOpen.update((value) => !value); this.menuOpen.set(false); }
-  protected closeNotifications(): void { this.notificationOpen.set(false); this.notifications.clearSelection(); }
+  protected toggleNotifications(): void {
+    const nextOpen = !this.notificationOpen();
+    this.notificationOpen.set(nextOpen);
+    this.menuOpen.set(false);
+    const userId = this.user()?.id;
+    if (nextOpen && userId) this.notifications.load(userId, false);
+  }
+  protected closeNotifications(): void { this.notificationOpen.set(false); this.notificationFiltersOpen.set(false); this.notifications.clearSelection(); }
+  protected handleDocumentClick(event: Event): void {
+    const target = event.target;
+    if (!this.notificationOpen() || !(target instanceof Element)) return;
+    if (!target.closest('.app-notification-wrap')) this.closeNotifications();
+  }
   protected selectNotification(notification: AppNotification): void { this.notifications.select(notification); }
   protected deleteNotification(event: Event, id: string): void { event.stopPropagation(); this.notifications.delete(id); }
   protected updateReadFilter(event: Event): void { this.notifications.setReadFilter(((event.target as HTMLSelectElement | null)?.value ?? 'all') as NotificationReadFilter); }
   protected updateTypeFilter(event: Event): void { this.notifications.setTypeFilter((event.target as HTMLSelectElement | null)?.value ?? ''); }
-  protected updateQuery(event: Event): void { this.notifications.setQuery((event.target as HTMLInputElement | null)?.value ?? ''); }
+  protected updateSortFilter(event: Event): void { this.notifications.setSortFilter(((event.target as HTMLSelectElement | null)?.value ?? 'newest') as NotificationSort); }
   protected formatDate(value: string): string {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'Unknown time';
-    return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  }
+  protected markAllAsRead(): void {
+    const unread = this.notifications.unreadNotifications();
+    unread.forEach((item) => this.notifications.markRead(item.id));
+  }
+  protected resetNotifications(): void {
+    this.notifications.setReadFilter('all');
+    this.notifications.setTypeFilter('');
+    this.notifications.setSortFilter('newest');
+    const userId = this.user()?.id;
+    if (userId) {
+      this.notifications.load(userId);
+    }
+  }
+  protected isReplyActionAvailable(item: AppNotification): boolean {
+    const titleLower = (item.title || '').toLowerCase();
+    return titleLower.includes('reply') || titleLower.includes('mention') || item.type === 'Comment' || item.type === 'Mention';
+  }
+  protected parseTitleSegments(title: string): { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] {
+    if (!title) return [];
+    const verbs = [
+      'mention you in comment conversation ticket',
+      'reply your comment in',
+      'assigned in number ticket',
+      'change type ticket to',
+      'mention you in',
+      'reply your comment',
+      'assigned in',
+      'change type',
+      'mention',
+      'reply',
+      'assigned',
+      'change',
+      'added',
+      'created',
+      'updated',
+      'deleted',
+      'completed'
+    ];
+    let actor = '';
+    let action = '';
+    let rest = title;
+    for (const verb of verbs) {
+      const index = title.toLowerCase().indexOf(verb);
+      if (index !== -1) {
+        actor = title.substring(0, index).trim();
+        action = title.substring(index, index + verb.length);
+        rest = title.substring(index + verb.length).trim();
+        break;
+      }
+    }
+    const segments: { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] = [];
+    if (actor) {
+      segments.push({ text: actor, isBold: true });
+      segments.push({ text: ' ' + action + ' ' });
+    } else {
+      rest = title;
+    }
+    const words = rest.split(/(\s+)/);
+    for (const word of words) {
+      if (word.match(/^TC-\d+$/i)) {
+        segments.push({ text: word, isBold: true });
+      } else if (word.toLowerCase() === 'incident') {
+        segments.push({ text: word, isBadge: true, badgeType: 'incident' });
+      } else if (word.toLowerCase() === 'question') {
+        segments.push({ text: word, isBadge: true, badgeType: 'question' });
+      } else if (word.toLowerCase() === 'task') {
+        segments.push({ text: word, isBadge: true, badgeType: 'task' });
+      } else {
+        segments.push({ text: word });
+      }
+    }
+    return segments;
   }
 }

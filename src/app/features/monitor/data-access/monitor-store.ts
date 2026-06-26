@@ -20,7 +20,7 @@ export class MonitorStore {
   readonly defectStatistics = computed(() => this.dashboardState()?.defectStatistics ?? []); readonly missionStatus = computed(() => this.dashboardState()?.missionStatus ?? []); readonly alerts = computed(() => this.dashboardState()?.alerts ?? []);
 
   startDashboardPolling(): void {
-    timer(0, environment.pollIntervalMs).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadDashboard(this.recentPageState(), false));
+    timer(0, environment.dashboardPollIntervalMs).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadDashboard(this.recentPageState(), false));
   }
   loadDashboard(page = 1, showLoading = true): void {
     this.recentPageState.set(page); if (showLoading || !this.dashboardState()) this.loadingState.set(true); this.errorState.set(null);

@@ -10,6 +10,7 @@ import {
   LockOutline, LogoutOutline, MailOutline, MenuOutline, QuestionCircleOutline,
   SearchOutline, SettingOutline, TeamOutline, UserOutline, DownOutline, EnvironmentFill,
   ThunderboltFill, FilterOutline, PlusOutline, EditOutline, MoreOutline, RightOutline,
+  ReloadOutline,
 } from '@ant-design/icons-angular/icons';
 
 export const appConfig: ApplicationConfig = {
@@ -24,6 +25,7 @@ export const appConfig: ApplicationConfig = {
       LockOutline, LogoutOutline, MailOutline, MenuOutline, QuestionCircleOutline,
       SearchOutline, SettingOutline, TeamOutline, UserOutline, DownOutline, EnvironmentFill,
       ThunderboltFill, FilterOutline, PlusOutline, EditOutline, MoreOutline, RightOutline,
+      ReloadOutline,
     ]),
   ],
 };

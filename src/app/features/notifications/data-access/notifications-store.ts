@@ -1,7 +1,8 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
-import { AppNotification, NotificationFilters, NotificationReadFilter } from '../../../models/notification.models';
+import { finalize, Subscription, timer } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import { AppNotification, NotificationFilters, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { NotificationsApi } from './notifications-api';
 
 @Injectable({
@@ -12,43 +13,61 @@ export class NotificationsStore {
   private readonly destroyRef = inject(DestroyRef);
   private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
+  private pollingSubscription: Subscription | null = null;
+  private pollingUserId = '';
 
   readonly loading = signal(false);
   readonly detailLoading = signal(false);
   readonly deletingId = signal('');
   readonly error = signal('');
-  readonly filters = signal<NotificationFilters>({ read: 'all', type: '', query: '' });
+  readonly filters = signal<NotificationFilters>({ read: 'all', type: '', sort: 'newest' });
   readonly notifications = this.notificationsState.asReadonly();
   readonly selected = this.selectedState.asReadonly();
   readonly unreadCount = computed(() => this.notificationsState().filter((item) => !item.isRead).length);
   readonly types = computed(() => Array.from(new Set(this.notificationsState().map((item) => item.type).filter(Boolean))).sort() as string[]);
   readonly filteredNotifications = computed(() => {
     const filters = this.filters();
-    const query = filters.query.trim().toLowerCase();
-    return this.notificationsState().filter((item) => {
+    const items = this.notificationsState().filter((item) => {
       const readMatch =
         filters.read === 'all' ||
         (filters.read === 'read' && item.isRead) ||
         (filters.read === 'unread' && !item.isRead);
       const typeMatch = !filters.type || item.type === filters.type;
-      const queryMatch = !query || `${item.title} ${item.body} ${item.type ?? ''}`.toLowerCase().includes(query);
-      return readMatch && typeMatch && queryMatch;
+      return readMatch && typeMatch;
     });
+    return sortNotifications(items, filters.sort);
   });
+  readonly unreadNotifications = computed(() => this.filteredNotifications().filter((item) => !item.isRead));
+  readonly readNotifications = computed(() => this.filteredNotifications().filter((item) => item.isRead));
 
-  load(userId?: string): void {
-    this.loading.set(true);
+  load(userId?: string, showLoading = true): void {
+    if (showLoading) this.loading.set(true);
     this.error.set('');
     this.api
       .getHistory(userId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => { if (showLoading) this.loading.set(false); }),
       )
       .subscribe({
-        next: (items) => this.notificationsState.set(sortNewest(items)),
+        next: (items) => this.notificationsState.set(sortNotifications(items, 'newest')),
         error: () => this.error.set('Notifications could not be loaded.'),
       });
+  }
+
+  startPolling(userId: string): void {
+    if (this.pollingUserId === userId && this.pollingSubscription && !this.pollingSubscription.closed) return;
+    this.stopPolling();
+    this.pollingUserId = userId;
+    this.pollingSubscription = timer(0, environment.notificationPollIntervalMs)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((tick) => this.load(userId, tick === 0));
+  }
+
+  stopPolling(): void {
+    this.pollingSubscription?.unsubscribe();
+    this.pollingSubscription = null;
+    this.pollingUserId = '';
   }
 
   select(notification: AppNotification): void {
@@ -86,8 +105,8 @@ export class NotificationsStore {
     this.filters.update((value) => ({ ...value, type }));
   }
 
-  setQuery(query: string): void {
-    this.filters.update((value) => ({ ...value, query }));
+  setSortFilter(sort: NotificationSort): void {
+    this.filters.update((value) => ({ ...value, sort }));
   }
 
   markRead(id: string): void {
@@ -95,7 +114,7 @@ export class NotificationsStore {
       .markRead(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (updated) => this.upsert({ ...updated, id, isRead: true }),
+        next: () => this.patch(id, { isRead: true }),
         error: () => this.patch(id, { isRead: true }),
       });
   }
@@ -125,11 +144,14 @@ export class NotificationsStore {
   private upsert(notification: AppNotification): void {
     this.notificationsState.update((items) => {
       const exists = items.some((item) => item.id === notification.id);
-      return sortNewest(exists ? items.map((item) => (item.id === notification.id ? notification : item)) : [notification, ...items]);
+      return sortNotifications(exists ? items.map((item) => (item.id === notification.id ? notification : item)) : [notification, ...items], this.filters().sort);
     });
     if (this.selectedState()?.id === notification.id) this.selectedState.set(notification);
   }
 }
 
-const sortNewest = (items: readonly AppNotification[]) =>
-  [...items].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+const sortNotifications = (items: readonly AppNotification[], sort: NotificationSort) =>
+  [...items].sort((a, b) => {
+    const delta = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    return sort === 'newest' ? delta : -delta;
+  });
