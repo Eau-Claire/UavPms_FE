@@ -1,83 +1,75 @@
-# UAV-PMS Angular
+# SEPPMS Angular Frontend
 
-Angular 21 rewrite of the UAV powerline management frontend. The React application remains in the sibling `react` folder for comparison.
+Angular 21 frontend for SEPPMS, deployed at https://seppms.vercel.app/.
 
-## Included
+This app is the written with Angular, it uses standalone Angular components, zoneless change detection, signal-based local state, lazy routes, ng-zorro UI primitives, Tailwind CSS v4, and SCSS feature styles.
 
-- Standalone, zoneless Angular 21 with lazy routes and signal state.
-- Bearer authentication, token refresh, OTP recovery, and password flows.
-- Complete Monitor API: summary, defects, statistics, mission status, inspections, alerts.
-- Server pagination and filters, 30-second polling, responsive states, typed payload adapters.
-- Tailwind CSS v4, SCSS design tokens, Angular ESLint, and Vitest.
+## Features
 
-## Project commands
+- Authentication: login, OTP verification, forgot/reset password, password change, token refresh.
+- Monitor dashboard: summary metrics, defect statistics, mission status, active alerts, recent defects, and inspection history.
+- Notifications: bell popover, unread count, filters, sort, mark-as-read, delete, detail view, polling refresh.
+- User and asset management pages.
+- Responsive EVN-themed layout using Angular standalone components.
+
+## Requirements
+
+- Node.js compatible with Angular 21.
+- npm 11.x recommended. This repo declares `packageManager: npm@11.17.0`.
+
+## Commands
 
 ```bash
 npm install
 npm start
 npm run build
+npm test -- --watch=false
 npm run lint
+```
+
+`npm start` serves on port `5173`.
+
+## Project Layout
+
+```text
+src/app/core
+  auth/        Authentication service, interceptor, session state
+  layout/      App shell, header, sidebar
+
+src/app/features
+  auth/        Login, OTP, password flows
+  monitor/     Dashboard and inspection history
+  notifications/data-access
+  users/       User management
+  assets/      Asset management
+
+src/app/models
+  Shared API, auth, monitor, notification models
+
+src/environments
+  Runtime API URL and polling intervals
+```
+
+## Testing
+
+Unit tests use Angular's unit-test builder with Vitest.
+
+```bash
 npm test -- --watch=false
 ```
 
-API default: `https://uavpms.ddns.net/api/v1`. See [Angular architecture](docs/ANGULAR_ARCHITECTURE.md).
+Current API tests cover auth, monitor API, notification API, and auth interceptor behavior.
 
-## Angular CLI reference
+## Build And Deploy
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.17.
-
-## Development server
-
-To start a local development server, run:
+Production build:
 
 ```bash
-ng serve
+npm run build
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Build output is written to `dist/uav-pms-frontend`. The current public deployment is hosted on Vercel:
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+```text
+https://seppms.vercel.app/
 ```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
