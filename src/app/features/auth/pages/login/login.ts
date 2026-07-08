@@ -41,7 +41,15 @@ export class Login {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(3)]],
   });
+  protected emailError(): string {
+    const email = this.form.controls.email;
+    if (!email.touched || !email.invalid) return '';
+    if (email.hasError('required')) return 'Email không được để trống';
+    if (email.hasError('email')) return 'Email không đúng định dạng';
+    return '';
+  }
   protected submit(): void {
+    this.normalizeEmail();
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -75,5 +83,9 @@ export class Login {
               : 'Sign in failed. Check the API connection and try again.',
           ),
       });
+  }
+  protected normalizeEmail(): void {
+    const normalized = this.form.controls.email.value.trim().toLowerCase();
+    this.form.controls.email.setValue(normalized);
   }
 }

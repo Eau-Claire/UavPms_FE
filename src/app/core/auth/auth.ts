@@ -17,12 +17,13 @@ export class Auth {
   readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.tokens.accessToken));
 
   login(credentials: { email: string; password: string }) {
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, credentials).pipe(
+    const normalizedCredentials = { ...credentials, email: this.normalizeEmail(credentials.email) };
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
       map((response): LoginResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const nested = (payload['authResult'] ?? payload) as Record<string, unknown>;
         if (Boolean(nested['otpRequired']) || !this.hasTokens(nested))
-          return { otpRequired: true, email: String(nested['email'] ?? credentials.email) };
+          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.email)) };
         return { otpRequired: false, session: this.normalizeSession(payload) };
       }),
       tap((result) => {
@@ -32,10 +33,10 @@ export class Auth {
   }
 
   sendOtp(request: { email: string; purpose: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, request);
+    return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, { ...request, email: this.normalizeEmail(request.email) });
   }
   verifyOtp(request: { email: string; otp: string; purpose: string }) {
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, request).pipe(
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, { ...request, email: this.normalizeEmail(request.email) }).pipe(
       map((response): OtpResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const authPayload = payload['authResult'] as Record<string, unknown> | null | undefined;
@@ -120,6 +121,9 @@ export class Auth {
       Boolean(tokens['accessToken'] ?? payload['accessToken'] ?? payload['token']) &&
       Boolean(tokens['refreshToken'] ?? payload['refreshToken'])
     );
+  }
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
   }
 }
 

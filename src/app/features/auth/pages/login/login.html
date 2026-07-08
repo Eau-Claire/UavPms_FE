@@ -18,10 +18,10 @@
         <nz-form-item class="auth-email-item" [class.ant-form-item-has-error]="form.controls.email.touched && form.controls.email.invalid">
           <nz-form-control>
             <nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input">
-              <input nz-input type="email" autocomplete="username" formControlName="email" placeholder="nguyenvana@evn.com.vn" />
+              <input nz-input type="email" autocomplete="username" formControlName="email" placeholder="nguyenvana@evn.com.vn" (blur)="normalizeEmail()" />
             </nz-input-group>
             @if (form.controls.email.touched && form.controls.email.invalid) {
-              <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Email không được để trống</span></div>
+              <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ emailError() }}</span></div>
             }
           </nz-form-control>
         </nz-form-item>
