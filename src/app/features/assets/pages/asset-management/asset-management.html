@@ -1,33 +1,137 @@
-<div class="asset-page">
-  <div class="asset-workspace">
-    <aside class="asset-tree-panel">
-      <h1>Asset Management</h1>
-      <div class="ant-input-affix-wrapper asset-filter"><span nz-icon nzType="search"></span><input class="ant-input" placeholder="Lọc thiết bị..." /></div>
-      <div class="asset-tree">
-        <div class="asset-tree-group"><span nz-icon nzType="down"></span><span>Miền Nam</span></div>
-        <div class="asset-tree-subgroup"><span nz-icon nzType="down"></span><span>TBA Tân Bình (110kV)</span></div>
-        <div class="asset-tree-item asset-tree-item-active"><span nz-icon nzType="thunderbolt" nzTheme="fill"></span><span>ĐD Tân Bình - Hóc Môn</span><i></i></div>
-        @for (tower of towers; track tower.code) {
-          <div class="asset-tree-tower" [class.asset-tree-tower-active]="tower.code === 'T04'">
-            <span nz-icon nzType="environment" nzTheme="fill"></span><span>Cột {{ tower.code }}</span>@if (tower.alerts > 1) { <i></i> }
+<div class="asset-page-v2">
+  @if (phase() === 'upload') {
+    <section class="asset-upload-view" aria-labelledby="asset-upload-title">
+      <nav class="asset-breadcrumb" aria-label="Breadcrumb">
+        <span>Nhiệm vụ bay</span><span aria-hidden="true">›</span><strong>Nhập video thủ công</strong>
+      </nav>
+
+      <h1 id="asset-upload-title">Nhập video thủ công</h1>
+
+      <section class="mission-card" aria-label="Thông tin nhiệm vụ">
+        <div class="mission-item">
+          <span>Mã nhiệm vụ</span><strong>{{ mission.code }}</strong>
+        </div>
+        <div class="mission-item mission-line">
+          <span>Tuyến đường dây</span><strong><i aria-hidden="true">ϟ</i>{{ mission.line }}</strong>
+        </div>
+        <div class="mission-item">
+          <span>Tổng số cột</span><strong>{{ mission.towers }}</strong>
+        </div>
+        <div class="mission-item">
+          <span>Ngày khảo sát</span><strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ mission.surveyDate }}</strong>
+        </div>
+      </section>
+
+      <section class="upload-card" aria-label="Tải video">
+        <div class="upload-tabs" role="tablist" aria-label="Nguồn tải lên">
+          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'local'" [class.active]="activeTab() === 'local'" (click)="setTab('local')">Tải lên từ máy tính</button>
+          <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'storage'" [class.active]="activeTab() === 'storage'" (click)="setTab('storage')">Nhập từ Storage URL</button>
+        </div>
+
+        @if (activeTab() === 'local') {
+          <div class="drop-zone">
+            <div class="upload-icon"><span nz-icon nzType="plus" aria-hidden="true"></span><span nz-icon nzType="database" aria-hidden="true"></span></div>
+            <h2>Kéo thả file video vào đây hoặc</h2>
+            <label class="choose-file">
+              <input type="file" multiple accept="video/mp4,video/avi,video/quicktime" />
+              Chọn file
+            </label>
+            <p>Hỗ trợ: <strong>MP4, AVI, MOV</strong> — Tối đa <strong>10GB</strong></p>
+          </div>
+        } @else {
+          <div class="storage-panel">
+            <label for="storage-url">Storage URL</label>
+            <input id="storage-url" type="url" placeholder="https://storage.example.com/videos/DJI_0042.mp4" />
+            <button type="button" class="secondary-action">Thêm vào danh sách</button>
           </div>
         }
-        <div class="asset-tree-group asset-tree-group-muted"><span nz-icon nzType="right"></span><span>Miền Trung</span></div>
-      </div>
-    </aside>
-    <main class="asset-main-panel">
-      <div class="asset-tabs-row">
-        <div class="asset-tabs"><button type="button">Overview</button><button type="button" class="asset-tab-active">Map View</button><button type="button">Grid View</button></div>
-        <div class="asset-view-toggle"><button type="button">Danh sách</button><button type="button" class="asset-view-active">Bản đồ</button></div>
-      </div>
-      <section class="asset-map">
-        <div class="map-grid-lines"></div>
-        <svg viewBox="0 0 900 420" class="map-route" aria-hidden="true"><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="#2ddf91" stroke-width="6" stroke-linecap="round"/><path d="M88 300 C170 210 270 210 340 250 S500 350 598 238 S740 100 820 168" fill="none" stroke="rgba(45, 223, 145, 0.22)" stroke-width="22" stroke-linecap="round"/></svg>
-        @for (tower of towers; track tower.code) { <span class="map-marker marker-{{ tower.code.toLowerCase() }} map-marker-{{ tower.tone }}">{{ tower.code }}</span> }
-        <div class="map-tooltip"><strong>Cột T04</strong><span>Sức khỏe:</span><small>Số thiết bị: 12</small><button type="button">Xem chi tiết</button></div>
-        <div class="map-legend"><strong>CHÚ GIẢI TÌNH TRẠNG</strong><span><i class="legend-ok"></i>Tốt (&gt;= 80)</span><span><i class="legend-warning"></i>Cảnh báo (50-79)</span><span><i class="legend-critical"></i>Nguy hiểm (&lt; 50)</span><span><i class="legend-pulse"></i>Cảnh báo khẩn cấp</span></div>
       </section>
-      <section class="asset-table-shell"><div class="ant-table-wrapper evn-table asset-table"><div class="ant-table"><div class="ant-table-container"><div class="ant-table-content"><table><thead class="ant-table-thead"><tr><th>MÃ CỘT</th><th>TÌNH TRẠNG</th><th>SỐ THIẾT BỊ</th><th>CẢNH BÁO</th><th>HÀNH ĐỘNG</th></tr></thead><tbody class="ant-table-tbody">@for (tower of towers; track tower.code) { <tr class="ant-table-row" [class.asset-row-active]="tower.code === 'T04'"><td>{{ tower.code }}</td><td><span class="asset-status asset-status-{{ tower.tone }}">{{ tower.status }}</span></td><td>{{ tower.devices }}</td><td><span class="asset-alert asset-alert-{{ tower.tone }}">{{ tower.alerts }}</span></td><td><button type="button" class="ant-btn asset-table-action" [class.ant-btn-primary]="tower.code === 'T04'">Xem chi tiết</button></td></tr> }</tbody></table></div></div></div></div></section>
-    </main>
-  </div>
+
+      <section class="queue-card" aria-label="Danh sách tệp đang tải lên">
+        <header>
+          <h2>Danh sách tệp đang tải lên</h2>
+          <span>{{ uploadFiles.length }} Tệp</span>
+        </header>
+        <div class="queue-table" role="table" aria-label="Danh sách tệp">
+          <div class="queue-row queue-head" role="row">
+            <span role="columnheader">Tên file</span><span role="columnheader">Kích thước</span><span role="columnheader">Trạng thái</span><span role="columnheader">Tiến trình</span><span role="columnheader">Thao tác</span>
+          </div>
+          @for (file of uploadFiles; track file.name) {
+            <div class="queue-row" role="row">
+              <span role="cell" class="file-name"><i [class]="'file-dot ' + file.status"></i>{{ file.name }}</span>
+              <span role="cell">{{ file.size }}</span>
+              <span role="cell" [class]="'upload-status ' + file.status"><i></i>{{ statusLabel(file.status) }}</span>
+              <span role="cell" class="progress-cell">
+                @if (file.status === 'done') {
+                  <strong class="done-mark">✓</strong><b>100%</b>
+                } @else {
+                  <span class="progress-track"><span [style.width.%]="file.progress"></span></span>
+                  @if (file.progress) { <b>{{ file.progress }}%</b> }
+                }
+              </span>
+              <span role="cell" class="row-action"><button type="button" [attr.aria-label]="file.status === 'done' ? 'Xóa file' : 'Hủy tải file'">{{ file.status === 'done' ? '⌫' : '⊗' }}</button></span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <footer class="upload-footer">
+        <strong><span nz-icon nzType="file-text" aria-hidden="true"></span>3 file đã sẵn sàng</strong>
+        <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" (click)="setPhase('review')">Gửi AI phân tích <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
+      </footer>
+    </section>
+  } @else {
+    <section class="asset-review-view" [class.has-detail]="selectedDetection()" aria-label="Kết quả phát hiện AI">
+      <div class="review-left">
+        <header class="review-toolbar">
+          <div>
+            <h1>Kết quả phát hiện AI</h1>
+            <div class="review-summary">
+              @for (item of summary; track item.label) { <span [class]="'summary-pill ' + item.tone">{{ item.label }}<strong>{{ item.value }}</strong></span> }
+            </div>
+          </div>
+          <div class="review-filters"><button type="button" aria-label="Lọc kết quả"><span nz-icon nzType="filter"></span></button><button type="button" aria-label="Sắp xếp kết quả"><span nz-icon nzType="filter"></span></button></div>
+        </header>
+
+        <div class="detection-grid">
+          @for (card of detections; track $index) {
+            @if (card.skeleton) {
+              <article class="detection-card skeleton" aria-hidden="true"><div></div><span></span><small></small></article>
+            } @else {
+              <button type="button" class="detection-card" [class.selected]="selectedDetection() === card" (click)="selectDetection(card)">
+                <div class="defect-image"><img [src]="card.image" [alt]="card.title" /><span class="defect-box"></span><b>{{ card.confidence }}%</b></div>
+                <h2>{{ card.title }}</h2>
+                <div class="card-meta"><span>{{ card.location }}<br />{{ card.voltage }}</span><em [class.approved]="card.status === 'approved'">{{ reviewStatusLabel(card.status) }}</em></div>
+              </button>
+            }
+          }
+        </div>
+      </div>
+
+      @if (selectedDetection(); as selected) {
+      <aside class="review-detail" aria-label="Chi tiết và xem xét">
+        <header><h2>Chi tiết &amp; Xem xét</h2></header>
+        <div class="detail-body">
+          <div class="video-preview">
+            <img src="/images/defect-preview-frame.png" alt="Khung hình phát hiện lỗi" />
+            <span class="preview-box"></span>
+            <time>▹ 00:04:32 | Frame 1284</time>
+          </div>
+
+          <section class="review-form" aria-label="Thông tin khuyết tật">
+            <label class="field-wide"><span>Loại khuyết tật</span><select><option>{{ selected.title }}</option></select></label>
+            <div class="risk-field"><span>Mức độ nguy hiểm</span><strong><i></i>Nghiêm trọng</strong></div>
+            <div class="confidence-field"><span>Độ tin cậy AI</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
+            <div><span>Vị trí tài sản</span><p>{{ selected.location }}<br />{{ selected.voltage }}</p></div>
+            <div><span>Thời điểm</span><p>00:04:32</p></div>
+            <label class="field-wide note-field"><span>Ghi chú của phân tích viên</span><textarea placeholder="Nhập nhận xét hoặc hướng xử lý..."></textarea></label>
+          </section>
+
+          <div class="review-actions"><button type="button" class="reject-action">× Từ chối — AI sai</button><button type="button" class="confirm-action">✓ Xác nhận — Có lỗi thật</button></div>
+          <button type="button" class="back-action" (click)="setPhase('upload')">Quay lại danh sách tải lên</button>
+        </div>
+      </aside>
+      }
+    </section>
+  }
 </div>
