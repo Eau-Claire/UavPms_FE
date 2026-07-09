@@ -1,0 +1,9 @@
+<a class="skip-link" href="#main-content">Đi đến nội dung chính</a>
+<div class="app-shell ant-layout ant-layout-has-sider">
+  <app-sidebar [open]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
+  @if (sidebarOpen()) { <button type="button" class="app-backdrop" aria-label="Đóng điều hướng" (click)="sidebarOpen.set(false)"></button> }
+  <div class="app-main ant-layout">
+    <app-header (menuOpened)="sidebarOpen.set(true)" />
+    <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" tabindex="-1"><div class="app-content-inner"><router-outlet /></div></main>
+  </div>
+</div>

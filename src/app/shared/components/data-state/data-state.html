@@ -1,0 +1,7 @@
+<div class="state" role="status" [attr.aria-live]="kind() === 'error' ? 'assertive' : 'polite'">
+  @if (kind() === 'loading') { <span class="spinner" aria-hidden="true"></span> }
+  @else { <span class="state-icon" aria-hidden="true">{{ kind() === 'error' ? '!' : '◇' }}</span> }
+  <strong>{{ title() || (kind() === 'loading' ? 'Loading data' : kind() === 'error' ? 'Unable to load' : 'No data yet') }}</strong>
+  @if (message()) { <p>{{ message() }}</p> }
+  @if (kind() === 'error') { <button type="button" class="button secondary" (click)="retry.emit()">Try again</button> }
+</div>

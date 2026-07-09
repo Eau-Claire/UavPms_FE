@@ -1,79 +1,11 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "es2023",
-    "lib": [
-      "ES2023",
-      "DOM"
-    ],
-    "module": "esnext",
-    "types": [
-      "vite/client"
-    ],
-    "skipLibCheck": true,
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
-    "jsx": "react-jsx",
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@pages/*": [
-        "src/pages/*"
-      ],
-      "@features/*": [
-        "src/features/*"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@store/*": [
-        "src/store/*"
-      ],
-      "@services/*": [
-        "src/services/*"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ],
-      "@shared/types": [
-        "src/types/index.ts"
-      ],
-      "@assets/*": [
-        "src/assets/*"
-      ],
-      "@router": [
-        "src/router/index.tsx"
-      ],
-      "@router/*": [
-        "src/router/*"
-      ],
-      "@mocks/*": [
-        "src/mocks/*"
-      ],
-      "@theme/*": [
-        "src/theme/*"
-      ],
-      "@locales/*": [
-        "src/locales/*"
-      ]
-    }
+    "outDir": "./out-tsc/app",
+    "types": []
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"]
 }

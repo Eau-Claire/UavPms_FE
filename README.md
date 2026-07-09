@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# SEPPMS Angular Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Angular 21 frontend for SEPPMS, deployed at https://seppms.vercel.app/.
 
-Currently, two official plugins are available:
+This app is the written with Angular, it uses standalone Angular components, zoneless change detection, signal-based local state, lazy routes, ng-zorro UI primitives, Tailwind CSS v4, and SCSS feature styles.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- Authentication: login, OTP verification, forgot/reset password, password change, token refresh.
+- Monitor dashboard: summary metrics, defect statistics, mission status, active alerts, recent defects, and inspection history.
+- Notifications: bell popover, unread count, filters, sort, mark-as-read, delete, detail view, polling refresh.
+- User and asset management pages.
+- Responsive EVN-themed layout using Angular standalone components.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Requirements
 
-## Expanding the ESLint configuration
+- Node.js compatible with Angular 21.
+- npm 11.x recommended. This repo declares `packageManager: npm@11.17.0`.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Commands
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm start
+npm run build
+npm test -- --watch=false
+npm run lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+`npm start` serves on port `5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Project Layout
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/app/core
+  auth/        Authentication service, interceptor, session state
+  layout/      App shell, header, sidebar
+
+src/app/features
+  auth/        Login, OTP, password flows
+  monitor/     Dashboard and inspection history
+  notifications/data-access
+  users/       User management
+  assets/      Asset management
+
+src/app/models
+  Shared API, auth, monitor, notification models
+
+src/environments
+  Runtime API URL and polling intervals
+```
+
+## Testing
+
+Unit tests use Angular's unit-test builder with Vitest.
+
+```bash
+npm test -- --watch=false
+```
+
+Current API tests cover auth, monitor API, notification API, and auth interceptor behavior.
+
+## Build And Deploy
+
+Production build:
+
+```bash
+npm run build
+```
+
+Build output is written to `dist/uav-pms-frontend`. The current public deployment is hosted on Vercel:
+
+```text
+https://seppms.vercel.app/
 ```
