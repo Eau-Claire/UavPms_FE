@@ -1,0 +1,45 @@
+<form class="mission-page mission-create-page" [formGroup]="form" (ngSubmit)="save()">
+  <div class="mission-page-head">
+    <div>
+      <div class="mission-breadcrumb"><span>Nhiệm vụ bay</span><span>/</span><strong>Tạo mới</strong></div>
+      <h1>Tạo Nhiệm Vụ Mới</h1>
+      <p>Nhập thông tin nền để tạo nhiệm vụ khảo sát hạ tầng điện.</p>
+    </div>
+  </div>
+
+  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
+
+  <section class="mission-stepper" aria-label="Tiến trình tạo nhiệm vụ">
+    @for (step of ['Thông tin chung', 'Thiết lập tuyến', 'Phân công đội bay', 'Xác nhận']; track step; let index = $index) {
+      <div [class.active]="index === 0"><span>{{ index + 1 }}</span><strong>{{ step }}</strong></div>
+    }
+  </section>
+
+  <section class="mission-create-card">
+    <div class="mission-create-fields">
+      <h2>Bước 1: Thông tin chung</h2>
+      <label><span>Tên nhiệm vụ *</span><input formControlName="title" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
+      <div class="mission-form-grid">
+        <label><span>Loại nhiệm vụ *</span><select formControlName="missionType"><option>Khảo sát định kỳ</option><option>Sự cố</option><option>Kiểm tra sau bảo trì</option></select></label>
+        <label><span>Tuyến đường *</span><input formControlName="routeData" placeholder="Tuyến 110kV Bình Dương - Thủ Đức" /></label>
+      </div>
+      <label><span>Mức độ ưu tiên</span><div class="mission-priority">@for (item of ['Thấp', 'Trung bình', 'Cao']; track item) { <button type="button" [class.active]="priority() === item" (click)="priority.set($any(item))">{{ item }}</button> }</div></label>
+      <div class="mission-form-grid">
+        <label><span>Ngày khảo sát dự kiến *</span><input type="date" formControlName="plannedDate" /></label>
+        <label><span>Mã UAV</span><input formControlName="droneCode" placeholder="UAV-01" /></label>
+      </div>
+      <label><span>Người phụ trách (User ID)</span><input formControlName="assignedToUserId" /></label>
+      <label><span>Ghi chú nội bộ</span><textarea rows="4" formControlName="description" placeholder="Nhập các lưu ý đặc biệt cho đội bay hoặc điều phối viên..."></textarea></label>
+    </div>
+    <aside>
+      <h2>Hướng dẫn</h2>
+      <p>API nhiệm vụ hiện nhận `title`, `routeData`, `assignedToUserId`, `droneCode`, `status`, `description`. Các trường loại, ưu tiên, ngày khảo sát được lưu vào mô tả vì backend chưa có cột riêng.</p>
+      <div><span nz-icon nzType="lock"></span><p>Mọi thông tin nhiệm vụ chỉ hiển thị cho nhân sự có quyền trong hệ thống.</p></div>
+    </aside>
+  </section>
+
+  <footer class="mission-create-actions">
+    <a routerLink="/missions">Hủy</a>
+    <button type="submit" [disabled]="busy()">{{ busy() ? 'Đang tạo...' : 'Tiếp tục' }} <span nz-icon nzType="arrow-right"></span></button>
+  </footer>
+</form>

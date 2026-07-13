@@ -1,0 +1,61 @@
+<div class="mission-page mission-list-page">
+  <div class="mission-page-head">
+    <div>
+      <div class="mission-breadcrumb"><span>Nhiệm vụ bay</span><span>/</span><strong>Danh sách</strong></div>
+      <h1>Danh sách nhiệm vụ bay</h1>
+      <p>Quản lý và giám sát tiến độ các đợt khảo sát hạ tầng điện</p>
+    </div>
+    <a class="mission-primary-btn" routerLink="/missions/new"><span nz-icon nzType="plus"></span>Tạo nhiệm vụ mới</a>
+  </div>
+
+  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
+
+  <section class="mission-filters" aria-label="Bộ lọc nhiệm vụ">
+    <label class="mission-search"><span nz-icon nzType="search"></span><input type="search" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="search.set($any($event.target).value)" (keydown.enter)="applyFilters()" /></label>
+    <label><span>Trạng thái</span><select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()"><option value="">Tất cả</option>@for (item of statuses; track item) { <option [value]="item">{{ statusLabel(item) }}</option> }</select></label>
+    <button type="button" class="mission-filter-btn" (click)="applyFilters()"><span nz-icon nzType="filter"></span>Lọc</button>
+  </section>
+
+  <section class="mission-stats" aria-label="Tổng quan nhiệm vụ">
+    @for (item of stats(); track item.label) {
+      <article class="mission-stat {{ item.tone }}">
+        <span nz-icon [nzType]="item.icon"></span>
+        <div><p>{{ item.label }}</p><strong>{{ item.value }}</strong></div>
+      </article>
+    }
+  </section>
+
+  <section class="mission-table-card">
+    <div class="mission-table-scroll">
+      <table>
+        <thead><tr><th>Mã</th><th>Tên nhiệm vụ</th><th>Ngày</th><th>Tuyến đường</th><th>Đội bay</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody>
+          @if (loading()) {
+            <tr><td colspan="7">Đang tải nhiệm vụ...</td></tr>
+          } @else if (!response().items.length) {
+            <tr><td colspan="7">Không có nhiệm vụ phù hợp.</td></tr>
+          }
+          @for (mission of response().items; track mission.id) {
+            <tr>
+              <td><a [routerLink]="['/missions', mission.id]" class="mission-code">{{ mission.missionCode }}</a></td>
+              <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
+              <td>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</td>
+              <td>{{ routeLabel(mission) }}</td>
+              <td><span>{{ mission.assignedToUsername }}</span><small>{{ mission.droneCode }}</small></td>
+              <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
+              <td><a class="mission-row-action" [routerLink]="['/missions', mission.id]">Xem</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <footer>
+      <span>Hiển thị {{ startIndex() }} - {{ endIndex() }} của {{ response().totalCount }} nhiệm vụ</span>
+      <div>
+        <button type="button" [disabled]="page() <= 1" (click)="goToPage(page() - 1)"><span nz-icon nzType="left"></span></button>
+        <strong>{{ page() }}</strong>
+        <button type="button" [disabled]="page() >= response().totalPages" (click)="goToPage(page() + 1)"><span nz-icon nzType="right"></span></button>
+      </div>
+    </footer>
+  </section>
+</div>

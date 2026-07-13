@@ -1,0 +1,44 @@
+<div class="mission-live-page">
+  @if (loading()) {
+    <div class="mission-live-empty">Đang tải nhiệm vụ...</div>
+  } @else if (error()) {
+    <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lại danh sách</a></div>
+  } @else if (mission(); as mission) {
+    <div class="mission-live-map" aria-hidden="true"></div>
+    <header class="mission-live-header">
+      <div><strong>Nhiệm vụ: {{ mission.missionCode }}</strong><span class="mission-live-badge {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></div>
+      <a routerLink="/missions"><span nz-icon nzType="arrow-left"></span>Danh sách</a>
+    </header>
+
+    <aside class="mission-telemetry-panel">
+      <h2>Dữ liệu nhiệm vụ</h2>
+      <dl>
+        <div><dt>Tuyến</dt><dd>{{ mission.routeData || 'Chưa có tuyến' }}</dd></div>
+        <div><dt>UAV</dt><dd>{{ mission.droneCode }}</dd></div>
+        <div><dt>Đội bay</dt><dd>{{ mission.assignedToUsername }}</dd></div>
+        <div><dt>Quản lý</dt><dd>{{ mission.managerUsername }}</dd></div>
+      </dl>
+    </aside>
+
+    <aside class="mission-camera-panel">
+      <div class="mission-camera-feed"><img src="/images/defect-insulator-crack.png" alt="Mock live UAV feed" /><span>CAM-01 FPV</span></div>
+      <section>
+        <h2>Điểm kiểm tra</h2>
+        <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 040</strong><small>Đã quét hình ảnh</small></div>
+        <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 041</strong><small>Đã lưu dữ liệu</small></div>
+        <div class="waypoint active"><span nz-icon nzType="aim"></span><strong>Cột 042</strong><small>Đang kiểm tra...</small></div>
+        <div class="waypoint"><strong>043</strong><small>Chờ xử lý</small></div>
+      </section>
+    </aside>
+
+    <footer class="mission-live-footer">
+      <div>
+        <span nz-icon nzType="environment"></span>
+        <strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong>
+        <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
+      </div>
+      <div class="mission-progress"><span style="width: 48%"></span></div>
+      <p>Tiến độ: 48%</p>
+    </footer>
+  }
+</div>
