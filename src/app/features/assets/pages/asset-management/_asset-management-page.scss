@@ -34,6 +34,10 @@
 .choose-file { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 4px; background: #fea619; color: #684000; padding: 0 32px; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); cursor: pointer; }
 .choose-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .drop-zone p { margin: 16px 0 0; color: #45474c; font-size: 14px; }
+.upload-feedback { margin-top: 14px; border-radius: 4px; padding: 10px 14px; font-size: 13px; font-weight: 700; }
+.upload-feedback.info { background: #e5eeff; color: #0b1c30; }
+.upload-feedback.success { background: #ecfdf5; color: #047857; }
+.upload-feedback.error { background: #fff1f2; color: #be123c; }
 .storage-panel { display: grid; gap: 12px; padding: 32px; }
 .storage-panel input { height: 44px; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 13px; }
 .secondary-action { width: max-content; border: 1px solid #e2e8f0; border-radius: 4px; background: #fff; padding: 10px 16px; color: #0b1c30; font-weight: 700; }
@@ -69,6 +73,7 @@
 .upload-footer div { display: flex; gap: 16px; align-items: center; }
 .ghost-action { border: 0; background: transparent; color: #75777d; padding: 12px 24px; font-weight: 700; }
 .primary-action { display: inline-flex; gap: 12px; align-items: center; min-height: 48px; border: 0; border-radius: 4px; background: #101c2e; color: #fff; padding: 0 40px; font-weight: 700; box-shadow: 0 10px 15px -3px rgba(16,28,46,.2); }
+.primary-action:disabled { cursor: not-allowed; opacity: .55; }
 .asset-review-view { display: grid; min-height: 100%; grid-template-columns: 1fr; background: #fff; }
 .asset-review-view.has-detail { grid-template-columns: minmax(0, 1fr) 410px; }
 .review-left { min-width: 0; border-right: 0; }
@@ -124,6 +129,7 @@
 .confidence-field b { display: block; height: 100%; background: #fea619; }
 .confidence-field strong { font-size: 16px; }
 .review-form p { margin: 0; font-size: 16px; line-height: 24px; }
+.detail-feedback { border-radius: 4px; background: #eff4ff; color: #0b1c30; padding: 10px 12px; }
 .review-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .reject-action,
 .confirm-action { min-height: 64px; border-radius: 8px; font-weight: 700; }

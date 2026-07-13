@@ -1,8 +1,15 @@
-import { ChangeDetectionStrategy, Component, signal, ViewEncapsulation } from '@angular/core';
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
+import { DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize, forkJoin } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { AssetManagementApi, AssetMission } from '../../data-access/asset-management-api';
+import { InspectionRecord, MonitorSummary } from '../../../../models/monitor.models';
 
 type UploadStatus = 'uploading' | 'done' | 'pending';
 type ReviewStatus = 'pending' | 'approved';
+type UploadFeedbackTone = 'info' | 'success' | 'error';
 
 interface UploadFile {
   name: string;
@@ -12,71 +19,131 @@ interface UploadFile {
 }
 
 interface DetectionCard {
+  id: string;
   title: string;
   location: string;
   voltage: string;
   confidence: number;
   status: ReviewStatus;
   image: string;
-  selected?: boolean;
+  detectedAt: string;
+  sourceUrl?: string;
   skeleton?: boolean;
+}
+
+interface UploadFeedback {
+  tone: UploadFeedbackTone;
+  message: string;
 }
 
 @Component({
   selector: 'app-asset-management',
-  imports: [NzIconModule],
+  imports: [DatePipe, NzIconModule],
   templateUrl: './asset-management.html',
   styleUrl: './asset-management.scss',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AssetManagement {
+  private readonly api = inject(AssetManagementApi);
+  private readonly destroyRef = inject(DestroyRef);
+
   protected readonly phase = signal<'upload' | 'review'>('upload');
   protected readonly activeTab = signal<'local' | 'storage'>('local');
-
-  protected readonly mission = {
-    code: 'NV-2025-0042',
-    line: '110kV Bình Dương - Thủ Đức',
-    towers: '87 cột',
-    surveyDate: '15/11/2025',
-  };
-
-  protected readonly uploadFiles: UploadFile[] = [
-    { name: 'DJI_0042.mp4', size: '2.3 GB', status: 'uploading', progress: 65 },
-    { name: 'DJI_0043.mp4', size: '1.8 GB', status: 'done', progress: 100 },
-    { name: 'DJI_0044.mp4', size: '3.1 GB', status: 'pending', progress: 0 },
-  ];
-
-  protected readonly summary = [
-    { label: 'Tổng:', value: 12, tone: 'total' },
-    { label: 'Chờ xem xét:', value: 8, tone: 'waiting' },
-    { label: 'Đã duyệt:', value: 3, tone: 'approved' },
-    { label: 'Từ chối:', value: 1, tone: 'rejected' },
-  ] as const;
-
-  protected readonly detections: DetectionCard[] = [
-    { title: 'Sứ cách điện — Nứt vỡ', location: 'Cột 23 / Tuyến', voltage: '110kV', confidence: 94, status: 'pending', image: '/images/defect-insulator-crack.png' },
-    { title: 'Phụ kiện — Bulông thiếu', location: 'Cột 12 / Tuyến', voltage: '220kV', confidence: 88, status: 'pending', image: '/images/defect-bolt-missing.png' },
-    { title: 'Hành lang — Cây vi phạm', location: 'Cột 45 / Tuyến', voltage: '500kV', confidence: 91, status: 'pending', image: '/images/defect-corridor-tree.png' },
-    { title: 'Sứ cách điện — Ố bẩn', location: 'Cột 08 / Tuyến', voltage: '110kV', confidence: 82, status: 'approved', image: '/images/defect-insulator-dirty.png' },
-    { title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', skeleton: true },
-    { title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', skeleton: true },
-  ];
-
+  protected readonly selectedFile = signal<File | null>(null);
+  protected readonly uploadBusy = signal(false);
+  protected readonly pageBusy = signal(false);
+  protected readonly detailBusy = signal(false);
+  protected readonly uploadFeedback = signal<UploadFeedback | null>(null);
   protected readonly selectedDetection = signal<DetectionCard | null>(null);
+  protected readonly detailFeedback = signal('');
+
+  protected readonly mission = signal<AssetMission>({
+    id: '',
+    code: 'Đang tải',
+    title: '',
+    line: 'Đang tải nhiệm vụ',
+    towerCount: 'N/A',
+    surveyDate: 'N/A',
+    status: '',
+    description: '',
+  });
+
+  protected readonly uploadFiles = signal<UploadFile[]>([
+    { name: 'Chưa chọn tệp', size: '-', status: 'pending', progress: 0 },
+  ]);
+
+  protected readonly summary = signal([
+    { label: 'Tổng:', value: 0, tone: 'total' },
+    { label: 'Chờ xem xét:', value: 0, tone: 'waiting' },
+    { label: 'Đã duyệt:', value: 0, tone: 'approved' },
+    { label: 'Từ chối:', value: 0, tone: 'rejected' },
+  ]);
+
+  protected readonly detections = signal<DetectionCard[]>([
+    { id: 'skeleton-1', title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', detectedAt: '', skeleton: true },
+    { id: 'skeleton-2', title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', detectedAt: '', skeleton: true },
+    { id: 'skeleton-3', title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', detectedAt: '', skeleton: true },
+  ]);
+
+  constructor() {
+    this.loadPageData();
+  }
 
   protected setPhase(phase: 'upload' | 'review'): void {
     this.phase.set(phase);
+    if (phase === 'review') this.loadReviewData();
   }
 
   protected setTab(tab: 'local' | 'storage'): void {
     this.activeTab.set(tab);
   }
 
-  protected selectDetection(card: DetectionCard): void {
-    if (!card.skeleton) {
-      this.selectedDetection.update((selected) => (selected === card ? null : card));
+  protected chooseFiles(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.selectedFile.set(file);
+    this.uploadFeedback.set(file ? { tone: 'info', message: `Đã chọn ${file.name}.` } : null);
+    if (!file) return;
+    this.uploadFiles.set([{ name: file.name, size: this.formatBytes(file.size), status: 'pending', progress: 0 }]);
+  }
+
+  protected sendSelectedVideo(): void {
+    const file = this.selectedFile();
+    if (!file) {
+      this.uploadFeedback.set({ tone: 'error', message: 'Chọn tệp trước khi gửi.' });
+      return;
     }
+    this.uploadBusy.set(true);
+    this.uploadFeedback.set({ tone: 'info', message: 'Đang gửi tệp...' });
+    this.setUploadState('uploading', 0);
+    this.api.uploadAnalysisFile({ file, notes: this.mission().code })
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.uploadBusy.set(false)))
+      .subscribe({
+        next: (event) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            const total = event.total || file.size;
+            this.setUploadState('uploading', Math.round((event.loaded / total) * 100));
+            return;
+          }
+          if (event.type === HttpEventType.Response) {
+            this.setUploadState('done', 100);
+            this.uploadFeedback.set({ tone: 'success', message: this.backendMessage(event.body, 'Tệp đã gửi thành công.') });
+            this.prependUploadedCards(event.body);
+            this.setPhase('review');
+          }
+        },
+        error: (error: unknown) => {
+          this.setUploadState('pending', 0);
+          this.uploadFeedback.set({ tone: 'error', message: this.backendErrorMessage(error) });
+        },
+      });
+  }
+
+  protected selectDetection(card: DetectionCard): void {
+    if (card.skeleton) return;
+    this.selectedDetection.update((selected) => (selected?.id === card.id ? null : card));
+    if (this.selectedDetection()) this.loadReportDetail(card.id);
   }
 
   protected statusLabel(status: UploadStatus): string {
@@ -89,5 +156,134 @@ export class AssetManagement {
 
   protected reviewStatusLabel(status: ReviewStatus): string {
     return status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt';
+  }
+
+  private loadPageData(): void {
+    this.pageBusy.set(true);
+    forkJoin({
+      missions: this.api.getMissions(1, 5),
+      summary: this.api.getSummary(),
+      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: 1, pageSize: 8 }),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.pageBusy.set(false)))
+      .subscribe({
+        next: ({ missions, summary, inspections }) => {
+          const firstMission = missions.items[0];
+          if (firstMission) this.mission.set(firstMission);
+          this.summary.set(this.summaryFromApi(summary, inspections.totalCount));
+          this.detections.set(this.cardsFromInspections(inspections.items));
+        },
+        error: (error: unknown) => this.uploadFeedback.set({ tone: 'error', message: this.backendErrorMessage(error) }),
+      });
+  }
+
+  private loadReviewData(): void {
+    forkJoin({
+      summary: this.api.getSummary(),
+      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: 1, pageSize: 8 }),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ summary, inspections }) => {
+          this.summary.set(this.summaryFromApi(summary, inspections.totalCount));
+          this.detections.set(this.cardsFromInspections(inspections.items));
+        },
+        error: (error: unknown) => this.detailFeedback.set(this.backendErrorMessage(error)),
+      });
+  }
+
+  private loadReportDetail(id: string): void {
+    this.detailBusy.set(true);
+    this.detailFeedback.set('');
+    this.api.getInspectionReport(id)
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.detailBusy.set(false)))
+      .subscribe({
+        next: () => this.detailFeedback.set('Đã tải chi tiết báo cáo.'),
+        error: (error: unknown) => this.detailFeedback.set(this.backendErrorMessage(error)),
+      });
+  }
+
+  private prependUploadedCards(body: unknown): void {
+    const uploads = this.arrayValue(this.record(body)['data']);
+    const uploadedCards = uploads.map((upload, index): DetectionCard => {
+      const source = this.record(upload);
+      const fileUrl = String(source['fileUrl'] ?? '');
+      return {
+        id: String(source['id'] ?? `upload-${Date.now()}-${index}`),
+        title: String(source['analysisType'] ?? 'DefectDetection'),
+        location: String(source['status'] ?? 'Pending'),
+        voltage: String(source['mediaType'] ?? 'Image'),
+        confidence: 100,
+        status: 'pending',
+        image: fileUrl || this.fallbackImage(index),
+        sourceUrl: fileUrl,
+        detectedAt: String(source['createdAt'] ?? new Date().toISOString()),
+      };
+    });
+    if (uploadedCards.length) this.detections.update((cards) => [...uploadedCards, ...cards.filter((card) => !card.skeleton)]);
+  }
+
+  private summaryFromApi(summary: MonitorSummary, reviewCount: number) {
+    return [
+      { label: 'Tổng:', value: summary.totalDefects || reviewCount, tone: 'total' },
+      { label: 'Chờ xem xét:', value: reviewCount, tone: 'waiting' },
+      { label: 'Đã duyệt:', value: summary.completedMissions, tone: 'approved' },
+      { label: 'Từ chối:', value: 0, tone: 'rejected' },
+    ];
+  }
+
+  private cardsFromInspections(inspections: readonly InspectionRecord[]): DetectionCard[] {
+    const cards = inspections.map((inspection, index): DetectionCard => ({
+      id: inspection.id,
+      title: inspection.defectType || (inspection.isDefect ? 'Khuyết tật chưa phân loại' : 'Không phát hiện lỗi'),
+      location: inspection.missionName,
+      voltage: inspection.missionId,
+      confidence: inspection.isDefect ? 94 : 80,
+      status: 'pending',
+      image: inspection.imageUrl || this.fallbackImage(index),
+      sourceUrl: inspection.imageUrl,
+      detectedAt: inspection.detectedAt,
+    }));
+    while (cards.length < 6) {
+      cards.push({ id: `skeleton-${cards.length}`, title: '', location: '', voltage: '', confidence: 0, status: 'pending', image: '', detectedAt: '', skeleton: true });
+    }
+    return cards;
+  }
+
+  private fallbackImage(index: number): string {
+    return ['/images/defect-insulator-crack.png', '/images/defect-bolt-missing.png', '/images/defect-corridor-tree.png'][index % 3];
+  }
+
+  private setUploadState(status: UploadStatus, progress: number): void {
+    this.uploadFiles.update((files) => files.map((file) => ({ ...file, status, progress })));
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  }
+
+  private backendMessage(body: unknown, fallback: string): string {
+    const source = this.record(body);
+    return String(source['message'] ?? fallback);
+  }
+
+  private backendErrorMessage(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) return 'Không thể tải dữ liệu.';
+    const body = this.record(error.error);
+    if (typeof error.error === 'string' && error.error.trim()) return error.error.trim();
+    const errors = this.record(body['errors']);
+    const firstError = Object.values(errors).flat().find(Boolean);
+    if (firstError) return String(firstError);
+    return this.backendMessage(body, error.message || 'Không thể tải dữ liệu.');
+  }
+
+  private record(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  }
+
+  private arrayValue(value: unknown): readonly unknown[] {
+    return Array.isArray(value) ? value : [];
   }
 }

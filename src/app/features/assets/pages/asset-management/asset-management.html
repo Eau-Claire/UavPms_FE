@@ -9,16 +9,16 @@
 
       <section class="mission-card" aria-label="Thông tin nhiệm vụ">
         <div class="mission-item">
-          <span>Mã nhiệm vụ</span><strong>{{ mission.code }}</strong>
+          <span>Mã nhiệm vụ</span><strong>{{ mission().code }}</strong>
         </div>
         <div class="mission-item mission-line">
-          <span>Tuyến đường dây</span><strong><i aria-hidden="true">ϟ</i>{{ mission.line }}</strong>
+          <span>Tuyến đường dây</span><strong><i aria-hidden="true">ϟ</i>{{ mission().line }}</strong>
         </div>
         <div class="mission-item">
-          <span>Tổng số cột</span><strong>{{ mission.towers }}</strong>
+          <span>Tổng số cột</span><strong>{{ mission().towerCount }}</strong>
         </div>
         <div class="mission-item">
-          <span>Ngày khảo sát</span><strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ mission.surveyDate }}</strong>
+          <span>Ngày khảo sát</span><strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ mission().surveyDate }}</strong>
         </div>
       </section>
 
@@ -33,10 +33,13 @@
             <div class="upload-icon"><span nz-icon nzType="plus" aria-hidden="true"></span><span nz-icon nzType="database" aria-hidden="true"></span></div>
             <h2>Kéo thả file video vào đây hoặc</h2>
             <label class="choose-file">
-              <input type="file" multiple accept="video/mp4,video/avi,video/quicktime" />
+              <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/avi,video/quicktime" (change)="chooseFiles($event)" />
               Chọn file
             </label>
-            <p>Hỗ trợ: <strong>MP4, AVI, MOV</strong> — Tối đa <strong>10GB</strong></p>
+            <p>Hỗ trợ: <strong>PNG, JPG, WEBP, MP4, AVI, MOV</strong></p>
+            @if (uploadFeedback(); as feedback) {
+              <div [class]="'upload-feedback ' + feedback.tone" role="status">{{ feedback.message }}</div>
+            }
           </div>
         } @else {
           <div class="storage-panel">
@@ -50,13 +53,13 @@
       <section class="queue-card" aria-label="Danh sách tệp đang tải lên">
         <header>
           <h2>Danh sách tệp đang tải lên</h2>
-          <span>{{ uploadFiles.length }} Tệp</span>
+          <span>{{ uploadFiles().length }} Tệp</span>
         </header>
         <div class="queue-table" role="table" aria-label="Danh sách tệp">
           <div class="queue-row queue-head" role="row">
             <span role="columnheader">Tên file</span><span role="columnheader">Kích thước</span><span role="columnheader">Trạng thái</span><span role="columnheader">Tiến trình</span><span role="columnheader">Thao tác</span>
           </div>
-          @for (file of uploadFiles; track file.name) {
+          @for (file of uploadFiles(); track file.name) {
             <div class="queue-row" role="row">
               <span role="cell" class="file-name"><i [class]="'file-dot ' + file.status"></i>{{ file.name }}</span>
               <span role="cell">{{ file.size }}</span>
@@ -76,8 +79,8 @@
       </section>
 
       <footer class="upload-footer">
-        <strong><span nz-icon nzType="file-text" aria-hidden="true"></span>3 file đã sẵn sàng</strong>
-        <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" (click)="setPhase('review')">Gửi AI phân tích <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
+        <strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ uploadFiles().length }} file đã sẵn sàng</strong>
+        <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" [disabled]="uploadBusy()" (click)="sendSelectedVideo()">{{ uploadBusy() ? 'Đang gửi...' : 'Gửi AI phân tích' }} <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
       </footer>
     </section>
   } @else {
@@ -87,14 +90,14 @@
           <div>
             <h1>Kết quả phát hiện AI</h1>
             <div class="review-summary">
-              @for (item of summary; track item.label) { <span [class]="'summary-pill ' + item.tone">{{ item.label }}<strong>{{ item.value }}</strong></span> }
+              @for (item of summary(); track item.label) { <span [class]="'summary-pill ' + item.tone">{{ item.label }}<strong>{{ item.value }}</strong></span> }
             </div>
           </div>
           <div class="review-filters"><button type="button" aria-label="Lọc kết quả"><span nz-icon nzType="filter"></span></button><button type="button" aria-label="Sắp xếp kết quả"><span nz-icon nzType="filter"></span></button></div>
         </header>
 
         <div class="detection-grid">
-          @for (card of detections; track $index) {
+          @for (card of detections(); track card.id) {
             @if (card.skeleton) {
               <article class="detection-card skeleton" aria-hidden="true"><div></div><span></span><small></small></article>
             } @else {
@@ -113,9 +116,9 @@
         <header><h2>Chi tiết &amp; Xem xét</h2></header>
         <div class="detail-body">
           <div class="video-preview">
-            <img src="/images/defect-preview-frame.png" alt="Khung hình phát hiện lỗi" />
+            <img [src]="selected.image" [alt]="selected.title" />
             <span class="preview-box"></span>
-            <time>▹ 00:04:32 | Frame 1284</time>
+            <time>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</time>
           </div>
 
           <section class="review-form" aria-label="Thông tin khuyết tật">
@@ -123,8 +126,14 @@
             <div class="risk-field"><span>Mức độ nguy hiểm</span><strong><i></i>Nghiêm trọng</strong></div>
             <div class="confidence-field"><span>Độ tin cậy AI</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
             <div><span>Vị trí tài sản</span><p>{{ selected.location }}<br />{{ selected.voltage }}</p></div>
-            <div><span>Thời điểm</span><p>00:04:32</p></div>
+            <div><span>Thời điểm</span><p>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</p></div>
+            @if (selected.sourceUrl) {
+              <div class="field-wide"><span>Nguồn ảnh</span><p>{{ selected.sourceUrl }}</p></div>
+            }
             <label class="field-wide note-field"><span>Ghi chú của phân tích viên</span><textarea placeholder="Nhập nhận xét hoặc hướng xử lý..."></textarea></label>
+            @if (detailFeedback()) {
+              <p class="field-wide detail-feedback">{{ detailFeedback() }}</p>
+            }
           </section>
 
           <div class="review-actions"><button type="button" class="reject-action">× Từ chối — AI sai</button><button type="button" class="confirm-action">✓ Xác nhận — Có lỗi thật</button></div>
