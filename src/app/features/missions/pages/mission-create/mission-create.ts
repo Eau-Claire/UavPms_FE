@@ -5,9 +5,10 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { Auth } from '../../../../core/auth/auth';
+import { UserRecord } from '../../../../models/users.models';
+import { UsersApi } from '../../../users/data-access/users-api';
 import { MissionsApi } from '../../data-access/missions-api';
-
-const DEFAULT_ASSIGNEE_ID = '00000000-0000-0000-0000-000000000000';
 
 @Component({
   selector: 'app-mission-create',
@@ -19,22 +20,31 @@ const DEFAULT_ASSIGNEE_ID = '00000000-0000-0000-0000-000000000000';
 })
 export class MissionCreate {
   private readonly api = inject(MissionsApi);
+  private readonly auth = inject(Auth);
+  private readonly usersApi = inject(UsersApi);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly busy = signal(false);
+  protected readonly usersLoading = signal(false);
   protected readonly error = signal('');
-  protected readonly priority = signal<'Thấp' | 'Trung bình' | 'Cao'>('Trung bình');
+  protected readonly users = signal<readonly UserRecord[]>([]);
+  protected readonly currentUser = this.auth.user;
   protected readonly form = this.fb.nonNullable.group({
     title: ['', Validators.required],
-    missionType: ['Khảo sát định kỳ', Validators.required],
     routeData: ['', Validators.required],
-    plannedDate: ['', Validators.required],
-    assignedToUserId: [DEFAULT_ASSIGNEE_ID, Validators.required],
+    assignedToUserId: ['', Validators.required],
     droneCode: [''],
+    status: ['Pending', Validators.required],
     description: [''],
   });
+
+  constructor() {
+    const currentUserId = this.currentUser()?.id ?? '';
+    if (currentUserId) this.form.controls.assignedToUserId.setValue(currentUserId);
+    this.loadUsers();
+  }
 
   protected save(): void {
     if (this.form.invalid) {
@@ -49,29 +59,37 @@ export class MissionCreate {
       routeData: value.routeData.trim(),
       assignedToUserId: value.assignedToUserId,
       droneCode: value.droneCode.trim(),
-      status: 'Pending',
-      description: this.descriptionPayload(value),
+      status: value.status,
+      description: value.description.trim(),
     })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
       .subscribe({
-        next: (mission) => void this.router.navigate(['/missions', mission.id || '']),
+        next: (mission) => void this.router.navigate(mission.id ? ['/missions', mission.id] : ['/missions']),
         error: (error: unknown) => this.error.set(this.errorMessage(error)),
       });
   }
 
-  private descriptionPayload(value: ReturnType<typeof this.form.getRawValue>): string {
-    const lines = [
-      `Loại nhiệm vụ: ${value.missionType}`,
-      `Mức độ ưu tiên: ${this.priority()}`,
-      `Ngày khảo sát dự kiến: ${value.plannedDate}`,
-      value.description.trim(),
-    ].filter(Boolean);
-    return lines.join('\n');
+  private loadUsers(): void {
+    this.usersLoading.set(true);
+    this.usersApi.getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.usersLoading.set(false)))
+      .subscribe({
+        next: (users) => {
+          this.users.set(users);
+          const selected = this.form.controls.assignedToUserId.value;
+          if (!selected && users[0]) this.form.controls.assignedToUserId.setValue(users[0].id);
+        },
+        error: () => {
+          const currentUserId = this.currentUser()?.id ?? '';
+          if (!this.form.controls.assignedToUserId.value && currentUserId) this.form.controls.assignedToUserId.setValue(currentUserId);
+        },
+      });
   }
 
   private errorMessage(error: unknown): string {
     if (!(error instanceof HttpErrorResponse)) return 'Không thể tạo nhiệm vụ.';
     const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {};
-    return String(body['message'] ?? error.message ?? 'Không thể tạo nhiệm vụ.');
+    const errors = body['errors'] && typeof body['errors'] === 'object' ? Object.values(body['errors'] as Record<string, unknown>).flat().find(Boolean) : '';
+    return String(errors || body['message'] || error.message || 'Không thể tạo nhiệm vụ.');
   }
 }

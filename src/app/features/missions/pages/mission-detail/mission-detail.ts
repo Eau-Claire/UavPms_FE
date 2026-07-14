@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -19,11 +20,13 @@ import { MissionsApi } from '../../data-access/missions-api';
 export class MissionDetail {
   private readonly api = inject(MissionsApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly mission = signal<Mission | null>(null);
+  protected readonly mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl('https://www.google.com/maps?q=Hanoi,Vietnam&z=12&output=embed');
 
   constructor() {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -51,6 +54,10 @@ export class MissionDetail {
     if (status === 'Completed') return 'success';
     if (['Executing', 'InProgress', 'Processing'].includes(status)) return 'warning';
     return 'neutral';
+  }
+
+  protected displayValue(value: string): string {
+    return value?.trim() || 'N/A';
   }
 
   private errorMessage(error: unknown): string {

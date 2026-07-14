@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission, MissionPage } from '../../../../models/missions.models';
 import { MissionsApi } from '../../data-access/missions-api';
@@ -27,14 +27,16 @@ export class MissionList {
   protected readonly search = signal('');
   protected readonly status = signal('');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
+  protected readonly statsTotalCount = signal(0);
+  protected readonly statsItems = signal<readonly Mission[]>([]);
   protected readonly statuses = ['Pending', 'Executing', 'Completed', 'Failed', 'Cancelled'];
   protected readonly stats = computed(() => {
-    const items = this.response().items;
+    const items = this.statsItems();
     return [
-      { label: 'Tổng nhiệm vụ', value: this.response().totalCount, tone: 'total', icon: 'profile' },
-      { label: 'Đang xử lý AI', value: items.filter((item) => this.isInProgress(item.status)).length, tone: 'warning', icon: 'sync' },
+      { label: 'Tổng nhiệm vụ', value: this.statsTotalCount(), tone: 'total', icon: 'file-text' },
+      { label: 'Đang xử lý AI', value: items.filter((item) => this.isInProgress(item.status)).length, tone: 'warning', icon: 'reload' },
       { label: 'Đã hoàn thành', value: items.filter((item) => item.status === 'Completed').length, tone: 'success', icon: 'check-circle' },
-      { label: 'Cảnh báo lỗi', value: items.filter((item) => this.isFailed(item.status)).length, tone: 'danger', icon: 'warning' },
+      { label: 'Cảnh báo lỗi', value: items.filter((item) => this.isFailed(item.status)).length, tone: 'danger', icon: 'exclamation-circle' },
     ];
   });
 
@@ -44,7 +46,10 @@ export class MissionList {
 
   protected load(): void {
     this.loading.set(true);
-    this.api.list({ page: this.page(), pageSize: this.pageSize(), search: this.search(), status: this.status() })
+    this.response.set({ items: [], page: this.page(), pageSize: this.pageSize(), totalCount: 0, totalPages: 1 });
+    const filters = { page: this.page(), pageSize: this.pageSize(), search: this.search(), status: this.status() };
+    this.loadStats(filters);
+    this.api.list(filters)
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)))
       .subscribe({
         next: (response) => this.response.set(response),
@@ -92,6 +97,30 @@ export class MissionList {
 
   protected endIndex(): number {
     return Math.min(this.response().totalCount, this.response().page * this.response().pageSize);
+  }
+
+  private loadStats(filters: { search?: string; status?: string }): void {
+    const pageSize = 100;
+    this.api.list({ page: 1, pageSize, search: filters.search, status: filters.status })
+      .pipe(
+        switchMap((firstPage) => {
+          if (firstPage.totalPages <= 1) return of({ items: firstPage.items, totalCount: firstPage.totalCount });
+          const pages = Array.from({ length: firstPage.totalPages - 1 }, (_, index) => index + 2);
+          return forkJoin(pages.map((page) => this.api.list({ page, pageSize, search: filters.search, status: filters.status })))
+            .pipe(map((rest) => ({ items: [...firstPage.items, ...rest.flatMap((page) => page.items)], totalCount: firstPage.totalCount })));
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: ({ items, totalCount }) => {
+          this.statsItems.set(items);
+          this.statsTotalCount.set(totalCount);
+        },
+        error: () => {
+          this.statsItems.set([]);
+          this.statsTotalCount.set(0);
+        },
+      });
   }
 
   private isInProgress(status: string): boolean {

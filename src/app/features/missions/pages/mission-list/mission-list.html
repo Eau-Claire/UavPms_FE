@@ -25,7 +25,7 @@
     }
   </section>
 
-  <section class="mission-table-card">
+  <section class="mission-table-card" [class.is-loading]="loading()" aria-busy="{{ loading() }}">
     <div class="mission-table-scroll">
       <table>
         <thead><tr><th>Mã</th><th>Tên nhiệm vụ</th><th>Ngày</th><th>Tuyến đường</th><th>Đội bay</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>

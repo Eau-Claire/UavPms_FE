@@ -69,13 +69,13 @@
 
 .mission-filters {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 220px max-content;
-  gap: 14px;
-  align-items: center;
+  grid-template-columns: minmax(240px, 1fr) 180px max-content;
+  gap: 10px;
+  align-items: flex-end;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #fff;
-  padding: 16px;
+  padding: 12px 16px;
 }
 
 .mission-filters label,
@@ -97,12 +97,13 @@
 
 .mission-search .anticon {
   position: absolute;
-  top: 15px;
+  top: 50%;
+  transform: translateY(-50%);
   left: 14px;
   color: #64748b;
 }
 
-.mission-search input {
+.mission-filters .mission-search input {
   padding-left: 42px;
 }
 
@@ -128,37 +129,55 @@
 .mission-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
 .mission-stat {
-  display: flex;
+  display: grid;
+  min-height: 106px;
+  grid-template-columns: 52px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #fff;
-  padding: 18px;
+  padding: 18px 24px;
 }
 
 .mission-stat > .anticon {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   place-items: center;
-  border-radius: 10px;
+  align-self: center;
+  justify-self: center;
+  border-radius: 12px;
   background: #eff4ff;
   color: #101c2e;
-  font-size: 20px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.mission-stat > div {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  align-content: center;
 }
 
 .mission-stat p {
-  margin: 0 0 4px;
-  font-size: 13px;
+  margin: 0;
+  color: #526484;
+  font-size: 15px;
+  line-height: 20px;
 }
 
 .mission-stat strong {
-  font-size: 24px;
+  display: block;
+  color: #001b36;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 32px;
 }
 
 .mission-stat.warning .anticon { background: #fef3c7; color: #92400e; }
@@ -170,6 +189,10 @@
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #fff;
+}
+
+.mission-table-card.is-loading tbody tr:not(:first-child) {
+  display: none;
 }
 
 .mission-table-scroll {
@@ -382,43 +405,55 @@
 
 .mission-live-page {
   position: relative;
-  min-height: calc(100vh - 96px);
+  display: grid;
+  height: calc(100vh - 64px);
+  min-height: 620px;
+  grid-template-rows: 56px minmax(0, 1fr) 76px;
+  grid-template-columns: 240px 1fr 280px;
+  gap: 12px 14px;
   overflow: hidden;
-  border-radius: 8px;
   background: #07101d;
   color: #fff;
+  padding: 0 20px 16px;
 }
 
 .mission-live-map {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(rgba(7, 16, 29, .22), rgba(7, 16, 29, .7)),
-    url('/images/defect-corridor-tree.png') center / cover;
-  filter: grayscale(.25) contrast(1.1);
+  width: 100%;
+  height: 100%;
+  border: 0;
+  filter: saturate(.95) contrast(1.03);
+}
+
+.mission-map-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(7, 16, 29, .18), rgba(7, 16, 29, .3));
 }
 
 .mission-live-header,
 .mission-telemetry-panel,
 .mission-camera-panel,
 .mission-live-footer {
-  position: absolute;
+  position: relative;
   z-index: 1;
   border: 1px solid rgba(255,255,255,.12);
-  background: rgba(15, 23, 42, .72);
+  background: rgba(15, 23, 42, .82);
   box-shadow: 0 20px 60px rgba(0,0,0,.3);
   backdrop-filter: blur(18px);
 }
 
 .mission-live-header {
-  top: 0;
-  right: 0;
-  left: 0;
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 64px;
-  padding: 0 24px;
+  min-height: 56px;
+  margin: 0 -20px;
+  border-width: 0 0 1px;
+  padding: 0 20px;
 }
 
 .mission-live-header div {
@@ -434,6 +469,32 @@
   color: #fff;
 }
 
+.mission-live-header strong {
+  max-width: min(42vw, 560px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid rgba(16, 185, 129, .38);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, .1);
+  color: #d8dee9;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.mission-signal .anticon {
+  color: #10b981;
+}
+
 .mission-live-badge {
   border-radius: 999px;
   padding: 4px 10px;
@@ -447,16 +508,16 @@
 .mission-live-badge.neutral { background: #475569; }
 
 .mission-telemetry-panel {
-  top: 96px;
-  left: 24px;
-  width: 300px;
-  border-radius: 12px;
-  padding: 20px;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  border-radius: 10px;
+  padding: 16px;
 }
 
 .mission-telemetry-panel h2,
 .mission-camera-panel h2 {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   color: rgba(255,255,255,.65);
   font-size: 12px;
   letter-spacing: 1px;
@@ -466,15 +527,16 @@
 .mission-telemetry-panel dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   margin: 0;
 }
 
 .mission-telemetry-panel div {
+  min-width: 0;
   border: 1px solid rgba(255,255,255,.08);
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(255,255,255,.06);
-  padding: 12px;
+  padding: 10px;
 }
 
 .mission-telemetry-panel dt {
@@ -485,17 +547,23 @@
 }
 
 .mission-telemetry-panel dd {
+  overflow: hidden;
   margin: 5px 0 0;
+  font-size: 14px;
   font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .mission-camera-panel {
-  top: 96px;
-  right: 24px;
+  grid-column: 3;
+  grid-row: 2;
+  align-self: start;
   display: grid;
-  width: 340px;
-  gap: 16px;
-  border-radius: 12px;
+  max-height: min(500px, calc(100vh - 176px));
+  gap: 12px;
+  border-radius: 10px;
+  overflow: auto;
   padding: 12px;
 }
 
@@ -504,7 +572,8 @@
   overflow: hidden;
   aspect-ratio: 16 / 9;
   border: 2px solid #fea619;
-  border-radius: 10px;
+  max-height: 210px;
+  border-radius: 8px;
   background: #000;
 }
 
@@ -532,7 +601,16 @@
   border-left: 3px solid rgba(255,255,255,.18);
   border-radius: 6px;
   background: rgba(255,255,255,.06);
-  padding: 10px;
+  min-height: 54px;
+  padding: 9px 10px;
+}
+
+.waypoint strong,
+.waypoint small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .waypoint + .waypoint {
@@ -558,21 +636,27 @@
 }
 
 .mission-live-footer {
-  right: 32px;
-  bottom: 28px;
-  left: 32px;
+  grid-column: 1 / -1;
+  grid-row: 3;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px max-content;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 320px) max-content;
+  gap: 16px;
   align-items: center;
-  border-radius: 16px;
-  padding: 18px;
+  border-radius: 12px;
+  padding: 14px 20px;
 }
 
 .mission-live-footer div:first-child {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.mission-live-footer strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mission-live-footer small {
@@ -618,14 +702,13 @@
   .mission-live-page {
     display: grid;
     gap: 14px;
-    overflow: visible;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    grid-template-columns: 1fr;
+    grid-template-rows: 64px auto auto auto;
+    overflow: auto;
     background: #07101d;
-    padding: 80px 16px 16px;
-  }
-
-  .mission-live-map {
-    position: absolute;
-    min-height: 100%;
+    padding: 0 16px 16px;
   }
 
   .mission-live-header,
@@ -633,18 +716,20 @@
   .mission-camera-panel,
   .mission-live-footer {
     position: relative;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    left: auto;
     width: auto;
   }
 
   .mission-live-header {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
+    grid-row: 1;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+
+  .mission-telemetry-panel,
+  .mission-camera-panel,
+  .mission-live-footer {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .mission-live-footer {

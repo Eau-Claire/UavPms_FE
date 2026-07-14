@@ -4,19 +4,21 @@
   } @else if (error()) {
     <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lại danh sách</a></div>
   } @else if (mission(); as mission) {
-    <div class="mission-live-map" aria-hidden="true"></div>
+    <iframe class="mission-live-map" [src]="mapUrl" title="Google Maps mission background" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="mission-map-overlay" aria-hidden="true"></div>
     <header class="mission-live-header">
       <div><strong>Nhiệm vụ: {{ mission.missionCode }}</strong><span class="mission-live-badge {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></div>
+      <div class="mission-signal"><span nz-icon nzType="thunderbolt"></span>SIGNAL: EXCELLENT (98%)</div>
       <a routerLink="/missions"><span nz-icon nzType="arrow-left"></span>Danh sách</a>
     </header>
 
     <aside class="mission-telemetry-panel">
       <h2>Dữ liệu nhiệm vụ</h2>
       <dl>
-        <div><dt>Tuyến</dt><dd>{{ mission.routeData || 'Chưa có tuyến' }}</dd></div>
-        <div><dt>UAV</dt><dd>{{ mission.droneCode }}</dd></div>
-        <div><dt>Đội bay</dt><dd>{{ mission.assignedToUsername }}</dd></div>
-        <div><dt>Quản lý</dt><dd>{{ mission.managerUsername }}</dd></div>
+        <div><dt>Tuyến</dt><dd>{{ displayValue(mission.routeData) }}</dd></div>
+        <div><dt>UAV</dt><dd>{{ displayValue(mission.droneCode) }}</dd></div>
+        <div><dt>Đội bay</dt><dd>{{ displayValue(mission.assignedToUsername) }}</dd></div>
+        <div><dt>Quản lý</dt><dd>{{ displayValue(mission.managerUsername) }}</dd></div>
       </dl>
     </aside>
 

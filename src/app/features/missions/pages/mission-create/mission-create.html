@@ -20,20 +20,18 @@
       <h2>Bước 1: Thông tin chung</h2>
       <label><span>Tên nhiệm vụ *</span><input formControlName="title" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
       <div class="mission-form-grid">
-        <label><span>Loại nhiệm vụ *</span><select formControlName="missionType"><option>Khảo sát định kỳ</option><option>Sự cố</option><option>Kiểm tra sau bảo trì</option></select></label>
         <label><span>Tuyến đường *</span><input formControlName="routeData" placeholder="Tuyến 110kV Bình Dương - Thủ Đức" /></label>
-      </div>
-      <label><span>Mức độ ưu tiên</span><div class="mission-priority">@for (item of ['Thấp', 'Trung bình', 'Cao']; track item) { <button type="button" [class.active]="priority() === item" (click)="priority.set($any(item))">{{ item }}</button> }</div></label>
-      <div class="mission-form-grid">
-        <label><span>Ngày khảo sát dự kiến *</span><input type="date" formControlName="plannedDate" /></label>
         <label><span>Mã UAV</span><input formControlName="droneCode" placeholder="UAV-01" /></label>
       </div>
-      <label><span>Người phụ trách (User ID)</span><input formControlName="assignedToUserId" /></label>
+      <div class="mission-form-grid">
+        <label><span>Trạng thái</span><select formControlName="status"><option value="Pending">Chờ xử lý</option><option value="Executing">Đang thực hiện</option><option value="Completed">Hoàn thành</option></select></label>
+        <label><span>Người phụ trách *</span><select formControlName="assignedToUserId">@if (currentUser()?.id) { <option [value]="currentUser()?.id">{{ currentUser()?.email || currentUser()?.fullName || 'Tài khoản hiện tại' }}</option> } @for (user of users(); track user.id) { <option [value]="user.id">{{ user.email || user.fullName }}</option> }</select><small>{{ usersLoading() ? 'Đang tải người dùng...' : 'assignedToUserId gửi theo lựa chọn này' }}</small></label>
+      </div>
       <label><span>Ghi chú nội bộ</span><textarea rows="4" formControlName="description" placeholder="Nhập các lưu ý đặc biệt cho đội bay hoặc điều phối viên..."></textarea></label>
     </div>
     <aside>
       <h2>Hướng dẫn</h2>
-      <p>API nhiệm vụ hiện nhận `title`, `routeData`, `assignedToUserId`, `droneCode`, `status`, `description`. Các trường loại, ưu tiên, ngày khảo sát được lưu vào mô tả vì backend chưa có cột riêng.</p>
+      <p>Form này gửi đúng body backend yêu cầu: `title`, `routeData`, `assignedToUserId`, `droneCode`, `status`, `description`.</p>
       <div><span nz-icon nzType="lock"></span><p>Mọi thông tin nhiệm vụ chỉ hiển thị cho nhân sự có quyền trong hệ thống.</p></div>
     </aside>
   </section>
