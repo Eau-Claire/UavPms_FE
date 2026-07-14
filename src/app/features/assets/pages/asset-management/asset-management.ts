@@ -50,10 +50,15 @@ export class AssetManagement {
 
   protected readonly phase = signal<'upload' | 'review'>('upload');
   protected readonly activeTab = signal<'local' | 'storage'>('local');
-  protected readonly selectedFile = signal<File | null>(null);
+  protected readonly selectedFiles = signal<readonly File[]>([]);
   protected readonly uploadBusy = signal(false);
   protected readonly pageBusy = signal(false);
   protected readonly detailBusy = signal(false);
+  protected readonly reviewBusy = signal(false);
+  protected readonly reviewPage = signal(1);
+  protected readonly reviewPageSize = signal(8);
+  protected readonly reviewTotalCount = signal(0);
+  protected readonly reviewTotalPages = signal(1);
   protected readonly uploadFeedback = signal<UploadFeedback | null>(null);
   protected readonly selectedDetection = signal<DetectionCard | null>(null);
   protected readonly detailFeedback = signal('');
@@ -101,28 +106,29 @@ export class AssetManagement {
 
   protected chooseFiles(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
-    this.selectedFile.set(file);
-    this.uploadFeedback.set(file ? { tone: 'info', message: `Đã chọn ${file.name}.` } : null);
-    if (!file) return;
-    this.uploadFiles.set([{ name: file.name, size: this.formatBytes(file.size), status: 'pending', progress: 0 }]);
+    const files = Array.from(input.files ?? []);
+    this.selectedFiles.set(files);
+    this.uploadFeedback.set(files.length ? { tone: 'info', message: `Đã chọn ${files.length} tệp.` } : null);
+    this.uploadFiles.set(files.length
+      ? files.map((file) => ({ name: file.name, size: this.formatBytes(file.size), status: 'pending', progress: 0 }))
+      : [{ name: 'Chưa chọn tệp', size: '-', status: 'pending', progress: 0 }]);
   }
 
   protected sendSelectedVideo(): void {
-    const file = this.selectedFile();
-    if (!file) {
-      this.uploadFeedback.set({ tone: 'error', message: 'Chọn tệp trước khi gửi.' });
+    const files = this.selectedFiles();
+    if (!files.length) {
+      this.uploadFeedback.set({ tone: 'error', message: 'Chọn ít nhất một tệp trước khi gửi.' });
       return;
     }
     this.uploadBusy.set(true);
-    this.uploadFeedback.set({ tone: 'info', message: 'Đang gửi tệp...' });
+    this.uploadFeedback.set({ tone: 'info', message: `Đang gửi ${files.length} tệp...` });
     this.setUploadState('uploading', 0);
-    this.api.uploadAnalysisFile({ file, notes: this.mission().code })
+    this.api.uploadAnalysisFile({ files, notes: this.mission().code })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.uploadBusy.set(false)))
       .subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress) {
-            const total = event.total || file.size;
+            const total = event.total || files.reduce((sum, file) => sum + file.size, 0);
             this.setUploadState('uploading', Math.round((event.loaded / total) * 100));
             return;
           }
@@ -138,6 +144,16 @@ export class AssetManagement {
           this.uploadFeedback.set({ tone: 'error', message: this.backendErrorMessage(error) });
         },
       });
+  }
+
+  protected removeUploadFile(name: string): void {
+    if (this.uploadBusy()) return;
+    const files = this.selectedFiles().filter((file) => file.name !== name);
+    this.selectedFiles.set(files);
+    this.uploadFiles.set(files.length
+      ? files.map((file) => ({ name: file.name, size: this.formatBytes(file.size), status: 'pending', progress: 0 }))
+      : [{ name: 'Chưa chọn tệp', size: '-', status: 'pending', progress: 0 }]);
+    this.uploadFeedback.set(files.length ? { tone: 'info', message: `Còn ${files.length} tệp.` } : null);
   }
 
   protected selectDetection(card: DetectionCard): void {
@@ -158,12 +174,27 @@ export class AssetManagement {
     return status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt';
   }
 
+  protected goToReviewPage(page: number): void {
+    if (page < 1 || page > this.reviewTotalPages() || page === this.reviewPage()) return;
+    this.reviewPage.set(page);
+    this.loadReviewData();
+  }
+
+  protected reviewStartIndex(): number {
+    if (!this.reviewTotalCount()) return 0;
+    return (this.reviewPage() - 1) * this.reviewPageSize() + 1;
+  }
+
+  protected reviewEndIndex(): number {
+    return Math.min(this.reviewTotalCount(), this.reviewPage() * this.reviewPageSize());
+  }
+
   private loadPageData(): void {
     this.pageBusy.set(true);
     forkJoin({
       missions: this.api.getMissions(1, 5),
       summary: this.api.getSummary(),
-      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: 1, pageSize: 8 }),
+      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: this.reviewPage(), pageSize: this.reviewPageSize() }),
     })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.pageBusy.set(false)))
       .subscribe({
@@ -171,6 +202,8 @@ export class AssetManagement {
           const firstMission = missions.items[0];
           if (firstMission) this.mission.set(firstMission);
           this.summary.set(this.summaryFromApi(summary, inspections.totalCount));
+          this.reviewTotalCount.set(inspections.totalCount);
+          this.reviewTotalPages.set(inspections.totalPages);
           this.detections.set(this.cardsFromInspections(inspections.items));
         },
         error: (error: unknown) => this.uploadFeedback.set({ tone: 'error', message: this.backendErrorMessage(error) }),
@@ -178,15 +211,19 @@ export class AssetManagement {
   }
 
   private loadReviewData(): void {
+    this.reviewBusy.set(true);
     forkJoin({
       summary: this.api.getSummary(),
-      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: 1, pageSize: 8 }),
+      inspections: this.api.getInspections({ missionId: '', isDefect: null, fromDate: '', toDate: '', page: this.reviewPage(), pageSize: this.reviewPageSize() }),
     })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.reviewBusy.set(false)))
       .subscribe({
         next: ({ summary, inspections }) => {
           this.summary.set(this.summaryFromApi(summary, inspections.totalCount));
+          this.reviewTotalCount.set(inspections.totalCount);
+          this.reviewTotalPages.set(inspections.totalPages);
           this.detections.set(this.cardsFromInspections(inspections.items));
+          this.selectedDetection.set(null);
         },
         error: (error: unknown) => this.detailFeedback.set(this.backendErrorMessage(error)),
       });
@@ -286,4 +323,5 @@ export class AssetManagement {
   private arrayValue(value: unknown): readonly unknown[] {
     return Array.isArray(value) ? value : [];
   }
+
 }

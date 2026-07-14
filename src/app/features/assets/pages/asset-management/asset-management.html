@@ -1,4 +1,4 @@
-<div class="asset-page-v2">
+<div class="asset-page-v2" [class.review-mode]="phase() === 'review'">
   @if (phase() === 'upload') {
     <section class="asset-upload-view" aria-labelledby="asset-upload-title">
       <nav class="asset-breadcrumb" aria-label="Breadcrumb">
@@ -33,7 +33,7 @@
             <div class="upload-icon"><span nz-icon nzType="plus" aria-hidden="true"></span><span nz-icon nzType="database" aria-hidden="true"></span></div>
             <h2>Kéo thả file video vào đây hoặc</h2>
             <label class="choose-file">
-              <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/avi,video/quicktime" (change)="chooseFiles($event)" />
+              <input type="file" multiple accept="image/png,image/jpeg,image/webp,video/mp4,video/avi,video/quicktime" (change)="chooseFiles($event)" />
               Chọn file
             </label>
             <p>Hỗ trợ: <strong>PNG, JPG, WEBP, MP4, AVI, MOV</strong></p>
@@ -72,7 +72,7 @@
                   @if (file.progress) { <b>{{ file.progress }}%</b> }
                 }
               </span>
-              <span role="cell" class="row-action"><button type="button" [attr.aria-label]="file.status === 'done' ? 'Xóa file' : 'Hủy tải file'">{{ file.status === 'done' ? '⌫' : '⊗' }}</button></span>
+              <span role="cell" class="row-action"><button type="button" [disabled]="uploadBusy()" (click)="removeUploadFile(file.name)" [attr.aria-label]="file.status === 'done' ? 'Xóa file' : 'Hủy tải file'">{{ file.status === 'done' ? '⌫' : '⊗' }}</button></span>
             </div>
           }
         </div>
@@ -80,7 +80,7 @@
 
       <footer class="upload-footer">
         <strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ uploadFiles().length }} file đã sẵn sàng</strong>
-        <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" [disabled]="uploadBusy()" (click)="sendSelectedVideo()">{{ uploadBusy() ? 'Đang gửi...' : 'Gửi AI phân tích' }} <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
+        <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" [disabled]="uploadBusy() || !selectedFiles().length" (click)="sendSelectedVideo()">{{ uploadBusy() ? 'Đang gửi...' : 'Gửi AI phân tích' }} <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
       </footer>
     </section>
   } @else {
@@ -109,6 +109,15 @@
             }
           }
         </div>
+
+        <footer class="review-pagination" aria-label="Phân trang kết quả AI">
+          <span>Hiển thị {{ reviewStartIndex() }}-{{ reviewEndIndex() }} / {{ reviewTotalCount() }}</span>
+          <div>
+            <button type="button" [disabled]="reviewBusy() || reviewPage() <= 1" (click)="goToReviewPage(reviewPage() - 1)">Trước</button>
+            <strong>Trang {{ reviewPage() }} / {{ reviewTotalPages() }}</strong>
+            <button type="button" [disabled]="reviewBusy() || reviewPage() >= reviewTotalPages()" (click)="goToReviewPage(reviewPage() + 1)">Sau</button>
+          </div>
+        </footer>
       </div>
 
       @if (selectedDetection(); as selected) {
@@ -116,20 +125,25 @@
         <header><h2>Chi tiết &amp; Xem xét</h2></header>
         <div class="detail-body">
           <div class="video-preview">
-            <img [src]="selected.image" [alt]="selected.title" />
-            <span class="preview-box"></span>
-            <time>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</time>
+            @if (selected.sourceUrl) {
+              <a [href]="selected.sourceUrl" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'Mở ảnh ' + selected.title">
+                <img [src]="selected.image" [alt]="selected.title" />
+                <span class="preview-box"></span>
+                <time>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</time>
+              </a>
+            } @else {
+              <img [src]="selected.image" [alt]="selected.title" />
+              <span class="preview-box"></span>
+              <time>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</time>
+            }
           </div>
 
           <section class="review-form" aria-label="Thông tin khuyết tật">
-            <label class="field-wide"><span>Loại khuyết tật</span><select><option>{{ selected.title }}</option></select></label>
+            <div class="field-wide"><span>Loại khuyết tật</span><p class="defect-type-value">{{ selected.title }}</p></div>
             <div class="risk-field"><span>Mức độ nguy hiểm</span><strong><i></i>Nghiêm trọng</strong></div>
             <div class="confidence-field"><span>Độ tin cậy AI</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
             <div><span>Vị trí tài sản</span><p>{{ selected.location }}<br />{{ selected.voltage }}</p></div>
             <div><span>Thời điểm</span><p>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</p></div>
-            @if (selected.sourceUrl) {
-              <div class="field-wide"><span>Nguồn ảnh</span><p>{{ selected.sourceUrl }}</p></div>
-            }
             <label class="field-wide note-field"><span>Ghi chú của phân tích viên</span><textarea placeholder="Nhập nhận xét hoặc hướng xử lý..."></textarea></label>
             @if (detailFeedback()) {
               <p class="field-wide detail-feedback">{{ detailFeedback() }}</p>

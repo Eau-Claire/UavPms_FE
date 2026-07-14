@@ -17,7 +17,7 @@ export interface AssetMission {
 }
 
 export interface UploadAnalysisFileRequest {
-  readonly file: File;
+  readonly files: readonly File[];
   readonly notes?: string;
 }
 
@@ -74,7 +74,7 @@ export class AssetManagementApi {
 
   uploadAnalysisFile(request: UploadAnalysisFileRequest) {
     const form = new FormData();
-    form.append('files', request.file, request.file.name);
+    request.files.forEach((file) => form.append('files', file, file.name));
     form.append('analysisType', 'DefectDetection');
     if (request.notes) form.append('notes', request.notes);
     return this.http.post<unknown>(`${this.apiBaseUrl}/ai-analysis/upload`, form, {
