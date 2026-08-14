@@ -35,17 +35,17 @@ describe('Auth', () => {
 
   it('routes tokenless login responses into OTP verification', () => {
     let result: { otpRequired: boolean; email?: string } | undefined;
-    auth.login({ email: 'operator@evn.vn', password: 'secret12' }).subscribe((value) => result = value);
+    auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe((value) => result = value);
     http.expectOne(`${environment.apiBaseUrl}/auth/login`).flush({ data: { otpRequired: true, email: 'operator@evn.vn' } });
     expect(result).toEqual({ otpRequired: true, email: 'operator@evn.vn' });
     expect(auth.isAuthenticated()).toBe(false);
   });
 
-  it('normalizes login email before sending credentials', () => {
-    auth.login({ email: '  OPERATOR@EVN.VN ', password: 'secret12' }).subscribe();
+  it('normalizes login username email before sending credentials', () => {
+    auth.login({ username: '  OPERATOR@EVN.VN  ', password: 'secret12' }).subscribe();
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
-    expect(request.request.body).toEqual({ email: 'operator@evn.vn', password: 'secret12' });
-    request.flush({ data: { otpRequired: true, email: 'OPERATOR@EVN.VN' } });
+    expect(request.request.body).toEqual({ username: 'operator@evn.vn', password: 'secret12' });
+    request.flush({ data: { otpRequired: true, email: 'operator@evn.vn' } });
   });
 
   it('normalizes OTP send email before sending request', () => {

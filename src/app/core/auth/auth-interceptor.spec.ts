@@ -38,7 +38,7 @@ describe('authInterceptor', () => {
   });
 
   it('does not attach stale bearer tokens to auth requests', () => {
-    client.post(`${environment.apiBaseUrl}/auth/login`, { email: 'operator@evn.vn', password: 'secret12' }).subscribe();
+    client.post(`${environment.apiBaseUrl}/auth/login`, { username: 'operator@evn.vn', password: 'secret12' }).subscribe();
 
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
     expect(request.request.headers.has('Authorization')).toBe(false);

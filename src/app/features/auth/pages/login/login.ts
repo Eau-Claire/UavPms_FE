@@ -38,18 +38,18 @@ export class Login {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly form = this.fb.nonNullable.group({
-    email: ['', [Validators.required, Validators.email]],
+    username: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(3)]],
   });
-  protected emailError(): string {
-    const email = this.form.controls.email;
-    if (!email.touched || !email.invalid) return '';
-    if (email.hasError('required')) return 'Email không được để trống';
-    if (email.hasError('email')) return 'Email không đúng định dạng';
+  protected usernameError(): string {
+    const username = this.form.controls.username;
+    if (!username.touched || !username.invalid) return '';
+    if (username.hasError('required')) return 'Tên đăng nhập không được để trống';
+    if (username.hasError('email')) return 'Tên đăng nhập không đúng định dạng email';
     return '';
   }
   protected submit(): void {
-    this.normalizeEmail();
+    this.normalizeUsername();
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -79,13 +79,13 @@ export class Login {
         error: (error: HttpErrorResponse) =>
           this.error.set(
             error.status === 401
-              ? 'Email or password is incorrect.'
+              ? 'Username or password is incorrect.'
               : 'Sign in failed. Check the API connection and try again.',
           ),
       });
   }
-  protected normalizeEmail(): void {
-    const normalized = this.form.controls.email.value.trim().toLowerCase();
-    this.form.controls.email.setValue(normalized);
+  protected normalizeUsername(): void {
+    const normalized = this.form.controls.username.value.trim().toLowerCase();
+    this.form.controls.username.setValue(normalized);
   }
 }

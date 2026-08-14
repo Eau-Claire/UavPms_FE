@@ -16,14 +16,14 @@ export class Auth {
   readonly user = computed(() => this.sessionState()?.user ?? null);
   readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.tokens.accessToken));
 
-  login(credentials: { email: string; password: string }) {
-    const normalizedCredentials = { ...credentials, email: this.normalizeEmail(credentials.email) };
+  login(credentials: { username: string; password: string }) {
+    const normalizedCredentials = { username: this.normalizeUsername(credentials.username), password: credentials.password };
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
       map((response): LoginResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const nested = (payload['authResult'] ?? payload) as Record<string, unknown>;
         if (Boolean(nested['otpRequired']) || !this.hasTokens(nested))
-          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.email)) };
+          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.username)) };
         return { otpRequired: false, session: this.normalizeSession(payload) };
       }),
       tap((result) => {
@@ -124,6 +124,10 @@ export class Auth {
   }
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private normalizeUsername(username: string): string {
+    return username.trim().toLowerCase();
   }
 }
 
