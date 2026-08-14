@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, output, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
@@ -52,25 +52,16 @@ export class Header {
     });
     return groups;
   });
-  protected readonly showAssetSearch = computed(() => this.path() === '/assets');
+  protected readonly showAssetSearch = computed(() => false);
   constructor() {
+    this.notifications.connect(this.user()?.id);
     this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef)).subscribe((event) => this.path.set(event.urlAfterRedirects));
-    effect(() => {
-      const userId = this.user()?.id;
-      if (userId) {
-        this.notifications.startPolling(userId);
-      } else {
-        this.notifications.stopPolling();
-      }
-    });
   }
-  protected logout(): void { this.auth.logout(); void this.router.navigate(['/login']); }
+  protected logout(): void { this.notifications.disconnect(); this.auth.logout(); void this.router.navigate(['/login']); }
   protected toggleNotifications(): void {
     const nextOpen = !this.notificationOpen();
     this.notificationOpen.set(nextOpen);
     this.menuOpen.set(false);
-    const userId = this.user()?.id;
-    if (nextOpen && userId) this.notifications.load(userId, false);
   }
   protected closeNotifications(): void { this.notificationOpen.set(false); this.notificationFiltersOpen.set(false); this.notifications.clearSelection(); }
   protected handleDocumentClick(event: Event): void {
