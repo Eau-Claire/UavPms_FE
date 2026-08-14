@@ -85,7 +85,6 @@ export class MissionDetail {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
-  @ViewChild('missionVideo') private readonly missionVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
   protected readonly loading = signal(true);
