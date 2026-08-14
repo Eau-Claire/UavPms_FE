@@ -1,46 +1,313 @@
-<div class="mission-live-page">
+<div class="mission-live-page" [class.workbench-mode]="activeTab() !== 'overview'" [class.lightbox-open]="lightboxMedia()">
   @if (loading()) {
-    <div class="mission-live-empty">Đang tải nhiệm vụ...</div>
+    <div class="mission-detail-skeleton" aria-label="Đang tải nhiệm vụ">
+      <div></div><span></span><span></span><article></article><article></article><article></article>
+    </div>
   } @else if (error()) {
-    <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lại danh sách</a></div>
+    <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lai danh sach</a></div>
   } @else if (mission(); as mission) {
-    <iframe class="mission-live-map" [src]="mapUrl" title="Google Maps mission background" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-    <div class="mission-map-overlay" aria-hidden="true"></div>
+    @if (activeTab() === 'overview') {
+      <iframe class="mission-live-map" [src]="mapUrl" title="Google Maps mission background" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <div class="mission-map-overlay" aria-hidden="true"></div>
+    }
     <header class="mission-live-header">
       <div><strong>Nhiệm vụ: {{ mission.missionCode }}</strong><span class="mission-live-badge {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></div>
       <div class="mission-signal"><span nz-icon nzType="thunderbolt"></span>SIGNAL: EXCELLENT (98%)</div>
-      <a routerLink="/missions"><span nz-icon nzType="arrow-left"></span>Danh sách</a>
+      <div class="mission-live-actions">
+        <a routerLink="/missions"><span nz-icon nzType="arrow-left"></span>Danh sách</a>
+      </div>
     </header>
 
-    <aside class="mission-telemetry-panel">
-      <h2>Dữ liệu nhiệm vụ</h2>
-      <dl>
-        <div><dt>Tuyến</dt><dd>{{ displayValue(mission.routeData) }}</dd></div>
-        <div><dt>UAV</dt><dd>{{ displayValue(mission.droneCode) }}</dd></div>
-        <div><dt>Đội bay</dt><dd>{{ displayValue(mission.assignedToUsername) }}</dd></div>
-        <div><dt>Quản lý</dt><dd>{{ displayValue(mission.managerUsername) }}</dd></div>
-      </dl>
-    </aside>
+    <nav class="mission-detail-tabs" aria-label="Mission detail sections">
+      <button type="button" [class.active]="activeTab() === 'overview'" (click)="setTab('overview')">Overview</button>
+      <button type="button" [class.active]="activeTab() === 'upload'" (click)="setTab('upload')">Upload Media</button>
+      <button type="button" [class.active]="activeTab() === 'processing'" (click)="setTab('processing')">AI Processing</button>
+      <button type="button" [class.active]="activeTab() === 'results'" (click)="setTab('results')">AI Results</button>
+      <button type="button" [class.active]="activeTab() === 'assets'" (click)="setTab('assets')">Assets</button>
+      <button type="button" [class.active]="activeTab() === 'maintenance'" (click)="setTab('maintenance')">Maintenance</button>
+      <button type="button" [class.active]="activeTab() === 'activity'" (click)="setTab('activity')">Activity</button>
+    </nav>
 
-    <aside class="mission-camera-panel">
-      <div class="mission-camera-feed"><img src="/images/defect-insulator-crack.png" alt="Mock live UAV feed" /><span>CAM-01 FPV</span></div>
-      <section>
-        <h2>Điểm kiểm tra</h2>
-        <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 040</strong><small>Đã quét hình ảnh</small></div>
-        <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 041</strong><small>Đã lưu dữ liệu</small></div>
-        <div class="waypoint active"><span nz-icon nzType="aim"></span><strong>Cột 042</strong><small>Đang kiểm tra...</small></div>
-        <div class="waypoint"><strong>043</strong><small>Chờ xử lý</small></div>
+    @if (activeTab() === 'overview') {
+      <aside class="mission-telemetry-panel">
+        <h2>Du lieu nhiem vu</h2>
+        <dl>
+          <div><dt>Tuyến</dt><dd>{{ displayValue(mission.routeData) }}</dd></div>
+          <div><dt>UAV</dt><dd>{{ displayValue(mission.droneCode) }}</dd></div>
+          <div><dt>Đội bay</dt><dd>{{ displayValue(mission.assignedToUsername) }}</dd></div>
+          <div><dt>Quan ly</dt><dd>{{ displayValue(mission.managerUsername) }}</dd></div>
+        </dl>
+      </aside>
+
+      <aside class="mission-camera-panel">
+        <div class="mission-camera-feed"><img src="/images/defect-insulator-crack.png" alt="Mock live UAV feed" /><span>CAM-01 FPV</span></div>
+        <section>
+          <h2>Điểm kiểm tra</h2>
+          <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 040</strong><small>Đã quét hình ảnh</small></div>
+          <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 041</strong><small>Đã lưu dữ liệu</small></div>
+          <div class="waypoint active"><span nz-icon nzType="aim"></span><strong>Cột 042</strong><small>Đang kiểm tra...</small></div>
+          <div class="waypoint"><strong>043</strong><small>Chờ xử lý</small></div>
+        </section>
+      </aside>
+    } @else {
+      <section class="mission-ai-workbench">
+        @if (activeTab() === 'upload') {
+          <section class="asset-upload-view mission-tab-upload" aria-label="Upload Media">
+            <section class="mission-card" aria-label="Thông tin nhiệm vụ">
+              <div class="mission-item"><span>Ma nhiem vu</span><strong [title]="mission.missionCode">{{ middleEllipsis(mission.missionCode, 28) }}</strong></div>
+              <div class="mission-item mission-line"><span>Tuyến đường dây</span><strong [title]="displayValue(mission.routeData)"><i aria-hidden="true">ϟ</i>{{ middleEllipsis(displayValue(mission.routeData), 34) }}</strong></div>
+              <div class="mission-item"><span>Trạng thái</span><strong>{{ statusLabel(mission.status) }}</strong></div>
+              <div class="mission-item"><span>Ngay tao</span><strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</strong></div>
+            </section>
+
+            <section class="upload-card" aria-label="Tải media">
+              <div class="upload-tabs" role="tablist" aria-label="Nguồn tải lên">
+                <button type="button" role="tab" class="active" aria-selected="true">Tải lên từ máy tính</button>
+                <button type="button" role="tab" aria-selected="false">Nhập từ Storage URL</button>
+              </div>
+              <div class="drop-zone mission-drop-zone" [class.drag-active]="dragActive()" (dragover)="onMediaDragOver($event)" (dragleave)="onMediaDragLeave($event)" (drop)="onMediaDrop($event)">
+                @if (mediaQueue().length) {
+                  <div class="mission-drop-thumbs" aria-label="Selected media">
+                    @for (media of mediaQueue(); track media.id) {
+                      <article class="mission-drop-thumb {{ media.kind }}" [class.active]="selectedMedia()?.id === media.id" (click)="selectMedia(media.id)">
+                        @if (media.kind === 'video') {
+                          <video [src]="media.url" muted preload="metadata" (click)="openMediaPreview(media, $event)" (loadedmetadata)="onVideoMetadata($event, media.id)"></video>
+                        } @else {
+                          <img [src]="media.url" [alt]="media.name" (click)="openMediaPreview(media, $event)" />
+                        }
+                        <span [title]="media.name">{{ middleEllipsis(media.name, 24) }}</span>
+                        <i>{{ media.size }}</i>
+                        <button type="button" aria-label="Remove file" (click)="removeMedia(media.id, $event)">×</button>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="upload-icon"><span nz-icon nzType="plus" aria-hidden="true"></span><span nz-icon nzType="database" aria-hidden="true"></span></div>
+                  <h2>Keo tha file vao day hoac</h2>
+                }
+                <label class="choose-file" (dragover)="$event.preventDefault()">
+                  <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.mp4,.avi,.mov,.webm,image/png,image/jpeg,image/webp,image/tiff,video/mp4,video/x-msvideo,video/quicktime,video/webm" (change)="chooseMedia($event)" />
+                  {{ mediaQueue().length ? 'Chọn file khác' : 'Chọn file' }}
+                </label>
+                <p>Ho tro: <strong>PNG, JPG, WEBP, TIFF, MP4, AVI, MOV, WEBM</strong></p>
+                @if (uploadMessage()) { <div class="upload-feedback info" role="status">{{ uploadMessage() }}</div> }
+              </div>
+            </section>
+
+            <section class="queue-card" aria-label="Danh sách file">
+              <header><h2>Danh sách tệp đã chọn</h2><span>{{ mediaQueue().length }} Tệp</span></header>
+              <div class="queue-table" role="table" aria-label="Danh sách tệp">
+                <div class="queue-row queue-head" role="row">
+                  <span role="columnheader">Tên file</span><span role="columnheader">Kích thước</span><span role="columnheader">Trạng thái</span><span role="columnheader">Tiến trình</span><span role="columnheader">Loại</span>
+                </div>
+                @for (media of mediaQueue(); track media.id) {
+                  <div class="queue-row" role="row" (click)="selectMedia(media.id)" [class.selected]="selectedMedia()?.id === media.id">
+                    <span role="cell" class="file-name" [title]="media.name"><i [class]="'file-dot ' + (media.progress >= 100 ? 'done' : media.progress > 0 ? 'uploading' : 'pending')"></i>{{ middleEllipsis(media.name, 38) }}</span>
+                    <span role="cell">{{ media.size }}</span>
+                    <span role="cell" [class]="'upload-status ' + (media.progress >= 100 ? 'done' : media.progress > 0 ? 'uploading' : 'pending')"><i></i>{{ media.status }}</span>
+                    <span role="cell" class="progress-cell">
+                      @if (media.progress >= 100) {
+                        <strong class="done-mark">✓</strong><b>100%</b>
+                      } @else {
+                        <span class="progress-track"><span [style.width.%]="media.progress"></span></span>
+                        @if (media.progress) { <b>{{ media.progress }}%</b> }
+                      }
+                    </span>
+                    <span role="cell">{{ media.kind }}</span>
+                  </div>
+                } @empty {
+                  <div class="queue-row" role="row"><span role="cell" class="file-name">Chưa chọn file</span><span role="cell">-</span><span role="cell">-</span><span role="cell">-</span><span role="cell">-</span></div>
+                }
+              </div>
+            </section>
+            <footer class="upload-footer mission-upload-footer">
+              <strong><span nz-icon nzType="file-text" aria-hidden="true"></span>{{ mediaQueue().length }} file đã sẵn sàng</strong>
+              <div><button type="button" class="ghost-action">Hủy</button><button type="button" class="primary-action" [disabled]="uploadBusy() || !mediaQueue().length" (click)="uploadSelectedMedia()">{{ uploadBusy() ? 'Đang gửi...' : 'Gửi AI phân tích' }} <span nz-icon nzType="arrow-right" aria-hidden="true"></span></button></div>
+            </footer>
+
+            @if (lightboxMedia(); as media) {
+              <div class="mission-lightbox" role="dialog" aria-modal="true" [attr.aria-label]="media.name" (click)="closeMediaPreview()">
+                <div class="mission-lightbox-frame" (click)="$event.stopPropagation()">
+                  @if (media.kind === 'video') {
+                    <video [src]="media.url" controls autoplay></video>
+                  } @else {
+                    <img [src]="media.url" [alt]="media.name" />
+                  }
+                </div>
+              </div>
+            }
+          </section>
+        } @else if (activeTab() === 'processing') {
+          <div class="mission-ai-card mission-processing-panel">
+            @if (mediaQueue().length) {
+              <section class="mission-processing-media" aria-label="Media dang xu ly">
+                @for (media of mediaQueue(); track media.id) {
+                  <article class="mission-processing-card">
+                    <div class="mission-processing-thumb" aria-hidden="true">
+                      @if (media.kind === 'video') {
+                        <video [src]="media.url" muted preload="metadata"></video>
+                      } @else {
+                        <img [src]="media.url" [alt]="media.name" />
+                      }
+                    </div>
+                    <div>
+                      <h3 [title]="media.name">{{ middleEllipsis(media.name, 34) }}</h3>
+                      <p>{{ media.size }} - {{ media.kind }} - {{ media.resolution }}</p>
+                      <small>{{ media.status }}</small>
+                      @if (media.requestId) { <code [title]="media.requestId">{{ middleEllipsis(media.requestId, 30) }}</code> }
+                    </div>
+                  </article>
+                }
+              </section>
+            } @else {
+              <p class="mission-ai-message">Chưa có media để xử lý.</p>
+            }
+            <button type="button" class="mission-ai-primary" (click)="setTab('results')">Xem kết quả AI</button>
+          </div>
+        } @else if (activeTab() === 'results') {
+          <section class="asset-review-view mission-tab-results" [class.has-detail]="selectedDetection()" [style.--mission-detail-width.px]="detailPanelWidth()" aria-label="Kết quả phát hiện AI">
+            <div class="review-left">
+              <header class="review-toolbar">
+                <div>
+                  <div class="review-summary">
+                    <span class="summary-pill total">Tổng:<strong>{{ detections().length }}</strong></span>
+                    <span class="summary-pill waiting">Chờ xem xét:<strong>{{ pendingDetectionCount() }}</strong></span>
+                    <span class="summary-pill approved">Đã duyệt:<strong>{{ approvedDetectionCount() }}</strong></span>
+                    <span class="summary-pill rejected">Từ chối:<strong>{{ rejectedDetectionCount() }}</strong></span>
+                  </div>
+                </div>
+                <div class="review-filters"><button type="button" aria-label="Lọc kết quả"><span nz-icon nzType="filter"></span></button><button type="button" aria-label="Làm mới kết quả AI" [disabled]="detectionsLoading()" (click)="refreshDetections()"><span nz-icon nzType="reload"></span></button></div>
+              </header>
+
+              @if (detectionsLoading()) {
+                <div class="detection-grid">
+                  @for (item of [1,2,3,4,5,6]; track item) {
+                    <article class="detection-card skeleton" aria-hidden="true"><div></div><span></span><small></small></article>
+                  }
+                </div>
+              } @else if (!detections().length) {
+                <p class="mission-ai-message">Chưa có kết quả AI cho nhiệm vụ này.</p>
+              } @else {
+                <div class="detection-grid">
+                  @for (item of pagedDisplayedDetections(); track item.id) {
+                    <button type="button" class="detection-card" [class.selected]="selectedDetection()?.id === item.id" (click)="jumpToDetection(item)">
+                      <div class="defect-image">
+                        @if (isVideoDetection(item) && item.sourceUrl) {
+                          <video [src]="item.sourceUrl" muted preload="metadata"></video>
+                        } @else if (item.imageUrl) {
+                          <img [src]="item.imageUrl" [alt]="item.title" />
+                          @if (item.boundingBox; as box) { <span class="detection-bbox" [style.left.%]="box.x" [style.top.%]="box.y" [style.width.%]="box.width" [style.height.%]="box.height"></span> }
+                        } @else { <span class="mission-frame-empty">Chưa có khung hình</span> }
+                        <b>{{ item.confidence }}%</b>
+                      </div>
+                      <h2>{{ item.title }}</h2>
+                      <div class="card-meta"><span>{{ item.assetId || 'Chưa liên kết tài sản' }}<br />{{ cardTimestampLabel(item) }}</span><em [class.approved]="item.status === 'Approved' || item.status === 'Accepted'" [class.rejected]="item.status === 'Rejected'">{{ detectionStatusLabel(item.status) }}</em></div>
+                    </button>
+                  }
+                </div>
+              }
+
+              <footer class="review-pagination" aria-label="Phân trang kết quả AI">
+                <span>Hiển thị {{ resultStartIndex() }} - {{ resultEndIndex() }} của {{ displayedDetections().length }} kết quả</span>
+                <div class="mission-pagination">
+                  <button type="button" [disabled]="resultPage() <= 1" (click)="goToResultPage(resultPage() - 1)"><span nz-icon nzType="left"></span></button>
+                  @for (item of resultPageButtons(); track $index) {
+                    <button type="button" class="page-number" [class.active]="item === resultPage()" (click)="goToResultPage(item)">{{ item }}</button>
+                  }
+                  <button type="button" [disabled]="resultPage() >= resultTotalPages()" (click)="goToResultPage(resultPage() + 1)"><span nz-icon nzType="right"></span></button>
+                </div>
+              </footer>
+            </div>
+
+            @if (selectedDetection(); as selected) {
+              <aside class="review-detail" aria-label="Chi tiết và xem xét">
+                <button type="button" class="review-resize-handle" aria-label="Kéo để thay đổi độ rộng chi tiết" (pointerdown)="startResultDetailResize($event)"></button>
+                <header><h2>Chi tiết &amp; Xem xét</h2><button type="button" class="review-detail-close" aria-label="Đóng chi tiết" (click)="closeDetectionDetail()">×</button></header>
+                <div class="detail-body">
+                  <div class="video-preview">
+                    @if (isVideoDetection(selected) && selected.sourceUrl) {
+                      <div class="detail-video-shell">
+                        <video #resultVideo [src]="selected.sourceUrl" controls preload="metadata"></video>
+                        @if (videoDetections().length) {
+                          <section class="detail-frame-gallery" aria-label="Detection frame gallery">
+                            @for (frame of videoDetections(); track frame.id) {
+                              <button type="button" [class.active]="selected.id === frame.id" (click)="seekVideoDetection(frame, $event)">
+                                <span>
+                                  @if (frame.imageUrl) {
+                                    <img [src]="frame.imageUrl" [alt]="frame.title" />
+                                    @if (frame.boundingBox; as box) { <i class="detection-bbox" [style.left.%]="box.x" [style.top.%]="box.y" [style.width.%]="box.width" [style.height.%]="box.height"></i> }
+                                  } @else {
+                                    <em class="mission-frame-empty">Chưa có khung hình</em>
+                                  }
+                                  <b>{{ frame.confidence }}%</b>
+                                </span>
+                                <strong>{{ frame.title }}</strong>
+                                <small>{{ frame.timestampLabel }}</small>
+                              </button>
+                            }
+                          </section>
+                        }
+                      </div>
+                    } @else if (selected.imageUrl) {
+                      <a [href]="selected.imageUrl" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'Mở ảnh ' + selected.title">
+                        <img [src]="selected.imageUrl" [alt]="selected.title" />
+                        @if (selected.boundingBox; as box) { <span class="detection-bbox" [style.left.%]="box.x" [style.top.%]="box.y" [style.width.%]="box.width" [style.height.%]="box.height"></span> }
+                      </a>
+                    } @else {
+                      <span class="mission-frame-empty">Chưa có khung hình</span>
+                    }
+                  </div>
+
+                  <section class="review-form" aria-label="Thông tin khuyết tật">
+                    <div class="field-wide"><span>Loại khuyết tật</span><p class="defect-type-value">{{ selected.title }}</p></div>
+                    <div class="field-wide"><span>Mô tả phát hiện</span><p>{{ selected.description }}</p></div>
+                    <div class="confidence-field"><span>Độ tin cậy AI</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
+                    <div><span>Trạng thái</span><p>{{ detectionStatusLabel(selected.status) }}</p></div>
+                    <div><span>Loại media</span><p>{{ selected.mediaType || 'N/A' }}</p></div>
+                    <div><span>Nguồn AI</span><p>{{ selected.aiSource || 'N/A' }}</p></div>
+                    @if (selected.categoryCode) { <div><span>Mã phân loại</span><p>{{ selected.categoryCode }}</p></div> }
+                    @if (selected.severityWeight) { <div><span>Điểm mức độ</span><p>{{ selected.severityWeight }}</p></div> }
+                    <div><span>Khẩn cấp</span><p>{{ selected.isEmergency ? 'Có' : 'Không' }}</p></div>
+                    @if (selected.detectedAt) { <div><span>Ngày phát hiện</span><p>{{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }}</p></div> }
+                    <div class="field-wide"><span>Tài sản</span><p>{{ selected.assetId || 'Chưa liên kết tài sản' }}</p></div>
+                    @if (selected.validatedAt) { <div><span>Đã xác thực</span><p>{{ selected.validatedAt | date:'HH:mm:ss dd/MM/yyyy' }}</p></div> }
+                    <label class="field-wide note-field"><span>Ghi chú của phân tích viên</span><textarea placeholder="Nhập nhận xét hoặc hướng xử lý..." [value]="reviewNotes()" (input)="setReviewNotes($any($event.target).value)"></textarea></label>
+                    @if (resultMessage()) { <p class="field-wide detail-feedback">{{ resultMessage() }}</p> }
+                  </section>
+
+                  <div class="review-actions"><button type="button" class="reject-action" [disabled]="reviewBusy()" (click)="reviewDetection('Rejected')">× Từ chối - AI sai</button><button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">✓ Xác nhận - Có lỗi thật</button></div>
+                </div>
+              </aside>
+            }
+          </section>
+        } @else if (activeTab() === 'activity') {
+          <div class="mission-ai-card">
+            <header><span nz-icon nzType="history"></span><div><h2>Hoạt động</h2><p>Lịch sử thao tác gắn với nhiệm vụ này.</p></div></header>
+            <div class="mission-processing-steps">
+              <div class="done"><span></span><strong>Mission loaded</strong><small>{{ mission.missionCode }}</small></div>
+              <div [class.done]="mediaQueue().length"><span></span><strong>Upload history</strong><small>{{ mediaQueue().length ? mediaQueue().length + ' local file in this session' : 'No local upload in this session' }}</small></div>
+              <div [class.done]="detections().length"><span></span><strong>Lịch sử kết quả AI</strong><small>{{ detections().length }} kết quả hiện có</small></div>
+              <div><span></span><strong>Nhật ký</strong><small>Chưa có dữ liệu nhật ký cho nhiệm vụ này.</small></div>
+            </div>
+          </div>
+        } @else {
+          <div class="mission-ai-card">
+            <header><span nz-icon nzType="tool"></span><div><h2>{{ activeTab() === 'assets' ? 'Assets' : 'Maintenance' }}</h2><p>Chưa có dữ liệu cho mục này.</p></div></header>
+          </div>
+        }
       </section>
-    </aside>
+    }
 
-    <footer class="mission-live-footer">
-      <div>
-        <span nz-icon nzType="environment"></span>
-        <strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong>
-        <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
-      </div>
-      <div class="mission-progress"><span style="width: 48%"></span></div>
-      <p>Tiến độ: 48%</p>
-    </footer>
+    @if (activeTab() === 'overview') {
+      <footer class="mission-live-footer">
+        <div>
+          <span nz-icon nzType="environment"></span>
+          <strong [title]="mission.title || 'Chưa đặt tên nhiệm vụ'">{{ middleEllipsis(mission.title || 'Chưa đặt tên nhiệm vụ', 48) }}</strong>
+          <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
+        </div>
+        <div class="mission-progress"><span style="width: 48%"></span></div>
+        <button type="button" class="mission-footer-upload" (click)="setTab('upload')"><span nz-icon nzType="upload"></span>Upload media</button>
+      </footer>
+    }
   }
 </div>

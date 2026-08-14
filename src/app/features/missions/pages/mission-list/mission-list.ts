@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { finalize, forkJoin, map, of, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission, MissionPage } from '../../../../models/missions.models';
 import { MissionsApi } from '../../data-access/missions-api';
@@ -19,6 +19,7 @@ import { MissionsApi } from '../../data-access/missions-api';
 export class MissionList {
   private readonly api = inject(MissionsApi);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly searchInput = new Subject<string>();
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
@@ -30,6 +31,7 @@ export class MissionList {
   protected readonly statsTotalCount = signal(0);
   protected readonly statsItems = signal<readonly Mission[]>([]);
   protected readonly statuses = ['Pending', 'Executing', 'Completed', 'Failed', 'Cancelled'];
+  protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
     return [
@@ -41,6 +43,12 @@ export class MissionList {
   });
 
   constructor() {
+    this.searchInput
+      .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.search.set(value);
+        this.applyFilters();
+      });
     this.load();
   }
 
@@ -62,9 +70,19 @@ export class MissionList {
     this.load();
   }
 
+  protected updateSearch(value: string): void {
+    this.search.set(value);
+    this.searchInput.next(value);
+  }
+
+  protected refreshList(): void {
+    this.load();
+  }
+
   protected goToPage(page: number): void {
-    if (page < 1 || page > this.response().totalPages || page === this.page()) return;
-    this.page.set(page);
+    const nextPage = this.clampPage(page, this.response().totalPages);
+    if (nextPage === this.page()) return;
+    this.page.set(nextPage);
     this.load();
   }
 
@@ -73,6 +91,7 @@ export class MissionList {
       Pending: 'Chờ xử lý',
       Executing: 'Đang xử lý AI',
       InProgress: 'Đang bay',
+      'In Progress': 'Đang bay',
       Completed: 'Hoàn thành',
       Failed: 'Lỗi bay',
       Cancelled: 'Đã hủy',
@@ -81,7 +100,7 @@ export class MissionList {
 
   protected statusClass(status: string): string {
     if (this.isFailed(status)) return 'danger';
-    if (status === 'Completed') return 'success';
+    if (status.replace(/\s+/g, '') === 'Completed') return 'success';
     if (this.isInProgress(status)) return 'warning';
     return 'neutral';
   }
@@ -124,11 +143,23 @@ export class MissionList {
   }
 
   private isInProgress(status: string): boolean {
-    return ['Executing', 'InProgress', 'Processing', 'AIProcessing'].includes(status);
+    return ['Executing', 'InProgress', 'Processing', 'AIProcessing'].includes(status.replace(/\s+/g, ''));
   }
 
   private isFailed(status: string): boolean {
-    return ['Failed', 'Error', 'Cancelled'].includes(status);
+    return ['Failed', 'Error', 'Cancelled'].includes(status.replace(/\s+/g, ''));
+  }
+
+  private compactPages(current: number, total: number): readonly number[] {
+    if (total <= 0) return [1];
+    if (total <= 2) return Array.from({ length: total }, (_, index) => index + 1);
+    const start = Math.min(Math.max(1, current - 1), total - 2);
+    return [start, start + 1, start + 2];
+  }
+
+  private clampPage(page: number, total: number): number {
+    if (!Number.isFinite(page)) return this.page();
+    return Math.min(Math.max(1, Math.trunc(page)), Math.max(1, total));
   }
 
   private errorMessage(error: unknown): string {

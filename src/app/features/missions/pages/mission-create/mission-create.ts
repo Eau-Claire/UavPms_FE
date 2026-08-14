@@ -71,7 +71,7 @@ export class MissionCreate {
 
   private loadUsers(): void {
     this.usersLoading.set(true);
-    this.usersApi.getAll()
+    this.usersApi.getAssignable()
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.usersLoading.set(false)))
       .subscribe({
         next: (users) => {
