@@ -13,7 +13,7 @@ export const routes: Routes = [
       { path: 'dashboard', loadComponent: () => import('./features/monitor/pages/dashboard/dashboard').then((m) => m.Dashboard), title: 'Monitoring dashboard | UAV-PMS' },
       { path: 'inspections', loadComponent: () => import('./features/monitor/pages/inspection-history/inspection-history').then((m) => m.InspectionHistory), title: 'Inspection history | UAV-PMS' },
       { path: 'change-password', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Change password | UAV-PMS' },
-      { path: 'assets', loadComponent: () => import('./features/assets/pages/asset-management/asset-management').then((m) => m.AssetManagement), title: 'Asset management | UAV-PMS' },
+      { path: 'assets', redirectTo: 'missions' },
       { path: 'admin/users', loadComponent: () => import('./features/users/pages/user-management/user-management').then((m) => m.UserManagement), title: 'User management | UAV-PMS' },
       { path: 'missions/new', loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Create mission | UAV-PMS' },
       { path: 'missions/:id', loadComponent: () => import('./features/missions/pages/mission-detail/mission-detail').then((m) => m.MissionDetail), title: 'Mission detail | UAV-PMS' },
