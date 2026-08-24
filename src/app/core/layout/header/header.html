@@ -1,6 +1,6 @@
 <header class="app-header ant-layout-header">
   <button type="button" class="app-mobile-menu" aria-label="Open menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
-  <div class="app-header-spacer">@if (showAssetSearch()) { <label class="asset-header-search ant-input-affix-wrapper"><span nz-icon nzType="search" aria-hidden="true"></span><span class="sr-only">Search assets</span><input class="ant-input" placeholder="Search assets..." /></label> }</div>
+  <div class="app-header-spacer"></div>
   <div class="app-header-actions">
     <div class="app-notification-wrap">
       <button type="button" class="app-header-icon" [class.app-header-icon-active]="notificationOpen()" aria-label="Notifications" (click)="toggleNotifications()"><span nz-icon nzType="bell"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>

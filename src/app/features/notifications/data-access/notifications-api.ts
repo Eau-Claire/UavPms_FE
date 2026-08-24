@@ -55,7 +55,7 @@ const normalizeArray = (value: unknown): readonly unknown[] => {
   return Array.isArray(list) ? list : [];
 };
 
-const normalizeNotification = (value: unknown, fallbackId = ''): AppNotification => {
+export const normalizeNotification = (value: unknown, fallbackId = ''): AppNotification => {
   const source = record(value);
   const id = stringValue(pick(source, 'id', 'notificationId'), fallbackId);
   const createdAt = stringValue(

@@ -1,25 +1,26 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize, Subscription, timer } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { finalize } from 'rxjs';
 import { AppNotification, NotificationFilters, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { NotificationsApi } from './notifications-api';
+import { NotificationsRealtime } from './notifications-realtime';
 
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationsStore {
   private readonly api = inject(NotificationsApi);
+  private readonly realtime = inject(NotificationsRealtime);
   private readonly destroyRef = inject(DestroyRef);
   private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
-  private pollingSubscription: Subscription | null = null;
-  private pollingUserId = '';
+  private realtimeStarted = false;
 
   readonly loading = signal(false);
   readonly detailLoading = signal(false);
   readonly deletingId = signal('');
   readonly error = signal('');
+  readonly realtimeStatus = signal<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
   readonly filters = signal<NotificationFilters>({ read: 'all', type: '', sort: 'newest' });
   readonly notifications = this.notificationsState.asReadonly();
   readonly selected = this.selectedState.asReadonly();
@@ -40,6 +41,31 @@ export class NotificationsStore {
   readonly unreadNotifications = computed(() => this.filteredNotifications().filter((item) => !item.isRead));
   readonly readNotifications = computed(() => this.filteredNotifications().filter((item) => item.isRead));
 
+  constructor() {
+    this.realtime.notifications$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((notification) => this.upsert(notification));
+    this.realtime.status$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((status) => this.realtimeStatus.set(status));
+  }
+
+  connect(userId?: string): void {
+    if (!this.realtimeStarted) {
+      this.realtimeStarted = true;
+      this.load(userId);
+      this.realtime.connect();
+      return;
+    }
+    this.realtime.connect();
+  }
+
+  disconnect(): void {
+    this.realtimeStarted = false;
+    this.realtime.disconnect();
+    this.realtimeStatus.set('disconnected');
+  }
+
   load(userId?: string, showLoading = true): void {
     if (showLoading) this.loading.set(true);
     this.error.set('');
@@ -53,21 +79,6 @@ export class NotificationsStore {
         next: (items) => this.notificationsState.set(sortNotifications(items, 'newest')),
         error: () => this.error.set('Notifications could not be loaded.'),
       });
-  }
-
-  startPolling(userId: string): void {
-    if (this.pollingUserId === userId && this.pollingSubscription && !this.pollingSubscription.closed) return;
-    this.stopPolling();
-    this.pollingUserId = userId;
-    this.pollingSubscription = timer(0, environment.notificationPollIntervalMs)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((tick) => this.load(userId, tick === 0));
-  }
-
-  stopPolling(): void {
-    this.pollingSubscription?.unsubscribe();
-    this.pollingSubscription = null;
-    this.pollingUserId = '';
   }
 
   select(notification: AppNotification): void {

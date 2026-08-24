@@ -1,0 +1,45 @@
+<form class="mission-page mission-create-page" [formGroup]="form" (ngSubmit)="save()">
+  <div class="mission-page-head">
+    <div>
+      <div class="mission-breadcrumb"><span>Nhiệm vụ bay</span><span>/</span><strong>Tạo mới</strong></div>
+      <h1>Tạo nhiệm vụ mới</h1>
+      <p>Nhập thông tin nền để tạo nhiệm vụ khảo sát hạ tầng điện.</p>
+    </div>
+  </div>
+
+  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
+
+  <section class="mission-stepper" aria-label="Tien trinh tao nhiem vu">
+    @for (step of ['Thông tin chung', 'Thiết lập tuyến', 'Phân công đội bay', 'Xác nhận']; track step; let index = $index) {
+      <div [class.active]="index === 0"><span>{{ index + 1 }}</span><strong>{{ step }}</strong></div>
+    }
+  </section>
+
+  <section class="mission-create-card mission-create-card--single">
+    <div class="mission-create-fields">
+      <h2>Buoc 1: Thong tin chung</h2>
+      <label><span>Tên nhiệm vụ *</span><input formControlName="title" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
+      <div class="mission-form-grid">
+        <label><span>Tuyến đường *</span><input formControlName="routeData" placeholder="Tuyến 110kV Bình Dương - Thủ Đức" /></label>
+        <label><span>Ma UAV</span><input formControlName="droneCode" placeholder="UAV-01" /></label>
+      </div>
+      <div class="mission-form-grid">
+        <label><span>Trạng thái</span><select formControlName="status"><option value="Pending">Chờ xử lý</option><option value="Executing">Đang thực hiện</option><option value="Completed">Hoàn thành</option></select></label>
+        <label>
+          <span>Nguoi phu trach *</span>
+          <select formControlName="assignedToUserId">
+            @if (currentUser()?.id) { <option [value]="currentUser()?.id">{{ currentUser()?.email || currentUser()?.fullName || 'Tài khoản hiện tại' }}</option> }
+            @for (user of users(); track user.id) { <option [value]="user.id">{{ user.fullName || user.email || user.username }}</option> }
+          </select>
+          <small>{{ usersLoading() ? 'Đang tải danh sách người phụ trách...' : 'Chọn người phụ trách nhiệm vụ' }}</small>
+        </label>
+      </div>
+      <label><span>Ghi chú nội bộ</span><textarea rows="4" formControlName="description" placeholder="Nhập các lưu ý đặc biệt cho đội bay hoặc điều phối viên..."></textarea></label>
+    </div>
+  </section>
+
+  <footer class="mission-create-actions">
+    <a routerLink="/missions">Huy</a>
+    <button type="submit" [disabled]="busy()">{{ busy() ? 'Đang tạo...' : 'Tiếp tục' }} <span nz-icon nzType="arrow-right"></span></button>
+  </footer>
+</form>

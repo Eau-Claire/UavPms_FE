@@ -1,7 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, output, signal } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
@@ -23,8 +21,6 @@ export class Header {
   private readonly auth = inject(Auth);
   protected readonly notifications = inject(NotificationsStore);
   private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly path = signal(this.router.url);
   readonly menuOpened = output<void>();
   protected readonly user = this.auth.user;
   protected readonly menuOpen = signal(false);
@@ -52,25 +48,14 @@ export class Header {
     });
     return groups;
   });
-  protected readonly showAssetSearch = computed(() => this.path() === '/assets');
   constructor() {
-    this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef)).subscribe((event) => this.path.set(event.urlAfterRedirects));
-    effect(() => {
-      const userId = this.user()?.id;
-      if (userId) {
-        this.notifications.startPolling(userId);
-      } else {
-        this.notifications.stopPolling();
-      }
-    });
+    this.notifications.connect(this.user()?.id);
   }
-  protected logout(): void { this.auth.logout(); void this.router.navigate(['/login']); }
+  protected logout(): void { this.notifications.disconnect(); this.auth.logout(); void this.router.navigate(['/login']); }
   protected toggleNotifications(): void {
     const nextOpen = !this.notificationOpen();
     this.notificationOpen.set(nextOpen);
     this.menuOpen.set(false);
-    const userId = this.user()?.id;
-    if (nextOpen && userId) this.notifications.load(userId, false);
   }
   protected closeNotifications(): void { this.notificationOpen.set(false); this.notificationFiltersOpen.set(false); this.notifications.clearSelection(); }
   protected handleDocumentClick(event: Event): void {
