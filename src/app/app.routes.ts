@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth-guard';
+import { roleGuard } from './core/auth/role-guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -15,6 +16,8 @@ export const routes: Routes = [
       { path: 'change-password', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Change password | UAV-PMS' },
       { path: 'assets', loadComponent: () => import('./features/assets/pages/asset-health-dashboard/asset-health-dashboard').then((m) => m.AssetHealthDashboard), title: 'Asset Health & Risk Dashboard | UAV-PMS' },
       { path: 'assets/:id', loadComponent: () => import('./features/assets/pages/asset-health-dashboard/asset-health-dashboard').then((m) => m.AssetHealthDashboard), title: 'Asset Detail | UAV-PMS' },
+      { path: 'ai-analysis/upload', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst'])], loadComponent: () => import('./features/ai-analysis/pages/standalone-upload/standalone-upload').then((m) => m.StandaloneUpload), title: 'AI Analysis Upload | UAV-PMS' },
+      { path: 'ai-analysis', redirectTo: 'ai-analysis/upload' },
       { path: 'admin/users', loadComponent: () => import('./features/users/pages/user-management/user-management').then((m) => m.UserManagement), title: 'User management | UAV-PMS' },
       { path: 'missions/new', loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Create mission | UAV-PMS' },
       { path: 'missions/:id', loadComponent: () => import('./features/missions/pages/mission-detail/mission-detail').then((m) => m.MissionDetail), title: 'Mission detail | UAV-PMS' },

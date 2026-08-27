@@ -16,6 +16,7 @@ export class Sidebar {
   protected readonly primaryLinks = [
     { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
     { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe & Rủi ro' },
+    { path: '/ai-analysis/upload', icon: 'experiment', label: 'Phân tích AI' },
     { path: '/admin/users', icon: 'team', label: 'Quản lý người dùng' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },

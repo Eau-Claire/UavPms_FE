@@ -1,0 +1,260 @@
+<div class="standalone-upload-container">
+  @if (!isAuthorized()) {
+    <!-- 403 Forbidden / Permission Denied State -->
+    <section class="forbidden-card" role="alert" aria-label="Quyền truy cập bị từ chối">
+      <div class="forbidden-icon-wrap">
+        <span nz-icon nzType="lock" class="forbidden-icon" aria-hidden="true"></span>
+      </div>
+      <h1 class="forbidden-title">Quyền truy cập bị từ chối (403 Forbidden)</h1>
+      <p class="forbidden-desc">
+        Trang tải lên và phân tích AI độc lập chỉ dành cho các tài khoản có vai trò <strong>Nhà phân tích (Analyst)</strong>, <strong>Quản lý (Manager/Supervisor)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
+      </p>
+      <div class="forbidden-actions">
+        <a routerLink="/dashboard" class="btn-return-dashboard">
+          <span nz-icon nzType="arrow-left" aria-hidden="true"></span>
+          <span>Quay lại Trang Tổng quan</span>
+        </a>
+      </div>
+    </section>
+  } @else {
+    <!-- Main Upload Workspace -->
+    <header class="upload-header">
+      <div class="upload-badge-row">
+        <span class="workflow-badge">
+          <span nz-icon nzType="experiment" class="badge-icon" aria-hidden="true"></span>
+          <span>Phân tích AI Độc lập (Non-Mission)</span>
+        </span>
+        <span class="auth-role-tag">Vai trò: {{ user()?.role }}</span>
+      </div>
+      <h1 class="upload-title">Nạp ảnh Phân tích AI Trực tiếp</h1>
+      <p class="upload-subtitle">
+        Tải lên hình ảnh chụp từ flycam/drone để chạy mô hình AI phát hiện khuyết tật, phân loại đối tượng lưới điện hoặc đánh giá tình trạng thiết bị mà không cần tạo trước nhiệm vụ bay.
+      </p>
+    </header>
+
+    @if (uploadSuccessResult(); as result) {
+      <!-- Success State Result Banner -->
+      <section class="upload-result-card" role="status" aria-live="polite">
+        <div class="result-card-header">
+          <div class="result-success-icon">
+            <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+          </div>
+          <div class="result-title-group">
+            <h2 class="result-title">Tải lên & Khởi tạo phân tích thành công!</h2>
+            <p class="result-subtitle">Yêu cầu phân tích hình ảnh đã được gửi đến máy chủ AI Inspection Service.</p>
+          </div>
+        </div>
+
+        <div class="result-details-grid">
+          <div class="result-item">
+            <span class="result-item-label">Mã phiên phân tích (ID)</span>
+            <span class="result-item-value font-mono font-bold">{{ result.id }}</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Loại phân tích</span>
+            <span class="result-type-badge">{{ result.analysisType }}</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Số lượng tệp</span>
+            <span class="result-item-value">{{ result.filesCount }} hình ảnh</span>
+          </div>
+          <div class="result-item">
+            <span class="result-item-label">Trạng thái xử lý</span>
+            <span class="status-badge-processing">
+              <span class="pulse-dot-sm" aria-hidden="true"></span>
+              <span>{{ result.status }}</span>
+            </span>
+          </div>
+        </div>
+
+        @if (result.notes) {
+          <div class="result-notes-box">
+            <span class="notes-label">Ghi chú kèm theo:</span>
+            <p class="notes-text">{{ result.notes }}</p>
+          </div>
+        }
+
+        <div class="result-actions">
+          <button type="button" class="btn-new-upload" (click)="onReset()">
+            <span nz-icon nzType="plus" aria-hidden="true"></span>
+            <span>Tải lên lượt mới</span>
+          </button>
+        </div>
+      </section>
+    }
+
+    <!-- Upload Form -->
+    <form class="upload-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <!-- File Drop Zone -->
+      <section class="form-section">
+        <h2 class="section-heading">
+          <span class="step-num">1</span>
+          <span>Chọn hoặc Kéo thả hình ảnh Drone</span>
+        </h2>
+
+        <div
+          class="dropzone"
+          [class.dropzone--active]="isDragging()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()"
+          tabindex="0"
+          role="button"
+          aria-label="Khu vực kéo thả tệp hình ảnh"
+          (keydown.enter)="fileInput.click()"
+          (keydown.space)="fileInput.click()"
+        >
+          <input
+            #fileInput
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            (change)="onFileSelected($event)"
+            class="hidden-file-input"
+          />
+
+          <div class="dropzone-content">
+            <div class="dropzone-icon-wrap">
+              <span nz-icon nzType="cloud-upload" class="dropzone-icon" aria-hidden="true"></span>
+            </div>
+            <p class="dropzone-primary-text">
+              <span class="text-blue-600 font-semibold underline">Nhấn để chọn tệp</span> hoặc kéo thả ảnh vào đây
+            </p>
+            <p class="dropzone-hint-text">
+              Hỗ trợ định dạng JPG, JPEG, PNG, WEBP. Dung lượng tối đa 50MB/tệp.
+            </p>
+          </div>
+        </div>
+
+        <!-- Selected Files Preview Grid -->
+        @if (selectedFiles().length > 0) {
+          <div class="files-preview-section">
+            <div class="files-preview-header">
+              <span class="preview-count-label">Đã chọn {{ selectedFiles().length }} hình ảnh:</span>
+              <button type="button" class="btn-clear-all" (click)="clearFiles()">
+                <span nz-icon nzType="delete" aria-hidden="true"></span>
+                <span>Xóa tất cả</span>
+              </button>
+            </div>
+
+            <div class="preview-grid">
+              @for (item of selectedFiles(); track item.name; let idx = $index) {
+                <div class="preview-card">
+                  <div class="preview-thumb-wrap">
+                    <img [src]="item.previewUrl" [alt]="item.name" class="preview-thumb" />
+                    <button
+                      type="button"
+                      class="btn-remove-file"
+                      (click)="removeFile(idx); $event.stopPropagation()"
+                      aria-label="Xóa tệp này"
+                    >
+                      <span nz-icon nzType="close" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <div class="preview-info">
+                    <span class="preview-filename" [title]="item.name">{{ item.name }}</span>
+                    <span class="preview-size">{{ item.sizeFormatted }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Analysis Options Section -->
+      <section class="form-section">
+        <h2 class="section-heading">
+          <span class="step-num">2</span>
+          <span>Tùy chọn Cấu hình Phân tích AI</span>
+        </h2>
+
+        <!-- Analysis Type Selector -->
+        <div class="form-group">
+          <label for="analysisType" class="form-label font-semibold">
+            Mục tiêu phân tích (Analysis Type)
+          </label>
+          <div class="analysis-type-cards">
+            @for (type of analysisTypes; track type.value) {
+              <label
+                class="type-card"
+                [class.type-card--selected]="form.controls.analysisType.value === type.value"
+              >
+                <input
+                  type="radio"
+                  formControlName="analysisType"
+                  [value]="type.value"
+                  class="sr-only"
+                />
+                <div class="type-card-header">
+                  <span class="type-card-radio-circle"></span>
+                  <span class="type-card-title">{{ type.label }}</span>
+                </div>
+                <p class="type-card-desc">{{ type.desc }}</p>
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Optional Notes -->
+        <div class="form-group mt-4">
+          <label for="notes" class="form-label font-semibold">
+            Ghi chú / Mô tả hiện trường (Tùy chọn)
+          </label>
+          <textarea
+            id="notes"
+            formControlName="notes"
+            rows="3"
+            class="form-textarea"
+            placeholder="Ví dụ: Kiểm tra cách điện vị trí pha giữa đường dây 220kV sau bão số 3..."
+          ></textarea>
+        </div>
+      </section>
+
+      <!-- Error State Alert -->
+      @if (uploadError()) {
+        <div class="upload-error-alert" role="alert">
+          <span nz-icon nzType="close-circle" class="error-alert-icon" aria-hidden="true"></span>
+          <div class="error-alert-content">
+            <strong class="error-alert-title">Không thể tải lên:</strong>
+            <span>{{ uploadError() }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Upload Progress Bar -->
+      @if (uploading()) {
+        <div class="upload-progress-card" aria-live="polite">
+          <div class="progress-header">
+            <span class="progress-title">Đang truyền tải dữ liệu hình ảnh (multipart/form-data)...</span>
+            <span class="progress-percent font-bold">{{ uploadProgress() }}%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" [style.width.%]="uploadProgress()"></div>
+          </div>
+        </div>
+      }
+
+      <!-- Form Actions -->
+      <footer class="form-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="onReset()"
+          [disabled]="uploading()"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="submit"
+          class="btn-primary"
+          [disabled]="uploading() || selectedFiles().length === 0"
+        >
+          <span nz-icon [nzType]="uploading() ? 'loading' : 'cloud-upload'" class="btn-icon" aria-hidden="true"></span>
+          <span>{{ uploading() ? 'Đang tải lên...' : 'Bắt đầu Phân tích AI' }}</span>
+        </button>
+      </footer>
+    </form>
+  }
+</div>
