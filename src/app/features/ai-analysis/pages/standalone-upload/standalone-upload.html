@@ -1,4 +1,4 @@
-<div class="standalone-upload-container">
+<div class="ai-studio-container">
   @if (!isAuthorized()) {
     <!-- 403 Forbidden / Permission Denied State -->
     <section class="forbidden-card" role="alert" aria-label="Quyền truy cập bị từ chối">
@@ -7,7 +7,7 @@
       </div>
       <h1 class="forbidden-title">Quyền truy cập bị từ chối (403 Forbidden)</h1>
       <p class="forbidden-desc">
-        Trang tải lên và phân tích AI độc lập chỉ dành cho các tài khoản có vai trò <strong>Nhà phân tích (Analyst)</strong>, <strong>Quản lý (Manager/Supervisor)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
+        Trang Studio Phân tích AI chỉ dành cho các tài khoản có vai trò <strong>Nhà phân tích (Analyst)</strong>, <strong>Quản lý (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
       </p>
       <div class="forbidden-actions">
         <a routerLink="/dashboard" class="btn-return-dashboard">
@@ -17,83 +17,57 @@
       </div>
     </section>
   } @else {
-    <!-- Main Upload Workspace -->
-    <header class="upload-header">
-      <div class="upload-badge-row">
-        <span class="workflow-badge">
-          <span nz-icon nzType="experiment" class="badge-icon" aria-hidden="true"></span>
-          <span>Phân tích AI Độc lập (Non-Mission)</span>
-        </span>
-        <span class="auth-role-tag">Vai trò: {{ user()?.role }}</span>
+    <!-- Studio Header -->
+    <header class="studio-header">
+      <div class="studio-header-left">
+        <div class="studio-badge-row">
+          <span class="ai-platform-badge">
+            <span class="pulse-dot-ai" aria-hidden="true"></span>
+            <span>UAV AI Inspection Studio</span>
+          </span>
+          <span class="workflow-type-tag">Stand-alone Inspection</span>
+        </div>
+        <h1 class="studio-title">Trạm Phân tích & Giám định AI Trực quan</h1>
+        <p class="studio-subtitle">
+          Nền tảng kiểm tra tự động phát hiện khuyết tật lưới điện trên Hình ảnh & Video flycam theo chuẩn thị giác máy tính Roboflow / CVAT.
+        </p>
       </div>
-      <h1 class="upload-title">Nạp ảnh Phân tích AI Trực tiếp</h1>
-      <p class="upload-subtitle">
-        Tải lên hình ảnh chụp từ flycam/drone để chạy mô hình AI phát hiện khuyết tật, phân loại đối tượng lưới điện hoặc đánh giá tình trạng thiết bị mà không cần tạo trước nhiệm vụ bay.
-      </p>
-    </header>
 
-    @if (uploadSuccessResult(); as result) {
-      <!-- Success State Result Banner -->
-      <section class="upload-result-card" role="status" aria-live="polite">
-        <div class="result-card-header">
-          <div class="result-success-icon">
-            <span nz-icon nzType="check-circle" aria-hidden="true"></span>
-          </div>
-          <div class="result-title-group">
-            <h2 class="result-title">Tải lên & Khởi tạo phân tích thành công!</h2>
-            <p class="result-subtitle">Yêu cầu phân tích hình ảnh đã được gửi đến máy chủ AI Inspection Service.</p>
-          </div>
-        </div>
-
-        <div class="result-details-grid">
-          <div class="result-item">
-            <span class="result-item-label">Mã phiên phân tích (ID)</span>
-            <span class="result-item-value font-mono font-bold">{{ result.id }}</span>
-          </div>
-          <div class="result-item">
-            <span class="result-item-label">Loại phân tích</span>
-            <span class="result-type-badge">{{ result.analysisType }}</span>
-          </div>
-          <div class="result-item">
-            <span class="result-item-label">Số lượng tệp</span>
-            <span class="result-item-value">{{ result.filesCount }} hình ảnh</span>
-          </div>
-          <div class="result-item">
-            <span class="result-item-label">Trạng thái xử lý</span>
-            <span class="status-badge-processing">
-              <span class="pulse-dot-sm" aria-hidden="true"></span>
-              <span>{{ result.status }}</span>
-            </span>
-          </div>
-        </div>
-
-        @if (result.notes) {
-          <div class="result-notes-box">
-            <span class="notes-label">Ghi chú kèm theo:</span>
-            <p class="notes-text">{{ result.notes }}</p>
-          </div>
-        }
-
-        <div class="result-actions">
-          <button type="button" class="btn-new-upload" (click)="onReset()">
-            <span nz-icon nzType="plus" aria-hidden="true"></span>
-            <span>Tải lên lượt mới</span>
+      <div class="studio-header-right">
+        <!-- Workflow Mode Switcher -->
+        <div class="workflow-switcher" role="tablist" aria-label="Chế độ phân tích">
+          <button
+            type="button"
+            class="switch-btn"
+            [class.active]="workflowMode() === 'image'"
+            (click)="onWorkflowModeChange('image')"
+            role="tab"
+            [attr.aria-selected]="workflowMode() === 'image'"
+          >
+            <span nz-icon nzType="picture" aria-hidden="true"></span>
+            <span>Phân tích Hình ảnh (Image)</span>
+          </button>
+          <button
+            type="button"
+            class="switch-btn"
+            [class.active]="workflowMode() === 'video'"
+            (click)="onWorkflowModeChange('video')"
+            role="tab"
+            [attr.aria-selected]="workflowMode() === 'video'"
+          >
+            <span nz-icon nzType="video-camera" aria-hidden="true"></span>
+            <span>Phân tích Video (Stream)</span>
           </button>
         </div>
-      </section>
-    }
+      </div>
+    </header>
 
-    <!-- Upload Form -->
-    <form class="upload-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <!-- File Drop Zone -->
-      <section class="form-section">
-        <h2 class="section-heading">
-          <span nz-icon nzType="picture" aria-hidden="true"></span>
-          <span>Chọn hoặc Kéo thả hình ảnh Flycam / Drone</span>
-        </h2>
-
+    <!-- MAIN WORKSPACE ACCORDING TO STAGE -->
+    @if (workflowStage() === 'idle') {
+      <!-- STAGE 1: EMPTY DROPZONE + SAMPLE LOADERS -->
+      <section class="upload-stage-idle">
         <div
-          class="dropzone"
+          class="studio-dropzone"
           [class.dropzone--active]="isDragging()"
           (dragover)="onDragOver($event)"
           (dragleave)="onDragLeave($event)"
@@ -101,7 +75,7 @@
           (click)="fileInput.click()"
           tabindex="0"
           role="button"
-          aria-label="Khu vực kéo thả tệp hình ảnh"
+          aria-label="Khu vực kéo thả tệp tải lên"
           (keydown.enter)="fileInput.click()"
           (keydown.space)="fileInput.click()"
         >
@@ -109,117 +83,646 @@
             #fileInput
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp,image/jpg"
+            [accept]="workflowMode() === 'video' ? 'video/mp4,video/quicktime,video/webm,video/x-msvideo,.mp4,.mov,.webm,.avi' : 'image/jpeg,image/png,image/webp,image/jpg,.jpg,.jpeg,.png,.webp'"
             (change)="onFileSelected($event)"
             class="hidden-file-input"
           />
 
-          <div class="dropzone-content">
-            <div class="dropzone-icon-wrap">
-              <span nz-icon nzType="inbox" class="dropzone-icon" aria-hidden="true"></span>
+          <div class="dropzone-inner">
+            <div class="dropzone-icon-bubble">
+              <span nz-icon [nzType]="workflowMode() === 'video' ? 'video-camera' : 'cloud-upload'" class="dropzone-icon" aria-hidden="true"></span>
             </div>
-            <p class="dropzone-primary-text">
-              <span class="text-blue-600 font-semibold underline">Nhấn để chọn tệp</span> hoặc kéo thả ảnh vào đây
+            <h2 class="dropzone-title">
+              Kéo thả {{ workflowMode() === 'video' ? 'Video đường bay UAV' : 'Hình ảnh thiết bị' }} vào đây hoặc <span class="highlight-link">Chọn từ máy tính</span>
+            </h2>
+            <p class="dropzone-sub">
+              @if (workflowMode() === 'video') {
+                Hỗ trợ định dạng: <strong>MP4, MOV, WEBM, AVI</strong> (H.264/H.265 4K/FHD). Tối đa 2GB.
+              } @else {
+                Hỗ trợ định dạng: <strong>JPG, JPEG, PNG, WEBP</strong> (Độ phân giải cao tối đa 50MB/ảnh).
+              }
             </p>
-            <p class="dropzone-hint-text">
-              Hỗ trợ định dạng JPG, JPEG, PNG, WEBP. Dung lượng tối đa 50MB/tệp.
-            </p>
+            <div class="dropzone-tags">
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Tự động trích xuất frame</span>
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Định vị Bounding Box</span>
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Đồng bộ Timeline video</span>
+            </div>
           </div>
         </div>
 
-        <!-- Selected Files Preview Grid -->
-        @if (selectedFiles().length > 0) {
-          <div class="files-preview-section">
-            <div class="files-preview-header">
-              <span class="preview-count-label">Đã chọn {{ selectedFiles().length }} hình ảnh:</span>
-              <button type="button" class="btn-clear-all" (click)="clearFiles()">
-                <span nz-icon nzType="delete" aria-hidden="true"></span>
-                <span>Xóa tất cả</span>
-              </button>
+        <div class="quick-demo-strip">
+          <span class="demo-label">Hoặc dùng tệp mẫu kiểm thử nhanh:</span>
+          <button type="button" class="btn-demo-sample" (click)="loadSampleDemo()">
+            <span nz-icon nzType="play-circle" aria-hidden="true"></span>
+            <span>Nạp {{ workflowMode() === 'video' ? 'Video 4K UAV Mẫu' : 'Ảnh Flycam Độ Phân Giải Cao' }}</span>
+          </button>
+        </div>
+
+        @if (uploadError()) {
+          <div class="studio-alert danger" role="alert">
+            <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+            <span>{{ uploadError() }}</span>
+          </div>
+        }
+      </section>
+
+    } @else if (workflowStage() === 'ready') {
+      <!-- STAGE 2: UPLOAD PREVIEW REPLACES EMPTY DROPZONE -->
+      <section class="upload-stage-ready" aria-label="Xem trước tệp đã chọn trước khi phân tích">
+        <div class="preview-header-bar">
+          <div class="preview-status-pill">
+            <span class="status-indicator-dot ready"></span>
+            <strong>{{ selectedFiles().length }} tệp đã sẵn sàng</strong>
+            <span>— Đã hoàn tất trích xuất thông số kỹ thuật</span>
+          </div>
+          <button type="button" class="btn-ghost-clear" (click)="clearFiles()">
+            <span nz-icon nzType="delete" aria-hidden="true"></span>
+            <span>Hủy &amp; Chọn lại</span>
+          </button>
+        </div>
+
+        @if (currentMedia(); as media) {
+          <!-- Rich Media Preview Hero Card -->
+          <div class="media-preview-hero">
+            <div class="hero-thumb-side">
+              @if (media.kind === 'video') {
+                <div class="video-preview-shell">
+                  @if (media.thumbnailUrl) {
+                    <img [src]="media.thumbnailUrl" [alt]="media.name" class="hero-thumb-img" />
+                  } @else {
+                    <div class="thumb-placeholder-loading">
+                      <span nz-icon nzType="loading" aria-hidden="true"></span>
+                      <span>Đang trích xuất frame đầu...</span>
+                    </div>
+                  }
+                  <span class="video-duration-badge">{{ media.duration }}</span>
+                  <span class="video-type-badge">VIDEO STREAM</span>
+                </div>
+              } @else {
+                <div class="image-preview-shell">
+                  <img [src]="media.thumbnailUrl || media.previewUrl" [alt]="media.name" class="hero-thumb-img" />
+                  <span class="image-type-badge">HIGH-RES IMAGE</span>
+                </div>
+              }
             </div>
 
-            <div class="preview-grid">
-              @for (item of selectedFiles(); track item.name; let idx = $index) {
-                <div class="preview-card">
-                  <div class="preview-thumb-wrap">
-                    <img [src]="item.previewUrl" [alt]="item.name" class="preview-thumb" />
-                    <button
-                      type="button"
-                      class="btn-remove-file"
-                      (click)="removeFile(idx); $event.stopPropagation()"
-                      aria-label="Xóa tệp này"
-                    >
-                      <span nz-icon nzType="close" aria-hidden="true"></span>
-                    </button>
+            <div class="hero-meta-side">
+              <div class="hero-meta-head">
+                <div class="meta-title-group">
+                  <span class="file-kind-tag">{{ media.kind === 'video' ? 'Video khảo sát UAV' : 'Hình ảnh chụp Flycam' }}</span>
+                  <h2 class="file-main-name" [title]="media.name">{{ media.name }}</h2>
+                </div>
+                <span class="ready-badge">
+                  <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+                  <span>Sẵn sàng phân tích AI</span>
+                </span>
+              </div>
+
+              <!-- Metadata Specs Grid -->
+              <dl class="specs-grid">
+                <div class="spec-card">
+                  <dt>Dung lượng tệp</dt>
+                  <dd>{{ media.sizeFormatted }}</dd>
+                </div>
+                <div class="spec-card">
+                  <dt>Độ phân giải</dt>
+                  <dd class="font-mono">{{ media.resolution }}</dd>
+                </div>
+                @if (media.kind === 'video') {
+                  <div class="spec-card">
+                    <dt>Tốc độ khung hình (FPS)</dt>
+                    <dd>{{ media.fps }}</dd>
                   </div>
-                  <div class="preview-info">
-                    <span class="preview-filename" [title]="item.name">{{ item.name }}</span>
-                    <span class="preview-size">{{ item.sizeFormatted }}</span>
+                  <div class="spec-card">
+                    <dt>Thời lượng</dt>
+                    <dd class="font-mono text-amber-500 font-bold">{{ media.duration }}</dd>
                   </div>
+                }
+                <div class="spec-card">
+                  <dt>Mô hình AI dự kiến</dt>
+                  <dd class="text-blue-400 font-semibold">{{ form.get('preferredModel')?.value }}</dd>
+                </div>
+                <div class="spec-card">
+                  <dt>Trạng thái</dt>
+                  <dd class="text-green-400 font-semibold">Khung hình hợp lệ</dd>
+                </div>
+              </dl>
+
+              <!-- Optional Notes & AI Options -->
+              <form [formGroup]="form" class="hero-form-row">
+                <div class="form-field-group">
+                  <label for="preferredModelSelect">Bộ mô hình chuyên dụng:</label>
+                  <select id="preferredModelSelect" formControlName="preferredModel" class="studio-select">
+                    <option value="YOLOv8-PowerGrid-X">YOLOv8-PowerGrid-X (Phát hiện cách điện, bu lông, cây cối)</option>
+                    <option value="Transformer-Defect-Net">Transformer-Defect-Net (Độ chính xác cao trên ảnh 4K)</option>
+                    <option value="Thermal-Hotspot-AI">Thermal-Hotspot-AI (Phát hiện phát nhiệt mối nối)</option>
+                  </select>
+                </div>
+
+                <div class="form-field-group">
+                  <label for="notesInput">Ghi chú hiện trường:</label>
+                  <input
+                    id="notesInput"
+                    type="text"
+                    formControlName="notes"
+                    placeholder="Ví dụ: Đoạn cột 042-045 xuất tuyến 220kV..."
+                    class="studio-input"
+                  />
+                </div>
+              </form>
+
+              <!-- Main Execution CTA -->
+              <div class="hero-action-bar">
+                <button type="button" class="btn-studio-secondary" (click)="clearFiles()">
+                  <span>Hủy bỏ</span>
+                </button>
+                <button type="button" class="btn-studio-primary" (click)="onSubmit()">
+                  <span nz-icon nzType="thunderbolt" aria-hidden="true"></span>
+                  <span>Bắt đầu Phân tích AI ngay</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Multi-file Thumbnail Strip if multiple files queued -->
+        @if (selectedFiles().length > 1) {
+          <div class="queued-strip">
+            <h3>Danh sách {{ selectedFiles().length }} tệp trong hàng đợi:</h3>
+            <div class="queued-grid">
+              @for (item of selectedFiles(); track item.id) {
+                <div
+                  class="queued-card"
+                  [class.active]="item.id === activeMediaId()"
+                  (click)="selectMedia(item.id)"
+                >
+                  <img [src]="item.thumbnailUrl || item.previewUrl" [alt]="item.name" class="queued-thumb" />
+                  <div class="queued-info">
+                    <strong [title]="item.name">{{ item.name }}</strong>
+                    <span>{{ item.sizeFormatted }} · {{ item.resolution }}</span>
+                  </div>
+                  <button type="button" class="btn-remove-queued" (click)="removeFile(item.id, $event)" aria-label="Xóa">×</button>
                 </div>
               }
             </div>
           </div>
         }
+      </section>
 
-        <!-- Optional Notes -->
-        <div class="form-group mt-4">
-          <label for="notes" class="form-label font-semibold">
-            Ghi chú / Mô tả hiện trường (Tùy chọn)
-          </label>
-          <textarea
-            id="notes"
-            formControlName="notes"
-            rows="2"
-            class="form-textarea"
-            placeholder="Ví dụ: Kiểm tra cách điện vị trí pha giữa đường dây 220kV sau bão số 3..."
-          ></textarea>
+    } @else if (workflowStage() === 'processing') {
+      <!-- STAGE 3: AI PROCESSING VISUALIZATION PIPELINE -->
+      <section class="upload-stage-processing" aria-live="polite">
+        <div class="pipeline-card">
+          <div class="pipeline-header">
+            <div class="pipeline-title-group">
+              <span class="pulse-dot-ai" aria-hidden="true"></span>
+              <h2>Hệ thống Trí tuệ Nhân tạo đang xử lý dữ liệu...</h2>
+              <p>Mô hình YOLOv8-PowerGrid đang thực thi suy luận qua GPU TensorRT Engine</p>
+            </div>
+            <div class="pipeline-percent font-mono font-bold">{{ uploadProgress() }}%</div>
+          </div>
+
+          <!-- Progress Track -->
+          <div class="pipeline-progress-bar">
+            <div class="pipeline-progress-fill" [style.width.%]="uploadProgress()"></div>
+          </div>
+
+          <!-- Pipeline Stages Flow -->
+          <div class="pipeline-steps-flow">
+            <div class="pipe-step done">
+              <span class="pipe-step-num">1</span>
+              <div>
+                <strong>Tiếp nhận tệp media</strong>
+                <small>Multipart Stream Upload</small>
+              </div>
+            </div>
+            <div class="pipe-step done">
+              <span class="pipe-step-num">2</span>
+              <div>
+                <strong>Trích xuất khung hình</strong>
+                <small>4K Frame Sampling</small>
+              </div>
+            </div>
+            <div class="pipe-step active">
+              <span class="pipe-step-num">3</span>
+              <div>
+                <strong>Nhận diện khuyết tật</strong>
+                <small>Neural Bounding Box Regression</small>
+              </div>
+            </div>
+            <div class="pipe-step">
+              <span class="pipe-step-num">4</span>
+              <div>
+                <strong>Phân loại &amp; Gắn mốc thời gian</strong>
+                <small>Timeline Event Mapping</small>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- Error State Alert -->
-      @if (uploadError()) {
-        <div class="upload-error-alert" role="alert">
-          <span nz-icon nzType="close-circle" class="error-alert-icon" aria-hidden="true"></span>
-          <div class="error-alert-content">
-            <strong class="error-alert-title">Không thể tải lên:</strong>
-            <span>{{ uploadError() }}</span>
+    } @else if (workflowStage() === 'inspected') {
+      <!-- STAGE 4: ROBOWFLOW / CVAT STYLE AI INSPECTION STUDIO -->
+      <section class="studio-inspection-workspace" aria-label="Không gian khám phá kết quả AI">
+        <!-- Workbench Toolbar -->
+        <header class="workbench-toolbar">
+          <div class="toolbar-left">
+            <span class="session-badge">ID: {{ uploadSuccessResult()?.id }}</span>
+            <div class="summary-pill total">Phát hiện: <strong>{{ allDetections().length }} lỗi</strong></div>
+            <div class="summary-pill high-conf">Tin cậy &gt; 90%: <strong>{{ filteredDetections().length }}</strong></div>
           </div>
-        </div>
-      }
 
-      <!-- Upload Progress Bar -->
-      @if (uploading()) {
-        <div class="upload-progress-card" aria-live="polite">
-          <div class="progress-header">
-            <span class="progress-title">Đang truyền tải dữ liệu hình ảnh (multipart/form-data)...</span>
-            <span class="progress-percent font-bold">{{ uploadProgress() }}%</span>
-          </div>
-          <div class="progress-bar-track">
-            <div class="progress-bar-fill" [style.width.%]="uploadProgress()"></div>
-          </div>
-        </div>
-      }
+          <div class="toolbar-controls">
+            <!-- Confidence Filter Slider -->
+            <div class="filter-control-item">
+              <label for="confSlider">Ngưỡng tin cậy (Confidence): <strong>{{ confidenceThreshold() }}%</strong></label>
+              <input
+                id="confSlider"
+                type="range"
+                min="30"
+                max="95"
+                step="5"
+                [value]="confidenceThreshold()"
+                (input)="setConfidenceFilter($event)"
+                class="confidence-slider"
+              />
+            </div>
 
-      <!-- Form Actions -->
-      <footer class="form-actions">
-        <button
-          type="button"
-          class="btn-secondary"
-          (click)="onReset()"
-          [disabled]="uploading()"
-        >
-          Hủy bỏ
-        </button>
-        <button
-          type="submit"
-          class="btn-primary"
-          [disabled]="uploading() || selectedFiles().length === 0"
-        >
-          <span nz-icon [nzType]="uploading() ? 'loading' : 'cloud-upload'" class="btn-icon" aria-hidden="true"></span>
-          <span>{{ uploading() ? 'Đang tải lên...' : 'Bắt đầu Phân tích AI' }}</span>
-        </button>
-      </footer>
-    </form>
+            <!-- Category Filter Pills -->
+            <div class="category-filter-select">
+              <select [value]="selectedCategoryFilter()" (change)="setCategoryFilter($any($event.target).value)" class="studio-mini-select">
+                <option value="ALL">Tất cả loại khuyết tật</option>
+                @for (cat of availableCategories(); track cat) {
+                  <option [value]="cat">{{ cat }}</option>
+                }
+              </select>
+            </div>
+
+            <!-- Bounding Box Toggle -->
+            <button
+              type="button"
+              class="btn-toggle-boxes"
+              [class.active]="showBoundingBoxes()"
+              (click)="toggleBoundingBoxes()"
+            >
+              <span nz-icon nzType="border" aria-hidden="true"></span>
+              <span>Bounding Boxes {{ showBoundingBoxes() ? 'BẬT' : 'TẮT' }}</span>
+            </button>
+
+            <!-- Reset / New Session -->
+            <button type="button" class="btn-new-analysis" (click)="onReset()">
+              <span nz-icon nzType="plus" aria-hidden="true"></span>
+              <span>Phiên phân tích mới</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- WORKSPACE GRID: MEDIA CANVAS + GALLERY + DETAIL INSPECTOR -->
+        <div class="workbench-grid" [class.video-layout]="workflowMode() === 'video'">
+          <!-- MAIN MEDIA CANVAS -->
+          <div class="media-canvas-panel">
+            @if (workflowMode() === 'video') {
+              <!-- VIDEO DETECTION WORKFLOW -->
+              <div class="video-inspection-player">
+                <div class="video-viewport-wrapper">
+                  @if (currentMedia(); as media) {
+                    <video
+                      #videoPlayer
+                      [src]="media.previewUrl"
+                      [poster]="media.thumbnailUrl || '/images/defect-preview-frame.png'"
+                      (timeupdate)="onVideoTimeUpdate()"
+                      (click)="toggleVideoPlay()"
+                      class="inspection-video-elem"
+                    ></video>
+                  }
+
+                  <!-- Overlay Bounding Box on Current Active Video Frame if visible -->
+                  @if (showBoundingBoxes() && selectedDetection(); as det) {
+                    @if (det.boundingBox; as box) {
+                      <div
+                        class="detection-box-overlay active-overlay"
+                        [class.emergency]="det.isEmergency"
+                        [style.left.%]="box.x"
+                        [style.top.%]="box.y"
+                        [style.width.%]="box.width"
+                        [style.height.%]="box.height"
+                      >
+                        <span class="box-tag">{{ det.title }} ({{ det.confidence }}%)</span>
+                      </div>
+                    }
+                  }
+
+                  <!-- Video Controls HUD -->
+                  <div class="video-controls-hud">
+                    <button type="button" class="btn-hud-play" (click)="toggleVideoPlay()">
+                      <span nz-icon [nzType]="isVideoPlaying() ? 'pause' : 'caret-right'" aria-hidden="true"></span>
+                    </button>
+                    <span class="hud-time-display font-mono">
+                      {{ formatTime(videoCurrentTime()) }} / {{ formatTime(videoDuration() || 60) }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- DETECTION TIMELINE SCRUBBER -->
+                <div class="detection-timeline-container" aria-label="Thanh timeline phát hiện lỗi">
+                  <div class="timeline-header-label">
+                    <span class="timeline-title">
+                      <span nz-icon nzType="field-time" aria-hidden="true"></span>
+                      <span>Timeline phát hiện AI (Nhấp điểm mốc để tua video)</span>
+                    </span>
+                    <span class="timeline-counter">{{ videoTimelineMarkers().length }} mốc sự kiện</span>
+                  </div>
+
+                  <div
+                    class="timeline-track-interactive"
+                    (click)="onTimelineScrub($event)"
+                    role="slider"
+                    aria-label="Thanh tua video timeline"
+                    tabindex="0"
+                  >
+                    <!-- Base Track -->
+                    <div class="timeline-base-bar"></div>
+
+                    <!-- Video Progress Fill -->
+                    <div
+                      class="timeline-play-progress"
+                      [style.width.%]="(videoCurrentTime() / (videoDuration() || 60)) * 100"
+                    ></div>
+
+                    <!-- DETECTION MARKERS PINNED ON TIMELINE -->
+                    @for (marker of videoTimelineMarkers(); track marker.id) {
+                      <div
+                        class="timeline-marker-pin"
+                        [class.selected]="selectedDetection()?.id === marker.detectionId"
+                        [class.emergency]="marker.isEmergency"
+                        [style.left.%]="marker.percent"
+                        (click)="seekVideo(marker.timestampSeconds); $event.stopPropagation()"
+                        (mouseenter)="setTimelineHoverMarker(marker)"
+                        (mouseleave)="setTimelineHoverMarker(null)"
+                        role="button"
+                        [attr.aria-label]="marker.title + ' tại ' + marker.timestampLabel"
+                      >
+                        <span class="marker-dot"></span>
+                        <span class="marker-time-tag">{{ marker.timestampLabel }}</span>
+
+                        <!-- Hover Popover Preview -->
+                        @if (videoHoveredMarker()?.id === marker.id) {
+                          <div class="marker-popover" role="tooltip">
+                            <strong>{{ marker.title }}</strong>
+                            <span>Độ tin cậy: {{ marker.confidence }}% · {{ marker.timestampLabel }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- DETECTION FRAME GALLERY (Below Video) -->
+                <section class="detection-frame-gallery" aria-label="Bộ sưu tập khung hình lỗi phát hiện">
+                  <div class="gallery-head">
+                    <h3>
+                      <span nz-icon nzType="appstore" aria-hidden="true"></span>
+                      <span>Khung hình phát hiện lỗi (Detection Frame Gallery)</span>
+                    </h3>
+                    <span class="gallery-hint">Nhấp vào thẻ để tua video đến đúng giây</span>
+                  </div>
+
+                  <div class="gallery-cards-grid">
+                    @for (det of filteredDetections(); track det.id) {
+                      <div
+                        class="frame-card"
+                        [class.active]="selectedDetection()?.id === det.id"
+                        [class.emergency-card]="det.isEmergency"
+                        (click)="selectDetection(det)"
+                        role="button"
+                        tabindex="0"
+                        (keydown.enter)="selectDetection(det)"
+                      >
+                        <div class="frame-thumb-wrap">
+                          <img [src]="det.cropImageUrl || det.imageUrl" [alt]="det.title" class="frame-thumb" />
+                          @if (det.boundingBox; as box) {
+                            <div
+                              class="frame-bbox-mini"
+                              [style.left.%]="box.x"
+                              [style.top.%]="box.y"
+                              [style.width.%]="box.width"
+                              [style.height.%]="box.height"
+                            ></div>
+                          }
+                          <span class="frame-conf-badge">{{ det.confidence }}%</span>
+                          <span class="frame-timestamp-badge font-mono">{{ det.timestampLabel }}</span>
+                        </div>
+
+                        <div class="frame-info">
+                          <h4 class="frame-title" [title]="det.title">{{ det.title }}</h4>
+                          <div class="frame-footer">
+                            <span class="frame-tower">{{ det.tower }}</span>
+                            <span
+                              class="frame-status-tag"
+                              [class.approved]="det.status === 'Approved'"
+                              [class.rejected]="det.status === 'Rejected'"
+                            >
+                              {{ det.status === 'Approved' ? 'Đã duyệt' : det.status === 'Rejected' ? 'Từ chối' : 'Chờ duyệt' }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </section>
+              </div>
+
+            } @else {
+              <!-- IMAGE DETECTION WORKFLOW -->
+              <div class="image-inspection-canvas-shell">
+                <div class="canvas-viewport" #imageViewerContainer>
+                  @if (currentMedia(); as media) {
+                    <div class="image-with-boxes-container">
+                      <img [src]="media.previewUrl" [alt]="media.name" class="inspection-main-img" />
+
+                      <!-- Overlay Bounding Boxes -->
+                      @if (showBoundingBoxes()) {
+                        @for (det of filteredDetections(); track det.id) {
+                          @if (det.boundingBox; as box) {
+                            <div
+                              class="image-bbox-overlay"
+                              [class.selected]="selectedDetection()?.id === det.id"
+                              [class.emergency]="det.isEmergency"
+                              [style.left.%]="box.x"
+                              [style.top.%]="box.y"
+                              [style.width.%]="box.width"
+                              [style.height.%]="box.height"
+                              (click)="selectDetection(det); $event.stopPropagation()"
+                              role="button"
+                              [attr.aria-label]="det.title"
+                            >
+                              <span class="bbox-label-tag">
+                                {{ det.title }} ({{ det.confidence }}%)
+                              </span>
+                            </div>
+                          }
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+
+                <!-- Image Detection List Under Canvas -->
+                <div class="image-detections-list-strip">
+                  <div class="strip-header">
+                    <h3>Danh sách phát hiện trên ảnh:</h3>
+                    <span>{{ filteredDetections().length }} đối tượng</span>
+                  </div>
+                  <div class="strip-cards">
+                    @for (det of filteredDetections(); track det.id) {
+                      <div
+                        class="strip-item-card"
+                        [class.active]="selectedDetection()?.id === det.id"
+                        (click)="selectDetection(det)"
+                      >
+                        <img [src]="det.cropImageUrl || det.imageUrl" [alt]="det.title" class="strip-thumb" />
+                        <div class="strip-info">
+                          <strong>{{ det.title }}</strong>
+                          <span>Độ tin cậy: <b class="text-blue-400">{{ det.confidence }}%</b></span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- SIDE INSPECTION DETAIL PANEL (RICH DETAILS) -->
+          <aside class="detection-inspector-panel" aria-label="Bảng chi tiết khuyết tật">
+            <div class="inspector-header">
+              <h3>
+                <span nz-icon nzType="file-search" aria-hidden="true"></span>
+                <span>Chi tiết Giám định AI</span>
+              </h3>
+              @if (selectedDetection(); as det) {
+                <span
+                  class="inspector-status-badge"
+                  [class.approved]="det.status === 'Approved'"
+                  [class.rejected]="det.status === 'Rejected'"
+                >
+                  {{ det.status === 'Approved' ? 'ĐÃ XÁC NHẬN' : det.status === 'Rejected' ? 'ĐÃ TỪ CHỐI' : 'CHỜ PHÊ DUYỆT' }}
+                </span>
+              }
+            </div>
+
+            @if (selectedDetection(); as selected) {
+              <div class="inspector-body">
+                <!-- Dual Frame Comparison: Crop vs Original Frame -->
+                <div class="comparison-container">
+                  <div class="crop-view-box">
+                    <span class="comp-label">Ảnh Crop Cận cảnh (Zoom)</span>
+                    <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" class="crop-img" />
+                  </div>
+                  <div class="original-view-box">
+                    <span class="comp-label">Khung hình Gốc (Full Frame)</span>
+                    <img [src]="selected.imageUrl" [alt]="selected.title" class="original-img" />
+                  </div>
+                </div>
+
+                <!-- Primary Meta Fields -->
+                <div class="inspector-meta-section">
+                  <div class="meta-row highlight">
+                    <span class="meta-label">Loại khuyết tật</span>
+                    <span class="meta-val defect-name">{{ selected.title }}</span>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Mã danh mục</span>
+                    <span class="meta-val font-mono">{{ selected.categoryCode }}</span>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Độ tin cậy AI</span>
+                    <div class="confidence-val-group">
+                      <div class="conf-meter-bar">
+                        <div class="conf-meter-fill" [style.width.%]="selected.confidence"></div>
+                      </div>
+                      <strong class="font-mono text-blue-400">{{ selected.confidence }}%</strong>
+                    </div>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Vị trí Cột (Tower)</span>
+                    <span class="meta-val">{{ selected.tower }}</span>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Tọa độ GPS</span>
+                    <span class="meta-val font-mono text-xs">{{ selected.gps }}</span>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Thời điểm ghi nhận</span>
+                    <span class="meta-val">{{ selected.timestampLabel }} ({{ selected.detectedAt | date:'HH:mm:ss dd/MM' }})</span>
+                  </div>
+
+                  <div class="meta-row">
+                    <span class="meta-label">Mức độ khẩn cấp</span>
+                    <span class="meta-val" [class.text-red-400]="selected.isEmergency">
+                      {{ selected.isEmergency ? '⚠ NGUY CẤP (Cần xử lý ngay)' : 'Theo dõi định kỳ' }}
+                    </span>
+                  </div>
+
+                  <div class="meta-desc-box">
+                    <span class="desc-label">Mô tả phát hiện AI:</span>
+                    <p>{{ selected.description }}</p>
+                  </div>
+                </div>
+
+                <!-- Analyst Notes & Validation Actions -->
+                <div class="inspector-action-section">
+                  <label for="reviewNotesTextarea" class="analyst-notes-label">
+                    Ghi chú của chuyên viên giám định:
+                  </label>
+                  <textarea
+                    id="reviewNotesTextarea"
+                    rows="2"
+                    [value]="reviewNotes()"
+                    (input)="reviewNotes.set($any($event.target).value)"
+                    placeholder="Nhập hướng xử lý, mã lệnh công tác bảo dưỡng..."
+                    class="inspector-notes-textarea"
+                  ></textarea>
+
+                  @if (reviewFeedback()) {
+                    <div class="review-feedback-msg" role="status">{{ reviewFeedback() }}</div>
+                  }
+
+                  <div class="validation-btn-row">
+                    <button
+                      type="button"
+                      class="btn-reject-defect"
+                      (click)="reviewDetection('Rejected')"
+                    >
+                      <span nz-icon nzType="close" aria-hidden="true"></span>
+                      <span>Từ chối (AI Sai)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="btn-approve-defect"
+                      (click)="reviewDetection('Approved')"
+                    >
+                      <span nz-icon nzType="check" aria-hidden="true"></span>
+                      <span>Xác nhận (Có lỗi)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="inspector-empty-state">
+                <span nz-icon nzType="info-circle" class="empty-icon" aria-hidden="true"></span>
+                <p>Chọn một phát hiện trên ảnh hoặc thẻ frame bên dưới video để xem chi tiết.</p>
+              </div>
+            }
+          </aside>
+        </div>
+      </section>
+    }
   }
 </div>
