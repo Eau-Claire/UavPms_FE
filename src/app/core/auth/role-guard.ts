@@ -18,9 +18,21 @@ export const roleGuard = (allowedRoles: readonly UserRole[]): CanActivateFn => {
     }
 
     // Role matching check
-    const hasRole = allowedRoles.some(
-      (role) => role.toLowerCase() === (user.role || '').toLowerCase(),
-    );
+    const userRole = (user.role || '').toLowerCase();
+    const hasRole = allowedRoles.some((role) => {
+      const target = role.toLowerCase();
+      if (target === 'admin' || target === 'systemadmin') {
+        return (
+          userRole === 'admin' ||
+          userRole === 'systemadmin' ||
+          userRole === 'administrator'
+        );
+      }
+      if (target === 'manager' || target === 'supervisor') {
+        return userRole === 'manager' || userRole === 'supervisor';
+      }
+      return userRole === target;
+    });
 
     if (hasRole) {
       return true;

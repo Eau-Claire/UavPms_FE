@@ -40,43 +40,14 @@ export class StandaloneUpload {
   protected readonly uploadError = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    analysisType: ['DefectDetection' as AnalysisType, [Validators.required]],
     notes: [''],
   });
 
-  readonly analysisTypes: readonly { readonly value: AnalysisType; readonly label: string; readonly desc: string }[] = [
-    {
-      value: 'DefectDetection',
-      label: 'Phát hiện khuyết tật (Defect Detection)',
-      desc: 'Nhận diện nứt vỡ sứ cách điện, ăn mòn xà thép, đứt sợi cáp và sự cố vật lý.',
-    },
-    {
-      value: 'AssetConditionAssessment',
-      label: 'Đánh giá tình trạng thiết bị (Asset Condition)',
-      desc: 'Tính toán chỉ số suy hao phẩm chất và phân loại cấp độ rủi ro vận hành.',
-    },
-    {
-      value: 'ObjectClassification',
-      label: 'Phân loại đối tượng lưới điện (Object Classification)',
-      desc: 'Nhận diện phân vùng chuỗi sứ, dây dẫn, tạ chống rung, thân cột.',
-    },
-    {
-      value: 'HumanMotionDetection',
-      label: 'Phát hiện chuyển động con người (Human Motion)',
-      desc: 'Giám sát an ninh hành lang tuyến và cảnh báo xâm phạm trái phép.',
-    },
-    {
-      value: 'General',
-      label: 'Phân tích tổng hợp (General)',
-      desc: 'Chạy toàn bộ pipeline AI tổng quát trên hình ảnh nạp vào.',
-    },
-  ];
-
   isAuthorized(): boolean {
-    const role = this.user()?.role;
+    const role = (this.user()?.role || '').toLowerCase();
     if (!role) return false;
-    const allowed = ['Admin', 'Manager', 'Analyst'];
-    return allowed.some((r) => r.toLowerCase() === role.toLowerCase());
+    const allowed = ['admin', 'systemadmin', 'manager', 'supervisor', 'analyst'];
+    return allowed.includes(role);
   }
 
   onDragOver(event: DragEvent): void {
@@ -160,7 +131,7 @@ export class StandaloneUpload {
     this.api
       .uploadStandaloneAnalysis({
         files,
-        analysisType: formValues.analysisType,
+        analysisType: 'DefectDetection',
         notes: formValues.notes,
       })
       .pipe(
@@ -174,19 +145,27 @@ export class StandaloneUpload {
             this.uploadProgress.set(percent);
           } else if (event instanceof HttpResponse) {
             this.uploadProgress.set(100);
-            const data = unwrapApiData<Record<string, unknown>>(event.body);
-            const id = String(data['id'] || data['sessionId'] || `analysis-${Date.now()}`);
+            const rawBody = event.body;
+            const data = unwrapApiData<Record<string, unknown>>(rawBody);
+            const serverId = this.extractServerId(data, rawBody);
+            const id = serverId || `analysis-${Date.now()}`;
+            const serverStatus =
+              (typeof data === 'object' && data && (data['status'] || data['state'])) ||
+              (typeof rawBody === 'object' && rawBody && ((rawBody as Record<string, unknown>)['status'] || (rawBody as Record<string, unknown>)['message'])) ||
+              'Processing';
+
             const result: AnalysisSessionResult = {
-              id,
-              status: String(data['status'] || 'Processing'),
-              analysisType: formValues.analysisType,
+              id: String(id),
+              status: String(serverStatus),
+              analysisType: 'DefectDetection',
               notes: formValues.notes,
               createdAt: new Date().toISOString(),
               filesCount: files.length,
-              raw: data,
+              raw: rawBody,
             };
             this.uploadSuccessResult.set(result);
             this.clearFiles();
+            this.form.reset({ notes: '' });
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -203,12 +182,29 @@ export class StandaloneUpload {
   onReset(): void {
     this.clearFiles();
     this.form.reset({
-      analysisType: 'DefectDetection',
       notes: '',
     });
     this.uploadSuccessResult.set(null);
     this.uploadError.set(null);
     this.uploadProgress.set(0);
+  }
+
+  private extractServerId(data: unknown, rawBody: unknown): string {
+    if (typeof data === 'string' && data.length > 0) return data;
+    if (data && typeof data === 'object') {
+      const obj = data as Record<string, unknown>;
+      const directId =
+        obj['id'] ?? obj['sessionId'] ?? obj['analysisId'] ?? obj['uploadId'] ?? obj['jobId'] ?? obj['resultId'];
+      if (directId) return String(directId);
+      if (obj['data']) return this.extractServerId(obj['data'], rawBody);
+    }
+    if (rawBody && typeof rawBody === 'object') {
+      const rawObj = rawBody as Record<string, unknown>;
+      const rawId =
+        rawObj['id'] ?? rawObj['sessionId'] ?? rawObj['analysisId'] ?? rawObj['uploadId'] ?? rawObj['jobId'] ?? rawObj['resultId'];
+      if (rawId) return String(rawId);
+    }
+    return '';
   }
 
   private formatFileSize(bytes: number): string {

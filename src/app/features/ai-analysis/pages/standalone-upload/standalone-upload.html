@@ -88,8 +88,8 @@
       <!-- File Drop Zone -->
       <section class="form-section">
         <h2 class="section-heading">
-          <span class="step-num">1</span>
-          <span>Chọn hoặc Kéo thả hình ảnh Drone</span>
+          <span nz-icon nzType="picture" aria-hidden="true"></span>
+          <span>Chọn hoặc Kéo thả hình ảnh Flycam / Drone</span>
         </h2>
 
         <div
@@ -116,7 +116,7 @@
 
           <div class="dropzone-content">
             <div class="dropzone-icon-wrap">
-              <span nz-icon nzType="cloud-upload" class="dropzone-icon" aria-hidden="true"></span>
+              <span nz-icon nzType="inbox" class="dropzone-icon" aria-hidden="true"></span>
             </div>
             <p class="dropzone-primary-text">
               <span class="text-blue-600 font-semibold underline">Nhấn để chọn tệp</span> hoặc kéo thả ảnh vào đây
@@ -161,41 +161,6 @@
             </div>
           </div>
         }
-      </section>
-
-      <!-- Analysis Options Section -->
-      <section class="form-section">
-        <h2 class="section-heading">
-          <span class="step-num">2</span>
-          <span>Tùy chọn Cấu hình Phân tích AI</span>
-        </h2>
-
-        <!-- Analysis Type Selector -->
-        <div class="form-group">
-          <label for="analysisType" class="form-label font-semibold">
-            Mục tiêu phân tích (Analysis Type)
-          </label>
-          <div class="analysis-type-cards">
-            @for (type of analysisTypes; track type.value) {
-              <label
-                class="type-card"
-                [class.type-card--selected]="form.controls.analysisType.value === type.value"
-              >
-                <input
-                  type="radio"
-                  formControlName="analysisType"
-                  [value]="type.value"
-                  class="sr-only"
-                />
-                <div class="type-card-header">
-                  <span class="type-card-radio-circle"></span>
-                  <span class="type-card-title">{{ type.label }}</span>
-                </div>
-                <p class="type-card-desc">{{ type.desc }}</p>
-              </label>
-            }
-          </div>
-        </div>
 
         <!-- Optional Notes -->
         <div class="form-group mt-4">
@@ -205,7 +170,7 @@
           <textarea
             id="notes"
             formControlName="notes"
-            rows="3"
+            rows="2"
             class="form-textarea"
             placeholder="Ví dụ: Kiểm tra cách điện vị trí pha giữa đường dây 220kV sau bão số 3..."
           ></textarea>
