@@ -1,4 +1,4 @@
-﻿import { HttpClient } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -17,7 +17,12 @@ export class Auth {
   readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.tokens.accessToken));
 
   login(credentials: { username: string; password: string }) {
-    const normalizedCredentials = { username: this.normalizeUsername(credentials.username), password: credentials.password };
+    const rawUsername = this.normalizeUsername(credentials.username);
+    const normalizedCredentials = {
+      username: rawUsername,
+      email: rawUsername,
+      password: credentials.password,
+    };
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
       map((response): LoginResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
@@ -123,11 +128,11 @@ export class Auth {
     );
   }
   private normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
+    return email.trim();
   }
 
   private normalizeUsername(username: string): string {
-    return username.trim().toLowerCase();
+    return username.trim();
   }
 }
 

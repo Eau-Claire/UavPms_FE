@@ -37,6 +37,7 @@ export class Login {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly passwordVisible = signal(false);
   protected readonly form = this.fb.nonNullable.group({
     username: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(3)]],
@@ -47,6 +48,9 @@ export class Login {
     if (username.hasError('required')) return 'Tên đăng nhập không được để trống';
     if (username.hasError('email')) return 'Tên đăng nhập không đúng định dạng email';
     return '';
+  }
+  protected togglePasswordVisibility(): void {
+    this.passwordVisible.update((v) => !v);
   }
   protected submit(): void {
     this.normalizeUsername();
@@ -76,16 +80,42 @@ export class Login {
               : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard',
           );
         },
-        error: (error: HttpErrorResponse) =>
-          this.error.set(
-            error.status === 401
-              ? 'Username or password is incorrect.'
-              : 'Sign in failed. Check the API connection and try again.',
-          ),
+        error: (error: HttpErrorResponse) => {
+          let serverMessage = '';
+          if (error.error) {
+            if (typeof error.error === 'string') {
+              serverMessage = error.error;
+            } else if (error.error.errors && typeof error.error.errors === 'object') {
+              const messages = Object.values(error.error.errors)
+                .filter(Array.isArray)
+                .flat()
+                .join('. ');
+              if (messages) serverMessage = messages;
+            }
+            if (!serverMessage) {
+              serverMessage =
+                error.error.message ||
+                error.error.detail ||
+                (error.error.title && error.error.title !== 'One or more validation errors occurred.'
+                  ? error.error.title
+                  : '');
+            }
+          }
+
+          if (serverMessage) {
+            this.error.set(serverMessage);
+          } else if (error.status === 400 || error.status === 401) {
+            this.error.set('Tên đăng nhập hoặc mật khẩu không chính xác.');
+          } else if (error.status === 0) {
+            this.error.set('Không thể kết nối đến máy chủ API. Vui lòng kiểm tra mạng hoặc kết nối server.');
+          } else {
+            this.error.set(`Đăng nhập thất bại (Mã lỗi ${error.status || 'Unknown'}). Vui lòng thử lại.`);
+          }
+        },
       });
   }
   protected normalizeUsername(): void {
-    const normalized = this.form.controls.username.value.trim().toLowerCase();
+    const normalized = this.form.controls.username.value.trim();
     this.form.controls.username.setValue(normalized);
   }
 }
