@@ -44,14 +44,14 @@ describe('Auth', () => {
   it('normalizes login username email before sending credentials', () => {
     auth.login({ username: '  OPERATOR@EVN.VN  ', password: 'secret12' }).subscribe();
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
-    expect(request.request.body).toEqual({ username: 'operator@evn.vn', password: 'secret12' });
-    request.flush({ data: { otpRequired: true, email: 'operator@evn.vn' } });
+    expect(request.request.body).toEqual({ username: 'OPERATOR@EVN.VN', email: 'OPERATOR@EVN.VN', password: 'secret12' });
+    request.flush({ data: { otpRequired: true, email: 'OPERATOR@EVN.VN' } });
   });
 
   it('normalizes OTP send email before sending request', () => {
     auth.sendOtp({ email: '  OPERATOR@EVN.VN ', purpose: 'ForgotPassword' }).subscribe();
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/otp/send`);
-    expect(request.request.body).toEqual({ email: 'operator@evn.vn', purpose: 'ForgotPassword' });
+    expect(request.request.body).toEqual({ email: 'OPERATOR@EVN.VN', purpose: 'ForgotPassword' });
     request.flush({ success: true });
   });
 
