@@ -15,6 +15,7 @@ export class Sidebar {
   readonly closed = output<void>();
   protected readonly primaryLinks = [
     { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
+    { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe & Rủi ro' },
     { path: '/admin/users', icon: 'team', label: 'Quản lý người dùng' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
