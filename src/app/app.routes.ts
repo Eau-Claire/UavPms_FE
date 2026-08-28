@@ -21,6 +21,7 @@ export const routes: Routes = [
       { path: 'ai-analysis', redirectTo: 'ai-analysis/upload' },
       { path: 'ai-review', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst'])], loadComponent: () => import('./features/analyst-review/pages/detection-list/detection-list').then((m) => m.DetectionList), title: 'Duyệt sự cố AI | UAV-PMS' },
       { path: 'ai-review/:id', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst'])], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
+      { path: 'gis', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst', 'Inspector'])], loadComponent: () => import('./features/gis/pages/gis-monitoring/gis-monitoring').then((m) => m.GisMonitoring), title: 'Bản đồ GIS Lưới điện | UAV-PMS' },
       { path: 'admin/users', canActivate: [roleGuard(['Admin', 'SystemAdmin'])], loadComponent: () => import('./features/users/pages/user-management/user-management').then((m) => m.UserManagement), title: 'User management | UAV-PMS' },
       { path: 'missions/new', canActivate: [roleGuard(['Admin', 'Manager', 'Inspector'])], loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Create mission | UAV-PMS' },
       { path: 'missions/:id', loadComponent: () => import('./features/missions/pages/mission-detail/mission-detail').then((m) => m.MissionDetail), title: 'Mission detail | UAV-PMS' },
