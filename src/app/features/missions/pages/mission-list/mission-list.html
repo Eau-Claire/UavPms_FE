@@ -5,7 +5,9 @@
       <h1>Danh sách nhiệm vụ bay</h1>
       <p>Quan ly va giam sat tien do cac dot khao sat ha tang dien</p>
     </div>
-    <a class="mission-primary-btn" routerLink="/missions/new"><span nz-icon nzType="plus"></span>Tạo nhiệm vụ mới</a>
+    @if (canCreateMission()) {
+      <a class="mission-primary-btn" routerLink="/missions/new"><span nz-icon nzType="plus"></span>Tạo nhiệm vụ mới</a>
+    }
   </div>
 
   @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
