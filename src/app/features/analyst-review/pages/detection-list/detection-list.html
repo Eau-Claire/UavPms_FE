@@ -1,0 +1,315 @@
+<div class="review-page">
+  <div class="review-page-head">
+    <div>
+      <div class="review-breadcrumb">
+        <span>AI Inspection</span>
+        <span>/</span>
+        <strong>Duyệt kết quả phát hiện</strong>
+      </div>
+      <h1>Hàng đợi thẩm định sự cố AI</h1>
+      <p class="review-subtitle">
+        Xem xét và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật tự động từ mô hình AI
+      </p>
+    </div>
+
+    <div class="header-actions" style="display: flex; gap: 8px;">
+      <button
+        type="button"
+        class="action-btn btn-outline"
+        [disabled]="loading()"
+        (click)="load()"
+      >
+        <span nz-icon nzType="reload" [nzSpin]="loading()"></span>
+        Làm mới
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="mission-alert" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="error.set('')">Đóng</button>
+    </div>
+  }
+
+  <!-- Stats Bar -->
+  <section class="review-stats" aria-label="Thống kê thẩm định">
+    <article class="review-stat-card stat-pending">
+      <div class="stat-icon-wrap">
+        <span nz-icon nzType="exclamation-circle"></span>
+      </div>
+      <div class="stat-info">
+        <span class="stat-label">Chờ thẩm định</span>
+        <strong class="stat-value">{{ response().totalCount || pendingCount() }}</strong>
+      </div>
+    </article>
+
+    <article class="review-stat-card stat-critical">
+      <div class="stat-icon-wrap">
+        <span nz-icon nzType="thunderbolt"></span>
+      </div>
+      <div class="stat-info">
+        <span class="stat-label">Sự cố khẩn cấp</span>
+        <strong class="stat-value">{{ criticalCount() }}</strong>
+      </div>
+    </article>
+
+    <article class="review-stat-card stat-confirmed">
+      <div class="stat-icon-wrap">
+        <span nz-icon nzType="check-circle"></span>
+      </div>
+      <div class="stat-info">
+        <span class="stat-label">Độ tin cậy cao (≥90%)</span>
+        <strong class="stat-value">{{ highConfidenceCount() }}</strong>
+      </div>
+    </article>
+
+    <article class="review-stat-card stat-total">
+      <div class="stat-icon-wrap">
+        <span nz-icon nzType="file-text"></span>
+      </div>
+      <div class="stat-info">
+        <span class="stat-label">Tổng số trang</span>
+        <strong class="stat-value">{{ response().totalPages }}</strong>
+      </div>
+    </article>
+  </section>
+
+  <!-- Filter & Search Bar -->
+  <section class="review-filter-bar" aria-label="Bộ lọc kết quả">
+    <div class="search-input-wrap">
+      <span nz-icon nzType="search" class="search-icon"></span>
+      <input
+        type="search"
+        placeholder="Tìm theo mã thiết bị, tên sự cố, cột điện..."
+        [value]="search()"
+        (input)="onSearchInput($event)"
+      />
+    </div>
+
+    <div class="filter-select-wrap">
+      <span>Trạng thái:</span>
+      <select
+        [value]="statusFilter()"
+        (change)="statusFilter.set($any($event.target).value)"
+      >
+        <option value="">Tất cả trạng thái</option>
+        <option value="Pending">Chờ thẩm định (Pending)</option>
+        <option value="Confirmed">Đã xác nhận (Confirmed)</option>
+        <option value="Rejected">Đã từ chối (Rejected)</option>
+      </select>
+    </div>
+
+    <div class="view-mode-toggle" style="display: flex; gap: 4px; margin-left: auto;">
+      <button
+        type="button"
+        class="action-btn"
+        [class.btn-primary]="viewMode() === 'grid'"
+        [class.btn-outline]="viewMode() !== 'grid'"
+        style="padding: 0 10px;"
+        title="Dạng lưới thẻ"
+        (click)="viewMode.set('grid')"
+      >
+        <span nz-icon nzType="appstore"></span>
+      </button>
+      <button
+        type="button"
+        class="action-btn"
+        [class.btn-primary]="viewMode() === 'table'"
+        [class.btn-outline]="viewMode() !== 'table'"
+        style="padding: 0 10px;"
+        title="Dạng danh sách bảng"
+        (click)="viewMode.set('table')"
+      >
+        <span nz-icon nzType="menu"></span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Content Section -->
+  @if (loading()) {
+    <div class="detections-grid">
+      @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+        <div class="detection-card" style="opacity: 0.6;">
+          <div class="card-media" style="background: #1e293b;"></div>
+          <div class="card-body">
+            <div style="height: 18px; background: #e2e8f0; border-radius: 4px; width: 70%;"></div>
+            <div style="height: 12px; background: #f1f5f9; border-radius: 4px; width: 50%;"></div>
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (!filteredItems().length) {
+    <div class="empty-state-card" style="background: #ffffff; padding: 48px 24px; text-align: center; border-radius: 12px; border: 1px dashed #cbd5e1;">
+      <span nz-icon nzType="check-circle" style="font-size: 48px; color: #16a34a; margin-bottom: 12px;"></span>
+      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 6px;">
+        Không có phát hiện nào cần thẩm định
+      </h3>
+      <p style="color: #64748b; font-size: 14px; margin: 0;">
+        Tất cả các kết quả AI đã được xử lý hoặc không có dữ liệu phù hợp với bộ lọc hiện tại.
+      </p>
+    </div>
+  } @else if (viewMode() === 'grid') {
+    <section class="detections-grid" aria-label="Danh sách phát hiện sự cố">
+      @for (item of filteredItems(); track item.id) {
+        <article class="detection-card" (click)="openDetail(item)">
+          <div class="card-media">
+            <img
+              [src]="item.mediaUrl"
+              [alt]="item.categoryName"
+              loading="lazy"
+              (error)="handleImageError($event)"
+            />
+            <div class="card-badges">
+              <span class="status-pill {{ statusClass(item.validationStatus) }}">
+                <span class="status-dot"></span>
+                {{ statusText(item.validationStatus) }}
+              </span>
+              <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
+                {{ item.confidenceScore }}%
+              </span>
+            </div>
+            <div class="preview-overlay">
+              <span nz-icon nzType="search"></span>
+              <span>Thẩm định chi tiết</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <h2 class="card-title">{{ item.categoryName }}</h2>
+
+            <div class="card-meta-list">
+              <div class="meta-row">
+                <span>Thiết bị / Cột:</span>
+                <strong>{{ item.assetCode }} ({{ item.towerCode || 'N/A' }})</strong>
+              </div>
+              <div class="meta-row">
+                <span>Chuyến bay:</span>
+                <strong>{{ item.missionCode || 'Chưa gắn chuyến bay' }}</strong>
+              </div>
+              <div class="meta-row">
+                <span>Mô hình AI:</span>
+                <span style="font-family: monospace; font-size: 11px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">
+                  {{ item.aiModelName || 'YOLOv8-PowerGrid' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <span class="time-text">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <button
+              type="button"
+              class="btn-review"
+              (click)="$event.stopPropagation(); openDetail(item)"
+            >
+              <span>Thẩm định</span>
+              <span nz-icon nzType="right"></span>
+            </button>
+          </div>
+        </article>
+      }
+    </section>
+  } @else {
+    <!-- Table View -->
+    <div class="mission-table-card">
+      <div class="mission-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>Loại khuyết tật</th>
+              <th>Thiết bị & Cột</th>
+              <th>Chuyến bay</th>
+              <th>Độ tin cậy</th>
+              <th>Trạng thái</th>
+              <th>Thời gian</th>
+              <th>Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredItems(); track item.id) {
+              <tr style="cursor: pointer;" (click)="openDetail(item)">
+                <td style="width: 72px;">
+                  <img
+                    [src]="item.mediaUrl"
+                    [alt]="item.categoryName"
+                    style="width: 56px; height: 42px; object-fit: cover; border-radius: 6px;"
+                    (error)="handleImageError($event)"
+                  />
+                </td>
+                <td>
+                  <strong>{{ item.categoryName }}</strong>
+                </td>
+                <td>
+                  <span>{{ item.assetCode }}</span>
+                  <small style="display: block; color: #64748b;">{{ item.towerCode || 'N/A' }}</small>
+                </td>
+                <td>{{ item.missionCode || 'N/A' }}</td>
+                <td>
+                  <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
+                    {{ item.confidenceScore }}%
+                  </span>
+                </td>
+                <td>
+                  <span class="status-pill {{ statusClass(item.validationStatus) }}">
+                    <span class="status-dot"></span>
+                    {{ statusText(item.validationStatus) }}
+                  </span>
+                </td>
+                <td style="font-size: 12px; color: #64748b;">
+                  {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="action-btn btn-primary"
+                    style="height: 32px; font-size: 12px; padding: 0 12px;"
+                    (click)="$event.stopPropagation(); openDetail(item)"
+                  >
+                    Xem & Duyệt
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Pagination -->
+  @if (response().totalPages > 1) {
+    <footer style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+      <span style="font-size: 13px; color: #64748b;">
+        Tổng cộng <strong>{{ response().totalCount }}</strong> sự cố phát hiện
+      </span>
+      <div class="mission-pagination">
+        <button
+          type="button"
+          [disabled]="page() <= 1"
+          (click)="setPage(page() - 1)"
+        >
+          <span nz-icon nzType="left"></span>
+        </button>
+        @for (p of [].constructor(response().totalPages); track $index) {
+          <button
+            type="button"
+            class="page-number"
+            [class.active]="$index + 1 === page()"
+            (click)="setPage($index + 1)"
+          >
+            {{ $index + 1 }}
+          </button>
+        }
+        <button
+          type="button"
+          [disabled]="page() >= response().totalPages"
+          (click)="setPage(page() + 1)"
+        >
+          <span nz-icon nzType="right"></span>
+        </button>
+      </div>
+    </footer>
+  }
+</div>
