@@ -138,10 +138,16 @@ export class Auth {
       'Viewer';
 
     const normalizedRole: UserRole =
-      extractedRole.toLowerCase() === 'systemadmin' || extractedRole.toLowerCase() === 'admin'
+      extractedRole.toLowerCase() === 'systemadmin' || extractedRole.toLowerCase() === 'admin' || extractedRole.toLowerCase() === 'administrator'
         ? 'Admin'
         : extractedRole.toLowerCase() === 'supervisor' || extractedRole.toLowerCase() === 'manager'
         ? 'Manager'
+        : extractedRole.toLowerCase() === 'maintenancetechnician' || extractedRole.toLowerCase() === 'technician'
+        ? 'Technician'
+        : extractedRole.toLowerCase() === 'inspector' || extractedRole.toLowerCase() === 'pilot'
+        ? 'Inspector'
+        : extractedRole.toLowerCase() === 'analyst'
+        ? 'Analyst'
         : (extractedRole as UserRole);
 
     const user: AuthUser = {
@@ -172,8 +178,12 @@ export class Auth {
         (Array.isArray(payload['roles']) ? payload['roles'][0] : undefined);
 
       if (typeof roleClaim === 'string') {
-        if (roleClaim.toLowerCase() === 'systemadmin' || roleClaim.toLowerCase() === 'admin') return 'Admin';
-        if (roleClaim.toLowerCase() === 'supervisor' || roleClaim.toLowerCase() === 'manager') return 'Manager';
+        const lower = roleClaim.toLowerCase();
+        if (lower === 'systemadmin' || lower === 'admin' || lower === 'administrator') return 'Admin';
+        if (lower === 'supervisor' || lower === 'manager') return 'Manager';
+        if (lower === 'maintenancetechnician' || lower === 'technician') return 'Technician';
+        if (lower === 'inspector' || lower === 'pilot') return 'Inspector';
+        if (lower === 'analyst') return 'Analyst';
         return roleClaim as UserRole;
       }
       return undefined;
