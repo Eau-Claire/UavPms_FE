@@ -17,7 +17,6 @@ export const roleGuard = (allowedRoles: readonly UserRole[]): CanActivateFn => {
       return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
 
-    // Role matching check
     const userRole = (user.role || '').toLowerCase();
     const hasRole = allowedRoles.some((role) => {
       const target = role.toLowerCase();
@@ -31,6 +30,12 @@ export const roleGuard = (allowedRoles: readonly UserRole[]): CanActivateFn => {
       if (target === 'manager' || target === 'supervisor') {
         return userRole === 'manager' || userRole === 'supervisor';
       }
+      if (target === 'technician' || target === 'maintenancetechnician') {
+        return userRole === 'technician' || userRole === 'maintenancetechnician';
+      }
+      if (target === 'inspector') {
+        return userRole === 'inspector' || userRole === 'pilot';
+      }
       return userRole === target;
     });
 
@@ -38,7 +43,7 @@ export const roleGuard = (allowedRoles: readonly UserRole[]): CanActivateFn => {
       return true;
     }
 
-    // Unauthorized - return to dashboard with forbidden notice
-    return router.createUrlTree(['/dashboard'], { queryParams: { error: 'forbidden' } });
+    // Unauthorized - redirect to dedicated Access Denied (403) page
+    return router.createUrlTree(['/403']);
   };
 };
