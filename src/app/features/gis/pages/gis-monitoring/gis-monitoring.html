@@ -5,7 +5,7 @@
       <div class="hud-badge">GIS Live</div>
       <div class="hud-titles">
         <h1>Bản đồ Giám sát Lưới điện Quốc gia</h1>
-        <p>Hệ thống định vị & cảnh báo sự cố hạ tầng truyền tải điện thời gian thực</p>
+        <p>Hệ thống định vị &amp; cảnh báo sự cố hạ tầng truyền tải điện thời gian thực</p>
       </div>
     </div>
 
@@ -94,7 +94,220 @@
     >
       <span nz-icon nzType="reload" [nzSpin]="loading()"></span>
     </button>
+
+    <!-- Asset Selection / Drawing Tool -->
+    <button
+      type="button"
+      class="tool-btn tool-btn-selection"
+      [class.active]="showSelectionPopup()"
+      title="Khoanh vùng & Chọn tài sản (Bút vẽ / Đa giác)"
+      aria-label="Khoanh vùng & Chọn tài sản"
+      (click)="toggleSelectionTool()"
+    >
+      <svg class="tool-svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+        <path d="M15.5 8.5l2 2-7.5 7.5H8v-2l7.5-7.5z" fill="currentColor" fill-opacity="0.2" />
+        <path d="M14 10l2 2" />
+      </svg>
+    </button>
   </aside>
+
+  <!-- Compact Selection Popup (bottom-left) -->
+  @if (showSelectionPopup()) {
+    <section
+      class="gis-selection-popup"
+      aria-label="Chọn tài sản theo vùng"
+      (click)="$event.stopPropagation()"
+      (mousedown)="$event.stopPropagation()"
+    >
+      <header class="popup-head">
+        <div class="popup-title-group">
+          <span class="popup-icon" nz-icon nzType="gateway"></span>
+          <strong>{{ popupTitle() }}</strong>
+        </div>
+        <button type="button" class="popup-close" aria-label="Đóng" (click)="closeSelectionPopup()">✕</button>
+      </header>
+
+      <!-- State: choosing shape OR drawing -->
+      @if (uxState() === 'choosing' || uxState() === 'idle' || uxState() === 'drawing-rectangle' || uxState() === 'drawing-polygon') {
+        <div class="popup-body">
+          <div class="popup-shapes" role="toolbar" aria-label="Chọn cách khoanh vùng">
+            <button
+              type="button"
+              title="Vẽ vùng chữ nhật"
+              aria-label="Vẽ vùng chữ nhật"
+              [class.active]="drawMode() === 'rectangle'"
+              (click)="startDrawing('rectangle')"
+            >
+              <span nz-icon nzType="border"></span>
+              <span>Chữ nhật</span>
+            </button>
+            <button
+              type="button"
+              title="Vẽ vùng đa giác"
+              aria-label="Vẽ vùng đa giác"
+              [class.active]="drawMode() === 'polygon'"
+              (click)="startDrawing('polygon')"
+            >
+              <span nz-icon nzType="node-index"></span>
+              <span>Đa giác</span>
+            </button>
+          </div>
+
+          @if (drawMode() === 'none') {
+            <p class="popup-hint">Chọn cách bạn muốn khoanh vùng</p>
+          } @else {
+            <div class="popup-drawing-status" role="status">
+              <p class="popup-instruction">{{ drawingInstruction() }}</p>
+              @if (drawMode() === 'polygon' && polygonVertices().length > 0) {
+                <div class="popup-polygon-counter">
+                  <span>Đã đặt: <strong>{{ polygonVertices().length }}</strong> điểm</span>
+                  @if (polygonVertices().length >= 3) {
+                    <button type="button" class="popup-btn primary small" (click)="completePolygon()">
+                      ✓ Hoàn tất vùng ({{ polygonVertices().length }} điểm)
+                    </button>
+                  }
+                </div>
+              }
+              <div class="popup-drawing-actions">
+                <button type="button" class="popup-btn small" (click)="cancelActiveTool()">Hủy vẽ</button>
+                <small class="popup-esc">Bấm ESC để hủy</small>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- State: editing -->
+      @if (uxState() === 'editing') {
+        <div class="popup-body" role="status">
+          <div class="popup-edit-banner">
+            <span nz-icon nzType="edit"></span>
+            <p class="popup-instruction">Kéo các điểm để điều chỉnh vùng.</p>
+          </div>
+          <div class="popup-actions">
+            <button type="button" class="popup-btn primary" (click)="finishEditing()">Lưu chỉnh sửa</button>
+            <button type="button" class="popup-btn secondary" (click)="cancelActiveTool()">Hủy</button>
+          </div>
+          <small class="popup-esc">Bấm ESC để hủy chỉnh sửa</small>
+        </div>
+      }
+
+      <!-- State: querying -->
+      @if (uxState() === 'querying' || spatialLoading()) {
+        <div class="popup-body" role="status">
+          <div class="popup-loading">
+            <span nz-icon nzType="loading" [nzSpin]="true"></span>
+            <span>Đang tìm tài sản trong vùng...</span>
+          </div>
+        </div>
+      }
+
+      <!-- State: error -->
+      @if (uxState() === 'error') {
+        <div class="popup-body">
+          <div class="popup-error-card">
+            <span nz-icon nzType="warning" class="error-icon"></span>
+            <p class="popup-error">{{ spatialMessage() }}</p>
+          </div>
+          <div class="popup-actions">
+            <button type="button" class="popup-btn primary" (click)="retrySpatialQuery()">
+              <span nz-icon nzType="reload"></span> Thử lại
+            </button>
+            <button type="button" class="popup-btn secondary" (click)="redraw()">
+              <span nz-icon nzType="redo"></span> Vẽ lại
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- State: empty result (success with 0 assets) -->
+      @if (uxState() === 'empty') {
+        <div class="popup-body">
+          <div class="popup-empty-card">
+            <span nz-icon nzType="inbox" class="empty-icon"></span>
+            <p class="popup-empty">Không có tài sản trong vùng này.</p>
+          </div>
+          <div class="popup-actions">
+            <button type="button" class="popup-btn" (click)="startEditing()">
+              <span nz-icon nzType="edit"></span> Chỉnh vùng
+            </button>
+            <button type="button" class="popup-btn" (click)="redraw()">
+              <span nz-icon nzType="redo"></span> Vẽ lại
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- State: success with assets -->
+      @if (uxState() === 'success') {
+        <div class="popup-body">
+          <div class="popup-toolbar">
+            <button type="button" class="popup-btn small" title="Chỉnh sửa vùng" aria-label="Chỉnh sửa vùng" (click)="startEditing()">
+              <span nz-icon nzType="edit"></span> Chỉnh vùng
+            </button>
+            <button type="button" class="popup-btn small" title="Vẽ lại vùng" aria-label="Vẽ lại vùng" (click)="redraw()">
+              <span nz-icon nzType="redo"></span> Vẽ lại
+            </button>
+            <button type="button" class="popup-btn small danger" title="Xóa vùng" aria-label="Xóa vùng" (click)="clearBoundary()">
+              <span nz-icon nzType="delete"></span> Xóa
+            </button>
+          </div>
+
+          <div class="popup-list-header">
+            <span class="list-label">Danh sách tài sản ({{ spatialAssets().length }})</span>
+            <button type="button" class="popup-link-btn" (click)="toggleSelectAllSpatial()">
+              {{ isAllSpatialSelected() ? 'Bỏ chọn tất cả' : 'Chọn tất cả' }}
+            </button>
+          </div>
+
+          <ul class="popup-asset-list">
+            @for (asset of spatialAssets(); track asset.assetId) {
+              <li [class.selected]="targetSelection.has(asset.assetId)">
+                <label class="asset-checkbox-label">
+                  <input type="checkbox" [checked]="targetSelection.has(asset.assetId)" (change)="toggleAsset(asset)" />
+                  <span class="asset-info">
+                    <strong>{{ asset.code }}</strong>
+                    <small>{{ asset.name }} · <span class="asset-status">{{ asset.status }}</span></small>
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  class="btn-inspect-asset"
+                  title="Xem chi tiết tài sản"
+                  aria-label="Xem chi tiết tài sản"
+                  (click)="$event.stopPropagation(); inspectAsset(asset)"
+                >
+                  <span nz-icon nzType="info-circle"></span>
+                </button>
+              </li>
+            }
+          </ul>
+
+          <div class="popup-footer-row">
+            <div class="popup-selected-count">
+              <span class="count-badge">{{ targetSelection.count() }}</span>
+              <span>tài sản đã chọn mục tiêu</span>
+            </div>
+          </div>
+
+          @if (canCreateMission()) {
+            <button
+              type="button"
+              class="popup-cta"
+              [disabled]="!targetSelection.count()"
+              (click)="createMission()"
+            >
+              {{ missionCtaLabel() }}
+            </button>
+          }
+        </div>
+      }
+    </section>
+  }
 
   <!-- Filter Floating Panel -->
   @if (showFilterPanel()) {
@@ -146,7 +359,7 @@
       </div>
 
       <div class="filter-group">
-        <label>Bật / Tắt các lớp (Layers):</label>
+        <p>Bật / Tắt các lớp (Layers):</p>
         <div class="layer-checkbox-list">
           <label class="checkbox-row">
             <input
@@ -206,7 +419,7 @@
 
   <!-- Marker Legend Floating Panel -->
   @if (showLegendPanel()) {
-    <div class="gis-legend-panel">
+    <div class="gis-legend-panel" [class.offset-legend]="showSelectionPopup()">
       <h4>Chú giải bản đồ</h4>
       <div class="legend-items">
         <div class="legend-item">
@@ -238,7 +451,12 @@
   }
 
   <!-- Leaflet Map Container Target -->
-  <div #mapContainer class="gis-map-canvas" id="leaflet-map-target"></div>
+  <div
+    #mapContainer
+    class="gis-map-canvas"
+    [class.drawing-active]="drawMode() !== 'none'"
+    id="leaflet-map-target"
+  ></div>
 
   <!-- Detail Drawer for Clicked Entity -->
   @if (selectedEntity(); as selected) {

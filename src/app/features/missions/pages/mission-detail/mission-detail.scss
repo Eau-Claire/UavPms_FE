@@ -1,6 +1,9 @@
 @use '../mission-page';
 @use '../../../assets/pages/asset-management/asset-management-page';
 
+.mission-targets { margin-top: 20px; }
+.mission-targets article { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 8px; }
+.mission-targets article div { display: grid; }
 /* Enhanced Mission Detail Styles */
 .tab-count-bubble {
   display: inline-flex;

@@ -1,1 +1,681 @@
 @use '../gis-page';
+
+/* ──────────────────────────────────────────────────────
+   Floating Toolbar Selection Tool Active Style
+   ────────────────────────────────────────────────────── */
+.tool-btn {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+
+  .tool-svg-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+    stroke: currentColor;
+    transition: transform 0.15s ease;
+  }
+
+  &:hover .tool-svg-icon {
+    transform: scale(1.1);
+  }
+}
+
+.tool-btn-selection {
+  position: relative;
+
+  &.active {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    border-color: #4338ca !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25) !important;
+  }
+}
+
+/* Global prevention of text selection on Leaflet controls */
+.leaflet-container,
+.leaflet-control-zoom,
+.leaflet-control-zoom a,
+.leaflet-control,
+.leaflet-pane {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+}
+
+/* ──────────────────────────────────────────────────────
+   Selection Popup (Compact, Bottom-Left)
+   ────────────────────────────────────────────────────── */
+.gis-selection-popup {
+  position: absolute;
+  z-index: 850;
+  left: 18px;
+  bottom: 24px;
+  width: min(360px, calc(100% - 80px));
+  max-height: calc(100vh - 200px);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(14px);
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+
+  .popup-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .popup-icon {
+      color: #4f46e5;
+      font-size: 15px;
+    }
+
+    strong {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+  }
+
+  .popup-close {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+
+    &:hover {
+      color: #1e293b;
+      background: #e2e8f0;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.popup-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Shape selection grid */
+.popup-shapes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+
+  button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    .anticon {
+      font-size: 22px;
+      color: #64748b;
+      transition: color 0.15s ease;
+    }
+
+    &:hover {
+      border-color: #818cf8;
+      color: #4f46e5;
+      background: #f5f7ff;
+
+      .anticon {
+        color: #4f46e5;
+      }
+    }
+
+    &.active {
+      background: #eef2ff;
+      border-color: #4f46e5;
+      color: #4338ca;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
+
+      .anticon {
+        color: #4f46e5;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.popup-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Drawing status in popup */
+.popup-drawing-status {
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid #16a34a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .popup-instruction {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: #166534;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+
+  .popup-polygon-counter {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #ffffff;
+    border: 1px solid #dcfce7;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #15803d;
+
+    strong {
+      color: #166534;
+      font-size: 13px;
+    }
+
+    button {
+      margin-top: 2px;
+    }
+  }
+
+  .popup-drawing-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 2px;
+
+    .popup-esc {
+      font-size: 11px;
+      color: #64748b;
+    }
+  }
+}
+
+/* Edit mode banner */
+.popup-edit-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 500;
+
+  p {
+    margin: 0;
+  }
+}
+
+/* Loading status */
+.popup-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 8px;
+  color: #4338ca;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Error card */
+.popup-error-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  color: #991b1b;
+
+  .error-icon {
+    font-size: 16px;
+    color: #dc2626;
+  }
+
+  .popup-error {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+  }
+}
+
+/* Empty card */
+.popup-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 8px;
+  text-align: center;
+  color: #64748b;
+
+  .empty-icon {
+    font-size: 28px;
+    color: #94a3b8;
+  }
+
+  .popup-empty {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+  }
+}
+
+/* Action button rows */
+.popup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.popup-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.popup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 1px;
+  }
+
+  &.primary {
+    background: #4f46e5;
+    border-color: #4338ca;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+
+    &:hover {
+      background: #4338ca;
+    }
+  }
+
+  &.secondary {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
+
+    &:hover {
+      background: #f1f5f9;
+    }
+  }
+
+  &.danger {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fef2f2;
+
+    &:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+    }
+  }
+
+  &.small {
+    padding: 5px 9px;
+    font-size: 11px;
+    border-radius: 6px;
+  }
+}
+
+/* List header */
+.popup-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .list-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .popup-link-btn {
+    border: none;
+    background: none;
+    color: #4f46e5;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+
+    &:hover {
+      text-decoration: underline;
+      background: #eef2ff;
+    }
+  }
+}
+
+/* Asset List */
+.popup-asset-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+
+  li {
+    border-top: 1px solid #e2e8f0;
+    transition: background 0.12s ease;
+
+    &:first-child {
+      border-top: none;
+    }
+
+    &:hover {
+      background: #f1f5f9;
+    }
+
+    &.selected {
+      background: #f0fdf4;
+    }
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 8px;
+
+    label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+
+      input[type="checkbox"] {
+        accent-color: #16a34a;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      .asset-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+
+        strong {
+          font-size: 12px;
+          color: #0f172a;
+        }
+
+        small {
+          font-size: 11px;
+          color: #64748b;
+
+          .asset-status {
+            color: #15803d;
+            font-weight: 600;
+          }
+        }
+      }
+    }
+
+    .btn-inspect-asset {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #eef2ff;
+        border-color: #818cf8;
+        color: #4f46e5;
+      }
+
+      &:focus-visible {
+        outline: 2px solid #4f46e5;
+        outline-offset: 1px;
+      }
+    }
+  }
+}
+
+/* Custom scrollbar */
+.popup-asset-list::-webkit-scrollbar {
+  width: 5px;
+}
+.popup-asset-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Footer row */
+.popup-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .popup-selected-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 10px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 800;
+      font-size: 11px;
+    }
+  }
+}
+
+/* Primary mission CTA */
+.popup-cta {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────
+   Map Canvas Drawing State
+   ────────────────────────────────────────────────────── */
+.gis-map-canvas.drawing-active {
+  cursor: crosshair !important;
+}
+
+/* ──────────────────────────────────────────────────────
+   Legend Panel Offset when Selection Popup is Active
+   ────────────────────────────────────────────────────── */
+.gis-legend-panel.offset-legend {
+  left: 390px;
+  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 768px) {
+  .gis-legend-panel.offset-legend {
+    left: 16px;
+    bottom: auto;
+    top: 90px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────
+   Leaflet Draw SVG and Vertex Customization
+   ────────────────────────────────────────────────────── */
+.leaflet-editing-icon {
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: -5px !important;
+  margin-top: -5px !important;
+  border: 2px solid #ffffff !important;
+  border-radius: 50% !important;
+  background: #4f46e5 !important;
+  box-shadow: 0 0 0 2px #4338ca, 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  cursor: pointer;
+
+  &.first-vertex-marker {
+    width: 16px !important;
+    height: 16px !important;
+    margin-left: -8px !important;
+    margin-top: -8px !important;
+    background: #16a34a !important;
+    border: 2.5px solid #ffffff !important;
+    box-shadow: 0 0 0 3px #15803d, 0 0 12px rgba(22, 163, 74, 0.6) !important;
+    animation: firstVertexPulse 1.4s infinite ease-in-out;
+  }
+}
+
+@keyframes firstVertexPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 3px #15803d, 0 0 8px rgba(22, 163, 74, 0.4); }
+  50% { transform: scale(1.2); box-shadow: 0 0 0 5px #15803d, 0 0 16px rgba(22, 163, 74, 0.8); }
+  100% { transform: scale(1); box-shadow: 0 0 0 3px #15803d, 0 0 8px rgba(22, 163, 74, 0.4); }
+}
+
+.leaflet-draw-guide-dash {
+  opacity: 0.75 !important;
+}
+
+.leaflet-draw-tooltip {
+  z-index: 600 !important;
+}
+
+.confirmed-target-marker {
+  display: grid !important;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px #15803d, 0 3px 8px rgba(21, 128, 61, 0.35);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

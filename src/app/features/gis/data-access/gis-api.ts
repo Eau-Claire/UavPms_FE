@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
 
 export interface BoundingBoxQuery {
   readonly minLat: number;
@@ -139,6 +140,52 @@ export class GisApi {
       alerts: MOCK_GIS_ALERTS,
     });
   }
+
+  spatialQuery(request: SpatialAssetQueryRequest): Observable<readonly SelectableAsset[]> {
+    return this.http.post<unknown>(`${this.baseUrl}/assets/spatial-query`, request).pipe(
+      map((response) => {
+        const data = unwrapApiData<unknown>(response);
+        const items = Array.isArray(data) ? data : itemsFromRecord(data);
+        return items.map(normalizeSelectableAsset);
+      }),
+      catchError((err: HttpErrorResponse) => {
+        if (err.status === 404 || err.status === 0 || err.status === 500 || err.status === 502) {
+          const ring = request.geometry.coordinates[0] || [];
+          const matchedTowers = MOCK_GIS_TOWERS.filter((t) =>
+            isPointInPolygon({ lat: t.latitude, lng: t.longitude }, ring),
+          );
+          const selectable: SelectableAsset[] = matchedTowers.map((t) => ({
+            assetId: t.id,
+            code: t.towerCode,
+            name: t.towerCode,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            status: 'Operational',
+          }));
+          return of(selectable);
+        }
+        throw err;
+      }),
+    );
+  }
+}
+
+export function isPointInPolygon(
+  point: { lat: number; lng: number },
+  polygonCoords: readonly (readonly [number, number])[],
+): boolean {
+  const x = point.lng;
+  const y = point.lat;
+  let inside = false;
+  for (let i = 0, j = polygonCoords.length - 1; i < polygonCoords.length; j = i++) {
+    const xi = polygonCoords[i][0];
+    const yi = polygonCoords[i][1];
+    const xj = polygonCoords[j][0];
+    const yj = polygonCoords[j][1];
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 const record = (value: unknown): Record<string, unknown> =>
@@ -151,6 +198,24 @@ const numberValue = (value: unknown) => Number(value ?? 0) || 0;
 
 const pick = (source: Record<string, unknown>, ...keys: string[]) =>
   keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
+
+const itemsFromRecord = (value: unknown): readonly unknown[] => {
+  const source = record(value);
+  const items = pick(source, 'items', 'assets', 'results', 'records');
+  return Array.isArray(items) ? items : [];
+};
+
+const normalizeSelectableAsset = (item: unknown): SelectableAsset => {
+  const source = record(item);
+  return {
+    assetId: stringValue(pick(source, 'assetId', 'id')),
+    code: stringValue(pick(source, 'code', 'assetCode')),
+    name: stringValue(pick(source, 'name', 'assetName', 'towerCode')),
+    latitude: numberValue(pick(source, 'latitude', 'lat')),
+    longitude: numberValue(pick(source, 'longitude', 'lng', 'lon')),
+    status: stringValue(pick(source, 'status'), 'Operational'),
+  };
+};
 
 const normalizeGisTower = (item: unknown): GisTower => {
   const s = record(item);

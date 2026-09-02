@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
-import { Mission, MissionMutationRequest, MissionPage } from '../../../models/missions.models';
+import { Mission, MissionCreateRequest, MissionMutationRequest, MissionPage, MissionTarget } from '../../../models/missions.models';
 
 export interface MissionFilters {
   readonly page: number;
@@ -28,7 +28,7 @@ export class MissionsApi {
     return this.http.get<unknown>(`${this.url}/${id}`).pipe(map((response) => normalizeMission(unwrapApiData(response))));
   }
 
-  create(request: MissionMutationRequest) {
+  create(request: MissionCreateRequest) {
     return this.http.post<unknown>(this.url, request).pipe(map((response) => normalizeMission(unwrapApiData(response))));
   }
 
@@ -78,7 +78,7 @@ const normalizeMission = (value: unknown): Mission => {
   return {
     id: stringValue(source['id']),
     missionCode: stringValue(pick(source, 'missionCode', 'code'), 'MISSION'),
-    title: stringValue(source['title'], 'Chưa đặt tên nhiệm vụ'),
+    title: stringValue(pick(source, 'title', 'name'), 'Chưa đặt tên nhiệm vụ'),
     routeData: stringValue(source['routeData'], 'Chưa có tuyến'),
     assignedToUserId: stringValue(source['assignedToUserId']),
     assignedToUsername: stringValue(source['assignedToUsername'], 'Chưa phân công'),
@@ -89,5 +89,19 @@ const normalizeMission = (value: unknown): Mission => {
     managerUsername: stringValue(source['managerUsername'], 'Chưa có quản lý'),
     createdAt: stringValue(source['createdAt']),
     updatedAt: source['updatedAt'] === undefined || source['updatedAt'] === null ? null : String(source['updatedAt']),
+    targets: normalizeTargets(pick(source, 'missionTargets', 'targets', 'targetAssets')),
   };
 };
+
+const normalizeTargets = (value: unknown): readonly MissionTarget[] => Array.isArray(value) ? value.map((item, index) => {
+  const source = record(item);
+  const asset = record(source['asset']);
+  const sequenceValue = pick(source, 'sequence', 'order', 'sequenceNumber');
+  return {
+    assetId: stringValue(pick(source, 'assetId', 'id') ?? asset['id']),
+    assetCode: stringValue(pick(source, 'assetCode', 'code') ?? asset['code']),
+    assetName: stringValue(pick(source, 'assetName', 'name') ?? asset['name']),
+    sequence: sequenceValue === undefined || sequenceValue === null ? null : numberValue(sequenceValue) || index + 1,
+    inspectionStatus: stringValue(pick(source, 'inspectionStatus', 'status'), 'Pending'),
+  };
+}) : [];

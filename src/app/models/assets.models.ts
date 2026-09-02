@@ -80,3 +80,21 @@ export interface LineLookup {
   readonly name: string;
   readonly regionId?: string;
 }
+
+export interface GeoJsonPolygon {
+  readonly type: 'Polygon';
+  readonly coordinates: readonly (readonly (readonly [number, number])[])[];
+}
+
+export interface SpatialAssetQueryRequest {
+  readonly geometry: GeoJsonPolygon;
+}
+
+export interface SelectableAsset {
+  readonly assetId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly status: AssetStatus;
+}
