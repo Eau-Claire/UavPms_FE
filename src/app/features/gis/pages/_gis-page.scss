@@ -11,6 +11,8 @@
   flex-direction: column;
   background: #e2e8f0;
   color: #0f172a;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Map canvas */
@@ -19,6 +21,8 @@
   height: 100%;
   z-index: 1;
   background: #f1f5f9;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Top Floating HUD Bar */
@@ -502,10 +506,19 @@
   }
 }
 
-/* Custom Leaflet Markers Style */
-.leaflet-div-icon {
-  background: transparent;
-  border: none;
+/* Custom Leaflet Markers Style
+   NOTE: Do NOT apply transparent background / no border to .leaflet-div-icon
+   globally — that destroys leaflet-draw's vertex markers and editing icons.
+   Only remove the default icon styling for our custom marker classes. */
+.custom-tower-marker,
+.custom-defect-marker,
+.custom-alert-marker,
+.confirmed-target-marker {
+  /* Override leaflet's default div-icon white-background box */
+  &.leaflet-div-icon {
+    background: transparent;
+    border: none;
+  }
 }
 
 .custom-tower-marker {

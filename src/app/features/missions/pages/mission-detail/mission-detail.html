@@ -61,7 +61,20 @@
           <div><dt>Phương tiện UAV</dt><dd>{{ displayValue(mission.droneCode) }}</dd></div>
           <div><dt>Đội bay phụ trách</dt><dd>{{ displayValue(mission.assignedToUsername) }}</dd></div>
           <div><dt>Quản lý duyệt</dt><dd>{{ displayValue(mission.managerUsername) }}</dd></div>
-        </dl>
+      </dl>
+
+      @if (mission.targets.length) {
+        <section class="mission-targets" aria-label="Tài sản mục tiêu kiểm tra">
+          <h2>Tài sản mục tiêu ({{ mission.targets.length }})</h2>
+          @for (target of mission.targets; track target.assetId) {
+            <article>
+              <div><strong>{{ target.assetCode || target.assetName }}</strong><span>{{ target.assetName }}</span></div>
+              @if (target.sequence !== null) { <span>Thứ tự kiểm tra gợi ý: {{ target.sequence }}</span> }
+              <span>Trạng thái kiểm tra: {{ target.inspectionStatus }}</span>
+            </article>
+          }
+        </section>
+      }
       </aside>
 
       <aside class="mission-camera-panel">
