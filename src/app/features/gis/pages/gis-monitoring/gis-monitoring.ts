@@ -109,7 +109,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly alerts = signal<readonly GisAlert[]>([]);
 
   // State signals
-  protected readonly loading = signal(true);
+  protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly showFilterPanel = signal(false);
   protected readonly showLegendPanel = signal(true);
@@ -197,12 +197,23 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initLeafletMap();
+
+    // 1. Instantly render baseline GIS data (0ms delay) so UI & map are immediately active
+    const initial = this.gisApi.getInstantBaselineData();
+    this.towers.set(initial.towers);
+    this.lines.set(initial.lines);
+    this.anomalies.set(initial.anomalies);
+    this.alerts.set(initial.alerts);
+    this.renderAllLayers();
+    this.fitMapBounds();
+
+    // 2. Refresh live data from server asynchronously
     this.loadGisData();
 
     // Ensure map tiles resize correctly
     setTimeout(() => {
       this.map?.invalidateSize();
-    }, 250);
+    }, 150);
   }
 
   ngOnDestroy(): void {
@@ -690,6 +701,9 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       maxZoom,
       subdomains,
       attribution,
+      updateWhenIdle: false,
+      updateWhenZooming: false,
+      keepBuffer: 6,
     });
 
     this.currentTileLayer.addTo(this.map);
