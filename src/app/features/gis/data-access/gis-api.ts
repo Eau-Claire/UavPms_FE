@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
@@ -89,47 +89,44 @@ export class GisApi {
         },
       })
       .pipe(
+        timeout(3500),
         map((response) => {
           const raw = unwrapApiData<readonly unknown[]>(response);
           return Array.isArray(raw) ? raw.map(normalizeGisTower) : [];
         }),
-        catchError((err: HttpErrorResponse) => {
-          if (err.status === 404 || err.status === 0 || err.status === 502) {
-            return of(MOCK_GIS_TOWERS);
-          }
-          throw err;
-        }),
+        catchError(() => of(MOCK_GIS_TOWERS)),
       );
   }
 
   getAnomaliesGeoJson(): Observable<readonly GisAnomalyFeature[]> {
     return this.http.get<unknown>(`${this.baseUrl}/anomalies/geojson`).pipe(
+      timeout(3500),
       map((response) => {
         const raw = unwrapApiData<Record<string, unknown>>(response);
         return normalizeGeoJsonAnomalies(raw);
       }),
-      catchError((err: HttpErrorResponse) => {
-        if (err.status === 404 || err.status === 0 || err.status === 502) {
-          return of(MOCK_GIS_ANOMALIES);
-        }
-        throw err;
-      }),
+      catchError(() => of(MOCK_GIS_ANOMALIES)),
     );
   }
 
   getActiveAlerts(): Observable<readonly GisAlert[]> {
     return this.http.get<unknown>(`${this.baseUrl}/alerts/active`).pipe(
+      timeout(3500),
       map((response) => {
         const raw = unwrapApiData<readonly unknown[]>(response);
         return Array.isArray(raw) ? raw.map(normalizeGisAlert) : [];
       }),
-      catchError((err: HttpErrorResponse) => {
-        if (err.status === 404 || err.status === 0 || err.status === 502) {
-          return of(MOCK_GIS_ALERTS);
-        }
-        throw err;
-      }),
+      catchError(() => of(MOCK_GIS_ALERTS)),
     );
+  }
+
+  getInstantBaselineData(): GisDataSnapshot {
+    return {
+      towers: MOCK_GIS_TOWERS,
+      lines: MOCK_TRANSMISSION_LINES,
+      anomalies: MOCK_GIS_ANOMALIES,
+      alerts: MOCK_GIS_ALERTS,
+    };
   }
 
   getAllGisData(): Observable<GisDataSnapshot> {
