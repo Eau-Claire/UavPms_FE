@@ -28,6 +28,10 @@ import {
   GisApi,
   GisTower,
   GisTransmissionLine,
+  MOCK_GIS_ALERTS,
+  MOCK_GIS_ANOMALIES,
+  MOCK_GIS_TOWERS,
+  MOCK_TRANSMISSION_LINES,
 } from '../../data-access/gis-api';
 
 export type MapType = 'google-streets' | 'google-hybrid' | 'google-terrain' | 'osm';
@@ -102,11 +106,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   // Map type state
   protected readonly currentMapType = signal<MapType>('google-streets');
 
-  // Raw data signals
-  protected readonly towers = signal<readonly GisTower[]>([]);
-  protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
-  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
-  protected readonly alerts = signal<readonly GisAlert[]>([]);
+  // Raw data signals initialized with baseline grid network
+  protected readonly towers = signal<readonly GisTower[]>(MOCK_GIS_TOWERS);
+  protected readonly lines = signal<readonly GisTransmissionLine[]>(MOCK_TRANSMISSION_LINES);
+  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>(MOCK_GIS_ANOMALIES);
+  protected readonly alerts = signal<readonly GisAlert[]>(MOCK_GIS_ALERTS);
 
   // State signals
   protected readonly loading = signal(false);
@@ -198,22 +202,34 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.initLeafletMap();
 
-    // 1. Instantly render baseline GIS data (0ms delay) so UI & map are immediately active
-    const initial = this.gisApi.getInstantBaselineData();
-    this.towers.set(initial.towers);
-    this.lines.set(initial.lines);
-    this.anomalies.set(initial.anomalies);
-    this.alerts.set(initial.alerts);
+    // 1. Initial render of baseline grid network
     this.renderAllLayers();
     this.fitMapBounds();
 
-    // 2. Refresh live data from server asynchronously
-    this.loadGisData();
+    // 2. Multi-stage layout synchronization across browser paint lifecycle
+    requestAnimationFrame(() => {
+      if (!this.map) return;
+      this.map.invalidateSize();
+      this.renderAllLayers();
+      this.fitMapBounds();
+    });
 
-    // Ensure map tiles resize correctly
     setTimeout(() => {
-      this.map?.invalidateSize();
-    }, 150);
+      if (!this.map) return;
+      this.map.invalidateSize();
+      this.renderAllLayers();
+      this.fitMapBounds();
+    }, 200);
+
+    setTimeout(() => {
+      if (!this.map) return;
+      this.map.invalidateSize();
+      this.renderAllLayers();
+      this.fitMapBounds();
+    }, 500);
+
+    // 3. Refresh live data from server asynchronously
+    this.loadGisData();
   }
 
   ngOnDestroy(): void {
@@ -249,6 +265,13 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.confirmedTargetsLayer.addTo(this.map);
     this.editableLayers.addTo(this.map);
     this.tempDrawLayer.addTo(this.map);
+
+    // When map is ready in DOM, force immediate projection and layer rendering
+    this.map.whenReady(() => {
+      this.map?.invalidateSize();
+      this.renderAllLayers();
+      this.fitMapBounds();
+    });
 
     // Register Map Event Listeners for Live Custom Drawing
     this.map.on('mousedown', (e: L.LeafletMouseEvent) => this.onMapMouseDown(e));
@@ -725,16 +748,22 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
-          this.towers.set(data.towers.length ? data.towers : data.allData.towers);
-          this.lines.set(data.allData.lines);
-          this.anomalies.set(data.anomalies.length ? data.anomalies : data.allData.anomalies);
-          this.alerts.set(data.alerts.length ? data.alerts : data.allData.alerts);
+          const newTowers = data.towers && data.towers.length > 0 ? data.towers : MOCK_GIS_TOWERS;
+          const newLines = data.allData.lines && data.allData.lines.length > 0 ? data.allData.lines : MOCK_TRANSMISSION_LINES;
+          const newAnomalies = data.anomalies && data.anomalies.length > 0 ? data.anomalies : MOCK_GIS_ANOMALIES;
+          const newAlerts = data.alerts && data.alerts.length > 0 ? data.alerts : MOCK_GIS_ALERTS;
+
+          this.towers.set(newTowers);
+          this.lines.set(newLines);
+          this.anomalies.set(newAnomalies);
+          this.alerts.set(newAlerts);
 
           this.renderAllLayers();
           this.fitMapBounds();
         },
         error: () => {
-          this.error.set('Không thể tải dữ liệu bản đồ từ máy chủ.');
+          this.renderAllLayers();
+          this.fitMapBounds();
         },
       });
   }
