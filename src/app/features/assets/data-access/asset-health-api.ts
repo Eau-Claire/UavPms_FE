@@ -33,6 +33,11 @@ export class AssetHealthApi {
     if (filters.towerId) params = params.set('towerId', filters.towerId);
     if (filters.assetType) params = params.set('assetType', filters.assetType);
     if (filters.status) params = params.set('status', filters.status);
+    if (filters.riskLevel) params = params.append('riskLevel', filters.riskLevel);
+    if (filters.minHealthScore !== undefined) params = params.set('minHealthScore', filters.minHealthScore);
+    if (filters.maxHealthScore !== undefined) params = params.set('maxHealthScore', filters.maxHealthScore);
+    if (filters.sortBy) params = params.set('sortBy', normalizeSortBy(filters.sortBy));
+    if (filters.sortOrder) params = params.set('sortOrder', filters.sortOrder);
 
     return this.http
       .get<unknown>(`${this.apiBaseUrl}/assets`, { params })
@@ -221,6 +226,9 @@ const normalizeAssetHealthSummary = (value: unknown): AssetHealthSummary => {
     averageHealthScore: numberValue(pick(source, 'averageHealthScore')),
   };
 };
+
+const normalizeSortBy = (sortBy: NonNullable<AssetFilters['sortBy']>) =>
+  sortBy === 'currentHealthScore' ? 'healthScore' : sortBy;
 
 const normalizeMonitorSummary = (value: unknown): MonitorSummary => {
   const source = record(value);

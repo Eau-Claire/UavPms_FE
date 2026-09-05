@@ -101,6 +101,27 @@ describe('AssetHealthApi', () => {
     expect(result?.items[1].maintenancePriority).toBe('Routine');
   });
 
+  it('sends server-side risk and sort filters instead of applying them only to the current page', () => {
+    api
+      .getAssets({
+        page: 1,
+        pageSize: 10,
+        riskLevel: 'Critical Risk',
+        sortBy: 'currentHealthScore',
+        sortOrder: 'asc',
+      })
+      .subscribe();
+
+    const req = http.expectOne(
+      (request) =>
+        request.url === `${environment.apiBaseUrl}/assets` &&
+        request.params.get('riskLevel') === 'Critical Risk' &&
+        request.params.get('sortBy') === 'healthScore' &&
+        request.params.get('sortOrder') === 'asc',
+    );
+    req.flush({ data: { items: [], pagination: { page: 1, pageSize: 10, totalItems: 0, totalPages: 1 } } });
+  });
+
   it('fetches and normalizes asset detail with active anomalies', () => {
     let detailResult: AssetDetail | undefined;
     const testId = 'b0f81d8a-6b58-45b7-a3c3-63023e3e2b2a';

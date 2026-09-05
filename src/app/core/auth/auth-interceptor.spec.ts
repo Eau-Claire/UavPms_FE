@@ -2,7 +2,7 @@ import '@angular/compiler';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { Auth } from './auth';
 import { authInterceptor } from './auth-interceptor';
@@ -10,6 +10,20 @@ import { authInterceptor } from './auth-interceptor';
 describe('authInterceptor', () => {
   let http: HttpTestingController;
   let client: HttpClient;
+
+  beforeAll(() => {
+    if (!globalThis.localStorage) {
+      let store = new Map<string, string>();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: {
+          getItem: (key: string) => store.get(key) ?? null,
+          setItem: (key: string, value: string) => store.set(key, value),
+          removeItem: (key: string) => store.delete(key),
+          clear: () => { store = new Map<string, string>(); },
+        },
+      });
+    }
+  });
 
   beforeEach(() => {
     localStorage.setItem(

@@ -121,14 +121,17 @@ export class AssetHealthStore {
       pageSize: this.pageSize(),
       towerId: this.filterTowerId() !== 'ALL' ? this.filterTowerId() : undefined,
       assetType: this.filterAssetType() !== 'ALL' ? this.filterAssetType() : undefined,
+      riskLevel: this.filterRiskLevel() !== 'ALL' ? this.filterRiskLevel() : undefined,
+      sortBy: this.sortBy(),
+      sortOrder: this.sortOrder(),
     };
 
     forkJoin({
       assetsPage: this.api.getAssets(filters),
       assetHealthSummary: this.api.getAssetHealthSummary().pipe(catchError(() => of(null))),
-      summary: this.api.getDashboardSummary(),
-      towers: this.api.getTowers(),
-      regions: this.api.getRegions(),
+      summary: this.api.getDashboardSummary().pipe(catchError(() => of(null))),
+      towers: this.api.getTowers().pipe(catchError(() => of([]))),
+      regions: this.api.getRegions().pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ assetsPage, assetHealthSummary, summary, towers, regions }) => {
         this.assets.set(assetsPage.items);
@@ -142,28 +145,16 @@ export class AssetHealthStore {
         this.loading.set(false);
       },
       error: (err) => {
-        // In case asset endpoint is loading, fallback to single asset endpoint or set error
-        this.api.getAssets(filters).subscribe({
-          next: (assetsPage) => {
-            this.assets.set(assetsPage.items);
-            this.totalItems.set(assetsPage.totalItems);
-            this.totalPages.set(assetsPage.totalPages);
-            this.lastRefreshedAt.set(new Date());
-            this.loading.set(false);
-          },
-          error: (assetErr) => {
-            this.error.set(
-              assetErr?.message || err?.message || 'Không thể tải dữ liệu sức khỏe tài sản từ hệ thống.',
-            );
-            this.loading.set(false);
-          },
-        });
+        this.error.set(err?.message || 'Không thể tải dữ liệu sức khỏe tài sản từ hệ thống.');
+        this.loading.set(false);
       },
     });
   }
 
   setRiskFilter(risk: string) {
     this.filterRiskLevel.set(risk);
+    this.page.set(1);
+    this.loadData();
   }
 
   setAssetTypeFilter(type: string) {
@@ -189,6 +180,8 @@ export class AssetHealthStore {
       this.sortBy.set(field);
       this.sortOrder.set(field === 'currentHealthScore' ? 'asc' : 'desc');
     }
+    this.page.set(1);
+    this.loadData();
   }
 
   setPage(page: number) {
