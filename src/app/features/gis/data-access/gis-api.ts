@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -144,24 +144,6 @@ export class GisApi {
         const data = unwrapApiData<unknown>(response);
         const items = Array.isArray(data) ? data : itemsFromRecord(data);
         return items.map(normalizeSelectableAsset);
-      }),
-      catchError((err: HttpErrorResponse) => {
-        if (err.status === 404 || err.status === 0 || err.status === 500 || err.status === 502) {
-          const ring = request.geometry.coordinates[0] || [];
-          const matchedTowers = MOCK_GIS_TOWERS.filter((t) =>
-            isPointInPolygon({ lat: t.latitude, lng: t.longitude }, ring),
-          );
-          const selectable: SelectableAsset[] = matchedTowers.map((t) => ({
-            assetId: t.id,
-            code: t.towerCode,
-            name: t.towerCode,
-            latitude: t.latitude,
-            longitude: t.longitude,
-            status: 'Operational',
-          }));
-          return of(selectable);
-        }
-        throw err;
       }),
     );
   }

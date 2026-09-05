@@ -31,15 +31,14 @@ describe('GisApi spatial query', () => {
     expect(status).toBe(400);
   });
 
-  it('falls back to local point-in-polygon matching when backend endpoint returns 404', () => {
-    // Polygon around Hanoi / Hoa Binh area covering Cột 041, 042, 043
-    const geometry = {
-      type: 'Polygon' as const,
-      coordinates: [[[105.7, 20.9], [105.9, 20.9], [105.9, 21.1], [105.7, 21.1], [105.7, 20.9]]] as const,
-    };
-    let result: readonly unknown[] = [];
-    api.spatialQuery({ geometry }).subscribe((value) => result = value);
-    http.expectOne(`${environment.apiBaseUrl}/assets/spatial-query`).flush({ message: 'Not found' }, { status: 404, statusText: 'Not Found' });
-    expect(result.length).toBeGreaterThan(0);
+  it('does not misrepresent towers as assets when the spatial query fails', () => {
+    let status = 0;
+    api.spatialQuery({ geometry: { type: 'Polygon', coordinates: [[[105.7, 20.9], [105.9, 20.9], [105.9, 21.1], [105.7, 20.9]]] } })
+      .subscribe({ error: (error) => status = error.status });
+
+    http.expectOne(`${environment.apiBaseUrl}/assets/spatial-query`)
+      .flush({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+
+    expect(status).toBe(503);
   });
 });
