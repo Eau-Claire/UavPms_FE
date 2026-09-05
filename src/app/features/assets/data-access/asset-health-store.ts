@@ -1,10 +1,11 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   AssetDashboardSummary,
   AssetDetail,
   AssetFilters,
   AssetHealthItem,
+  AssetHealthSummary,
   RegionLookup,
   RiskLevel,
   TowerLookup,
@@ -38,6 +39,7 @@ export class AssetHealthStore {
   readonly towers = signal<readonly TowerLookup[]>([]);
   readonly regions = signal<readonly RegionLookup[]>([]);
   readonly monitorSummary = signal<MonitorSummary | null>(null);
+  readonly assetHealthSummary = signal<AssetHealthSummary | null>(null);
   readonly lastRefreshedAt = signal<Date>(new Date());
 
   readonly filteredAssets = computed(() => {
@@ -97,49 +99,16 @@ export class AssetHealthStore {
   });
 
   readonly kpiSummary = computed<AssetDashboardSummary>(() => {
-    const list = this.assets();
-    const total = list.length;
-    if (!total) {
-      const summary = this.monitorSummary();
-      return {
-        totalAssets: 0,
-        criticalRiskCount: 0,
-        highRiskCount: 0,
-        mediumRiskCount: 0,
-        lowRiskCount: 0,
-        averageHealthScore: 0,
-        criticalDefectsCount: summary?.criticalDefects ?? 0,
-      };
-    }
-
-    let critical = 0;
-    let high = 0;
-    let medium = 0;
-    let low = 0;
-    let scoreSum = 0;
-
-    for (const item of list) {
-      scoreSum += item.currentHealthScore;
-      if (item.currentHealthScore < 40 || item.riskLevel === 'Critical Risk') {
-        critical++;
-      } else if (item.currentHealthScore < 60 || item.riskLevel === 'High Risk') {
-        high++;
-      } else if (item.currentHealthScore < 80 || item.riskLevel === 'Medium Risk') {
-        medium++;
-      } else {
-        low++;
-      }
-    }
-
-    const summary = this.monitorSummary();
+    const healthSummary = this.assetHealthSummary();
+    const monitorSummary = this.monitorSummary();
     return {
-      totalAssets: total,
-      criticalRiskCount: critical,
-      highRiskCount: high,
-      mediumRiskCount: medium,
-      lowRiskCount: low,
-      averageHealthScore: Math.round((scoreSum / total) * 10) / 10,
-      criticalDefectsCount: summary?.criticalDefects ?? critical,
+      totalAssets: healthSummary?.totalAssets ?? 0,
+      criticalRiskCount: healthSummary?.criticalRiskCount ?? 0,
+      highRiskCount: healthSummary?.highRiskCount ?? 0,
+      mediumRiskCount: healthSummary?.mediumRiskCount ?? 0,
+      lowRiskCount: healthSummary?.lowRiskCount ?? 0,
+      averageHealthScore: healthSummary?.averageHealthScore ?? 0,
+      criticalDefectsCount: monitorSummary?.criticalDefects ?? 0,
     };
   });
 
@@ -156,15 +125,17 @@ export class AssetHealthStore {
 
     forkJoin({
       assetsPage: this.api.getAssets(filters),
+      assetHealthSummary: this.api.getAssetHealthSummary().pipe(catchError(() => of(null))),
       summary: this.api.getDashboardSummary(),
       towers: this.api.getTowers(),
       regions: this.api.getRegions(),
     }).subscribe({
-      next: ({ assetsPage, summary, towers, regions }) => {
+      next: ({ assetsPage, assetHealthSummary, summary, towers, regions }) => {
         this.assets.set(assetsPage.items);
         this.totalItems.set(assetsPage.totalItems);
         this.totalPages.set(assetsPage.totalPages);
         this.monitorSummary.set(summary);
+        this.assetHealthSummary.set(assetHealthSummary);
         this.towers.set(towers);
         this.regions.set(regions);
         this.lastRefreshedAt.set(new Date());

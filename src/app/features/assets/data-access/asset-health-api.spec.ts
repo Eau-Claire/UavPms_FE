@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { AssetDetail, AssetPage } from '../../../models/assets.models';
+import { AssetDetail, AssetHealthSummary, AssetPage } from '../../../models/assets.models';
 import { AssetHealthApi, calculateMaintenancePriority, calculateRiskLevel } from './asset-health-api';
 
 describe('AssetHealthApi', () => {
@@ -168,5 +168,32 @@ describe('AssetHealthApi', () => {
     http
       .expectOne(`${environment.apiBaseUrl}/towers`)
       .flush({ data: [{ id: 'tow-1', code: 'TOW-01' }] });
+  });
+
+  it('fetches the overall asset health summary independently of pagination', () => {
+    let result: AssetHealthSummary | undefined;
+    api.getAssetHealthSummary().subscribe((summary) => (result = summary));
+
+    const req = http.expectOne(`${environment.apiBaseUrl}/assets/health-summary`);
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      data: {
+        totalAssets: 51,
+        averageHealthScore: 82.4,
+        criticalRiskCount: 2,
+        highRiskCount: 4,
+        mediumRiskCount: 8,
+        lowRiskCount: 37,
+      },
+    });
+
+    expect(result).toEqual({
+      totalAssets: 51,
+      averageHealthScore: 82.4,
+      criticalRiskCount: 2,
+      highRiskCount: 4,
+      mediumRiskCount: 8,
+      lowRiskCount: 37,
+    });
   });
 });

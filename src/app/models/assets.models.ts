@@ -61,6 +61,15 @@ export interface AssetDashboardSummary {
   readonly criticalDefectsCount: number;
 }
 
+export interface AssetHealthSummary {
+  readonly totalAssets: number;
+  readonly criticalRiskCount: number;
+  readonly highRiskCount: number;
+  readonly mediumRiskCount: number;
+  readonly lowRiskCount: number;
+  readonly averageHealthScore: number;
+}
+
 export interface TowerLookup {
   readonly id: string;
   readonly code: string;

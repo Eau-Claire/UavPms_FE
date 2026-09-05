@@ -7,6 +7,7 @@ import {
   AssetAnomaly,
   AssetDetail,
   AssetFilters,
+  AssetHealthSummary,
   AssetHealthItem,
   AssetPage,
   LineLookup,
@@ -42,6 +43,12 @@ export class AssetHealthApi {
     return this.http
       .get<unknown>(`${this.apiBaseUrl}/assets/${id}`)
       .pipe(map((response) => normalizeAssetDetail(unwrapApiData(response), id)));
+  }
+
+  getAssetHealthSummary(): Observable<AssetHealthSummary> {
+    return this.http
+      .get<unknown>(`${this.apiBaseUrl}/assets/health-summary`)
+      .pipe(map((response) => normalizeAssetHealthSummary(unwrapApiData(response))));
   }
 
   getDashboardSummary(): Observable<MonitorSummary> {
@@ -200,6 +207,18 @@ const normalizeAssetPage = (value: unknown, filters: AssetFilters): AssetPage =>
     pageSize,
     totalItems,
     totalPages,
+  };
+};
+
+const normalizeAssetHealthSummary = (value: unknown): AssetHealthSummary => {
+  const source = record(value);
+  return {
+    totalAssets: numberValue(pick(source, 'totalAssets', 'totalCount')),
+    criticalRiskCount: numberValue(pick(source, 'criticalRiskCount')),
+    highRiskCount: numberValue(pick(source, 'highRiskCount')),
+    mediumRiskCount: numberValue(pick(source, 'mediumRiskCount')),
+    lowRiskCount: numberValue(pick(source, 'lowRiskCount')),
+    averageHealthScore: numberValue(pick(source, 'averageHealthScore')),
   };
 };
 
