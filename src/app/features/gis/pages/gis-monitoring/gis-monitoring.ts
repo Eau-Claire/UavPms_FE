@@ -28,10 +28,6 @@ import {
   GisApi,
   GisTower,
   GisTransmissionLine,
-  MOCK_GIS_ALERTS,
-  MOCK_GIS_ANOMALIES,
-  MOCK_GIS_TOWERS,
-  MOCK_TRANSMISSION_LINES,
 } from '../../data-access/gis-api';
 
 export type MapType = 'google-streets' | 'google-hybrid' | 'google-terrain' | 'osm';
@@ -107,10 +103,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly currentMapType = signal<MapType>('google-streets');
 
   // Raw data signals initialized with baseline grid network
-  protected readonly towers = signal<readonly GisTower[]>(MOCK_GIS_TOWERS);
-  protected readonly lines = signal<readonly GisTransmissionLine[]>(MOCK_TRANSMISSION_LINES);
-  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>(MOCK_GIS_ANOMALIES);
-  protected readonly alerts = signal<readonly GisAlert[]>(MOCK_GIS_ALERTS);
+  protected readonly towers = signal<readonly GisTower[]>([]);
+  protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
+  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
+  protected readonly alerts = signal<readonly GisAlert[]>([]);
 
   // State signals
   protected readonly loading = signal(false);
@@ -243,11 +239,13 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     const container = this.mapContainer()?.nativeElement;
     if (!container) return;
 
-    // Hanoi / Hoa Binh default grid coordinates
+    const vietnamBounds = L.latLngBounds([8.15, 102.0], [23.5, 110.0]);
     this.map = L.map(container, {
-      center: [21.015, 105.815],
-      zoom: 13,
+      center: [16.2, 106.2],
+      zoom: 6,
       zoomControl: false,
+      maxBounds: vietnamBounds,
+      maxBoundsViscosity: 1,
     });
 
     // Custom zoom control in bottom right
@@ -748,20 +746,19 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
-          const newTowers = data.towers && data.towers.length > 0 ? data.towers : MOCK_GIS_TOWERS;
-          const newLines = data.allData.lines && data.allData.lines.length > 0 ? data.allData.lines : MOCK_TRANSMISSION_LINES;
-          const newAnomalies = data.anomalies && data.anomalies.length > 0 ? data.anomalies : MOCK_GIS_ANOMALIES;
-          const newAlerts = data.alerts && data.alerts.length > 0 ? data.alerts : MOCK_GIS_ALERTS;
-
-          this.towers.set(newTowers);
-          this.lines.set(newLines);
-          this.anomalies.set(newAnomalies);
-          this.alerts.set(newAlerts);
+          this.towers.set(data.towers);
+          this.lines.set(data.allData.lines);
+          this.anomalies.set(data.anomalies);
+          this.alerts.set(data.alerts);
 
           this.renderAllLayers();
           this.fitMapBounds();
         },
         error: () => {
+          this.towers.set([]);
+          this.lines.set([]);
+          this.anomalies.set([]);
+          this.alerts.set([]);
           this.renderAllLayers();
           this.fitMapBounds();
         },
