@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, timeout } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, throwError, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
@@ -94,7 +94,7 @@ export class GisApi {
           const raw = unwrapApiData<readonly unknown[]>(response);
           return Array.isArray(raw) ? raw.map(normalizeGisTower) : [];
         }),
-        catchError(() => of(MOCK_GIS_TOWERS)),
+        catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_TOWERS) : throwError(() => error)),
       );
   }
 
@@ -105,7 +105,7 @@ export class GisApi {
         const raw = unwrapApiData<Record<string, unknown>>(response);
         return normalizeGeoJsonAnomalies(raw);
       }),
-      catchError(() => of(MOCK_GIS_ANOMALIES)),
+      catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_ANOMALIES) : throwError(() => error)),
     );
   }
 
@@ -116,7 +116,7 @@ export class GisApi {
         const raw = unwrapApiData<readonly unknown[]>(response);
         return Array.isArray(raw) ? raw.map(normalizeGisAlert) : [];
       }),
-      catchError(() => of(MOCK_GIS_ALERTS)),
+      catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_ALERTS) : throwError(() => error)),
     );
   }
 
@@ -129,13 +129,21 @@ export class GisApi {
     };
   }
 
-  getAllGisData(): Observable<GisDataSnapshot> {
-    return of({
-      towers: MOCK_GIS_TOWERS,
-      lines: MOCK_TRANSMISSION_LINES,
-      anomalies: MOCK_GIS_ANOMALIES,
-      alerts: MOCK_GIS_ALERTS,
-    });
+  getAllGisData(bbox: BoundingBoxQuery): Observable<GisDataSnapshot> {
+    return forkJoin({
+      towers: this.getTowersInBBox(bbox),
+      infrastructure: this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`).pipe(
+        timeout(3500),
+        map(response => normalizeInfrastructureLines(unwrapApiData<unknown>(response))),
+      ),
+      anomalies: this.getAnomaliesGeoJson(),
+      alerts: this.getActiveAlerts(),
+    }).pipe(map(data => ({
+      towers: data.towers,
+      lines: data.infrastructure,
+      anomalies: data.anomalies,
+      alerts: data.alerts,
+    })));
   }
 
   spatialQuery(request: SpatialAssetQueryRequest): Observable<readonly SelectableAsset[]> {
@@ -177,6 +185,32 @@ const numberValue = (value: unknown) => Number(value ?? 0) || 0;
 
 const pick = (source: Record<string, unknown>, ...keys: string[]) =>
   keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
+
+const normalizeInfrastructureLines = (value: unknown): readonly GisTransmissionLine[] => {
+  const source = record(value);
+  const rawLines = pick(source, 'powerLines', 'PowerLines');
+  if (!Array.isArray(rawLines)) return [];
+
+  return rawLines.map(item => {
+    const line = record(item);
+    return {
+      id: stringValue(pick(line, 'id', 'Id')),
+      lineCode: stringValue(pick(line, 'code', 'Code')),
+      lineName: stringValue(pick(line, 'name', 'Name')),
+      voltage: stringValue(pick(line, 'voltageLevel', 'VoltageLevel')),
+      coordinates: parseLineString(stringValue(pick(line, 'geometry', 'Geometry'))),
+    };
+  }).filter(line => line.coordinates.length > 1);
+};
+
+const parseLineString = (wkt: string): readonly [number, number][] => {
+  const match = /^LINESTRING\s*\((.+)\)$/i.exec(wkt.trim());
+  if (!match) return [];
+  return match[1].split(',').map(pair => {
+    const [longitude, latitude] = pair.trim().split(/\s+/).map(Number);
+    return Number.isFinite(latitude) && Number.isFinite(longitude) ? [latitude, longitude] as [number, number] : null;
+  }).filter((coordinate): coordinate is [number, number] => coordinate !== null);
+};
 
 const itemsFromRecord = (value: unknown): readonly unknown[] => {
   const source = record(value);

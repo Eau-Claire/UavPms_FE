@@ -18,7 +18,7 @@ import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import 'leaflet-draw';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { finalize, forkJoin } from 'rxjs';
+import { finalize } from 'rxjs';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
@@ -28,10 +28,6 @@ import {
   GisApi,
   GisTower,
   GisTransmissionLine,
-  MOCK_GIS_ALERTS,
-  MOCK_GIS_ANOMALIES,
-  MOCK_GIS_TOWERS,
-  MOCK_TRANSMISSION_LINES,
 } from '../../data-access/gis-api';
 
 export type MapType = 'google-streets' | 'google-hybrid' | 'google-terrain' | 'osm';
@@ -107,10 +103,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly currentMapType = signal<MapType>('google-streets');
 
   // Raw data signals initialized with baseline grid network
-  protected readonly towers = signal<readonly GisTower[]>(MOCK_GIS_TOWERS);
-  protected readonly lines = signal<readonly GisTransmissionLine[]>(MOCK_TRANSMISSION_LINES);
-  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>(MOCK_GIS_ANOMALIES);
-  protected readonly alerts = signal<readonly GisAlert[]>(MOCK_GIS_ALERTS);
+  protected readonly towers = signal<readonly GisTower[]>([]);
+  protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
+  protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
+  protected readonly alerts = signal<readonly GisAlert[]>([]);
 
   // State signals
   protected readonly loading = signal(false);
@@ -736,34 +732,26 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
 
-    forkJoin({
-      towers: this.gisApi.getTowersInBBox({ minLat: 20.9, minLng: 105.7, maxLat: 21.1, maxLng: 105.9 }),
-      anomalies: this.gisApi.getAnomaliesGeoJson(),
-      alerts: this.gisApi.getActiveAlerts(),
-      allData: this.gisApi.getAllGisData(),
-    })
+    this.gisApi.getAllGisData({ minLat: 20.9, minLng: 105.7, maxLat: 21.1, maxLng: 105.9 })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
         next: (data) => {
-          const newTowers = data.towers && data.towers.length > 0 ? data.towers : MOCK_GIS_TOWERS;
-          const newLines = data.allData.lines && data.allData.lines.length > 0 ? data.allData.lines : MOCK_TRANSMISSION_LINES;
-          const newAnomalies = data.anomalies && data.anomalies.length > 0 ? data.anomalies : MOCK_GIS_ANOMALIES;
-          const newAlerts = data.alerts && data.alerts.length > 0 ? data.alerts : MOCK_GIS_ALERTS;
-
-          this.towers.set(newTowers);
-          this.lines.set(newLines);
-          this.anomalies.set(newAnomalies);
-          this.alerts.set(newAlerts);
+          this.towers.set(data.towers);
+          this.lines.set(data.lines);
+          this.anomalies.set(data.anomalies);
+          this.alerts.set(data.alerts);
 
           this.renderAllLayers();
           this.fitMapBounds();
         },
-        error: () => {
+        error: (error: unknown) => {
+          const status = typeof error === 'object' && error !== null && 'status' in error ? (error as { status?: number }).status : undefined;
+          this.error.set(status === 403 ? 'Bạn không có quyền truy cập dữ liệu GIS trong khu vực này.' : 'Không thể tải dữ liệu GIS. Vui lòng thử lại.');
+          this.towers.set([]); this.lines.set([]); this.anomalies.set([]); this.alerts.set([]);
           this.renderAllLayers();
-          this.fitMapBounds();
         },
       });
   }
