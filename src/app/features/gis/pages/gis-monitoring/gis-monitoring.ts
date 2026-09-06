@@ -737,7 +737,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.error.set('');
 
     forkJoin({
-      towers: this.gisApi.getTowersInBBox({ minLat: 20.9, minLng: 105.7, maxLat: 21.1, maxLng: 105.9 }),
+      towers: this.gisApi.getTowersInBBox({ minLat: 8.15, minLng: 102.0, maxLat: 23.5, maxLng: 110.0 }),
       anomalies: this.gisApi.getAnomaliesGeoJson(),
       alerts: this.gisApi.getActiveAlerts(),
       allData: this.gisApi.getAllGisData(),
