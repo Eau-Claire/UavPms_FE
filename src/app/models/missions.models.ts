@@ -14,6 +14,7 @@ export interface Mission {
   readonly managerUsername: string;
   readonly createdAt: string;
   readonly updatedAt: string | null;
+  readonly targets: readonly MissionTarget[];
 }
 
 export interface MissionPage {
@@ -31,4 +32,21 @@ export interface MissionMutationRequest {
   readonly droneCode?: string;
   readonly status?: string;
   readonly description?: string;
+}
+
+export interface MissionCreateRequest {
+  readonly name: string;
+  readonly description: string;
+  readonly scheduledAt: string;
+  readonly inspectorId: string;
+  readonly droneId: string;
+  readonly targetAssetIds: readonly string[];
+}
+
+export interface MissionTarget {
+  readonly assetId: string;
+  readonly assetCode: string;
+  readonly assetName: string;
+  readonly sequence: number | null;
+  readonly inspectionStatus: string;
 }

@@ -9,6 +9,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { UserRecord } from '../../../../models/users.models';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { MissionsApi } from '../../data-access/missions-api';
+import { MissionTargetSelection } from '../../data-access/mission-target-selection';
 
 @Component({
   selector: 'app-mission-create',
@@ -25,6 +26,7 @@ export class MissionCreate {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  protected readonly targetSelection = inject(MissionTargetSelection);
 
   protected readonly busy = signal(false);
   protected readonly usersLoading = signal(false);
@@ -32,39 +34,39 @@ export class MissionCreate {
   protected readonly users = signal<readonly UserRecord[]>([]);
   protected readonly currentUser = this.auth.user;
   protected readonly form = this.fb.nonNullable.group({
-    title: ['', Validators.required],
-    routeData: ['', Validators.required],
-    assignedToUserId: ['', Validators.required],
-    droneCode: [''],
-    status: ['Pending', Validators.required],
+    name: ['', Validators.required],
+    scheduledAt: ['', Validators.required],
+    inspectorId: ['', Validators.required],
+    droneId: ['', Validators.required],
     description: [''],
   });
 
   constructor() {
     const currentUserId = this.currentUser()?.id ?? '';
-    if (currentUserId) this.form.controls.assignedToUserId.setValue(currentUserId);
+    if (currentUserId) this.form.controls.inspectorId.setValue(currentUserId);
     this.loadUsers();
   }
 
   protected save(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || !this.targetSelection.count()) {
       this.form.markAllAsTouched();
+      if (!this.targetSelection.count()) this.error.set('Vui lòng chọn ít nhất một tài sản mục tiêu trên bản đồ GIS.');
       return;
     }
     const value = this.form.getRawValue();
     this.busy.set(true);
     this.error.set('');
     this.api.create({
-      title: value.title.trim(),
-      routeData: value.routeData.trim(),
-      assignedToUserId: value.assignedToUserId,
-      droneCode: value.droneCode.trim(),
-      status: value.status,
+      name: value.name.trim(),
+      scheduledAt: new Date(value.scheduledAt).toISOString(),
+      inspectorId: value.inspectorId,
+      droneId: value.droneId.trim(),
       description: value.description.trim(),
+      targetAssetIds: this.targetSelection.selected().map((asset) => asset.assetId),
     })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
       .subscribe({
-        next: (mission) => void this.router.navigate(mission.id ? ['/missions', mission.id] : ['/missions']),
+        next: (mission) => { this.targetSelection.clear(); void this.router.navigate(mission.id ? ['/missions', mission.id] : ['/missions']); },
         error: (error: unknown) => this.error.set(this.errorMessage(error)),
       });
   }
@@ -76,12 +78,12 @@ export class MissionCreate {
       .subscribe({
         next: (users) => {
           this.users.set(users);
-          const selected = this.form.controls.assignedToUserId.value;
-          if (!selected && users[0]) this.form.controls.assignedToUserId.setValue(users[0].id);
+          const selected = this.form.controls.inspectorId.value;
+          if (!selected && users[0]) this.form.controls.inspectorId.setValue(users[0].id);
         },
         error: () => {
           const currentUserId = this.currentUser()?.id ?? '';
-          if (!this.form.controls.assignedToUserId.value && currentUserId) this.form.controls.assignedToUserId.setValue(currentUserId);
+          if (!this.form.controls.inspectorId.value && currentUserId) this.form.controls.inspectorId.setValue(currentUserId);
         },
       });
   }

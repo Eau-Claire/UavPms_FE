@@ -29,7 +29,7 @@ export class ForgotPassword {
     return '';
   }
   protected normalizeEmail(): void {
-    const normalized = this.form.controls.email.value.trim().toLowerCase();
+    const normalized = this.form.controls.email.value.trim();
     this.form.controls.email.setValue(normalized);
   }
   protected submit(): void { this.normalizeEmail(); if (this.form.invalid) { this.form.markAllAsTouched(); return; } this.busy.set(true); this.error.set(''); const email = this.form.controls.email.value; this.auth.sendOtp({ email, purpose: 'ForgotPassword' }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: () => void this.router.navigate(['/otp'], { queryParams: { email, purpose: 'ForgotPassword' } }), error: () => this.error.set('OTP could not be sent. Try again.') }); }

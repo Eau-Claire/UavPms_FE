@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { Auth } from '../../../../core/auth/auth';
 import { Mission, MissionPage } from '../../../../models/missions.models';
 import { MissionsApi } from '../../data-access/missions-api';
 
@@ -18,8 +19,15 @@ import { MissionsApi } from '../../data-access/missions-api';
 })
 export class MissionList {
   private readonly api = inject(MissionsApi);
+  private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchInput = new Subject<string>();
+
+  protected readonly user = computed(() => this.auth.user());
+  protected readonly canCreateMission = computed(() => {
+    const role = (this.user()?.role || '').toLowerCase();
+    return ['admin', 'systemadmin', 'manager', 'supervisor', 'inspector', 'pilot'].includes(role);
+  });
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');

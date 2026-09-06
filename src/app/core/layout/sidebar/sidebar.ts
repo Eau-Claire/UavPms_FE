@@ -39,14 +39,14 @@ export class Sidebar {
     // 1. SystemAdmin / Admin
     if (currentRole === 'admin' || currentRole === 'systemadmin' || currentRole === 'administrator') {
       return [
-        { path: '/admin/users', icon: 'team', label: 'Qu?n lý ngu?i dùng' },
+        { path: '/admin/users', icon: 'team', label: 'Qu?n lï¿½ ngu?i dï¿½ng' },
         { path: '/dashboard', icon: 'dashboard', label: 'T?ng quan h? th?ng' },
-        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Báo Kh?n C?p', badgeCount: alertCount },
+        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Bï¿½o Kh?n C?p', badgeCount: alertCount },
         { path: '/gis', icon: 'environment', label: 'B?n d? GIS Lu?i di?n' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Tài s?n lu?i di?n' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Tï¿½i s?n lu?i di?n' },
         { path: '/missions', icon: 'appstore', label: 'Nhi?m v? bay' },
         { path: '/ai-review', icon: 'audit', label: 'Duy?t s? c? AI' },
-        { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
+        { path: '/reports', icon: 'file-text', label: 'Bï¿½o cï¿½o' },
       ];
     }
 
@@ -54,36 +54,36 @@ export class Sidebar {
     if (currentRole === 'manager' || currentRole === 'supervisor') {
       return [
         { path: '/dashboard', icon: 'dashboard', label: 'T?ng quan' },
-        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Báo Kh?n C?p', badgeCount: alertCount },
+        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Bï¿½o Kh?n C?p', badgeCount: alertCount },
         { path: '/gis', icon: 'environment', label: 'B?n d? GIS Lu?i di?n' },
         { path: '/assets', icon: 'safety-certificate', label: 'S?c kh?e & R?i ro' },
-        { path: '/missions', icon: 'appstore', label: 'Qu?n lý nhi?m v?' },
-        { path: '/inspections', icon: 'file-text', label: 'Giám sát ki?m tra' },
+        { path: '/missions', icon: 'appstore', label: 'Qu?n lï¿½ nhi?m v?' },
+        { path: '/inspections', icon: 'file-text', label: 'Giï¿½m sï¿½t ki?m tra' },
         { path: '/ai-review', icon: 'audit', label: 'Duy?t s? c? AI' },
-        { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
+        { path: '/reports', icon: 'file-text', label: 'Bï¿½o cï¿½o' },
       ];
     }
 
     // 3. Inspector (Pilot)
     if (currentRole === 'inspector' || currentRole === 'pilot') {
       return [
-        { path: '/missions', icon: 'appstore', label: 'Nhi?m v? c?a tôi' },
+        { path: '/missions', icon: 'appstore', label: 'Nhi?m v? c?a tï¿½i' },
         { path: '/missions/new', icon: 'plus', label: 'T?o nhi?m v? m?i' },
         { path: '/gis', icon: 'environment', label: 'B?n d? GIS Lu?i di?n' },
-        { path: '/inspections', icon: 'file-text', label: 'Nh?t ký & Log bay' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Thông tin c?t di?n' },
+        { path: '/inspections', icon: 'file-text', label: 'Nh?t kï¿½ & Log bay' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Thï¿½ng tin c?t di?n' },
       ];
     }
 
     // 4. Analyst (AI Specialist)
     if (currentRole === 'analyst') {
       return [
-        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Báo Kh?n C?p', badgeCount: alertCount },
+        { path: '/emergency-alerts', icon: 'alert', label: 'C?nh Bï¿½o Kh?n C?p', badgeCount: alertCount },
         { path: '/ai-review', icon: 'audit', label: 'Duy?t s? c? AI' },
         { path: '/gis', icon: 'environment', label: 'B?n d? GIS Lu?i di?n' },
-        { path: '/ai-analysis/upload', icon: 'experiment', label: 'Phân tích AI' },
+        { path: '/ai-analysis/upload', icon: 'experiment', label: 'Phï¿½n tï¿½ch AI' },
         { path: '/inspections', icon: 'file-text', label: '?nh ki?m tra' },
-        { path: '/dashboard', icon: 'dashboard', label: 'Th?ng kê s? c?' },
+        { path: '/dashboard', icon: 'dashboard', label: 'Th?ng kï¿½ s? c?' },
         { path: '/assets', icon: 'safety-certificate', label: 'S?c kh?e thi?t b?' },
       ];
     }
@@ -91,9 +91,9 @@ export class Sidebar {
     // 5. Technician / MaintenanceTechnician
     if (currentRole === 'technician' || currentRole === 'maintenancetechnician') {
       return [
-        { path: '/inspections', icon: 'file-text', label: 'Công vi?c & S? c?' },
+        { path: '/inspections', icon: 'file-text', label: 'Cï¿½ng vi?c & S? c?' },
         { path: '/gis', icon: 'environment', label: 'B?n d? GIS' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Thông tin thi?t b?' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Thï¿½ng tin thi?t b?' },
         { path: '/dashboard', icon: 'dashboard', label: 'T?ng quan' },
       ];
     }
@@ -111,12 +111,12 @@ export class Sidebar {
     const currentRole = this.role();
     if (currentRole === 'admin' || currentRole === 'systemadmin') {
       return [
-        { path: '/system', icon: 'setting', label: 'C?u hình h? th?ng' },
+        { path: '/system', icon: 'setting', label: 'C?u hï¿½nh h? th?ng' },
         { path: '/inspections', icon: 'question-circle', label: 'H? tr?' },
       ];
     }
     return [
-      { path: '/inspections', icon: 'question-circle', label: 'Tr? giúp' },
+      { path: '/inspections', icon: 'question-circle', label: 'Tr? giï¿½p' },
     ];
   });
 }

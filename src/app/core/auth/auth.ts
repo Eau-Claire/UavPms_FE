@@ -1,4 +1,4 @@
-﻿import { HttpClient } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -17,7 +17,12 @@ export class Auth {
   readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.tokens.accessToken));
 
   login(credentials: { username: string; password: string }) {
-    const normalizedCredentials = { username: this.normalizeUsername(credentials.username), password: credentials.password };
+    const rawUsername = this.normalizeUsername(credentials.username);
+    const normalizedCredentials = {
+      username: rawUsername,
+      email: rawUsername,
+      password: credentials.password,
+    };
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
       map((response): LoginResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
@@ -87,7 +92,21 @@ export class Auth {
   private readSession(): AuthSession | null {
     try {
       const value = localStorage.getItem(this.sessionKey);
-      return value ? (JSON.parse(value) as AuthSession) : null;
+      if (!value) return null;
+      const session = JSON.parse(value) as AuthSession;
+      // If session role is Viewer or missing, attempt to re-resolve from token
+      if (session?.tokens?.accessToken && (!session.user?.role || session.user.role === 'Viewer')) {
+        const tokenRole = this.parseRoleFromToken(session.tokens.accessToken);
+        if (tokenRole && tokenRole !== 'Viewer') {
+          const updatedSession: AuthSession = {
+            ...session,
+            user: { ...session.user, role: tokenRole },
+          };
+          localStorage.setItem(this.sessionKey, JSON.stringify(updatedSession));
+          return updatedSession;
+        }
+      }
+      return session;
     } catch {
       return null;
     }
@@ -104,15 +123,73 @@ export class Auth {
     const refreshToken = String(rawTokens['refreshToken'] ?? nested['refreshToken'] ?? '');
     if (!accessToken || !refreshToken)
       throw new Error('Authentication response did not include tokens.');
-    const roles = rawUser['userRoles'] as readonly { role?: { roleName?: UserRole } }[] | undefined;
+
+    const rawRoles = rawUser['roles'] ?? rawUser['roleNames'];
+    const stringRoles = Array.isArray(rawRoles) ? rawRoles.map(String) : [];
+    const complexRoles = rawUser['userRoles'] as readonly { role?: { roleName?: string }; roleName?: string }[] | undefined;
+    const tokenRole = this.parseRoleFromToken(accessToken);
+
+    const extractedRole =
+      stringRoles[0] ??
+      complexRoles?.[0]?.role?.roleName ??
+      complexRoles?.[0]?.roleName ??
+      (rawUser['role'] as string | undefined) ??
+      tokenRole ??
+      'Viewer';
+
+    const normalizedRole: UserRole =
+      extractedRole.toLowerCase() === 'systemadmin' || extractedRole.toLowerCase() === 'admin' || extractedRole.toLowerCase() === 'administrator'
+        ? 'Admin'
+        : extractedRole.toLowerCase() === 'supervisor' || extractedRole.toLowerCase() === 'manager'
+        ? 'Manager'
+        : extractedRole.toLowerCase() === 'maintenancetechnician' || extractedRole.toLowerCase() === 'technician'
+        ? 'Technician'
+        : extractedRole.toLowerCase() === 'inspector' || extractedRole.toLowerCase() === 'pilot'
+        ? 'Inspector'
+        : extractedRole.toLowerCase() === 'analyst'
+        ? 'Analyst'
+        : (extractedRole as UserRole);
+
     const user: AuthUser = {
       id: String(rawUser['id'] ?? ''),
       email: String(rawUser['email'] ?? ''),
       fullName: String(rawUser['fullName'] ?? rawUser['email'] ?? 'Operator'),
-      role: roles?.[0]?.role?.roleName ?? (rawUser['role'] as UserRole | undefined) ?? 'Viewer',
+      role: normalizedRole,
       mustChangePassword: Boolean(rawUser['mustChangePassword']),
     };
     return { user, tokens: { accessToken, refreshToken } };
+  }
+
+  private parseRoleFromToken(token: string): UserRole | undefined {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return undefined;
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join(''),
+      );
+      const payload = JSON.parse(jsonPayload) as Record<string, unknown>;
+      const roleClaim =
+        payload['role'] ??
+        payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+        (Array.isArray(payload['roles']) ? payload['roles'][0] : undefined);
+
+      if (typeof roleClaim === 'string') {
+        const lower = roleClaim.toLowerCase();
+        if (lower === 'systemadmin' || lower === 'admin' || lower === 'administrator') return 'Admin';
+        if (lower === 'supervisor' || lower === 'manager') return 'Manager';
+        if (lower === 'maintenancetechnician' || lower === 'technician') return 'Technician';
+        if (lower === 'inspector' || lower === 'pilot') return 'Inspector';
+        if (lower === 'analyst') return 'Analyst';
+        return roleClaim as UserRole;
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   private hasTokens(payload: Record<string, unknown>): boolean {
@@ -123,11 +200,11 @@ export class Auth {
     );
   }
   private normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
+    return email.trim();
   }
 
   private normalizeUsername(username: string): string {
-    return username.trim().toLowerCase();
+    return username.trim();
   }
 }
 

@@ -1,0 +1,35 @@
+<div class="forbidden-page-container">
+  <div class="forbidden-card">
+    <div class="forbidden-icon-badge">
+      <span nz-icon nzType="lock" class="icon-lock"></span>
+    </div>
+
+    <div class="status-code">403</div>
+    <h1 class="forbidden-title">Quyền truy cập bị từ chối</h1>
+    <p class="forbidden-description">
+      Tài khoản của bạn không có đủ thẩm quyền hoặc vai trò (Role) phù hợp để truy cập vào tài nguyên này.
+    </p>
+
+    <div class="user-role-box">
+      <div class="user-info-row">
+        <span>Người dùng:</span>
+        <strong>{{ user()?.fullName || user()?.email || 'N/A' }}</strong>
+      </div>
+      <div class="user-info-row">
+        <span>Vai trò hiện tại:</span>
+        <span class="role-badge">{{ userRole() }}</span>
+      </div>
+    </div>
+
+    <div class="forbidden-actions">
+      <a routerLink="/dashboard" class="btn-action btn-primary">
+        <span nz-icon nzType="dashboard"></span>
+        Về Trang Tổng Quan
+      </a>
+      <button type="button" class="btn-action btn-outline" (click)="logout()">
+        <span nz-icon nzType="logout"></span>
+        Đổi tài khoản khác
+      </button>
+    </div>
+  </div>
+</div>

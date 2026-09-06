@@ -11,6 +11,8 @@ import {
   SearchOutline, SettingOutline, TeamOutline, UserOutline, DownOutline, EnvironmentFill,
   ThunderboltFill, FilterOutline, PlusOutline, EditOutline, MoreOutline, RightOutline,
   ReloadOutline, CheckCircleOutline, LeftOutline, EnvironmentOutline, ThunderboltOutline,
+  PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
+  InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
 } from '@ant-design/icons-angular/icons';
 
 export const appConfig: ApplicationConfig = {
@@ -26,6 +28,8 @@ export const appConfig: ApplicationConfig = {
       SearchOutline, SettingOutline, TeamOutline, UserOutline, DownOutline, EnvironmentFill,
       ThunderboltFill, FilterOutline, PlusOutline, EditOutline, MoreOutline, RightOutline,
       ReloadOutline, CheckCircleOutline, LeftOutline, EnvironmentOutline, ThunderboltOutline,
+      PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
+      InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
     ]),
   ],
 };

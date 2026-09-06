@@ -1,0 +1,716 @@
+<div class="asset-dashboard-container">
+  <!-- Page Header -->
+  <header class="asset-dashboard-header">
+    <div class="asset-dashboard-header-main">
+      <div class="asset-dashboard-title-group">
+        <div class="asset-dashboard-badge">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span>Hệ thống giám sát thời gian thực</span>
+        </div>
+        <h1 class="asset-dashboard-title">Sức khỏe & Phân loại Rủi ro Thiết bị</h1>
+        <p class="asset-dashboard-subtitle">
+          Theo dõi chỉ số sức khỏe thiết bị (Asset Health Score 0–100), nhận diện nguy cơ sự cố và xác định mức độ ưu tiên bảo trì lưới điện.
+        </p>
+      </div>
+      <div class="asset-dashboard-actions">
+        <span class="refresh-indicator">
+          <span nz-icon nzType="clock-circle" class="refresh-icon" aria-hidden="true"></span>
+          <span>Cập nhật: {{ store.lastRefreshedAt() | date:'HH:mm:ss dd/MM/yyyy' }}</span>
+        </span>
+        <button
+          type="button"
+          class="btn-action-refresh"
+          (click)="onRefresh()"
+          [disabled]="store.loading()"
+          aria-label="Làm mới dữ liệu"
+        >
+          <span nz-icon [nzType]="store.loading() ? 'loading' : 'sync'" class="btn-icon" aria-hidden="true"></span>
+          <span>Làm mới</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Summary Cards Grid -->
+    <section class="kpi-grid" aria-label="Thống kê tổng quan sức khỏe thiết bị">
+      <!-- Total Assets -->
+      <div class="kpi-card kpi-card--total">
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Tổng thiết bị giám sát</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--blue">
+            <span nz-icon nzType="appstore" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value">{{ store.kpiSummary().totalAssets }}</div>
+        <div class="kpi-card-footer">
+          <span class="kpi-card-hint">Bao gồm 4 nhóm thiết bị chính</span>
+        </div>
+      </div>
+
+      <!-- Critical Risk -->
+      <div
+        class="kpi-card kpi-card--critical"
+        [class.kpi-card--active]="store.filterRiskLevel() === 'Critical Risk'"
+        (click)="onRiskFilterChange('Critical Risk')"
+        (keydown.enter)="onRiskFilterChange('Critical Risk')"
+        (keydown.space)="onRiskFilterChange('Critical Risk')"
+        role="button"
+        tabindex="0"
+        aria-label="Lọc tài sản nguy cấp"
+      >
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Nguy cấp (&lt; 40 điểm)</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--red">
+            <span nz-icon nzType="alert" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value-wrap">
+          <span class="kpi-card-value text-red-600">{{ store.kpiSummary().criticalRiskCount }}</span>
+          @if (store.kpiSummary().criticalRiskCount > 0) {
+            <span class="urgent-tag">Khẩn cấp</span>
+          }
+        </div>
+        <div class="kpi-card-footer">
+          <span class="kpi-card-hint text-red-500">Cần xử lý & thay thế ngay</span>
+        </div>
+      </div>
+
+      <!-- High Risk -->
+      <div
+        class="kpi-card kpi-card--high"
+        [class.kpi-card--active]="store.filterRiskLevel() === 'High Risk'"
+        (click)="onRiskFilterChange('High Risk')"
+        (keydown.enter)="onRiskFilterChange('High Risk')"
+        (keydown.space)="onRiskFilterChange('High Risk')"
+        role="button"
+        tabindex="0"
+        aria-label="Lọc tài sản rủi ro cao"
+      >
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Rủi ro cao (40–59 điểm)</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--orange">
+            <span nz-icon nzType="warning" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value text-orange-600">{{ store.kpiSummary().highRiskCount }}</div>
+        <div class="kpi-card-footer">
+          <span class="kpi-card-hint text-orange-500">Ưu tiên lập lịch bảo dưỡng</span>
+        </div>
+      </div>
+
+      <!-- Medium Risk -->
+      <div
+        class="kpi-card kpi-card--medium"
+        [class.kpi-card--active]="store.filterRiskLevel() === 'Medium Risk'"
+        (click)="onRiskFilterChange('Medium Risk')"
+        (keydown.enter)="onRiskFilterChange('Medium Risk')"
+        (keydown.space)="onRiskFilterChange('Medium Risk')"
+        role="button"
+        tabindex="0"
+        aria-label="Lọc tài sản rủi ro trung bình"
+      >
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Rủi ro TB (60–79 điểm)</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--amber">
+            <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value text-amber-600">{{ store.kpiSummary().mediumRiskCount }}</div>
+        <div class="kpi-card-footer">
+          <span class="kpi-card-hint text-amber-500">Theo dõi định kỳ</span>
+        </div>
+      </div>
+
+      <!-- Low Risk -->
+      <div
+        class="kpi-card kpi-card--low"
+        [class.kpi-card--active]="store.filterRiskLevel() === 'Low Risk'"
+        (click)="onRiskFilterChange('Low Risk')"
+        (keydown.enter)="onRiskFilterChange('Low Risk')"
+        (keydown.space)="onRiskFilterChange('Low Risk')"
+        role="button"
+        tabindex="0"
+        aria-label="Lọc tài sản bình thường"
+      >
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Ổn định (≥ 80 điểm)</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--green">
+            <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value text-green-600">{{ store.kpiSummary().lowRiskCount }}</div>
+        <div class="kpi-card-footer">
+          <span class="kpi-card-hint text-green-500">Hoạt động bình thường</span>
+        </div>
+      </div>
+
+      <!-- Average Health Score -->
+      <div class="kpi-card kpi-card--score">
+        <div class="kpi-card-header">
+          <span class="kpi-card-label">Điểm SK Trung bình</span>
+          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--teal">
+            <span nz-icon nzType="dashboard" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="kpi-card-value-wrap">
+          <span
+            class="kpi-card-value"
+            [style.color]="getHealthScoreColor(store.kpiSummary().averageHealthScore)"
+          >
+            {{ store.kpiSummary().averageHealthScore | number:'1.1-1' }}
+          </span>
+          <span class="kpi-score-max">/ 100</span>
+        </div>
+        <div class="kpi-score-bar-bg">
+          <div
+            class="kpi-score-bar-fill"
+            [style.width.%]="store.kpiSummary().averageHealthScore"
+            [style.backgroundColor]="getHealthScoreColor(store.kpiSummary().averageHealthScore)"
+          ></div>
+        </div>
+      </div>
+    </section>
+  </header>
+
+  <!-- Filter & Search Toolbar -->
+  <section class="asset-toolbar" aria-label="Bộ lọc và tìm kiếm thiết bị">
+    <div class="toolbar-top">
+      <!-- Quick Risk Tabs -->
+      <div class="risk-tabs" role="tablist" aria-label="Lọc theo mức độ rủi ro">
+        <button
+          type="button"
+          class="risk-tab"
+          [class.risk-tab--active]="store.filterRiskLevel() === 'ALL'"
+          (click)="onRiskFilterChange('ALL')"
+          role="tab"
+          [attr.aria-selected]="store.filterRiskLevel() === 'ALL'"
+        >
+          <span>Tất cả</span>
+          <span class="tab-badge">{{ store.assets().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="risk-tab risk-tab--critical"
+          [class.risk-tab--active]="store.filterRiskLevel() === 'Critical Risk'"
+          (click)="onRiskFilterChange('Critical Risk')"
+          role="tab"
+          [attr.aria-selected]="store.filterRiskLevel() === 'Critical Risk'"
+        >
+          <span class="status-dot dot-critical" aria-hidden="true"></span>
+          <span>Nguy cấp</span>
+          <span class="tab-badge tab-badge--critical">{{ store.kpiSummary().criticalRiskCount }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="risk-tab risk-tab--high"
+          [class.risk-tab--active]="store.filterRiskLevel() === 'High Risk'"
+          (click)="onRiskFilterChange('High Risk')"
+          role="tab"
+          [attr.aria-selected]="store.filterRiskLevel() === 'High Risk'"
+        >
+          <span class="status-dot dot-high" aria-hidden="true"></span>
+          <span>Rủi ro cao</span>
+          <span class="tab-badge tab-badge--high">{{ store.kpiSummary().highRiskCount }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="risk-tab risk-tab--medium"
+          [class.risk-tab--active]="store.filterRiskLevel() === 'Medium Risk'"
+          (click)="onRiskFilterChange('Medium Risk')"
+          role="tab"
+          [attr.aria-selected]="store.filterRiskLevel() === 'Medium Risk'"
+        >
+          <span class="status-dot dot-medium" aria-hidden="true"></span>
+          <span>Trung bình</span>
+          <span class="tab-badge tab-badge--medium">{{ store.kpiSummary().mediumRiskCount }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="risk-tab risk-tab--low"
+          [class.risk-tab--active]="store.filterRiskLevel() === 'Low Risk'"
+          (click)="onRiskFilterChange('Low Risk')"
+          role="tab"
+          [attr.aria-selected]="store.filterRiskLevel() === 'Low Risk'"
+        >
+          <span class="status-dot dot-low" aria-hidden="true"></span>
+          <span>Ổn định</span>
+          <span class="tab-badge tab-badge--low">{{ store.kpiSummary().lowRiskCount }}</span>
+        </button>
+      </div>
+
+      <!-- Reset Filter Button -->
+      <button
+        type="button"
+        class="btn-reset-filters"
+        (click)="onResetFilters()"
+        aria-label="Đặt lại toàn bộ bộ lọc"
+      >
+        <span nz-icon nzType="redo" class="btn-icon" aria-hidden="true"></span>
+        <span>Đặt lại</span>
+      </button>
+    </div>
+
+    <div class="toolbar-controls">
+      <!-- Search Box -->
+      <div class="search-box">
+        <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Tìm theo mã thiết bị, mã vị trí cột..."
+          [value]="store.searchQuery()"
+          (input)="onSearchInput($event)"
+          aria-label="Tìm kiếm thiết bị"
+        />
+        @if (store.searchQuery()) {
+          <button
+            type="button"
+            class="search-clear-btn"
+            (click)="store.setSearch('')"
+            aria-label="Xóa tìm kiếm"
+          >
+            <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+          </button>
+        }
+      </div>
+
+      <!-- Asset Type Filter -->
+      <div class="select-wrapper">
+        <label for="assetTypeSelect" class="sr-only">Loại thiết bị</label>
+        <select
+          id="assetTypeSelect"
+          class="select-input"
+          [value]="store.filterAssetType()"
+          (change)="onAssetTypeChange($event)"
+        >
+          @for (type of assetTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Tower Filter -->
+      @if (store.towers().length > 0) {
+        <div class="select-wrapper">
+          <label for="towerSelect" class="sr-only">Vị trí cột</label>
+          <select
+            id="towerSelect"
+            class="select-input"
+            [value]="store.filterTowerId()"
+            (change)="onTowerChange($event)"
+          >
+            <option value="ALL">Tất cả vị trí cột</option>
+            @for (tower of store.towers(); track tower.id) {
+              <option [value]="tower.id">{{ tower.code }}{{ tower.lineName ? ' (' + tower.lineName + ')' : '' }}</option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Main Table Section -->
+  <main class="asset-table-section">
+    @if (store.loading() && store.assets().length === 0) {
+      <!-- Loading Skeleton State -->
+      <div class="skeleton-table-wrapper" aria-busy="true" aria-label="Đang tải dữ liệu thiết bị">
+        <div class="skeleton-header"></div>
+        @for (item of [1, 2, 3, 4, 5, 6, 7, 8]; track item) {
+          <div class="skeleton-row">
+            <div class="skeleton-cell w-24"></div>
+            <div class="skeleton-cell w-20"></div>
+            <div class="skeleton-cell w-32"></div>
+            <div class="skeleton-cell w-40"></div>
+            <div class="skeleton-cell w-24"></div>
+            <div class="skeleton-cell w-20"></div>
+            <div class="skeleton-cell w-16"></div>
+          </div>
+        }
+      </div>
+    } @else if (store.error()) {
+      <!-- Error State -->
+      <app-data-state
+        kind="error"
+        title="Không thể tải dữ liệu sức khỏe thiết bị"
+        [message]="store.error() || ''"
+        (retry)="onRefresh()"
+      ></app-data-state>
+    } @else if (store.filteredAssets().length === 0) {
+      <!-- Empty State -->
+      <app-data-state
+        kind="empty"
+        title="Không tìm thấy thiết bị phù hợp"
+        message="Không có thiết bị nào thỏa mãn điều kiện lọc và tìm kiếm hiện tại. Vui lòng thử lại với tiêu chí khác."
+      ></app-data-state>
+    } @else {
+      <!-- Data Table -->
+      <div class="table-container">
+        <table class="asset-table" aria-label="Danh sách sức khỏe và phân loại rủi ro thiết bị">
+          <thead>
+            <tr>
+              <th scope="col" (click)="onSort('assetCode')" class="sortable-th">
+                <div class="th-content">
+                  <span>Mã Thiết Bị</span>
+                  <span nz-icon nzType="swap" [nzRotate]="90" class="sort-icon" aria-hidden="true"></span>
+                </div>
+              </th>
+              <th scope="col">Vị Trí Cột</th>
+              <th scope="col">Loại Thiết Bị</th>
+              <th scope="col" (click)="onSort('currentHealthScore')" class="sortable-th">
+                <div class="th-content">
+                  <span>Điểm Sức Khỏe (0–100)</span>
+                  <span nz-icon nzType="swap" [nzRotate]="90" class="sort-icon" aria-hidden="true"></span>
+                </div>
+              </th>
+              <th scope="col" (click)="onSort('riskLevel')" class="sortable-th">
+                <div class="th-content">
+                  <span>Mức Độ Rủi Ro</span>
+                  <span nz-icon nzType="swap" [nzRotate]="90" class="sort-icon" aria-hidden="true"></span>
+                </div>
+              </th>
+              <th scope="col">Ưu Tiên Bảo Trì</th>
+              <th scope="col">Trạng Thái</th>
+              <th scope="col" (click)="onSort('lastInspectedAt')" class="sortable-th">
+                <div class="th-content">
+                  <span>Lần Kiểm Tra</span>
+                  <span nz-icon nzType="swap" [nzRotate]="90" class="sort-icon" aria-hidden="true"></span>
+                </div>
+              </th>
+              <th scope="col" class="th-actions">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (asset of store.filteredAssets(); track asset.id) {
+              <tr
+                class="asset-row"
+                [class.asset-row--critical]="asset.riskLevel === 'Critical Risk'"
+                (click)="onViewDetail(asset)"
+                (keydown.enter)="onViewDetail(asset)"
+                tabindex="0"
+                role="button"
+                [attr.aria-label]="'Xem chi tiết thiết bị ' + asset.assetCode"
+              >
+                <!-- Asset Code -->
+                <td class="td-code">
+                  <div class="code-cell">
+                    <span class="type-icon-wrapper" aria-hidden="true">
+                      <span nz-icon [nzType]="getAssetTypeIcon(asset.assetType)"></span>
+                    </span>
+                    <span class="asset-code-text">{{ asset.assetCode }}</span>
+                  </div>
+                </td>
+
+                <!-- Tower Code -->
+                <td class="td-tower">
+                  <span class="tower-tag">
+                    <span nz-icon nzType="environment" class="tower-icon" aria-hidden="true"></span>
+                    <span>{{ asset.towerCode || 'TOW-01' }}</span>
+                  </span>
+                </td>
+
+                <!-- Asset Type -->
+                <td class="td-type">
+                  <span class="asset-type-badge">{{ asset.assetType }}</span>
+                </td>
+
+                <!-- Health Score -->
+                <td class="td-score">
+                  <div class="score-container">
+                    <div class="score-header">
+                      <span
+                        class="score-number font-semibold"
+                        [style.color]="getHealthScoreColor(asset.currentHealthScore)"
+                      >
+                        {{ asset.currentHealthScore | number:'1.1-1' }}
+                      </span>
+                      <span class="score-unit">/100</span>
+                    </div>
+                    <div class="score-progress-bg">
+                      <div
+                        class="score-progress-fill"
+                        [style.width.%]="asset.currentHealthScore"
+                        [style.backgroundColor]="getHealthScoreColor(asset.currentHealthScore)"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Risk Level -->
+                <td class="td-risk">
+                  <span class="risk-badge" [class]="getRiskBadgeClass(asset.riskLevel)">
+                    @if (asset.riskLevel === 'Critical Risk') {
+                      <span nz-icon nzType="alert" class="risk-badge-icon" aria-hidden="true"></span>
+                    } @else if (asset.riskLevel === 'High Risk') {
+                      <span nz-icon nzType="warning" class="risk-badge-icon" aria-hidden="true"></span>
+                    } @else if (asset.riskLevel === 'Medium Risk') {
+                      <span nz-icon nzType="info-circle" class="risk-badge-icon" aria-hidden="true"></span>
+                    } @else {
+                      <span nz-icon nzType="check-circle" class="risk-badge-icon" aria-hidden="true"></span>
+                    }
+                    <span>{{ getRiskBadgeText(asset.riskLevel) }}</span>
+                  </span>
+                </td>
+
+                <!-- Maintenance Priority -->
+                <td class="td-priority">
+                  <span class="priority-badge" [class]="getPriorityBadgeClass(asset.maintenancePriority)">
+                    {{ getPriorityText(asset.maintenancePriority) }}
+                  </span>
+                </td>
+
+                <!-- Operational Status -->
+                <td class="td-status">
+                  <span class="status-indicator">
+                    <span
+                      class="status-dot-sm"
+                      [class.dot-green]="asset.status === 'Operational'"
+                      [class.dot-orange]="asset.status === 'Maintenance'"
+                      [class.dot-gray]="asset.status === 'Decommissioned'"
+                      aria-hidden="true"
+                    ></span>
+                    <span>{{ asset.status }}</span>
+                  </span>
+                </td>
+
+                <!-- Last Inspected At -->
+                <td class="td-date">
+                  @if (asset.lastInspectedAt) {
+                    <span class="date-text">{{ asset.lastInspectedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                  } @else {
+                    <span class="date-empty">—</span>
+                  }
+                </td>
+
+                <!-- Actions -->
+                <td class="td-actions" (click)="$event.stopPropagation()">
+                  <button
+                    type="button"
+                    class="btn-row-detail"
+                    (click)="onViewDetail(asset)"
+                    aria-label="Xem chi tiết thiết bị"
+                  >
+                    <span>Chi tiết</span>
+                    <span nz-icon nzType="arrow-right" class="action-arrow" aria-hidden="true"></span>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <footer class="pagination-footer">
+        <app-pagination
+          [page]="store.page()"
+          [totalPages]="store.totalPages()"
+          [totalCount]="store.totalItems()"
+          (pageChanged)="onPageChange($event)"
+        ></app-pagination>
+      </footer>
+    }
+  </main>
+
+  <!-- Side Detail Drawer / Modal -->
+  @if (store.selectedAssetDetail(); as detail) {
+    <div class="drawer-backdrop" (click)="onCloseDetail()" aria-hidden="true"></div>
+    <aside
+      class="asset-detail-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+    >
+      <!-- Drawer Header -->
+      <div class="drawer-header">
+        <div class="drawer-header-info">
+          <div class="drawer-type-tag">
+            <span nz-icon [nzType]="getAssetTypeIcon(detail.assetType)" aria-hidden="true"></span>
+            <span>{{ detail.assetType }}</span>
+          </div>
+          <h2 id="drawer-title" class="drawer-title">{{ detail.assetCode }}</h2>
+        </div>
+        <button
+          type="button"
+          class="btn-close-drawer"
+          (click)="onCloseDetail()"
+          aria-label="Đóng chi tiết"
+        >
+          <span nz-icon nzType="close" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <!-- Drawer Content -->
+      <div class="drawer-body">
+        <!-- Health Score Overview Card -->
+        <div class="detail-card detail-card--health">
+          <div class="detail-health-header">
+            <span class="detail-section-label">Chỉ số sức khỏe hiện tại</span>
+            <span class="risk-badge" [class]="getRiskBadgeClass(detail.riskLevel)">
+              {{ getRiskBadgeText(detail.riskLevel) }}
+            </span>
+          </div>
+
+          <div class="detail-score-meter-wrap">
+            <div
+              class="detail-score-number"
+              [style.color]="getHealthScoreColor(detail.currentHealthScore)"
+            >
+              {{ detail.currentHealthScore | number:'1.1-1' }}
+            </div>
+            <div class="detail-score-desc">
+              <span class="score-desc-title">Thang điểm 100</span>
+              <span class="score-desc-sub">
+                @if (detail.currentHealthScore < 40) {
+                  Cảnh báo nguy cấp: Thiết bị suy giảm phẩm chất nghiêm trọng
+                } @else if (detail.currentHealthScore < 60) {
+                  Rủi ro cao: Phát hiện khuyết tật ảnh hưởng độ an toàn vận hành
+                } @else if (detail.currentHealthScore < 80) {
+                  Tình trạng trung bình: Cần tiếp tục theo dõi
+                } @else {
+                  Tình trạng tốt: Đảm bảo tiêu chuẩn vận hành
+                }
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-score-bar-bg">
+            <div
+              class="detail-score-bar-fill"
+              [style.width.%]="detail.currentHealthScore"
+              [style.backgroundColor]="getHealthScoreColor(detail.currentHealthScore)"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Maintenance Priority Recommendation -->
+        <div class="detail-card detail-card--priority">
+          <div class="detail-card-title-row">
+            <span nz-icon nzType="tool" class="card-title-icon text-indigo-600" aria-hidden="true"></span>
+            <h3 class="detail-card-heading">Khuyến nghị bảo trì</h3>
+          </div>
+          <div class="priority-recommendation-box">
+            <div class="priority-box-header">
+              <span class="priority-label">Mức độ ưu tiên:</span>
+              <span class="priority-badge" [class]="getPriorityBadgeClass(detail.maintenancePriority)">
+                {{ getPriorityText(detail.maintenancePriority) }}
+              </span>
+            </div>
+            <p class="priority-box-desc">
+              @if (detail.riskLevel === 'Critical Risk') {
+                Cần kích hoạt lệnh công tác bảo trì khẩn cấp. Tổ chức sửa chữa hoặc thay mới linh kiện trong vòng 24–48h để ngăn ngừa sự cố rã lưới.
+              } @else if (detail.riskLevel === 'High Risk') {
+                Đưa vào danh mục ưu tiên kiểm tra bảo dưỡng trong đợt công tác tiếp theo. Giám sát tăng cường bằng UAV.
+              } @else {
+                Duy trì chu kỳ kiểm tra định kỳ thông thường theo kế hoạch quản lý kỹ thuật.
+              }
+            </p>
+          </div>
+        </div>
+
+        <!-- General Info Grid -->
+        <div class="detail-card">
+          <div class="detail-card-title-row">
+            <span nz-icon nzType="info-circle" class="card-title-icon text-blue-600" aria-hidden="true"></span>
+            <h3 class="detail-card-heading">Thông tin kỹ thuật</h3>
+          </div>
+          <dl class="info-grid">
+            <div class="info-item">
+              <dt class="info-label">Vị trí cột (Tower)</dt>
+              <dd class="info-value font-medium">{{ detail.towerCode || 'TOW-N1-05' }}</dd>
+            </div>
+            <div class="info-item">
+              <dt class="info-label">Nhóm thiết bị</dt>
+              <dd class="info-value">{{ detail.assetType }}</dd>
+            </div>
+            <div class="info-item">
+              <dt class="info-label">Trạng thái vận hành</dt>
+              <dd class="info-value">
+                <span class="status-indicator">
+                  <span class="status-dot-sm dot-green" aria-hidden="true"></span>
+                  <span>{{ detail.status }}</span>
+                </span>
+              </dd>
+            </div>
+            <div class="info-item">
+              <dt class="info-label">Lần kiểm tra gần nhất</dt>
+              <dd class="info-value">{{ detail.lastInspectedAt | date:'dd/MM/yyyy HH:mm' }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Contributing Defects / Active Anomalies Section -->
+        <div class="detail-card">
+          <div class="detail-card-title-row justify-between">
+            <div class="flex items-center gap-2">
+              <span nz-icon nzType="bug" class="card-title-icon text-red-600" aria-hidden="true"></span>
+              <h3 class="detail-card-heading">Lỗi ảnh hưởng sức khỏe</h3>
+            </div>
+            <span class="defect-count-pill">
+              {{ detail.activeAnomalies.length }} lỗi kích hoạt
+            </span>
+          </div>
+
+          @if (store.detailLoading()) {
+            <div class="anomaly-loading" aria-busy="true">
+              <span nz-icon nzType="loading" class="text-xl" aria-hidden="true"></span>
+              <p>Đang tải danh sách lỗi liên kết...</p>
+            </div>
+          } @else if (detail.activeAnomalies.length === 0) {
+            <div class="anomaly-empty">
+              <span nz-icon nzType="check-circle" class="anomaly-empty-icon text-green-500" aria-hidden="true"></span>
+              <p class="anomaly-empty-title">Không có lỗi đang kích hoạt</p>
+              <p class="anomaly-empty-subtitle">Thiết bị hiện tại không ghi nhận bất thường hoặc khuyết tật cấu trúc nào.</p>
+            </div>
+          } @else {
+            <div class="anomaly-list" role="list">
+              @for (anomaly of detail.activeAnomalies; track anomaly.id) {
+                <div class="anomaly-item" role="listitem">
+                  <div class="anomaly-header">
+                    <div class="anomaly-name-group">
+                      <span nz-icon nzType="warning" class="anomaly-icon" aria-hidden="true"></span>
+                      <span class="anomaly-name">{{ anomaly.categoryName }}</span>
+                    </div>
+                    <span
+                      class="validation-badge"
+                      [class.validation-badge--confirmed]="anomaly.validationStatus === 'Confirmed'"
+                      [class.validation-badge--pending]="anomaly.validationStatus === 'Pending'"
+                    >
+                      {{ anomaly.validationStatus === 'Confirmed' ? 'Đã xác nhận' : 'Chờ duyệt' }}
+                    </span>
+                  </div>
+
+                  <div class="anomaly-meta">
+                    <div class="confidence-badge">
+                      <span>Độ tin cậy AI:</span>
+                      <span class="font-bold text-indigo-700">
+                        {{ anomaly.confidenceScore * 100 | number:'1.0-0' }}%
+                      </span>
+                    </div>
+                    <div class="anomaly-date">
+                      <span nz-icon nzType="calendar" class="mr-1" aria-hidden="true"></span>
+                      <span>{{ anomaly.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Drawer Footer -->
+      <div class="drawer-footer">
+        <button
+          type="button"
+          class="btn-drawer-close"
+          (click)="onCloseDetail()"
+        >
+          Đóng
+        </button>
+      </div>
+    </aside>
+  }
+</div>

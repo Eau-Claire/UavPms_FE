@@ -17,17 +17,16 @@
 
   <section class="mission-create-card mission-create-card--single">
     <div class="mission-create-fields">
-      <h2>Buoc 1: Thong tin chung</h2>
-      <label><span>Tên nhiệm vụ *</span><input formControlName="title" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
+      <h2>Thông tin nhiệm vụ</h2>
+      <label><span>Tên nhiệm vụ *</span><input formControlName="name" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
       <div class="mission-form-grid">
-        <label><span>Tuyến đường *</span><input formControlName="routeData" placeholder="Tuyến 110kV Bình Dương - Thủ Đức" /></label>
-        <label><span>Ma UAV</span><input formControlName="droneCode" placeholder="UAV-01" /></label>
+        <label><span>Lịch thực hiện *</span><input type="datetime-local" formControlName="scheduledAt" /></label>
+        <label><span>UAV *</span><input formControlName="droneId" placeholder="Mã UAV" /></label>
       </div>
       <div class="mission-form-grid">
-        <label><span>Trạng thái</span><select formControlName="status"><option value="Pending">Chờ xử lý</option><option value="Executing">Đang thực hiện</option><option value="Completed">Hoàn thành</option></select></label>
         <label>
-          <span>Nguoi phu trach *</span>
-          <select formControlName="assignedToUserId">
+          <span>Thanh tra viên *</span>
+          <select formControlName="inspectorId">
             @if (currentUser()?.id) { <option [value]="currentUser()?.id">{{ currentUser()?.email || currentUser()?.fullName || 'Tài khoản hiện tại' }}</option> }
             @for (user of users(); track user.id) { <option [value]="user.id">{{ user.fullName || user.email || user.username }}</option> }
           </select>
@@ -35,11 +34,17 @@
         </label>
       </div>
       <label><span>Ghi chú nội bộ</span><textarea rows="4" formControlName="description" placeholder="Nhập các lưu ý đặc biệt cho đội bay hoặc điều phối viên..."></textarea></label>
+      <section class="mission-target-review" aria-label="Tài sản mục tiêu">
+        <h2>Tài sản mục tiêu ({{ targetSelection.count() }})</h2>
+        @for (asset of targetSelection.selected(); track asset.assetId) {
+          <div><span><strong>{{ asset.code }}</strong> · {{ asset.name }} · {{ asset.status }}</span><button type="button" [attr.aria-label]="'Bỏ ' + asset.code" (click)="targetSelection.remove(asset.assetId)">Bỏ</button></div>
+        } @empty { <p role="alert">Chưa có tài sản. <a routerLink="/gis">Mở bản đồ GIS để chọn tài sản</a>.</p> }
+      </section>
     </div>
   </section>
 
   <footer class="mission-create-actions">
     <a routerLink="/missions">Huy</a>
-    <button type="submit" [disabled]="busy()">{{ busy() ? 'Đang tạo...' : 'Tiếp tục' }} <span nz-icon nzType="arrow-right"></span></button>
+    <button type="submit" [disabled]="busy()">{{ busy() ? 'Đang tạo...' : 'Tạo nhiệm vụ' }} <span nz-icon nzType="arrow-right"></span></button>
   </footer>
 </form>

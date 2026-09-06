@@ -1,4 +1,4 @@
-﻿<main class="auth-split">
+<main class="auth-split">
   <section class="auth-brand-panel" aria-label="EVN">
     <img ngSrc="/images/Logo.png" width="412" height="310" priority alt="EVN Logo" class="auth-brand-logo" />
     <div class="auth-brand-vi">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</div>
@@ -18,7 +18,7 @@
         <nz-form-item class="auth-username-item" [class.ant-form-item-has-error]="form.controls.username.touched && form.controls.username.invalid">
           <nz-form-control>
             <nz-input-group nzSize="large" nzPrefixIcon="user" class="auth-input">
-              <input nz-input type="email" autocomplete="username" formControlName="username" placeholder="nguyenvana@evn.com.vn" (blur)="normalizeUsername()" />
+              <input nz-input type="email" autocomplete="username" formControlName="username" placeholder="nguyenvana@evn.com.vn" />
             </nz-input-group>
             @if (form.controls.username.touched && form.controls.username.invalid) {
               <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ usernameError() }}</span></div>
@@ -29,9 +29,27 @@
         <nz-form-item class="auth-password-item" [class.ant-form-item-has-error]="(form.controls.password.touched && form.controls.password.invalid) || error()">
           <nz-form-control>
             <nz-input-group nzSize="large" nzPrefixIcon="lock" [nzSuffix]="passwordSuffix" class="auth-input ant-input-password">
-              <input nz-input type="password" autocomplete="current-password" formControlName="password" placeholder="Nhập mật khẩu" />
+              <input
+                nz-input
+                [type]="passwordVisible() ? 'text' : 'password'"
+                autocomplete="current-password"
+                formControlName="password"
+                placeholder="Nhập mật khẩu"
+              />
             </nz-input-group>
-            <ng-template #passwordSuffix><span nz-icon nzType="eye-invisible"></span></ng-template>
+            <ng-template #passwordSuffix>
+              <span
+                nz-icon
+                [nzType]="passwordVisible() ? 'eye' : 'eye-invisible'"
+                (click)="togglePasswordVisibility()"
+                (keydown.enter)="togglePasswordVisibility()"
+                (keydown.space)="togglePasswordVisibility()"
+                tabindex="0"
+                role="button"
+                [attr.aria-label]="passwordVisible() ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                style="cursor: pointer;"
+              ></span>
+            </ng-template>
             @if (form.controls.password.touched && form.controls.password.invalid) {
               <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Mật khẩu phải có ít nhất 3 ký tự</span></div>
             } @else if (error()) {
