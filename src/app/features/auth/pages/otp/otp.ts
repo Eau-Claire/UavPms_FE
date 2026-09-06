@@ -43,10 +43,18 @@ export class Otp {
     const digit = input.value.replace(/\D/g, '').slice(-1);
     this.setDigit(index, digit);
     input.value = digit;
-    if (digit) this.focusInput(input, 1);
+    if (digit) {
+      this.focusInput(input, 1);
+      this.submitWhenComplete();
+    }
   }
   protected handleDigitKeydown(index: number, event: KeyboardEvent): void {
     const input = event.target as HTMLInputElement;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.submit();
+      return;
+    }
     if (event.key === 'Backspace') {
       event.preventDefault();
       if (this.digits()[index]) {
@@ -83,8 +91,14 @@ export class Otp {
     this.setDigits(next);
     const input = event.target as HTMLInputElement;
     this.focusInput(input, Math.min(pasted.length, 5 - index));
+    this.submitWhenComplete();
   }
-  protected submit(): void { if (this.form.invalid) { this.form.markAllAsTouched(); return; } this.busy.set(true); this.error.set(''); this.auth.verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: (result) => { if (result.authenticated) { void this.router.navigate(['/dashboard']); return; } void this.router.navigate(this.purpose === 'ForgotPassword' ? ['/reset-password'] : ['/login'], { queryParams: result.verificationToken ? { token: result.verificationToken } : undefined }); }, error: () => this.error.set('Code is invalid or expired.') }); }
+  protected submit(): void {
+    if (this.busy()) return;
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    this.busy.set(true); this.error.set('');
+    this.auth.verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: (result) => { if (result.authenticated) { void this.router.navigate(['/dashboard']); return; } void this.router.navigate(this.purpose === 'ForgotPassword' ? ['/reset-password'] : ['/login'], { queryParams: result.verificationToken ? { token: result.verificationToken } : undefined }); }, error: () => this.error.set('Code is invalid or expired.') });
+  }
   protected resendCode(): void {
     if (this.resendRemainingSeconds() > 0 || this.resendBusy()) return;
     if (!this.email) {
@@ -117,6 +131,9 @@ export class Otp {
   private setDigits(next: string[]): void {
     this.digits.set(next);
     this.form.controls.otp.setValue(next.join(''));
+  }
+  private submitWhenComplete(): void {
+    if (this.digits().every(Boolean)) queueMicrotask(() => this.submit());
   }
   private focusInput(input: HTMLInputElement, offset: number): void {
     const inputs = Array.from(input.parentElement?.querySelectorAll<HTMLInputElement>('.otp-input') ?? []);
