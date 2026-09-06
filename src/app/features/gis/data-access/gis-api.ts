@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of, throwError, timeout } from 'rxjs';
+import { forkJoin, map, Observable, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
@@ -94,7 +94,6 @@ export class GisApi {
           const raw = unwrapApiData<readonly unknown[]>(response);
           return Array.isArray(raw) ? raw.map(normalizeGisTower) : [];
         }),
-        catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_TOWERS) : throwError(() => error)),
       );
   }
 
@@ -105,7 +104,6 @@ export class GisApi {
         const raw = unwrapApiData<Record<string, unknown>>(response);
         return normalizeGeoJsonAnomalies(raw);
       }),
-      catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_ANOMALIES) : throwError(() => error)),
     );
   }
 
@@ -116,17 +114,7 @@ export class GisApi {
         const raw = unwrapApiData<readonly unknown[]>(response);
         return Array.isArray(raw) ? raw.map(normalizeGisAlert) : [];
       }),
-      catchError((error: unknown) => environment.enableMockGisData ? of(MOCK_GIS_ALERTS) : throwError(() => error)),
     );
-  }
-
-  getInstantBaselineData(): GisDataSnapshot {
-    return {
-      towers: MOCK_GIS_TOWERS,
-      lines: MOCK_TRANSMISSION_LINES,
-      anomalies: MOCK_GIS_ANOMALIES,
-      alerts: MOCK_GIS_ALERTS,
-    };
   }
 
   getAllGisData(bbox: BoundingBoxQuery): Observable<GisDataSnapshot> {
@@ -233,44 +221,44 @@ const normalizeSelectableAsset = (item: unknown): SelectableAsset => {
 const normalizeGisTower = (item: unknown): GisTower => {
   const s = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'towerId'), 'tow-unknown'),
+    id: stringValue(pick(s, 'id', 'towerId')),
     lineAssetId: stringValue(pick(s, 'lineAssetId', 'lineId')),
-    towerCode: stringValue(pick(s, 'towerCode', 'code', 'name'), 'TOW-220KV-001'),
-    latitude: numberValue(pick(s, 'latitude', 'lat')) || 20.95,
-    longitude: numberValue(pick(s, 'longitude', 'lng', 'lon')) || 105.75,
-    transmissionLineName: stringValue(pick(s, 'transmissionLineName', 'lineName'), 'Đường dây 220kV Hòa Bình - Hà Đông'),
-    voltageLevel: stringValue(pick(s, 'voltageLevel', 'voltage'), '220kV'),
-    towerType: stringValue(pick(s, 'towerType', 'type'), 'Cột đỡ néo'),
-    healthScore: numberValue(pick(s, 'healthScore', 'currentHealthScore')) || 85,
-    riskLevel: stringValue(pick(s, 'riskLevel', 'risk'), 'Thấp'),
-    assetsCount: numberValue(pick(s, 'assetsCount', 'assetTotal')) || 4,
+    towerCode: stringValue(pick(s, 'towerCode', 'code', 'name')),
+    latitude: numberValue(pick(s, 'latitude', 'lat')),
+    longitude: numberValue(pick(s, 'longitude', 'lng', 'lon')),
+    transmissionLineName: stringValue(pick(s, 'transmissionLineName', 'lineName')),
+    voltageLevel: stringValue(pick(s, 'voltageLevel', 'voltage')),
+    towerType: stringValue(pick(s, 'towerType', 'type')),
+    healthScore: numberValue(pick(s, 'healthScore', 'currentHealthScore')),
+    riskLevel: stringValue(pick(s, 'riskLevel', 'risk')),
+    assetsCount: numberValue(pick(s, 'assetsCount', 'assetTotal')),
     activeAnomaliesCount: numberValue(pick(s, 'activeAnomaliesCount', 'defectCount')) || 0,
   };
 };
 
 const normalizeGeoJsonAnomalies = (raw: Record<string, unknown>): readonly GisAnomalyFeature[] => {
   const features = (raw['features'] ?? raw['items'] ?? raw) as readonly unknown[];
-  if (!Array.isArray(features)) return MOCK_GIS_ANOMALIES;
+  if (!Array.isArray(features)) return [];
 
-  return features.map((f, idx) => {
+  return features.map((f) => {
     const feat = record(f);
     const geom = record(feat['geometry']);
-    const coords = (geom['coordinates'] as readonly number[]) || [105.7942, 21.0084];
+    const coords = geom['coordinates'] as readonly number[];
     const props = record(feat['properties'] ?? feat);
 
     return {
-      id: stringValue(pick(props, 'anomalyId', 'id'), `ano-${idx + 1}`),
-      anomalyId: stringValue(pick(props, 'anomalyId', 'id'), `ano-${idx + 1}`),
-      assetCode: stringValue(pick(props, 'assetCode', 'code'), 'INS-TOW05-01'),
-      category: stringValue(pick(props, 'category', 'categoryName', 'defectType'), 'Insulator Damage'),
-      severity: numberValue(pick(props, 'severity', 'severityWeight')) || 4,
-      towerCode: stringValue(pick(props, 'towerCode', 'tower'), 'TOW-N1-05'),
-      longitude: coords[0] || 105.7942,
-      latitude: coords[1] || 21.0084,
-      status: (stringValue(pick(props, 'status', 'validationStatus'), 'Confirmed')) as 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected',
-      confidenceScore: numberValue(pick(props, 'confidenceScore', 'confidence')) || 92,
-      imageUrl: stringValue(pick(props, 'imageUrl', 'mediaUrl'), '/images/defect-insulator-crack.png'),
-      detectedAt: stringValue(pick(props, 'detectedAt', 'createdAt'), new Date().toISOString()),
+      id: stringValue(pick(props, 'anomalyId', 'id')),
+      anomalyId: stringValue(pick(props, 'anomalyId', 'id')),
+      assetCode: stringValue(pick(props, 'assetCode', 'code')),
+      category: stringValue(pick(props, 'category', 'categoryName', 'defectType')),
+      severity: numberValue(pick(props, 'severity', 'severityWeight')),
+      towerCode: stringValue(pick(props, 'towerCode', 'tower')),
+      longitude: numberValue(coords?.[0]),
+      latitude: numberValue(coords?.[1]),
+      status: stringValue(pick(props, 'status', 'validationStatus')) as 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected',
+      confidenceScore: numberValue(pick(props, 'confidenceScore', 'confidence')),
+      imageUrl: stringValue(pick(props, 'imageUrl', 'mediaUrl')),
+      detectedAt: stringValue(pick(props, 'detectedAt', 'createdAt')),
     };
   });
 };
@@ -278,17 +266,17 @@ const normalizeGeoJsonAnomalies = (raw: Record<string, unknown>): readonly GisAn
 const normalizeGisAlert = (item: unknown): GisAlert => {
   const s = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'alertId'), 'alert-01'),
+    id: stringValue(pick(s, 'id', 'alertId')),
     anomalyId: stringValue(pick(s, 'anomalyId', 'defectId')),
-    assetCode: stringValue(pick(s, 'assetCode', 'asset'), 'INS-TOW05-01'),
-    towerCode: stringValue(pick(s, 'towerCode', 'tower'), 'TOW-N1-05'),
-    latitude: numberValue(pick(s, 'latitude', 'lat')) || 21.0084,
-    longitude: numberValue(pick(s, 'longitude', 'lng')) || 105.7942,
-    status: (stringValue(pick(s, 'status'), 'Active')) as 'Active' | 'Resolved' | 'Dismissed',
-    priority: (stringValue(pick(s, 'priority', 'level'), 'Critical')) as 'Critical' | 'High' | 'Medium',
-    title: stringValue(pick(s, 'title', 'headline'), 'Sự cố quá nhiệt / Phóng điện khẩn cấp'),
-    message: stringValue(pick(s, 'message', 'description'), 'Phát hiện điểm phát nhiệt vượt ngưỡng 80°C tại chuỗi sứ đỡ pha B.'),
-    triggeredAt: stringValue(pick(s, 'triggeredAt', 'timestamp', 'createdAt'), new Date().toISOString()),
+    assetCode: stringValue(pick(s, 'assetCode', 'asset')),
+    towerCode: stringValue(pick(s, 'towerCode', 'tower')),
+    latitude: numberValue(pick(s, 'latitude', 'lat')),
+    longitude: numberValue(pick(s, 'longitude', 'lng')),
+    status: stringValue(pick(s, 'status')) as 'Active' | 'Resolved' | 'Dismissed',
+    priority: stringValue(pick(s, 'priority', 'level')) as 'Critical' | 'High' | 'Medium',
+    title: stringValue(pick(s, 'title', 'headline')),
+    message: stringValue(pick(s, 'message', 'description')),
+    triggeredAt: stringValue(pick(s, 'triggeredAt', 'timestamp', 'createdAt')),
   };
 };
 
