@@ -18,7 +18,7 @@ import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import 'leaflet-draw';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { finalize, forkJoin } from 'rxjs';
+import { finalize } from 'rxjs';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
@@ -102,7 +102,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   // Map type state
   protected readonly currentMapType = signal<MapType>('google-streets');
 
-  // Raw data signals initialized with baseline grid network
+  // GIS remains empty until authorized API data arrives.
   protected readonly towers = signal<readonly GisTower[]>([]);
   protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
   protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
@@ -198,7 +198,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.initLeafletMap();
 
-    // 1. Initial render of baseline grid network
+    // 1. Initialize empty map layers
     this.renderAllLayers();
     this.fitMapBounds();
 
@@ -242,7 +242,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     const vietnamBounds = L.latLngBounds([8.15, 102.0], [23.5, 110.0]);
     this.map = L.map(container, {
       center: [16.2, 106.2],
-      zoom: 6,
+      zoom: 5,
       zoomControl: false,
       maxBounds: vietnamBounds,
       maxBoundsViscosity: 1,
@@ -267,6 +267,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     // When map is ready in DOM, force immediate projection and layer rendering
     this.map.whenReady(() => {
       this.map?.invalidateSize();
+      this.map?.fitBounds(vietnamBounds);
       this.renderAllLayers();
       this.fitMapBounds();
     });
@@ -527,13 +528,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       towerCode: asset.code,
       latitude: asset.latitude,
       longitude: asset.longitude,
-      transmissionLineName: '',
-      voltageLevel: '220kV',
-      towerType: 'Cột đỡ',
-      healthScore: 85,
-      riskLevel: 'Thấp',
-      assetsCount: 4,
-      activeAnomaliesCount: 0,
+
     };
     this.selectedEntity.set({ type: 'tower', data: tower });
   }
@@ -734,12 +729,15 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
 
-    forkJoin({
-      towers: this.gisApi.getTowersInBBox({ minLat: 8.15, minLng: 102.0, maxLat: 23.5, maxLng: 110.0 }),
-      anomalies: this.gisApi.getAnomaliesGeoJson(),
-      alerts: this.gisApi.getActiveAlerts(),
-      allData: this.gisApi.getAllGisData(),
-    })
+    this.towers.set([]);
+    this.lines.set([]);
+    this.anomalies.set([]);
+    this.alerts.set([]);
+    this.selectedEntity.set(null);
+    this.targetSelection.clear();
+    this.clearBoundary();
+    this.renderAllLayers();
+    this.gisApi.getAllGisData()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
@@ -747,20 +745,22 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       .subscribe({
         next: (data) => {
           this.towers.set(data.towers);
-          this.lines.set(data.allData.lines);
+          this.lines.set(data.lines);
           this.anomalies.set(data.anomalies);
           this.alerts.set(data.alerts);
 
           this.renderAllLayers();
-          this.fitMapBounds();
+
         },
-        error: () => {
+        error: (error: unknown) => {
+          const status = error instanceof Object && 'status' in error ? Number(error.status) : 0;
+          this.error.set(status === 403 ? '403 — Bạn không có quyền xem dữ liệu GIS.' : 'Không thể tải dữ liệu GIS. Vui lòng thử lại.');
           this.towers.set([]);
           this.lines.set([]);
           this.anomalies.set([]);
           this.alerts.set([]);
           this.renderAllLayers();
-          this.fitMapBounds();
+
         },
       });
   }
@@ -906,11 +906,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected fitMapBounds(): void {
     if (!this.map) return;
-    const towerCoords = this.towers().map((t) => [t.latitude, t.longitude] as [number, number]);
-    if (towerCoords.length) {
-      const bounds = L.latLngBounds(towerCoords);
-      this.map.fitBounds(bounds, { padding: [60, 60] });
-    }
+    this.map.fitBounds(L.latLngBounds([8.15, 102.0], [23.5, 110.0]));
   }
 
   protected closeDrawer(): void {

@@ -1,13 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { GisApi } from '../../data-access/gis-api';
+import { GisApi, GisDataSnapshot } from '../../data-access/gis-api';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { GisMonitoring, rectangleToPolygon } from './gis-monitoring';
 
 interface GisHarness {
+  loadGisData(): void;
+  loading(): boolean;
+  error(): string;
+  towers(): readonly unknown[];
   startDrawing(mode: 'rectangle' | 'polygon'): void;
   startEditing(): void;
   completeEditedGeometry(geometry: GeoJsonPolygon): void;
@@ -36,7 +40,7 @@ interface GisHarness {
 
 describe('GisMonitoring asset selection', () => {
   let fixture: ComponentFixture<GisMonitoring>;
-  let api: { spatialQuery: ReturnType<typeof vi.fn> };
+  let api: { spatialQuery: ReturnType<typeof vi.fn>; getAllGisData: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let store: MissionTargetSelection;
   let authMock: { user: ReturnType<typeof vi.fn> };
@@ -57,7 +61,7 @@ describe('GisMonitoring asset selection', () => {
   });
 
   beforeEach(() => {
-    api = { spatialQuery: vi.fn().mockReturnValue(of([asset])) };
+    api = { spatialQuery: vi.fn().mockReturnValue(of([asset])), getAllGisData: vi.fn() };
     router = { navigate: vi.fn() };
     authMock = { user: vi.fn().mockReturnValue({ id: 'u1', email: 'manager@evn.vn', role: 'Manager' }) };
 
@@ -325,5 +329,28 @@ describe('GisMonitoring asset selection', () => {
     expect(call.geometry.coordinates[0].length).toBe(6);
     expect(call.geometry.coordinates[0][0]).toEqual([105.0, 21.0]);
     expect(call.geometry.coordinates[0][5]).toEqual([105.0, 21.0]);
+  });
+
+  it('keeps GIS empty while loading and distinguishes successful empty data', () => {
+    const pending = new Subject<GisDataSnapshot>();
+    api.getAllGisData.mockReturnValue(pending);
+    const component = fixture.componentInstance as unknown as GisHarness;
+    component.loadGisData();
+    expect(component.loading()).toBe(true);
+    expect(component.towers()).toEqual([]);
+    pending.next({ towers: [], lines: [], anomalies: [], alerts: [] });
+    pending.complete();
+    expect(component.loading()).toBe(false);
+    expect(component.error()).toBe('');
+    expect(component.towers()).toEqual([]);
+  });
+
+  it.each([403, 500])('shows a distinct GIS failure for status %s without markers', (status) => {
+    api.getAllGisData.mockReturnValue(throwError(() => ({ status })));
+    const component = fixture.componentInstance as unknown as GisHarness;
+    component.loadGisData();
+    expect(component.loading()).toBe(false);
+    expect(component.towers()).toEqual([]);
+    expect(component.error()).toContain(status === 403 ? '403' : 'Không thể tải');
   });
 });

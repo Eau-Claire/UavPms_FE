@@ -41,4 +41,35 @@ describe('GisApi spatial query', () => {
 
     expect(status).toBe(503);
   });
+
+  it.each([403, 500])('propagates GIS %s failures without mock fallback', (status) => {
+    let actual = 0;
+    let emitted = false;
+    api.getAllGisData().subscribe({ next: () => emitted = true, error: (error) => actual = error.status });
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({}, { status, statusText: 'Failure' });
+    expect(actual).toBe(status);
+    expect(emitted).toBe(false);
+  });
+
+  it('preserves authorized asset IDs and coordinates and parses line geometry', () => {
+    let result: unknown;
+    api.getAllGisData().subscribe(value => result = value);
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({ data: {
+      assets: [{ id: 'asset-1', code: 'NPC_HP_01_001', powerLineId: 'line-1', latitude: 20.865143, longitude: 106.683542, assetType: 'Pole' }],
+      powerLines: [{ id: 'line-1', code: 'EVNNPC:line', name: 'Demo line', voltageLevel: '22kV', geometry: 'LINESTRING(106.683542 20.865143,106.684125 20.865421)' }],
+      anomalies: [], alerts: [],
+    } });
+    expect(result).toMatchObject({ towers: [{ id: 'asset-1', latitude: 20.865143, longitude: 106.683542 }], lines: [{ coordinates: [[20.865143, 106.683542], [20.865421, 106.684125]] }], anomalies: [], alerts: [] });
+  });
+
+  it('distinguishes an empty response from a malformed response', () => {
+    let empty: unknown;
+    api.getAllGisData().subscribe(value => empty = value);
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({ data: { assets: [], powerLines: [] } });
+    expect(empty).toEqual({ towers: [], lines: [], anomalies: [], alerts: [] });
+    let failed = false;
+    api.getAllGisData().subscribe({ error: () => failed = true });
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({ data: {} });
+    expect(failed).toBe(true);
+  });
 });
