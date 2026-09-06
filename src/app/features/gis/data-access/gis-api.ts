@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, timeout } from 'rxjs';
+import { map, Observable, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
@@ -94,7 +94,6 @@ export class GisApi {
           const raw = unwrapApiData<readonly unknown[]>(response);
           return Array.isArray(raw) ? raw.map(normalizeGisTower) : [];
         }),
-        catchError(() => of(MOCK_GIS_TOWERS)),
       );
   }
 
@@ -105,7 +104,6 @@ export class GisApi {
         const raw = unwrapApiData<Record<string, unknown>>(response);
         return normalizeGeoJsonAnomalies(raw);
       }),
-      catchError(() => of(MOCK_GIS_ANOMALIES)),
     );
   }
 
@@ -116,26 +114,44 @@ export class GisApi {
         const raw = unwrapApiData<readonly unknown[]>(response);
         return Array.isArray(raw) ? raw.map(normalizeGisAlert) : [];
       }),
-      catchError(() => of(MOCK_GIS_ALERTS)),
     );
   }
 
   getInstantBaselineData(): GisDataSnapshot {
-    return {
-      towers: MOCK_GIS_TOWERS,
-      lines: MOCK_TRANSMISSION_LINES,
-      anomalies: MOCK_GIS_ANOMALIES,
-      alerts: MOCK_GIS_ALERTS,
-    };
+    return { towers: [], lines: [], anomalies: [], alerts: [] };
   }
 
   getAllGisData(): Observable<GisDataSnapshot> {
-    return of({
-      towers: MOCK_GIS_TOWERS,
-      lines: MOCK_TRANSMISSION_LINES,
-      anomalies: MOCK_GIS_ANOMALIES,
-      alerts: MOCK_GIS_ALERTS,
-    });
+    return this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`).pipe(
+      timeout(15000),
+      map((response) => {
+        const data = record(unwrapApiData<unknown>(response));
+        if (!Array.isArray(data['assets']) || !Array.isArray(data['powerLines'])) {
+          throw new Error('Invalid GIS infrastructure response');
+        }
+        const lines = data['powerLines'].map((item): GisTransmissionLine => {
+          const line = record(item);
+          const wkt = stringValue(line['geometry']);
+          const match = /^LINESTRING\s*\(([^()]+)\)$/i.exec(wkt);
+          const coordinates: [number, number][] = match ? match[1].split(',').map((point) => {
+            const [longitude, latitude] = point.trim().split(/\s+/).map(Number);
+            return [latitude, longitude];
+          }) : [];
+          return { id: stringValue(line['id']), lineCode: stringValue(line['code']), lineName: stringValue(line['name']), voltage: stringValue(line['voltageLevel']), coordinates };
+        });
+        const towers = data['assets'].map((item): GisTower => {
+          const asset = record(item);
+          if (asset['latitude'] == null || asset['longitude'] == null) throw new Error('Missing GIS coordinates');
+          const line = lines.find((line) => line.id === asset['powerLineId']);
+          return { id: stringValue(asset['id']), towerCode: stringValue(asset['code']), lineAssetId: stringValue(asset['powerLineId']), latitude: Number(asset['latitude']), longitude: Number(asset['longitude']), towerType: stringValue(asset['assetType']), transmissionLineName: line?.lineName, voltageLevel: line?.voltage };
+        });
+        if (towers.some((tower) => !tower.id || !Number.isFinite(tower.latitude) || !Number.isFinite(tower.longitude))) throw new Error('Invalid GIS asset coordinates');
+        const anomalies = Array.isArray(data['anomalies']) ? normalizeGeoJsonAnomalies({ items: data['anomalies'] }) : [];
+        const alerts = Array.isArray(data['alerts']) ? data['alerts'].map(normalizeGisAlert) : [];
+        if ([...anomalies, ...alerts].some((item) => !item.id || !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude))) throw new Error('Invalid GIS event coordinates');
+        return { towers, lines, anomalies, alerts };
+      }),
+    );
   }
 
   spatialQuery(request: SpatialAssetQueryRequest): Observable<readonly SelectableAsset[]> {
@@ -183,7 +199,6 @@ const itemsFromRecord = (value: unknown): readonly unknown[] => {
   const items = pick(source, 'items', 'assets', 'results', 'records');
   return Array.isArray(items) ? items : [];
 };
-
 const normalizeSelectableAsset = (item: unknown): SelectableAsset => {
   const source = record(item);
   return {
@@ -199,44 +214,44 @@ const normalizeSelectableAsset = (item: unknown): SelectableAsset => {
 const normalizeGisTower = (item: unknown): GisTower => {
   const s = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'towerId'), 'tow-unknown'),
+    id: stringValue(pick(s, 'id', 'towerId')),
     lineAssetId: stringValue(pick(s, 'lineAssetId', 'lineId')),
-    towerCode: stringValue(pick(s, 'towerCode', 'code', 'name'), 'TOW-220KV-001'),
-    latitude: numberValue(pick(s, 'latitude', 'lat')) || 20.95,
-    longitude: numberValue(pick(s, 'longitude', 'lng', 'lon')) || 105.75,
-    transmissionLineName: stringValue(pick(s, 'transmissionLineName', 'lineName'), 'Đường dây 220kV Hòa Bình - Hà Đông'),
-    voltageLevel: stringValue(pick(s, 'voltageLevel', 'voltage'), '220kV'),
-    towerType: stringValue(pick(s, 'towerType', 'type'), 'Cột đỡ néo'),
-    healthScore: numberValue(pick(s, 'healthScore', 'currentHealthScore')) || 85,
-    riskLevel: stringValue(pick(s, 'riskLevel', 'risk'), 'Thấp'),
-    assetsCount: numberValue(pick(s, 'assetsCount', 'assetTotal')) || 4,
+    towerCode: stringValue(pick(s, 'towerCode', 'code', 'name')),
+    latitude: numberValue(pick(s, 'latitude', 'lat')),
+    longitude: numberValue(pick(s, 'longitude', 'lng', 'lon')),
+    transmissionLineName: stringValue(pick(s, 'transmissionLineName', 'lineName')),
+    voltageLevel: stringValue(pick(s, 'voltageLevel', 'voltage')),
+    towerType: stringValue(pick(s, 'towerType', 'type')),
+    healthScore: numberValue(pick(s, 'healthScore', 'currentHealthScore')),
+    riskLevel: stringValue(pick(s, 'riskLevel', 'risk')),
+    assetsCount: numberValue(pick(s, 'assetsCount', 'assetTotal')),
     activeAnomaliesCount: numberValue(pick(s, 'activeAnomaliesCount', 'defectCount')) || 0,
   };
 };
 
 const normalizeGeoJsonAnomalies = (raw: Record<string, unknown>): readonly GisAnomalyFeature[] => {
   const features = (raw['features'] ?? raw['items'] ?? raw) as readonly unknown[];
-  if (!Array.isArray(features)) return MOCK_GIS_ANOMALIES;
+  if (!Array.isArray(features)) throw new Error('Invalid anomaly response');
 
-  return features.map((f, idx) => {
+  return features.map((f) => {
     const feat = record(f);
     const geom = record(feat['geometry']);
-    const coords = (geom['coordinates'] as readonly number[]) || [105.7942, 21.0084];
+    const coords = (geom['coordinates'] as readonly number[]) || [NaN, NaN];
     const props = record(feat['properties'] ?? feat);
 
     return {
-      id: stringValue(pick(props, 'anomalyId', 'id'), `ano-${idx + 1}`),
-      anomalyId: stringValue(pick(props, 'anomalyId', 'id'), `ano-${idx + 1}`),
-      assetCode: stringValue(pick(props, 'assetCode', 'code'), 'INS-TOW05-01'),
-      category: stringValue(pick(props, 'category', 'categoryName', 'defectType'), 'Insulator Damage'),
-      severity: numberValue(pick(props, 'severity', 'severityWeight')) || 4,
-      towerCode: stringValue(pick(props, 'towerCode', 'tower'), 'TOW-N1-05'),
-      longitude: coords[0] || 105.7942,
-      latitude: coords[1] || 21.0084,
-      status: (stringValue(pick(props, 'status', 'validationStatus'), 'Confirmed')) as 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected',
-      confidenceScore: numberValue(pick(props, 'confidenceScore', 'confidence')) || 92,
-      imageUrl: stringValue(pick(props, 'imageUrl', 'mediaUrl'), '/images/defect-insulator-crack.png'),
-      detectedAt: stringValue(pick(props, 'detectedAt', 'createdAt'), new Date().toISOString()),
+      id: stringValue(pick(props, 'anomalyId', 'id')),
+      anomalyId: stringValue(pick(props, 'anomalyId', 'id')),
+      assetCode: stringValue(pick(props, 'assetCode', 'code')),
+      category: stringValue(pick(props, 'category', 'categoryName', 'defectType')),
+      severity: numberValue(pick(props, 'severity', 'severityWeight')),
+      towerCode: stringValue(pick(props, 'towerCode', 'tower')),
+      longitude: Number(props['longitude'] ?? coords[0]),
+      latitude: Number(props['latitude'] ?? coords[1]),
+      status: (stringValue(pick(props, 'status', 'validationStatus'))) as 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected',
+      confidenceScore: numberValue(pick(props, 'confidenceScore', 'confidence')),
+      imageUrl: stringValue(pick(props, 'imageUrl', 'mediaUrl')),
+      detectedAt: stringValue(pick(props, 'detectedAt', 'createdAt')),
     };
   });
 };
@@ -244,246 +259,16 @@ const normalizeGeoJsonAnomalies = (raw: Record<string, unknown>): readonly GisAn
 const normalizeGisAlert = (item: unknown): GisAlert => {
   const s = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'alertId'), 'alert-01'),
+    id: stringValue(pick(s, 'id', 'alertId')),
     anomalyId: stringValue(pick(s, 'anomalyId', 'defectId')),
-    assetCode: stringValue(pick(s, 'assetCode', 'asset'), 'INS-TOW05-01'),
-    towerCode: stringValue(pick(s, 'towerCode', 'tower'), 'TOW-N1-05'),
-    latitude: numberValue(pick(s, 'latitude', 'lat')) || 21.0084,
-    longitude: numberValue(pick(s, 'longitude', 'lng')) || 105.7942,
-    status: (stringValue(pick(s, 'status'), 'Active')) as 'Active' | 'Resolved' | 'Dismissed',
-    priority: (stringValue(pick(s, 'priority', 'level'), 'Critical')) as 'Critical' | 'High' | 'Medium',
-    title: stringValue(pick(s, 'title', 'headline'), 'Sự cố quá nhiệt / Phóng điện khẩn cấp'),
-    message: stringValue(pick(s, 'message', 'description'), 'Phát hiện điểm phát nhiệt vượt ngưỡng 80°C tại chuỗi sứ đỡ pha B.'),
-    triggeredAt: stringValue(pick(s, 'triggeredAt', 'timestamp', 'createdAt'), new Date().toISOString()),
+    assetCode: stringValue(pick(s, 'assetCode', 'asset')),
+    towerCode: stringValue(pick(s, 'towerCode', 'tower')),
+    latitude: numberValue(pick(s, 'latitude', 'lat')),
+    longitude: numberValue(pick(s, 'longitude', 'lng')),
+    status: (stringValue(pick(s, 'status'))) as 'Active' | 'Resolved' | 'Dismissed',
+    priority: (stringValue(pick(s, 'priority', 'level'))) as 'Critical' | 'High' | 'Medium',
+    title: stringValue(pick(s, 'title', 'headline')),
+    message: stringValue(pick(s, 'message', 'description')),
+    triggeredAt: stringValue(pick(s, 'triggeredAt', 'timestamp', 'createdAt')),
   };
 };
-
-export const MOCK_GIS_TOWERS: readonly GisTower[] = [
-  {
-    id: 'tow-041',
-    lineAssetId: 'line-hb-hd',
-    towerCode: 'Cột 041 (TOW-220KV-041)',
-    latitude: 20.9985,
-    longitude: 105.7725,
-    transmissionLineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltageLevel: '220kV',
-    towerType: 'Cột néo góc',
-    healthScore: 92,
-    riskLevel: 'Rất thấp',
-    assetsCount: 6,
-    activeAnomaliesCount: 0,
-  },
-  {
-    id: 'tow-042',
-    lineAssetId: 'line-hb-hd',
-    towerCode: 'Cột 042 (TOW-220KV-042)',
-    latitude: 21.0084,
-    longitude: 105.7942,
-    transmissionLineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltageLevel: '220kV',
-    towerType: 'Cột đỡ trung gian',
-    healthScore: 68,
-    riskLevel: 'Cao',
-    assetsCount: 4,
-    activeAnomaliesCount: 2,
-  },
-  {
-    id: 'tow-043',
-    lineAssetId: 'line-hb-hd',
-    towerCode: 'Cột 043 (TOW-220KV-043)',
-    latitude: 21.0195,
-    longitude: 105.8155,
-    transmissionLineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltageLevel: '220kV',
-    towerType: 'Cột đỡ chuỗi kép',
-    healthScore: 74,
-    riskLevel: 'Trung bình',
-    assetsCount: 4,
-    activeAnomaliesCount: 1,
-  },
-  {
-    id: 'tow-044',
-    lineAssetId: 'line-hb-hd',
-    towerCode: 'Cột 044 (TOW-220KV-044)',
-    latitude: 21.0310,
-    longitude: 105.8360,
-    transmissionLineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltageLevel: '220kV',
-    towerType: 'Cột vượt sông/vùng đồi',
-    healthScore: 81,
-    riskLevel: 'Thấp',
-    assetsCount: 5,
-    activeAnomaliesCount: 1,
-  },
-  {
-    id: 'tow-045',
-    lineAssetId: 'line-hb-hd',
-    towerCode: 'Cột 045 (TOW-220KV-045)',
-    latitude: 21.0425,
-    longitude: 105.8580,
-    transmissionLineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltageLevel: '220kV',
-    towerType: 'Cột néo hãm',
-    healthScore: 95,
-    riskLevel: 'Rất thấp',
-    assetsCount: 6,
-    activeAnomaliesCount: 0,
-  },
-  {
-    id: 'tow-051',
-    lineAssetId: 'line-nq-tt',
-    towerCode: 'Cột 102 (TOW-500KV-102)',
-    latitude: 20.9750,
-    longitude: 105.7890,
-    transmissionLineName: 'Đường dây 500kV Nho Quan - Thường Tín',
-    voltageLevel: '500kV',
-    towerType: 'Cột đỡ thân lớn 500kV',
-    healthScore: 88,
-    riskLevel: 'Thấp',
-    assetsCount: 8,
-    activeAnomaliesCount: 0,
-  },
-  {
-    id: 'tow-052',
-    lineAssetId: 'line-nq-tt',
-    towerCode: 'Cột 103 (TOW-500KV-103)',
-    latitude: 20.9880,
-    longitude: 105.8220,
-    transmissionLineName: 'Đường dây 500kV Nho Quan - Thường Tín',
-    voltageLevel: '500kV',
-    towerType: 'Cột néo chịu lực',
-    healthScore: 59,
-    riskLevel: 'Khẩn cấp',
-    assetsCount: 8,
-    activeAnomaliesCount: 2,
-  },
-];
-
-export const MOCK_TRANSMISSION_LINES: readonly GisTransmissionLine[] = [
-  {
-    id: 'line-hb-hd',
-    lineCode: 'LINE-220KV-HB-HD',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    voltage: '220kV',
-    coordinates: [
-      [20.9985, 105.7725],
-      [21.0084, 105.7942],
-      [21.0195, 105.8155],
-      [21.0310, 105.8360],
-      [21.0425, 105.8580],
-    ],
-  },
-  {
-    id: 'line-nq-tt',
-    lineCode: 'LINE-500KV-NQ-TT',
-    lineName: 'Đường dây 500kV Nho Quan - Thường Tín',
-    voltage: '500kV',
-    coordinates: [
-      [20.9750, 105.7890],
-      [20.9880, 105.8220],
-      [21.0195, 105.8155],
-    ],
-  },
-];
-
-export const MOCK_GIS_ANOMALIES: readonly GisAnomalyFeature[] = [
-  {
-    id: 'ano-gis-01',
-    anomalyId: 'ano-001',
-    assetCode: 'INS-TOW05-01',
-    category: 'Bát cách điện nứt vỡ (Insulator Damage)',
-    severity: 5,
-    towerCode: 'Cột 042 (TOW-220KV-042)',
-    latitude: 21.0084,
-    longitude: 105.7942,
-    status: 'Confirmed',
-    confidenceScore: 94,
-    imageUrl: '/images/defect-insulator-crack.png',
-    detectedAt: '2026-06-17T14:30:00Z',
-  },
-  {
-    id: 'ano-gis-02',
-    anomalyId: 'ano-002',
-    assetCode: 'INS-TOW05-02',
-    category: 'Vết phóng điện bề mặt (Flashover Trace)',
-    severity: 4,
-    towerCode: 'Cột 042 (TOW-220KV-042)',
-    latitude: 21.0089,
-    longitude: 105.7947,
-    status: 'Pending',
-    confidenceScore: 89,
-    imageUrl: '/images/defect-insulator-flashover.png',
-    detectedAt: '2026-06-17T16:00:00Z',
-  },
-  {
-    id: 'ano-gis-03',
-    anomalyId: 'ano-003',
-    assetCode: 'INS-TOW06-01',
-    category: 'Bám bẩn bề mặt cách điện (Dirty Insulator)',
-    severity: 3,
-    towerCode: 'Cột 043 (TOW-220KV-043)',
-    latitude: 21.0195,
-    longitude: 105.8155,
-    status: 'Pending',
-    confidenceScore: 91,
-    imageUrl: '/images/defect-insulator-dirty.png',
-    detectedAt: '2026-06-18T08:15:00Z',
-  },
-  {
-    id: 'ano-gis-04',
-    anomalyId: 'ano-004',
-    assetCode: 'COND-TOW06-03',
-    category: 'Xơ tước dây dẫn (Conductor Strand Damage)',
-    severity: 5,
-    towerCode: 'Cột 044 (TOW-220KV-044)',
-    latitude: 21.0310,
-    longitude: 105.8360,
-    status: 'Confirmed',
-    confidenceScore: 87,
-    imageUrl: '/images/defect-conductor-damage.png',
-    detectedAt: '2026-06-18T10:30:00Z',
-  },
-  {
-    id: 'ano-gis-05',
-    anomalyId: 'ano-005',
-    assetCode: 'TWR-TOW07-X1',
-    category: 'Cháy lan hành lang an toàn (Corridor Fire Hazard)',
-    severity: 5,
-    towerCode: 'Cột 103 (TOW-500KV-103)',
-    latitude: 20.9880,
-    longitude: 105.8220,
-    status: 'Confirmed',
-    confidenceScore: 96,
-    imageUrl: '/images/defect-preview-frame.png',
-    detectedAt: '2026-06-18T11:00:00Z',
-  },
-];
-
-export const MOCK_GIS_ALERTS: readonly GisAlert[] = [
-  {
-    id: 'alert-01',
-    anomalyId: 'ano-gis-05',
-    assetCode: 'TWR-TOW07-X1',
-    towerCode: 'Cột 103 (TOW-500KV-103)',
-    latitude: 20.9880,
-    longitude: 105.8220,
-    status: 'Active',
-    priority: 'Critical',
-    title: 'Cảnh báo khẩn cấp: Nguy cơ cháy rừng sát cột 500kV',
-    message: 'Nhiệt độ môi trường tăng cao đột ngột kết hợp khói phát hiện từ UAV camera nhiệt.',
-    triggeredAt: '2026-06-18T11:15:00Z',
-  },
-  {
-    id: 'alert-02',
-    anomalyId: 'ano-gis-01',
-    assetCode: 'INS-TOW05-01',
-    towerCode: 'Cột 042 (TOW-220KV-042)',
-    latitude: 21.0084,
-    longitude: 105.7942,
-    status: 'Active',
-    priority: 'High',
-    title: 'Cảnh báo sự cố: Nứt vỡ chuỗi cách điện néo',
-    message: 'Nguy cơ phóng điện cao trong điều kiện trời mưa ẩm.',
-    triggeredAt: '2026-06-17T15:00:00Z',
-  },
-];

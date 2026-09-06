@@ -1,3 +1,10 @@
+@if (loading()) {
+  <p role="status">Đang tải dữ liệu GIS…</p>
+} @else if (error()) {
+  <p role="alert">{{ error() }}</p>
+} @else if (!towers().length && !lines().length) {
+  <p role="status">Không có dữ liệu GIS trong phạm vi được cấp quyền.</p>
+}
 <div class="gis-page-wrapper">
   <!-- Top Floating HUD Bar -->
   <header class="gis-top-hud">
@@ -375,7 +382,7 @@
               [checked]="showLinesLayer()"
               (change)="toggleLayer('lines')"
             />
-            <span>〰️ Tuyến đường dây 220kV / 500kV</span>
+            <span>〰️ Tuyến đường dây</span>
           </label>
           <label class="checkbox-row">
             <input
@@ -428,7 +435,7 @@
         </div>
         <div class="legend-item">
           <span class="legend-symbol sym-line-220"></span>
-          <span>Đường dây 220kV</span>
+          <span>Đường dây khác</span>
         </div>
         <div class="legend-item">
           <span class="legend-symbol sym-line-500"></span>
@@ -494,11 +501,11 @@
             </div>
             <div class="info-row">
               <span>Cấp điện áp:</span>
-              <strong>{{ selected.data.voltageLevel || '220kV' }}</strong>
+              <strong>{{ selected.data.voltageLevel || 'Chưa có dữ liệu' }}</strong>
             </div>
             <div class="info-row">
               <span>Loại cột:</span>
-              <strong>{{ selected.data.towerType || 'Cột đỡ néo' }}</strong>
+              <strong>{{ selected.data.towerType || 'Chưa có dữ liệu' }}</strong>
             </div>
             <div class="info-row">
               <span>Tọa độ GPS:</span>
@@ -559,7 +566,7 @@
             </div>
             <div class="info-row">
               <span>Vị trí sự cố:</span>
-              <strong>{{ selected.data.towerCode || 'Cột 042' }}</strong>
+              <strong>{{ selected.data.towerCode || 'Chưa có dữ liệu' }}</strong>
             </div>
             <div class="info-row">
               <span>Thời điểm kích hoạt:</span>
