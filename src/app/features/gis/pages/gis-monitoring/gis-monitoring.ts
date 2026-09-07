@@ -443,7 +443,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     if (isFirst) {
       marker.bindTooltip('Nhấp vào đây để hoàn tất vùng', { direction: 'top', offset: [0, -8] });
-      marker.on('click', (ev) => {
+      marker.on('click', (ev: L.LeafletMouseEvent) => {
         L.DomEvent.stopPropagation(ev);
         if (this.polygonVertices().length >= 3) {
           this.completePolygon();

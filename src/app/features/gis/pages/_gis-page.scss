@@ -1,8 +1,40 @@
+.gis-monitoring-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.gis-page-head {
+  margin-bottom: 20px;
+}
+
+.gis-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+
+  .gis-alert-close {
+    background: transparent;
+    border: none;
+    color: #991b1b;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+}
+
 .gis-page-wrapper {
   position: relative;
   width: 100%;
-  height: calc(100vh - 120px);
-  min-height: 580px;
+  height: calc(100vh - 210px);
+  min-height: 520px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
