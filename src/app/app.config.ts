@@ -13,6 +13,7 @@ import {
   ReloadOutline, CheckCircleOutline, LeftOutline, EnvironmentOutline, ThunderboltOutline,
   PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
   InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
+  HistoryOutline,
 } from '@ant-design/icons-angular/icons';
 
 export const appConfig: ApplicationConfig = {
@@ -30,6 +31,7 @@ export const appConfig: ApplicationConfig = {
       ReloadOutline, CheckCircleOutline, LeftOutline, EnvironmentOutline, ThunderboltOutline,
       PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
       InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
+      HistoryOutline,
     ]),
   ],
 };

@@ -1,20 +1,41 @@
-@if (loading()) {
-  <p role="status">Đang tải dữ liệu GIS…</p>
-} @else if (error()) {
-  <p role="alert">{{ error() }}</p>
-} @else if (!towers().length && !lines().length) {
-  <p role="status">Không có dữ liệu GIS trong phạm vi được cấp quyền.</p>
-}
-<div class="gis-page-wrapper">
-  <!-- Top Floating HUD Bar -->
-  <header class="gis-top-hud">
-    <div class="gis-hud-title-card">
-      <div class="hud-badge">GIS Live</div>
-      <div class="hud-titles">
-        <h1>Bản đồ Giám sát Lưới điện Quốc gia</h1>
-        <p>Hệ thống định vị &amp; cảnh báo sự cố hạ tầng truyền tải điện thời gian thực</p>
+<div class="gis-monitoring-page">
+  <!-- Page Header (Standardized layout like AI Review) -->
+  <header class="page-header gis-page-head">
+    <div class="page-heading-group">
+      <div class="page-breadcrumb">
+        <span>BẢN ĐỒ GIS</span>
+        <span>/</span>
+        <strong>GIÁM SÁT LƯỚI ĐIỆN</strong>
       </div>
+      <h1 class="page-title">Bản đồ GIS lưới điện</h1>
+      <p class="page-subtitle">
+        Hệ thống định vị, giám sát sự cố và quản lý tọa độ cột điện, đường dây truyền tải điện thời gian thực.
+      </p>
     </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="action-btn btn-outline"
+        (click)="loadGisData()"
+        [disabled]="loading()"
+        aria-label="Làm mới dữ liệu GIS"
+      >
+        <span nz-icon [nzType]="loading() ? 'loading' : 'sync'" class="btn-icon" [nzSpin]="loading()" aria-hidden="true"></span>
+        <span>Làm mới</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="gis-alert gis-alert-error" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" class="gis-alert-close" (click)="error.set('')">Đóng</button>
+    </div>
+  }
+
+  <div class="gis-page-wrapper">
+    <!-- Top Floating HUD Bar -->
+    <header class="gis-top-hud">
 
     <!-- Map Type Switcher Tabs (Google Maps vs Satellite vs Terrain) -->
     <div class="gis-map-type-switcher" aria-label="Chuyển chế độ bản đồ">
@@ -600,3 +621,6 @@
     </aside>
   }
 </div>
+</div>
+
+

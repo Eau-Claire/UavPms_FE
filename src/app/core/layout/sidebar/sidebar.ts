@@ -3,12 +3,14 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NgOptimizedImage } from '@angular/common';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../auth/auth';
+import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
 
 export interface NavLinkItem {
   readonly path: string;
   readonly icon: string;
   readonly label: string;
   readonly exact?: boolean;
+  readonly badgeCount?: number;
 }
 
 @Component({
@@ -16,16 +18,19 @@ export interface NavLinkItem {
   host: { style: 'display: contents' },
   imports: [RouterLink, RouterLinkActive, NgOptimizedImage, NzIconModule],
   templateUrl: './sidebar.html',
+  styleUrl: './sidebar.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Sidebar {
   private readonly auth = inject(Auth);
+  private readonly alertsApi = inject(EmergencyAlertsApi);
 
   readonly open = input(false);
   readonly closed = output<void>();
 
   protected readonly user = computed(() => this.auth.user());
   protected readonly role = computed(() => (this.user()?.role || '').toLowerCase());
+  protected readonly activeAlertCount = computed(() => this.alertsApi.activeCount());
 
   protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => {
     const currentRole = this.role();
@@ -100,9 +105,16 @@ export class Sidebar {
 
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => {
     const currentRole = this.role();
-    if (currentRole === 'admin' || currentRole === 'systemadmin') {
+    if (currentRole === 'admin' || currentRole === 'systemadmin' || currentRole === 'administrator') {
       return [
-        { path: '/system', icon: 'setting', label: 'Cấu hình hệ thống' },
+        { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
+        { path: '/system', icon: 'setting', label: 'Cấu hình hệ thống', exact: true },
+        { path: '/inspections', icon: 'question-circle', label: 'Hỗ trợ' },
+      ];
+    }
+    if (currentRole === 'manager' || currentRole === 'supervisor') {
+      return [
+        { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
         { path: '/inspections', icon: 'question-circle', label: 'Hỗ trợ' },
       ];
     }
