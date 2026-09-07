@@ -1,34 +1,34 @@
 <div class="asset-dashboard-container">
-  <!-- Page Header -->
-  <header class="asset-dashboard-header">
-    <div class="asset-dashboard-header-main">
-      <div class="asset-dashboard-title-group">
-        <div class="asset-dashboard-badge">
-          <span class="pulse-dot" aria-hidden="true"></span>
-          <span>Hệ thống giám sát thời gian thực</span>
-        </div>
-        <h1 class="asset-dashboard-title">Sức khỏe & Phân loại Rủi ro Thiết bị</h1>
-        <p class="asset-dashboard-subtitle">
-          Theo dõi chỉ số sức khỏe thiết bị (Asset Health Score 0–100), nhận diện nguy cơ sự cố và xác định mức độ ưu tiên bảo trì lưới điện.
-        </p>
+  <!-- Page Header (Standardized layout like AI Review) -->
+  <header class="page-header asset-page-head">
+    <div class="page-heading-group">
+      <div class="page-breadcrumb">
+        <span>TÀI SẢN LƯỚI ĐIỆN</span>
+        <span>/</span>
+        <strong>SỨC KHỎE & RỦI RO THIẾT BỊ</strong>
       </div>
-      <div class="asset-dashboard-actions">
-        <span class="refresh-indicator">
-          <span nz-icon nzType="clock-circle" class="refresh-icon" aria-hidden="true"></span>
-          <span>Cập nhật: {{ store.lastRefreshedAt() | date:'HH:mm:ss dd/MM/yyyy' }}</span>
-        </span>
-        <button
-          type="button"
-          class="btn-action-refresh"
-          (click)="onRefresh()"
-          [disabled]="store.loading()"
-          aria-label="Làm mới dữ liệu"
-        >
-          <span nz-icon [nzType]="store.loading() ? 'loading' : 'sync'" class="btn-icon" aria-hidden="true"></span>
-          <span>Làm mới</span>
-        </button>
-      </div>
+      <h1 class="page-title">Tài sản lưới điện</h1>
+      <p class="page-subtitle">
+        Theo dõi chỉ số sức khỏe thiết bị (Asset Health Score 0–100), nhận diện nguy cơ sự cố và xác định mức độ ưu tiên bảo trì lưới điện.
+      </p>
     </div>
+    <div class="header-actions">
+      <span class="refresh-indicator">
+        <span nz-icon nzType="clock-circle" class="refresh-icon" aria-hidden="true"></span>
+        <span>Cập nhật: {{ store.lastRefreshedAt() | date:'HH:mm:ss dd/MM/yyyy' }}</span>
+      </span>
+      <button
+        type="button"
+        class="action-btn btn-outline"
+        (click)="onRefresh()"
+        [disabled]="store.loading()"
+        aria-label="Làm mới dữ liệu"
+      >
+        <span nz-icon [nzType]="store.loading() ? 'loading' : 'sync'" class="btn-icon" [nzSpin]="store.loading()" aria-hidden="true"></span>
+        <span>Làm mới</span>
+      </button>
+    </div>
+  </header>
 
     <!-- KPI Summary Cards Grid -->
     <section class="kpi-grid" aria-label="Thống kê tổng quan sức khỏe thiết bị">
@@ -169,7 +169,6 @@
         </div>
       </div>
     </section>
-  </header>
 
   <!-- Filter & Search Toolbar -->
   <section class="asset-toolbar" aria-label="Bộ lọc và tìm kiếm thiết bị">
