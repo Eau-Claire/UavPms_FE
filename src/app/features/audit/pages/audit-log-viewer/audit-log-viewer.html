@@ -1,0 +1,443 @@
+<div class="audit-viewer-page">
+  <!-- Page Header (Standardized layout like AI Review) -->
+  <header class="page-header audit-page-head">
+    <div class="page-heading-group">
+      <div class="page-breadcrumb">
+        <span>HỆ THỐNG</span>
+        <span>/</span>
+        <strong>NHẬT KÝ HỆ THỐNG</strong>
+      </div>
+      <h1 class="page-title">Nhật ký hệ thống</h1>
+      <p class="page-subtitle">
+        Theo dõi lịch sử thay đổi, kiểm tra và xác thực các thao tác dữ liệu của người dùng và dịch vụ nền trong toàn hệ thống UAV-PMS.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="button secondary audit-btn-refresh"
+        (click)="fetchLogs()"
+        [disabled]="loading()"
+        aria-label="Tải lại nhật ký"
+      >
+        <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span>
+        <span>Làm mới</span>
+      </button>
+      <button
+        type="button"
+        class="button primary audit-btn-export"
+        (click)="exportCsv()"
+        [disabled]="filteredRecords().length === 0"
+        aria-label="Xuất dữ liệu nhật ký ra CSV"
+      >
+        <span nz-icon nzType="download" aria-hidden="true"></span>
+        <span>Xuất CSV</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filter Card -->
+  <section class="audit-filter-card" aria-label="Bộ lọc nhật ký hệ thống">
+    <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="audit-filter-form">
+      <div class="audit-filter-field search-field">
+        <label for="audit-search-input" class="audit-field-label">Tìm kiếm chung</label>
+        <div class="audit-input-wrap">
+          <span nz-icon nzType="search" class="audit-input-icon" aria-hidden="true"></span>
+          <input
+            id="audit-search-input"
+            type="text"
+            formControlName="search"
+            class="audit-input"
+            placeholder="Tìm theo email, IP, User Agent, giá trị thay đổi..."
+            (keydown.enter)="onSearchEnter($event)"
+          />
+          @if (filterForm.controls.search.value) {
+            <button
+              type="button"
+              class="audit-input-clear"
+              (click)="clearSearch()"
+              aria-label="Xóa tìm kiếm"
+            >×</button>
+          }
+        </div>
+      </div>
+
+      <div class="audit-filter-field">
+        <label for="audit-action-select" class="audit-field-label">Loại hành động</label>
+        <select id="audit-action-select" formControlName="actionType" class="audit-select">
+          @for (action of actionOptions; track action.value) {
+            <option [value]="action.value">{{ action.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="audit-filter-field">
+        <label for="audit-table-select" class="audit-field-label">Đối tượng / Bảng</label>
+        <select id="audit-table-select" formControlName="tableName" class="audit-select">
+          @for (tbl of tableOptions; track tbl.value) {
+            <option [value]="tbl.value">{{ tbl.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="audit-filter-buttons">
+        <button type="submit" class="button primary audit-apply-btn">
+          <span nz-icon nzType="filter" aria-hidden="true"></span>
+          Áp dụng
+        </button>
+        <button type="button" class="button secondary audit-reset-btn" (click)="resetFilters()">
+          Đặt lại
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Table Content Area -->
+  <section class="audit-table-container evn-table" aria-label="Bảng dữ liệu nhật ký hệ thống">
+    @if (error() && filteredRecords().length === 0) {
+      <app-data-state
+        kind="error"
+        title="Đã xảy ra lỗi"
+        [message]="error()"
+        (retry)="fetchLogs()"
+      />
+    } @else if (loading() && filteredRecords().length === 0) {
+      <app-data-state
+        kind="loading"
+        title="Đang tải dữ liệu..."
+        message="Vui lòng đợi trong giây lát khi hệ thống truy xuất các bản ghi nhật ký mới nhất."
+      />
+    } @else if (filteredRecords().length === 0) {
+      <app-data-state
+        kind="empty"
+        title="Không tìm thấy nhật ký hệ thống nào"
+        [message]="filterForm.controls.search.value ? 'Không có bản ghi nào khớp với từ khóa &quot;' + filterForm.controls.search.value + '&quot;. Hãy thử từ khóa khác hoặc bấm Đặt lại.' : 'Không có bản ghi nào khớp với điều kiện tìm kiếm hiện tại. Hãy thử thay đổi bộ lọc.'"
+      />
+    } @else {
+      <div class="audit-table-scroll">
+        <table class="ant-table" aria-label="Danh sách nhật ký hệ thống">
+          <thead class="ant-table-thead">
+            <tr>
+              <th scope="col" class="th-time">Thời gian</th>
+              <th scope="col" class="th-actor">Người thực hiện</th>
+              <th scope="col" class="th-action">Hành động</th>
+              <th scope="col" class="th-entity">Đối tượng</th>
+              <th scope="col" class="th-record-id">ID bản ghi</th>
+              <th scope="col" class="th-network">IP & Thiết bị</th>
+              <th scope="col" class="th-actions">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="ant-table-tbody">
+            @for (row of filteredRecords(); track row.id) {
+              <tr class="ant-table-row">
+                <!-- Timestamp -->
+                <td class="td-time">
+                  <div class="time-primary">
+                    {{ row.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}
+                  </div>
+                  <div class="time-secondary" [title]="row.createdAt">
+                    {{ row.createdAt | date: 'z' }}
+                  </div>
+                </td>
+
+                <!-- Actor / Operator Email -->
+                <td class="td-actor">
+                  <div class="actor-wrap">
+                    <span nz-icon nzType="user" class="actor-icon" aria-hidden="true"></span>
+                    <div class="actor-info">
+                      <span class="actor-email" [title]="row.operatorEmail">{{ row.operatorEmail }}</span>
+                      @if (row.userId) {
+                        <span class="actor-uid" [title]="'User ID: ' + row.userId">
+                          ID: {{ row.userId | slice: 0: 8 }}...
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Action Type Badge -->
+                <td class="td-action">
+                  <span class="audit-badge" [class]="actionBadgeClass(row.actionType)">
+                    @if (row.actionType.toLowerCase().includes('add') || row.actionType.toLowerCase().includes('create')) {
+                      <span nz-icon nzType="plus-circle" class="badge-icon" aria-hidden="true"></span>
+                    } @else if (row.actionType.toLowerCase().includes('delete') || row.actionType.toLowerCase().includes('remove')) {
+                      <span nz-icon nzType="delete" class="badge-icon" aria-hidden="true"></span>
+                    } @else {
+                      <span nz-icon nzType="edit" class="badge-icon" aria-hidden="true"></span>
+                    }
+                    {{ actionLabel(row.actionType) }}
+                  </span>
+                </td>
+
+                <!-- Entity / Table -->
+                <td class="td-entity">
+                  <div class="entity-name">{{ tableLabel(row.tableName) }}</div>
+                  <code class="entity-table-code">{{ row.tableName }}</code>
+                </td>
+
+                <!-- Record ID with copy button -->
+                <td class="td-record-id">
+                  <div class="record-id-wrap">
+                    <code class="record-id-text" [title]="row.recordId">{{ row.recordId || '-' }}</code>
+                    @if (row.recordId) {
+                      <button
+                        type="button"
+                        class="btn-copy-id"
+                        (click)="copyText(row.recordId, row.id)"
+                        [title]="copiedId() === row.id ? 'Đã sao chép' : 'Sao chép ID'"
+                        aria-label="Sao chép ID bản ghi"
+                      >
+                        <span
+                          nz-icon
+                          [nzType]="copiedId() === row.id ? 'check' : 'copy'"
+                          aria-hidden="true"
+                        ></span>
+                      </button>
+                    }
+                  </div>
+                </td>
+
+                <!-- Network info (IP & User Agent) -->
+                <td class="td-network">
+                  <div class="network-wrap">
+                    <div class="ip-chip" [title]="'IP: ' + row.ipAddress">
+                      <span nz-icon nzType="global" class="ip-icon" aria-hidden="true"></span>
+                      <span>{{ row.ipAddress || '-' }}</span>
+                    </div>
+                    <div class="ua-snippet" [title]="row.userAgent">
+                      {{ row.userAgent || '-' }}
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Actions -->
+                <td class="td-actions">
+                  <button
+                    type="button"
+                    class="btn-view-detail"
+                    (click)="openDetail(row)"
+                    aria-label="Xem chi tiết thay đổi của bản ghi"
+                  >
+                    <span nz-icon nzType="eye" aria-hidden="true"></span>
+                    <span>Chi tiết</span>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <footer class="audit-pagination-wrap">
+        <app-pagination
+          [page]="pagination().page"
+          [totalPages]="pagination().totalPages"
+          [totalCount]="pagination().totalItems"
+          (pageChanged)="onPageChange($event)"
+        />
+      </footer>
+    }
+  </section>
+
+  <!-- Detail Modal / Drawer -->
+  @if (selectedRecord(); as selected) {
+    <div class="audit-modal-backdrop">
+      <button
+        type="button"
+        class="audit-modal-backdrop-click"
+        (click)="closeDetail()"
+        aria-label="Đóng cửa sổ chi tiết"
+      ></button>
+      <div
+        class="audit-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="audit-modal-title"
+      >
+        <!-- Modal Header -->
+        <header class="audit-modal-header">
+          <div class="modal-title-wrap">
+            <h2 id="audit-modal-title" class="modal-title">
+              Chi tiết nhật ký hệ thống
+            </h2>
+            <div class="modal-tags">
+              <span class="audit-badge" [class]="actionBadgeClass(selected.actionType)">
+                {{ actionLabel(selected.actionType) }}
+              </span>
+              <span class="modal-table-badge">{{ selected.tableName }}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-btn"
+            (click)="closeDetail()"
+            aria-label="Đóng cửa sổ chi tiết"
+          >
+            <span nz-icon nzType="close" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <!-- Modal Body -->
+        <div class="audit-modal-body">
+          <!-- Metadata Grid -->
+          <section class="meta-section" aria-label="Thông tin tổng quan bản ghi">
+            <div class="meta-item">
+              <span class="meta-label">Thời gian (UTC):</span>
+              <span class="meta-value">{{ selected.createdAt | date: 'yyyy-MM-dd HH:mm:ss (z)' }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Người thực hiện:</span>
+              <span class="meta-value font-medium">{{ selected.operatorEmail }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">ID Người dùng:</span>
+              <span class="meta-value">{{ selected.userId || 'System (Hệ thống)' }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Đối tượng tác động:</span>
+              <span class="meta-value">{{ tableLabel(selected.tableName) }} ({{ selected.tableName }})</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">ID Bản ghi (Record ID):</span>
+              <span class="meta-value copyable">
+                <code>{{ selected.recordId }}</code>
+                <button
+                  type="button"
+                  class="btn-copy-sm"
+                  (click)="copyText(selected.recordId, 'modal-rec-id')"
+                  aria-label="Sao chép ID"
+                >
+                  <span
+                    nz-icon
+                    [nzType]="copiedId() === 'modal-rec-id' ? 'check' : 'copy'"
+                    aria-hidden="true"
+                  ></span>
+                </button>
+              </span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Địa chỉ IP:</span>
+              <span class="meta-value">{{ selected.ipAddress }}</span>
+            </div>
+            <div class="meta-item full-width">
+              <span class="meta-label">User Agent:</span>
+              <span class="meta-value font-mono">{{ selected.userAgent }}</span>
+            </div>
+          </section>
+
+          <!-- Tabs: Diff vs Raw JSON -->
+          <div class="modal-tabs" role="tablist" aria-label="Xem dữ liệu thay đổi">
+            <button
+              type="button"
+              role="tab"
+              class="tab-btn"
+              [class.tab-active]="activeDetailTab() === 'diff'"
+              [attr.aria-selected]="activeDetailTab() === 'diff'"
+              (click)="activeDetailTab.set('diff')"
+            >
+              <span nz-icon nzType="diff" aria-hidden="true"></span>
+              So sánh thay đổi (Diff)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="tab-btn"
+              [class.tab-active]="activeDetailTab() === 'raw'"
+              [attr.aria-selected]="activeDetailTab() === 'raw'"
+              (click)="activeDetailTab.set('raw')"
+            >
+              <span nz-icon nzType="code" aria-hidden="true"></span>
+              Dữ liệu JSON thô
+            </button>
+          </div>
+
+          <!-- Tab Content: Diff View -->
+          @if (activeDetailTab() === 'diff') {
+            <section class="diff-section" aria-label="Bảng so sánh giá trị cũ và mới">
+              @if (currentDiff().length === 0) {
+                <div class="diff-empty">
+                  Không có dữ liệu thay đổi thuộc tính hoặc hành động không phát sinh giá trị diff.
+                </div>
+              } @else {
+                <table class="diff-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" class="diff-th-key">Trường dữ liệu</th>
+                      <th scope="col" class="diff-th-old">Giá trị trước thay đổi (Old)</th>
+                      <th scope="col" class="diff-th-new">Giá trị sau thay đổi (New)</th>
+                      <th scope="col" class="diff-th-status">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (diff of currentDiff(); track diff.key) {
+                      <tr class="diff-row" [class]="'diff-row-' + diff.status">
+                        <td class="diff-td-key">
+                          <code>{{ diff.key }}</code>
+                        </td>
+                        <td class="diff-td-old">
+                          @if (diff.oldValue === '[MASKED]') {
+                            <span class="val-masked">[MASKED - Mật khẩu được ẩn]</span>
+                          } @else if (diff.status === 'added') {
+                            <span class="val-null">-</span>
+                          } @else {
+                            <span class="val-old">{{ diff.oldValue }}</span>
+                          }
+                        </td>
+                        <td class="diff-td-new">
+                          @if (diff.newValue === '[MASKED]') {
+                            <span class="val-masked">[MASKED - Mật khẩu được ẩn]</span>
+                          } @else if (diff.status === 'deleted') {
+                            <span class="val-null">-</span>
+                          } @else {
+                            <span class="val-new">{{ diff.newValue }}</span>
+                          }
+                        </td>
+                        <td class="diff-td-status">
+                          <span class="diff-pill" [class]="'diff-pill-' + diff.status">
+                            @switch (diff.status) {
+                              @case ('added') { Thêm mới }
+                              @case ('deleted') { Đã xóa }
+                              @case ('modified') { Thay đổi }
+                              @default { Không đổi }
+                            }
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </section>
+          }
+
+          <!-- Tab Content: Raw JSON View -->
+          @if (activeDetailTab() === 'raw') {
+            <section class="raw-section" aria-label="Dữ liệu JSON gốc">
+              <div class="raw-block">
+                <div class="raw-block-header">
+                  <span>Giá trị cũ (oldValues):</span>
+                </div>
+                <pre class="raw-code"><code>{{ selected.oldValues || 'null' }}</code></pre>
+              </div>
+
+              <div class="raw-block">
+                <div class="raw-block-header">
+                  <span>Giá trị mới (newValues):</span>
+                </div>
+                <pre class="raw-code"><code>{{ selected.newValues || 'null' }}</code></pre>
+              </div>
+            </section>
+          }
+        </div>
+
+        <!-- Modal Footer -->
+        <footer class="audit-modal-footer">
+          <button type="button" class="button secondary" (click)="closeDetail()">
+            Đóng
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>
