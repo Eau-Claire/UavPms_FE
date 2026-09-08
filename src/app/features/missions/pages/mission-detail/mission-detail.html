@@ -65,14 +65,43 @@
 
       @if (mission.targets.length) {
         <section class="mission-targets" aria-label="Tài sản mục tiêu kiểm tra">
-          <h2>Tài sản mục tiêu ({{ mission.targets.length }})</h2>
-          @for (target of mission.targets; track target.assetId) {
-            <article>
-              <div><strong>{{ target.assetCode || target.assetName }}</strong><span>{{ target.assetName }}</span></div>
-              @if (target.sequence !== null) { <span>Thứ tự kiểm tra gợi ý: {{ target.sequence }}</span> }
-              <span>Trạng thái kiểm tra: {{ target.inspectionStatus }}</span>
-            </article>
-          }
+          <div class="mission-targets-header">
+            <h2>Tài sản mục tiêu ({{ mission.targets.length }})</h2>
+            <span class="sequence-banner">
+              <span class="sequence-line-indicator"></span>
+              <strong>Trình tự kiểm tra đề xuất (Suggested Inspection Sequence)</strong>
+            </span>
+          </div>
+
+          <div class="sequence-flow-diagram" aria-label="Trình tự kiểm tra đề xuất">
+            @for (target of mission.targets; track target.assetId; let last = $last) {
+              <div class="seq-flow-node">
+                <span class="seq-node-index">{{ target.sequence || ($index + 1) }}</span>
+                <span class="seq-node-code">{{ target.assetCode || target.assetName }}</span>
+              </div>
+              @if (!last) {
+                <span class="seq-flow-arrow" aria-hidden="true">→</span>
+              }
+            }
+          </div>
+
+          <div class="targets-list-detail">
+            @for (target of mission.targets; track target.assetId) {
+              <article>
+                <div>
+                  <strong>{{ target.sequence ? target.sequence + '. ' : '' }}{{ target.assetCode || target.assetName }}</strong>
+                  <span>{{ target.assetName }}</span>
+                  @if (target.towerCode) { <small class="target-tower-sub">Vị trí: Cột {{ target.towerCode }}</small> }
+                </div>
+                <div class="target-status-col">
+                  <span class="target-status-badge">{{ target.inspectionStatus }}</span>
+                  @if (target.latitude && target.longitude) {
+                    <small class="target-gps">{{ target.latitude.toFixed(5) }}, {{ target.longitude.toFixed(5) }}</small>
+                  }
+                </div>
+              </article>
+            }
+          </div>
         </section>
       }
       </aside>

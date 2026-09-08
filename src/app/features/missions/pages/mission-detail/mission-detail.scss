@@ -1,9 +1,151 @@
 @use '../mission-page';
 @use '../../../assets/pages/asset-management/asset-management-page';
 
-.mission-targets { margin-top: 20px; }
-.mission-targets article { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 8px; }
-.mission-targets article div { display: grid; }
+.mission-targets {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .mission-targets-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .sequence-banner {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      padding: 3px 10px;
+      border-radius: 12px;
+
+      .sequence-line-indicator {
+        width: 16px;
+        height: 3px;
+        background: #16a34a;
+        border-radius: 2px;
+      }
+    }
+  }
+
+  .sequence-flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+
+    .seq-flow-node {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      font-size: 12px;
+      white-space: nowrap;
+
+      .seq-node-index {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #0284c7;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .seq-node-code {
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
+
+    .seq-flow-arrow {
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 700;
+    }
+  }
+
+  .targets-list-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    article {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+
+      div {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        strong {
+          font-size: 14px;
+          color: #0f172a;
+        }
+
+        span {
+          font-size: 12px;
+          color: #64748b;
+        }
+
+        .target-tower-sub {
+          font-size: 11px;
+          color: #0284c7;
+        }
+      }
+
+      .target-status-col {
+        align-items: flex-end;
+
+        .target-status-badge {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 10px;
+          background: #f1f5f9;
+          color: #475569;
+        }
+
+        .target-gps {
+          font-size: 10px;
+          color: #94a3b8;
+          font-family: monospace;
+        }
+      }
+    }
+  }
+}
 /* Enhanced Mission Detail Styles */
 .tab-count-bubble {
   display: inline-flex;
