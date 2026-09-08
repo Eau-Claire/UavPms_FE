@@ -70,9 +70,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       role === 'systemadmin' ||
       role === 'administrator' ||
       role === 'manager' ||
-      role === 'supervisor' ||
-      role === 'inspector' ||
-      role === 'pilot'
+      role === 'supervisor'
     );
   });
 
@@ -588,7 +586,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected createMission(): void {
-    if (this.targetSelection.count()) void this.router.navigate(['/missions/new']);
+    if (this.canCreateMission() && this.targetSelection.count()) void this.router.navigate(['/missions/new']);
   }
 
   protected onKeydown(event: KeyboardEvent): void {

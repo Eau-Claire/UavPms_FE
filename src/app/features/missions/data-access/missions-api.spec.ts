@@ -16,4 +16,15 @@ describe('MissionsApi', () => {
     request.flush({ data: { id: 'm1', name: 'Inspection', missionTargets: [{ assetId: 'a1', assetName: 'Tower 1', sequence: 1, inspectionStatus: 'Pending' }] } });
     expect(targetName).toBe('Tower 1'); http.verify();
   });
+
+  it('loads the inspector mission collection from the assignment-scoped endpoint', () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const api = TestBed.inject(MissionsApi); const http = TestBed.inject(HttpTestingController);
+    let ids: string[] = [];
+    api.my().subscribe((missions) => { ids = missions.map((mission) => mission.id); });
+    const request = http.expectOne(`${environment.apiBaseUrl}/missions/my`);
+    request.flush({ data: [{ id: 'assigned-1', title: 'Assigned mission', status: 'Pending' }] });
+    expect(ids).toEqual(['assigned-1']);
+    http.verify();
+  });
 });

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map, Observable, timeout } from 'rxjs';
+import { EMPTY, expand, map, Observable, reduce, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
@@ -23,6 +23,7 @@ export interface GisTower {
   readonly towerType?: string; // Tension, Suspension, Terminal
   readonly healthScore?: number;
   readonly riskLevel?: string;
+  readonly status?: string;
   readonly assetsCount?: number;
   readonly activeAnomaliesCount?: number;
 }
@@ -121,8 +122,19 @@ export class GisApi {
     return { towers: [], lines: [], anomalies: [], alerts: [] };
   }
 
-  getAllGisData(): Observable<GisDataSnapshot> {
-    return this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`).pipe(
+  getRegions(): Observable<readonly { id: string; name: string }[]> {
+    const page = (number: number) => this.http.get<unknown>(`${this.baseUrl}/regions`, { params: { page: number, pageSize: 100 } }).pipe(map((response) => {
+      const data = record(unwrapApiData(response));
+      const pagination = record(data['pagination']);
+      return { page: number, totalPages: Number(pagination['totalPages'] ?? 1),
+        items: itemsFromRecord(data).map((item) => { const region = record(item); return { id: stringValue(region['id']), name: stringValue(region['regionName'] ?? region['name']) }; }) };
+    }));
+    return page(1).pipe(expand((result) => result.page < result.totalPages ? page(result.page + 1) : EMPTY),
+      reduce((all, result) => [...all, ...result.items], [] as { id: string; name: string }[]));
+  }
+
+  getAllGisData(filters: { administrativeAreaId?: string; powerLineId?: string } = {}): Observable<GisDataSnapshot> {
+    return this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`, { params: { ...filters } }).pipe(
       timeout(15000),
       map((response) => {
         const data = record(unwrapApiData<unknown>(response));
@@ -143,7 +155,7 @@ export class GisApi {
           const asset = record(item);
           if (asset['latitude'] == null || asset['longitude'] == null) throw new Error('Missing GIS coordinates');
           const line = lines.find((line) => line.id === asset['powerLineId']);
-          return { id: stringValue(asset['id']), towerCode: stringValue(asset['code']), lineAssetId: stringValue(asset['powerLineId']), latitude: Number(asset['latitude']), longitude: Number(asset['longitude']), towerType: stringValue(asset['assetType']), transmissionLineName: line?.lineName, voltageLevel: line?.voltage };
+          return { id: stringValue(asset['id']), towerCode: stringValue(asset['code']), lineAssetId: stringValue(asset['powerLineId']), latitude: Number(asset['latitude']), longitude: Number(asset['longitude']), towerType: stringValue(asset['assetType']), status: stringValue(asset['status']), transmissionLineName: line?.lineName, voltageLevel: line?.voltage };
         });
         if (towers.some((tower) => !tower.id || !Number.isFinite(tower.latitude) || !Number.isFinite(tower.longitude))) throw new Error('Invalid GIS asset coordinates');
         const anomalies = Array.isArray(data['anomalies']) ? normalizeGeoJsonAnomalies({ items: data['anomalies'] }) : [];

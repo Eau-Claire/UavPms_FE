@@ -361,17 +361,22 @@ export class MissionDetail {
       .get(id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError((error: unknown) => {
-          if (id === 'MIS-HN-DEMO-001' || (error instanceof HttpErrorResponse && [403, 404].includes(error.status))) {
-            return of(this.getDemoMission(id));
-          }
-          return throwError(() => error);
-        }),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
+          this.missionAssets.set(mission.targets.map((target) => ({
+            id: target.assetId,
+            code: target.assetCode,
+            type: target.assetName || '—',
+            towerCode: target.towerCode || '—',
+            healthScore: 0,
+            riskLevel: 'Low Risk',
+            defectCount: 0,
+            status: 'Operational',
+            lastInspected: '—',
+          })));
           this.loadDetections(mission.id);
         },
         error: (error: unknown) => this.error.set(this.errorMessage(error)),

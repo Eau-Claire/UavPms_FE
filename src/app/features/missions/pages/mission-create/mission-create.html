@@ -156,6 +156,16 @@
     <!-- STEP 2: Chọn tài sản trên bản đồ GIS -->
     @if (currentStep() === 2) {
       <section class="wizard-card step-card-gis" aria-label="Bản đồ chọn tài sản">
+        <div class="region-filter" aria-label="Phạm vi Region">
+          <label for="mission-region">Region / Khu vực</label>
+          <select id="mission-region" #missionRegion [value]="selectedRegionId()" (change)="changeRegion(missionRegion.value)" [disabled]="gisLoading() || busy()">
+            <option value="">Tất cả Region được cấp quyền</option>
+            @for (region of regions(); track region.id) {
+              <option [value]="region.id">{{ region.name }}</option>
+            }
+          </select>
+          @if (gisError()) { <span role="alert">{{ gisError() }}</span> }
+        </div>
         <div class="gis-workspace-bar">
           <!-- Quick Search -->
           <div class="gis-search-wrapper">

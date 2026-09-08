@@ -65,7 +65,6 @@ export class Sidebar {
     if (currentRole === 'inspector' || currentRole === 'pilot') {
       return [
         { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
-        { path: '/missions/new', icon: 'plus', label: 'Tạo nhiệm vụ mới' },
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
         { path: '/inspections', icon: 'file-text', label: 'Nhật ký & Log bay' },
         { path: '/assets', icon: 'safety-certificate', label: 'Thông tin cột điện' },

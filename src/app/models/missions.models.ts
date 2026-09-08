@@ -15,6 +15,7 @@ export interface Mission {
   readonly createdAt: string;
   readonly updatedAt: string | null;
   readonly targets: readonly MissionTarget[];
+  readonly scheduledStartAt?: string | null;
 }
 
 export interface MissionPage {
@@ -49,6 +50,7 @@ export interface MissionTarget {
   readonly assetCode: string;
   readonly assetName: string;
   readonly towerCode?: string;
+  readonly assetType?: string;
   readonly sequence: number | null;
   readonly inspectionStatus: string;
   readonly latitude?: number;

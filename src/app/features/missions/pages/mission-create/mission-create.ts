@@ -17,7 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { catchError, finalize, of } from 'rxjs';
+import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { DatePipe } from '@angular/common';
 import { Auth } from '../../../../core/auth/auth';
@@ -69,6 +69,9 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   protected readonly drones = signal<readonly DroneDto[]>([]);
   protected readonly towers = signal<readonly GisTower[]>([]);
   protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
+  protected readonly regions = signal<readonly { id: string; name: string }[]>([]);
+  protected readonly selectedRegionId = signal('');
+  protected readonly gisError = signal('');
   protected readonly currentUser = this.auth.user;
 
   // Drawing mode on Map
@@ -129,14 +132,20 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     return this.users().find((u) => u.id === id);
   });
 
-  constructor() {
-    const currentUserId = this.currentUser()?.id ?? '';
-    if (currentUserId) this.form.controls.inspectorId.setValue(currentUserId);
-  }
-
   ngOnInit(): void {
     this.loadUsers();
     this.loadDrones();
+    this.gisApi.getRegions().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (regions) => this.regions.set(regions),
+      error: () => this.gisError.set('Không tải được danh sách Region.')
+    });
+    this.loadGisData();
+  }
+
+  protected changeRegion(regionId: string): void {
+    if (regionId && !this.regions().some((region) => region.id === regionId)) return;
+    this.selectedRegionId.set(regionId);
+    this.targetSelection.clear();
     this.loadGisData();
   }
 
@@ -435,35 +444,14 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe({
         next: (assets) => {
-          if (!assets.length) {
-            // Fallback: client-side point in polygon check over loaded towers
-            const clientAssets = this.findTowersInPolygon(geometry);
-            if (clientAssets.length) {
-              this.targetSelection.addMany(clientAssets);
-              this.spatialMessage.set(`Đã chọn ${clientAssets.length} cột điện trong vùng.`);
-            } else {
-              this.spatialMessage.set('Không tìm thấy cột điện nào trong khu vực này. Hãy thử chọn vùng khác.');
-            }
-          } else {
-            this.targetSelection.addMany(assets);
-            this.mergeAssetsIntoTowers(assets);
-            this.spatialMessage.set(`Đã chọn ${assets.length} cột điện trong vùng.`);
-          }
+          this.targetSelection.addMany(assets);
+          this.spatialMessage.set(assets.length
+            ? `Đã chọn ${assets.length} cột điện trong vùng.`
+            : 'Không tìm thấy tài sản được phép trong vùng này.');
           this.renderTargetMarkers();
           this.renderTowers();
         },
-        error: () => {
-          // Client-side fallback if spatial endpoint fails
-          const clientAssets = this.findTowersInPolygon(geometry);
-          if (clientAssets.length) {
-            this.targetSelection.addMany(clientAssets);
-            this.spatialMessage.set(`Đã chọn ${clientAssets.length} cột điện trong vùng.`);
-          } else {
-            this.spatialMessage.set('Không thể truy vấn tài sản. Vui lòng thử lại.');
-          }
-          this.renderTargetMarkers();
-          this.renderTowers();
-        },
+        error: () => this.spatialMessage.set('Không thể truy vấn tài sản. Chưa thêm tài sản; vui lòng thử lại.'),
       });
   }
 
@@ -863,10 +851,9 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
           if (!selected && users[0]) this.form.controls.inspectorId.setValue(users[0].id);
         },
         error: () => {
-          const currentUserId = this.currentUser()?.id ?? '';
-          if (!this.form.controls.inspectorId.value && currentUserId) {
-            this.form.controls.inspectorId.setValue(currentUserId);
-          }
+          this.users.set([]);
+          this.form.controls.inspectorId.setValue('');
+          this.error.set('Không tải được danh sách thanh tra viên. Vui lòng thử lại.');
         },
       });
   }
@@ -888,29 +875,27 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
   private loadGisData(): void {
     this.gisLoading.set(true);
-
-    // Load baseline grid data (realistic towers across HCMC and Northern lines)
-    const demoSnapshot = this.getDemoGisData();
-    this.towers.set(demoSnapshot.towers);
-    this.lines.set(demoSnapshot.lines);
-
-    // Query backend GIS infrastructure if available
-    this.gisApi.getAllGisData()
+    this.gisError.set('');
+    const filters = this.selectedRegionId() ? { administrativeAreaId: this.selectedRegionId() } : {};
+    this.gisApi.getAllGisData(filters)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => of(demoSnapshot)),
         finalize(() => this.gisLoading.set(false)),
       )
       .subscribe({
         next: (data) => {
-          if (data.towers.length || data.lines.length) {
-            this.towers.set(data.towers.length ? data.towers : demoSnapshot.towers);
-            this.lines.set(data.lines.length ? data.lines : demoSnapshot.lines);
-          }
+          this.towers.set(data.towers.filter((tower) => ['Active', 'Operational'].includes(tower.status ?? '')));
+          this.lines.set(data.lines);
           if (this.map) {
             this.renderTransmissionLines();
             this.renderTowers();
           }
+        },
+        error: () => {
+          this.towers.set([]);
+          this.lines.set([]);
+          this.targetSelection.clear();
+          this.gisError.set('Không tải được tài sản trong Region. Vui lòng thử lại.');
         },
       });
   }

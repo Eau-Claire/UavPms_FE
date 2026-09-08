@@ -24,6 +24,12 @@ export class MissionsApi {
     return this.http.get<unknown>(this.url, { params }).pipe(map((response) => normalizePage(unwrapApiData(response), filters)));
   }
 
+  my() {
+    return this.http.get<unknown>(`${this.url}/my`).pipe(
+      map((response) => itemsValue(unwrapApiData(response)).map(normalizeMission)),
+    );
+  }
+
   get(id: string) {
     return this.http.get<unknown>(`${this.url}/${id}`).pipe(map((response) => normalizeMission(unwrapApiData(response))));
   }
@@ -81,14 +87,15 @@ const normalizeMission = (value: unknown): Mission => {
     title: stringValue(pick(source, 'title', 'name'), 'Chưa đặt tên nhiệm vụ'),
     routeData: stringValue(source['routeData'], 'Chưa có tuyến'),
     assignedToUserId: stringValue(source['assignedToUserId']),
-    assignedToUsername: stringValue(source['assignedToUsername'], 'Chưa phân công'),
+    assignedToUsername: stringValue(pick(source, 'assignedToUsername', 'inspectorEmail', 'assignedToEmail'), 'Chưa phân công'),
     droneCode: stringValue(source['droneCode'], 'Chưa gán UAV'),
     status: stringValue(source['status'], 'Pending'),
     description: stringValue(source['description']),
     managerId: stringValue(source['managerId']),
-    managerUsername: stringValue(source['managerUsername'], 'Chưa có quản lý'),
+    managerUsername: stringValue(pick(source, 'managerUsername', 'managerEmail'), 'Chưa có quản lý'),
     createdAt: stringValue(source['createdAt']),
     updatedAt: source['updatedAt'] === undefined || source['updatedAt'] === null ? null : String(source['updatedAt']),
+    scheduledStartAt: stringValue(pick(source, 'scheduledStartAt', 'scheduledAt')) || null,
     targets: normalizeTargets(pick(source, 'missionTargets', 'targets', 'targetAssets')),
   };
 };
@@ -102,6 +109,7 @@ const normalizeTargets = (value: unknown): readonly MissionTarget[] => Array.isA
   return {
     assetId: stringValue(pick(source, 'assetId', 'id') ?? asset['id']),
     assetCode: stringValue(pick(source, 'assetCode', 'code') ?? asset['code']),
+    assetType: stringValue(source['assetType']),
     assetName: stringValue(pick(source, 'assetName', 'name') ?? asset['name']),
     towerCode: stringValue(pick(source, 'towerCode', 'tower') ?? asset['towerCode']),
     sequence: sequenceValue === undefined || sequenceValue === null ? null : numberValue(sequenceValue) || index + 1,
