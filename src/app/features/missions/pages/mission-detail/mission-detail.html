@@ -290,10 +290,26 @@
                   </article>
                 }
               </section>
+            } @else {
+              <section class="processing-empty-state" aria-label="Trạng thái hàng đợi phân tích">
+                <span class="processing-empty-icon" nz-icon nzType="inbox" aria-hidden="true"></span>
+                <div>
+                  <h3>Chưa có media trong hàng đợi</h3>
+                  <p>Tải ảnh hoặc video từ UAV để bắt đầu phân tích và theo dõi tiến trình tại đây.</p>
+                </div>
+                <button type="button" (click)="setTab('upload')">
+                  <span nz-icon nzType="cloud-upload" aria-hidden="true"></span>
+                  Tải media lên
+                </button>
+              </section>
             }
 
             <div class="processing-actions">
-              <button type="button" class="mission-ai-primary" (click)="setTab('results')">
+              <div class="processing-status-note">
+                <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
+                <span><strong>{{ detections().length }} kết quả</strong> đã sẵn sàng để giám định</span>
+              </div>
+              <button type="button" class="mission-ai-primary" [disabled]="!detections().length" (click)="setTab('results')">
                 <span nz-icon nzType="experiment"></span> Xem kết quả Giám định AI
               </button>
             </div>

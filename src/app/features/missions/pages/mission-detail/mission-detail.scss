@@ -378,7 +378,80 @@
 
 .processing-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.processing-status-note { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 13px; }
+.processing-status-note .anticon { color: #059669; font-size: 18px; }
+.processing-status-note strong { color: #0f172a; }
+
+.processing-empty-state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 150px;
+  border: 1px dashed #b8c5d6;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 24px;
+}
+.processing-empty-icon { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 12px; background: #e0f2fe; color: #0369a1; font-size: 24px; }
+.processing-empty-state h3 { margin: 0 0 4px; color: #0f172a; font-size: 16px; }
+.processing-empty-state p { margin: 0; color: #64748b; font-size: 13px; }
+.processing-empty-state button { display: inline-flex; min-height: 42px; align-items: center; gap: 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; padding: 0 16px; font-weight: 700; cursor: pointer; }
+
+/* Mission detail UX refinements */
+.mission-live-page { grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) minmax(290px, 320px); gap: 14px; }
+.mission-detail-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.mission-detail-tabs button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 38px; transition: border-color .15s ease, background .15s ease, color .15s ease; }
+.mission-detail-tabs button:focus-visible,
+.mission-footer-upload:focus-visible,
+.processing-empty-state button:focus-visible,
+.mission-ai-primary:focus-visible,
+.detection-card:focus-visible,
+.review-detail-close:focus-visible { outline: 3px solid rgba(56, 189, 248, .55); outline-offset: 2px; }
+.mission-telemetry-panel { max-height: 100%; overflow-y: auto; }
+.mission-targets .targets-list-detail article { padding: 10px 12px; }
+
+.mission-processing-panel { width: min(1180px, calc(100% - 48px)); min-height: auto; margin: 24px auto; border: 1px solid #d9e2ef; box-shadow: 0 10px 30px rgba(15, 23, 42, .06); }
+.processing-hero-pipeline { border-radius: 12px; background: linear-gradient(135deg, #0f172a 0%, #172554 100%); }
+
+.mission-tab-results .detection-grid { align-content: start; grid-auto-rows: max-content; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.mission-tab-results .detection-card { align-self: start; border-radius: 10px; padding: 10px; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.mission-tab-results .detection-card:hover { transform: translateY(-2px); border-color: #94a3b8; box-shadow: 0 8px 22px rgba(15, 23, 42, .08); }
+.mission-tab-results .detection-card.selected { border-width: 2px; box-shadow: 0 0 0 3px rgba(254, 166, 25, .18); }
+.mission-tab-results .defect-image { height: auto; aspect-ratio: 16 / 9; border-radius: 7px; }
+.mission-tab-results .review-toolbar { min-height: 90px; align-items: center; padding: 18px 22px; }
+.mission-tab-results .summary-pill { min-width: 96px; border-radius: 8px; padding: 7px 12px; font-size: 13px; }
+.mission-tab-results .review-filters button { width: auto; min-width: 42px; border-radius: 8px; padding: 0 12px; }
+.mission-tab-results .review-pagination { padding: 14px 22px; }
+.mission-tab-results .review-detail { background: #f8fafc; }
+.mission-tab-results .review-detail > header { position: sticky; top: 0; z-index: 4; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); }
+
+@media (max-width: 1180px) {
+  .mission-live-page { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(260px, 290px); }
+  .mission-tab-results.asset-review-view.has-detail { grid-template-columns: minmax(0, 1fr) minmax(340px, 42vw); }
+}
+
+@media (max-width: 900px) {
+  .processing-empty-state { grid-template-columns: auto minmax(0, 1fr); }
+  .processing-empty-state button { grid-column: 1 / -1; justify-content: center; }
+  .processing-actions { align-items: stretch; flex-direction: column; }
+  .mission-tab-results.asset-review-view.has-detail { display: block; overflow: auto; }
+  .mission-tab-results .review-left,
+  .mission-tab-results .review-detail { height: auto; overflow: visible; }
+}
+
+@media (max-width: 640px) {
+  .mission-processing-panel { width: 100%; margin: 0; padding: 16px; border: 0; }
+  .processing-hero-pipeline { padding: 18px; }
+  .proc-pipeline-flow { grid-template-columns: 1fr; }
+  .mission-tab-results .detection-grid { grid-template-columns: 1fr; padding: 16px; }
 }
 
 /* AI Results: Video Player & Timeline & Gallery */
