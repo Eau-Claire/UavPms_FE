@@ -1,5 +1,1270 @@
 @use '../mission-page';
 
-.mission-target-review { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
-.mission-target-review > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
-.mission-target-review button { border: 0; background: transparent; color: #dc2626; cursor: pointer; }
+.mission-create-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  color: #0f172a;
+}
+
+/* Stepper Navigation */
+.wizard-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow-x: auto;
+  gap: 8px;
+
+  .step-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+
+    .step-num {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .step-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      transition: all 0.2s ease;
+    }
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      .step-label { color: #1e293b; }
+    }
+
+    &.active {
+      background: #eff6ff;
+      .step-num {
+        background: #0284c7;
+        color: #ffffff;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+      }
+      .step-label {
+        color: #0284c7;
+        font-weight: 700;
+      }
+    }
+
+    &.completed {
+      .step-num {
+        background: #22c55e;
+        color: #ffffff;
+      }
+      .step-label {
+        color: #166534;
+      }
+    }
+  }
+
+  .step-connector {
+    flex: 1;
+    min-width: 16px;
+    height: 2px;
+    background: #e2e8f0;
+  }
+}
+
+/* Wizard Cards */
+.wizard-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card-header-block {
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .section-desc {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.5;
+
+    .note-emphasis {
+      color: #b45309;
+    }
+  }
+}
+
+/* Form Fields */
+.form-grid-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+
+  .field-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &--full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+
+      .required-star {
+        color: #dc2626;
+      }
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+      }
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .field-error {
+      font-size: 12px;
+      color: #dc2626;
+      font-weight: 500;
+    }
+  }
+}
+
+/* Actions Footer Bar */
+.wizard-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #ffffff;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    text-decoration: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #f8fafc;
+      color: #1e293b;
+      border-color: #94a3b8;
+    }
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #0284c7;
+    color: #ffffff;
+    border: 1px solid #0284c7;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #0369a1;
+      border-color: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-submit-mission {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #16a34a;
+    color: #ffffff;
+    border: 1px solid #16a34a;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #15803d;
+      border-color: #15803d;
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* =========================================================
+   STEP 2: GIS WORKSPACE & DRAWING
+   ========================================================= */
+.step-card-gis {
+  padding: 16px;
+  gap: 12px;
+}
+
+.gis-workspace-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.gis-search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+
+  .search-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      color: #94a3b8;
+      font-size: 15px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 9px 36px 9px 36px;
+      font-size: 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+
+      &:focus {
+        outline: none;
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+      }
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 10px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+  }
+
+  .search-results-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+
+    .search-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: #f8fafc;
+      }
+
+      .search-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        strong {
+          color: #0f172a;
+          font-size: 13px;
+        }
+
+        .search-item-sub {
+          font-size: 11px;
+          color: #64748b;
+        }
+      }
+
+      .search-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .btn-search-locate {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #0284c7;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 6px;
+          cursor: pointer;
+
+          &:hover {
+            background: #dbeafe;
+          }
+        }
+
+        .btn-search-add {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #ffffff;
+          background: #0284c7;
+          border: 1px solid #0284c7;
+          border-radius: 6px;
+          cursor: pointer;
+
+          &.already-added {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+          }
+
+          &:hover:not(.already-added) {
+            background: #0369a1;
+          }
+        }
+      }
+    }
+  }
+}
+
+.gis-tools-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .tool-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    &.active {
+      background: #eff6ff;
+      color: #0284c7;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+    }
+
+    &--clear {
+      color: #dc2626;
+      border-color: #fecaca;
+      background: #fef2f2;
+
+      &:hover {
+        background: #fee2e2;
+      }
+    }
+
+    &--location {
+      color: #2563eb;
+      border-color: #bfdbfe;
+      background: #eff6ff;
+
+      &:hover {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+    }
+  }
+}
+
+.spatial-status-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #166534;
+
+  &.loading {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1e40af;
+  }
+}
+
+.gis-map-viewport {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #e2e8f0;
+
+  .leaflet-map-host {
+    width: 100%;
+    height: 100%;
+  }
+
+  .gis-instruction-overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 500;
+    background: rgba(15, 23, 42, 0.85);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.gis-docked-targets-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  flex-wrap: wrap;
+
+  .dock-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .dock-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dock-count {
+      font-size: 14px;
+      color: #0f172a;
+    }
+  }
+
+  .dock-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+
+    .target-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #166534;
+
+      button {
+        border: none;
+        background: transparent;
+        color: #dc2626;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0;
+      }
+    }
+
+    .target-chip-more {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+    }
+  }
+
+  .dock-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .btn-clear-dock {
+      background: transparent;
+      border: none;
+      color: #dc2626;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .btn-secondary {
+      padding: 8px 14px;
+      font-size: 13px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #0284c7;
+      color: #ffffff;
+      border: 1px solid #0284c7;
+      border-radius: 6px;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+/* Map Markers - Distinctive Electrical Pylon & User Location */
+.marker-tower-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto !important;
+}
+
+.gis-pylon-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  &:hover {
+    transform: translateY(-3px) scale(1.12);
+    z-index: 1500;
+  }
+
+  .pylon-box {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+    transition: all 0.2s ease;
+
+    .pylon-icon {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .pylon-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Unselected State */
+  &.unselected {
+    .pylon-box {
+      background: #ffffff;
+      border: 2px solid #0284c7;
+      color: #0284c7;
+
+      &:hover {
+        background: #f0f9ff;
+        border-color: #0369a1;
+      }
+    }
+
+    .pylon-tag {
+      background: rgba(255, 255, 255, 0.95);
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+  }
+
+  /* Selected State */
+  &.selected {
+    .pylon-box {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border: 2px solid #ffffff;
+      color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.45), 0 4px 10px rgba(0, 0, 0, 0.35);
+
+      .pylon-icon {
+        width: 20px;
+        height: 20px;
+      }
+
+      .pylon-seq-badge {
+        position: absolute;
+        top: -7px;
+        right: -7px;
+        background: #e11d48;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 800;
+        border-radius: 10px;
+        padding: 1px 5px;
+        border: 1.5px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    .pylon-tag.selected {
+      background: #064e3b;
+      color: #a7f3d0;
+      border: 1px solid #059669;
+      font-weight: 800;
+    }
+  }
+}
+
+/* User Location Pin */
+.user-location-pin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .user-pulse-ring {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(37, 99, 235, 0.25);
+    border: 1.5px solid rgba(37, 99, 235, 0.6);
+    animation: userGpsPulse 2s infinite ease-out;
+  }
+
+  .user-center-dot {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes userGpsPulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.pylon-tooltip {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 2px;
+}
+
+/* =========================================================
+   STEP 3: REVIEW TARGETS & SEQUENCE
+   ========================================================= */
+.targets-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+
+  .target-row-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border-color: #cbd5e1;
+    }
+
+    .target-index-badge {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #0284c7;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .target-main-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .target-code-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .target-code {
+          font-size: 15px;
+          color: #0f172a;
+        }
+
+        .target-status-pill {
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 12px;
+          background: #f0fdf4;
+          color: #166534;
+        }
+      }
+
+      .target-name-line {
+        font-size: 13px;
+        color: #475569;
+      }
+
+      .target-coords {
+        font-size: 11px;
+        color: #94a3b8;
+        font-family: monospace;
+      }
+    }
+
+    .target-reorder-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .btn-seq-move {
+        width: 28px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #475569;
+        font-size: 12px;
+
+        &:hover:not(:disabled) {
+          background: #eff6ff;
+          color: #0284c7;
+          border-color: #0284c7;
+        }
+
+        &:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+        }
+      }
+    }
+
+    .target-row-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .btn-target-locate {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #0284c7;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        cursor: pointer;
+
+        &:hover {
+          background: #dbeafe;
+        }
+      }
+
+      .btn-target-remove {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #dc2626;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        cursor: pointer;
+
+        &:hover {
+          background: #fee2e2;
+        }
+      }
+    }
+  }
+
+  .empty-targets-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 14px;
+    color: #64748b;
+
+    .empty-icon {
+      font-size: 48px;
+      color: #94a3b8;
+    }
+  }
+}
+
+/* =========================================================
+   STEP 4: INSPECTION SETTINGS
+   ========================================================= */
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .checkbox-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+
+      .checkbox-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #ffffff;
+        transition: all 0.15s ease;
+
+        input[type="checkbox"] {
+          margin-top: 3px;
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: #0284c7;
+        }
+
+        .checkbox-card-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          strong {
+            font-size: 14px;
+            color: #0f172a;
+          }
+
+          p {
+            margin: 0;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+          }
+        }
+
+        &.selected {
+          border-color: #0284c7;
+          background: #f0f9ff;
+        }
+      }
+    }
+  }
+}
+
+/* =========================================================
+   STEP 5: ASSIGN INSPECTOR & UAV
+   ========================================================= */
+.uav-status-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  margin-top: 10px;
+
+  .uav-badge-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #0284c7;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .uav-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .uav-top-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .uav-code {
+        font-size: 16px;
+        color: #0f172a;
+      }
+
+      .uav-model {
+        font-size: 14px;
+        color: #475569;
+      }
+
+      .uav-status-tag {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #e2e8f0;
+        color: #475569;
+
+        &.idle {
+          background: #f0fdf4;
+          color: #166534;
+        }
+      }
+    }
+
+    .uav-battery-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: #64748b;
+
+      .battery-track {
+        flex: 1;
+        max-width: 240px;
+        height: 8px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+
+        .battery-fill {
+          height: 100%;
+          border-radius: 999px;
+          background: #22c55e;
+          transition: width 0.3s ease;
+
+          &.good { background: #22c55e; }
+          &.warn { background: #eab308; }
+          &.low { background: #ef4444; }
+        }
+      }
+    }
+  }
+}
+
+/* =========================================================
+   STEP 6: REVIEW & MAP PREVIEW
+   ========================================================= */
+.review-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 24px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+
+  .review-details-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .summary-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .summary-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .summary-val-title {
+        font-size: 16px;
+        color: #0f172a;
+      }
+
+      .summary-val {
+        font-size: 14px;
+        color: #1e293b;
+      }
+
+      .summary-desc {
+        margin: 0;
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.5;
+      }
+
+      .settings-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        .chip {
+          padding: 4px 10px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 16px;
+          font-size: 12px;
+          color: #1e40af;
+          font-weight: 600;
+        }
+      }
+
+      .summary-targets-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        .btn-text-edit {
+          background: transparent;
+          border: none;
+          color: #0284c7;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: underline;
+        }
+      }
+
+      .summary-targets-ordered {
+        margin: 6px 0 0;
+        padding-left: 20px;
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 13px;
+        color: #334155;
+
+        li {
+          margin-bottom: 4px;
+        }
+      }
+    }
+
+    .summary-row-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+  }
+
+  .review-map-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .review-map-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .preview-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+      }
+
+      .sequence-legend {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #15803d;
+        font-weight: 600;
+
+        .legend-line {
+          width: 24px;
+          height: 3px;
+          background: #16a34a;
+          border-radius: 2px;
+        }
+      }
+    }
+
+    .review-map-wrapper {
+      width: 100%;
+      height: 380px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      background: #e2e8f0;
+
+      .review-map-host {
+        width: 100%;
+        height: 100%;
+      }
+    }
+  }
+}

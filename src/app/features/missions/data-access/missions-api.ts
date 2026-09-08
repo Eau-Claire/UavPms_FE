@@ -97,11 +97,16 @@ const normalizeTargets = (value: unknown): readonly MissionTarget[] => Array.isA
   const source = record(item);
   const asset = record(source['asset']);
   const sequenceValue = pick(source, 'sequence', 'order', 'sequenceNumber');
+  const latVal = pick(source, 'latitude', 'lat') ?? asset['latitude'];
+  const lngVal = pick(source, 'longitude', 'lng', 'lon') ?? asset['longitude'];
   return {
     assetId: stringValue(pick(source, 'assetId', 'id') ?? asset['id']),
     assetCode: stringValue(pick(source, 'assetCode', 'code') ?? asset['code']),
     assetName: stringValue(pick(source, 'assetName', 'name') ?? asset['name']),
+    towerCode: stringValue(pick(source, 'towerCode', 'tower') ?? asset['towerCode']),
     sequence: sequenceValue === undefined || sequenceValue === null ? null : numberValue(sequenceValue) || index + 1,
     inspectionStatus: stringValue(pick(source, 'inspectionStatus', 'status'), 'Pending'),
+    latitude: latVal !== undefined && latVal !== null ? numberValue(latVal) : undefined,
+    longitude: lngVal !== undefined && lngVal !== null ? numberValue(lngVal) : undefined,
   };
 }) : [];
