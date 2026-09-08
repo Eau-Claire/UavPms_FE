@@ -1,50 +1,674 @@
-<form class="mission-page mission-create-page" [formGroup]="form" (ngSubmit)="save()">
-  <div class="mission-page-head">
-    <div>
-      <div class="mission-breadcrumb"><span>Nhiệm vụ bay</span><span>/</span><strong>Tạo mới</strong></div>
-      <h1>Tạo nhiệm vụ mới</h1>
-      <p>Nhập thông tin nền để tạo nhiệm vụ khảo sát hạ tầng điện.</p>
+<div class="mission-page mission-create-wizard">
+  <!-- Standard Page Header -->
+  <header class="page-header mission-page-head">
+    <div class="page-heading-group">
+      <div class="page-breadcrumb">
+        <span>NHIỆM VỤ BAY</span>
+        <span>/</span>
+        <strong>TẠO MỚI</strong>
+      </div>
+      <h1 class="page-title">Tạo nhiệm vụ khảo sát UAV</h1>
+      <p class="page-subtitle">
+        Khởi tạo nhiệm vụ bay kiểm tra hạ tầng lưới điện bằng cách chọn các cột điện mục tiêu từ bản đồ GIS.
+      </p>
     </div>
-  </div>
+  </header>
 
-  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
+  <!-- Error Alert -->
+  @if (error()) {
+    <div class="mission-alert" role="alert">
+      <span nz-icon nzType="exclamation-circle" class="alert-icon"></span>
+      <span>{{ error() }}</span>
+      <button type="button" class="alert-close-btn" (click)="error.set('')">Đóng</button>
+    </div>
+  }
 
-  <section class="mission-stepper" aria-label="Tien trinh tao nhiem vu">
-    @for (step of ['Thông tin chung', 'Thiết lập tuyến', 'Phân công đội bay', 'Xác nhận']; track step; let index = $index) {
-      <div [class.active]="index === 0"><span>{{ index + 1 }}</span><strong>{{ step }}</strong></div>
-    }
-  </section>
+  <!-- 6-Stage Stepper Bar -->
+  <nav class="wizard-stepper" aria-label="Tiến trình tạo nhiệm vụ">
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 1"
+      [class.completed]="currentStep() > 1"
+      (click)="goToStep(1)"
+    >
+      <span class="step-num">1</span>
+      <span class="step-label">Thông tin chung</span>
+    </button>
+    <div class="step-connector"></div>
 
-  <section class="mission-create-card mission-create-card--single">
-    <div class="mission-create-fields">
-      <h2>Thông tin nhiệm vụ</h2>
-      <label><span>Tên nhiệm vụ *</span><input formControlName="name" placeholder="Ví dụ: Kiểm tra đường dây 220kV Hòa Bình - Nho Quan" /></label>
-      <div class="mission-form-grid">
-        <label><span>Lịch thực hiện *</span><input type="datetime-local" formControlName="scheduledAt" /></label>
-        <label><span>UAV *</span><input formControlName="droneId" placeholder="Mã UAV" /></label>
-      </div>
-      <div class="mission-form-grid">
-        <label>
-          <span>Thanh tra viên *</span>
-          <select formControlName="inspectorId">
-            @if (currentUser()?.id) { <option [value]="currentUser()?.id">{{ currentUser()?.email || currentUser()?.fullName || 'Tài khoản hiện tại' }}</option> }
-            @for (user of users(); track user.id) { <option [value]="user.id">{{ user.fullName || user.email || user.username }}</option> }
-          </select>
-          <small>{{ usersLoading() ? 'Đang tải danh sách người phụ trách...' : 'Chọn người phụ trách nhiệm vụ' }}</small>
-        </label>
-      </div>
-      <label><span>Ghi chú nội bộ</span><textarea rows="4" formControlName="description" placeholder="Nhập các lưu ý đặc biệt cho đội bay hoặc điều phối viên..."></textarea></label>
-      <section class="mission-target-review" aria-label="Tài sản mục tiêu">
-        <h2>Tài sản mục tiêu ({{ targetSelection.count() }})</h2>
-        @for (asset of targetSelection.selected(); track asset.assetId) {
-          <div><span><strong>{{ asset.code }}</strong> · {{ asset.name }} · {{ asset.status }}</span><button type="button" [attr.aria-label]="'Bỏ ' + asset.code" (click)="targetSelection.remove(asset.assetId)">Bỏ</button></div>
-        } @empty { <p role="alert">Chưa có tài sản. <a routerLink="/gis">Mở bản đồ GIS để chọn tài sản</a>.</p> }
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 2"
+      [class.completed]="currentStep() > 2"
+      (click)="goToStep(2)"
+    >
+      <span class="step-num">2</span>
+      <span class="step-label">Chọn tài sản (GIS)</span>
+    </button>
+    <div class="step-connector"></div>
+
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 3"
+      [class.completed]="currentStep() > 3"
+      (click)="goToStep(3)"
+    >
+      <span class="step-num">3</span>
+      <span class="step-label">Xem lại mục tiêu</span>
+    </button>
+    <div class="step-connector"></div>
+
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 4"
+      [class.completed]="currentStep() > 4"
+      (click)="goToStep(4)"
+    >
+      <span class="step-num">4</span>
+      <span class="step-label">Cấu hình kiểm tra</span>
+    </button>
+    <div class="step-connector"></div>
+
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 5"
+      [class.completed]="currentStep() > 5"
+      (click)="goToStep(5)"
+    >
+      <span class="step-num">5</span>
+      <span class="step-label">Phân công UAV</span>
+    </button>
+    <div class="step-connector"></div>
+
+    <button
+      type="button"
+      class="step-item"
+      [class.active]="currentStep() === 6"
+      [class.completed]="currentStep() > 6"
+      (click)="goToStep(6)"
+    >
+      <span class="step-num">6</span>
+      <span class="step-label">Xác nhận</span>
+    </button>
+  </nav>
+
+  <form [formGroup]="form" (ngSubmit)="save()" class="wizard-content-shell">
+    <!-- STEP 1: Thông tin chung -->
+    @if (currentStep() === 1) {
+      <section class="wizard-card step-card-info" aria-label="Thông tin nhiệm vụ">
+        <div class="card-header-block">
+          <h2>1. Thông tin cơ bản về nhiệm vụ</h2>
+          <p class="section-desc">Đặt tên nhận diện cho đợt kiểm tra và lịch trình dự kiến thực hiện chuyến bay.</p>
+        </div>
+
+        <div class="form-grid-fields">
+          <label class="field-item">
+            <span class="field-label">Tên nhiệm vụ <span class="required-star">*</span></span>
+            <input
+              type="text"
+              class="form-input"
+              formControlName="name"
+              placeholder="Ví dụ: EVN-2408-01 - Kiểm tra định kỳ tuyến 220kV Hòa Bình"
+            />
+            @if (form.controls.name.touched && form.controls.name.invalid) {
+              <span class="field-error">Vui lòng nhập tên nhiệm vụ.</span>
+            }
+          </label>
+
+          <label class="field-item">
+            <span class="field-label">Lịch thực hiện dự kiến <span class="required-star">*</span></span>
+            <input
+              type="datetime-local"
+              class="form-input"
+              formControlName="scheduledAt"
+            />
+            @if (form.controls.scheduledAt.touched && form.controls.scheduledAt.invalid) {
+              <span class="field-error">Vui lòng chọn thời gian bắt đầu nhiệm vụ.</span>
+            }
+          </label>
+
+          <label class="field-item field-item--full">
+            <span class="field-label">Mô tả nhiệm vụ &amp; Ghi chú tổng quan</span>
+            <textarea
+              class="form-textarea"
+              rows="4"
+              formControlName="description"
+              placeholder="Ghi chú mục đích kiểm tra, điều kiện địa hình hoặc hướng dẫn cho người phụ trách..."
+            ></textarea>
+          </label>
+        </div>
+
+        <footer class="wizard-actions-bar">
+          <a routerLink="/missions" class="btn-secondary">Hủy bỏ</a>
+          <button type="button" class="btn-primary" (click)="goToStep(2)">
+            <span>Tiếp tục: Chọn tài sản (GIS)</span>
+            <span nz-icon nzType="arrow-right"></span>
+          </button>
+        </footer>
       </section>
-    </div>
-  </section>
+    }
 
-  <footer class="mission-create-actions">
-    <a routerLink="/missions">Huy</a>
-    <button type="submit" [disabled]="busy()">{{ busy() ? 'Đang tạo...' : 'Tạo nhiệm vụ' }} <span nz-icon nzType="arrow-right"></span></button>
-  </footer>
-</form>
+    <!-- STEP 2: Chọn tài sản trên bản đồ GIS -->
+    @if (currentStep() === 2) {
+      <section class="wizard-card step-card-gis" aria-label="Bản đồ chọn tài sản">
+        <div class="gis-workspace-bar">
+          <!-- Quick Search -->
+          <div class="gis-search-wrapper">
+            <div class="search-input-group">
+              <span nz-icon nzType="search" class="search-icon"></span>
+              <input
+                type="text"
+                class="search-input"
+                placeholder="Tìm cột điện theo mã (ví dụ: EVN-P102)..."
+                [value]="searchQuery()"
+                (input)="searchQuery.set($any($event.target).value)"
+              />
+              @if (searchQuery()) {
+                <button type="button" class="search-clear" (click)="searchQuery.set('')">✕</button>
+              }
+            </div>
+
+            <!-- Instant Search Results Dropdown -->
+            @if (searchResults().length > 0) {
+              <div class="search-results-dropdown" role="listbox">
+                @for (tower of searchResults(); track tower.id) {
+                  <div class="search-item">
+                    <div class="search-item-info">
+                      <strong>{{ tower.towerCode }}</strong>
+                      <span class="search-item-sub">{{ tower.transmissionLineName || 'Tuyến chưa định danh' }}</span>
+                    </div>
+                    <div class="search-item-actions">
+                      <button
+                        type="button"
+                        class="btn-search-locate"
+                        (click)="locateTower(tower)"
+                        title="Định vị trên bản đồ"
+                      >
+                        <span nz-icon nzType="aim"></span>
+                        <span>Định vị</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-search-add"
+                        [class.already-added]="targetSelection.has(tower.id)"
+                        (click)="addTowerFromSearch(tower)"
+                      >
+                        <span>{{ targetSelection.has(tower.id) ? '✓ Đã chọn' : '+ Thêm' }}</span>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Drawing Tools Bar -->
+          <div class="gis-tools-toolbar" aria-label="Công cụ chọn vùng">
+            <button
+              type="button"
+              class="tool-button"
+              [class.active]="activeTool() === 'select'"
+              (click)="setTool('select')"
+              title="Nhấp chuột vào từng cột điện trên bản đồ để chọn/bỏ chọn"
+            >
+              <span nz-icon nzType="select"></span>
+              <span>👆 Chọn lẻ</span>
+            </button>
+
+            <button
+              type="button"
+              class="tool-button"
+              [class.active]="activeTool() === 'rectangle'"
+              (click)="setTool('rectangle')"
+              title="Kéo thả chuột trên bản đồ để chọn vùng hình chữ nhật"
+            >
+              <span nz-icon nzType="border"></span>
+              <span>▭ Chọn vùng chữ nhật</span>
+            </button>
+
+            <button
+              type="button"
+              class="tool-button"
+              [class.active]="activeTool() === 'polygon'"
+              (click)="setTool('polygon')"
+              title="Nhấp các đỉnh để vẽ vùng đa giác, nhấp điểm đầu để hoàn tất"
+            >
+              <span nz-icon nzType="radar-chart"></span>
+              <span>⬡ Chọn vùng đa giác</span>
+            </button>
+
+            <button
+              type="button"
+              class="tool-button tool-button--location"
+              (click)="locateUserLocation()"
+              title="Định vị theo vị trí GPS hiện tại của máy bạn"
+            >
+              <span nz-icon nzType="aim"></span>
+              <span>⌖ Vị trí của tôi</span>
+            </button>
+
+            <button
+              type="button"
+              class="tool-button tool-button--clear"
+              (click)="clearDrawings()"
+              title="Xóa vùng vẽ trên bản đồ"
+            >
+              <span nz-icon nzType="clear"></span>
+              <span>🧹 Xóa vùng vẽ</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Spatial Status Messages -->
+        @if (spatialLoading()) {
+          <div class="spatial-status-box loading" role="status">
+            <span nz-icon nzType="loading" [nzSpin]="true"></span>
+            <span>{{ spatialMessage() }}</span>
+          </div>
+        } @else if (spatialMessage()) {
+          <div class="spatial-status-box" role="status">
+            <span nz-icon nzType="info-circle"></span>
+            <span>{{ spatialMessage() }}</span>
+          </div>
+        }
+
+        <!-- Interactive Map Canvas -->
+        <div class="gis-map-viewport">
+          <div #mapContainer class="leaflet-map-host"></div>
+
+          <div class="gis-instruction-overlay">
+            @if (activeTool() === 'select') {
+              <span>👆 Nhấp vào cột điện trên bản đồ để thêm hoặc bỏ chọn.</span>
+            } @else if (activeTool() === 'rectangle') {
+              <span>▭ Nhấn giữ và kéo chuột trên bản đồ để khoanh vùng chữ nhật.</span>
+            } @else if (activeTool() === 'polygon') {
+              <span>⬡ Nhấp từng điểm để vẽ đa giác. Nhấp điểm đầu hoặc nhấp đúp để khép kín vùng.</span>
+            }
+          </div>
+        </div>
+
+        <!-- Docked Bottom Targets Bar -->
+        <div class="gis-docked-targets-bar">
+          <div class="dock-summary">
+            <span class="dock-title">MỤC TIÊU KIỂM TRA:</span>
+            <strong class="dock-count">{{ targetSelection.count() }} tài sản đã chọn</strong>
+          </div>
+
+          <div class="dock-chips">
+            @for (target of targetSelection.selected().slice(0, 8); track target.assetId) {
+              <span class="target-chip">
+                <span>✓ {{ target.code }}</span>
+                <button type="button" (click)="targetSelection.remove(target.assetId)" title="Bỏ chọn">×</button>
+              </span>
+            }
+            @if (targetSelection.count() > 8) {
+              <span class="target-chip-more">+{{ targetSelection.count() - 8 }} tài sản khác</span>
+            }
+          </div>
+
+          <div class="dock-actions">
+            @if (targetSelection.count() > 0) {
+              <button type="button" class="btn-clear-dock" (click)="clearAllTargets()">Xóa tất cả</button>
+            }
+            <button type="button" class="btn-secondary" (click)="goToStep(1)">← Quay lại</button>
+            <button
+              type="button"
+              class="btn-primary"
+              [disabled]="targetSelection.count() === 0"
+              (click)="goToStep(3)"
+            >
+              <span>Xem lại mục tiêu ({{ targetSelection.count() }})</span>
+              <span nz-icon nzType="arrow-right"></span>
+            </button>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- STEP 3: Xem lại mục tiêu & Sắp xếp thứ tự kiểm tra -->
+    @if (currentStep() === 3) {
+      <section class="wizard-card step-card-targets" aria-label="Xem lại mục tiêu kiểm tra">
+        <div class="card-header-block">
+          <h2>3. Danh sách cột điện mục tiêu đã chọn ({{ targetSelection.count() }})</h2>
+          <p class="section-desc">
+            Bạn có thể sắp xếp lại thứ tự kiểm tra theo trình tự ưu tiên.
+            <strong class="note-emphasis">Lưu ý:</strong> Thứ tự này đại diện cho <em>trình tự kiểm tra đề xuất (Suggested Inspection Sequence)</em>, không phải waypoint bay tự động của UAV.
+          </p>
+        </div>
+
+        <div class="targets-review-list">
+          @for (asset of targetSelection.selected(); track asset.assetId; let idx = $index) {
+            <article class="target-row-card">
+              <div class="target-index-badge">{{ idx + 1 }}</div>
+              <div class="target-main-info">
+                <div class="target-code-line">
+                  <strong class="target-code">{{ asset.code }}</strong>
+                  <span class="target-status-pill">{{ asset.status }}</span>
+                </div>
+                <span class="target-name-line">{{ asset.name }}</span>
+                <small class="target-coords">{{ asset.latitude.toFixed(5) }}, {{ asset.longitude.toFixed(5) }}</small>
+              </div>
+
+              <div class="target-reorder-controls">
+                <button
+                  type="button"
+                  class="btn-seq-move"
+                  [disabled]="idx === 0"
+                  (click)="targetSelection.moveUp(idx)"
+                  title="Di chuyển lên trước"
+                >
+                  <span nz-icon nzType="arrow-up"></span>
+                </button>
+                <button
+                  type="button"
+                  class="btn-seq-move"
+                  [disabled]="idx === targetSelection.count() - 1"
+                  (click)="targetSelection.moveDown(idx)"
+                  title="Di chuyển xuống sau"
+                >
+                  <span nz-icon nzType="arrow-down"></span>
+                </button>
+              </div>
+
+              <div class="target-row-actions">
+                <button
+                  type="button"
+                  class="btn-target-locate"
+                  (click)="locateTarget(asset); goToStep(2)"
+                  title="Định vị trên bản đồ"
+                >
+                  <span nz-icon nzType="aim"></span>
+                  <span>Xem trên Map</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn-target-remove"
+                  (click)="targetSelection.remove(asset.assetId)"
+                  title="Loại bỏ tài sản này"
+                >
+                  <span nz-icon nzType="delete"></span>
+                  <span>Bỏ</span>
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-targets-prompt">
+              <span nz-icon nzType="inbox" class="empty-icon"></span>
+              <p>Chưa có tài sản mục tiêu nào được chọn.</p>
+              <button type="button" class="btn-primary" (click)="goToStep(2)">Mở bản đồ GIS để chọn tài sản</button>
+            </div>
+          }
+        </div>
+
+        <footer class="wizard-actions-bar">
+          <button type="button" class="btn-secondary" (click)="goToStep(2)">← Chọn thêm tài sản</button>
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="targetSelection.count() === 0"
+            (click)="goToStep(4)"
+          >
+            <span>Tiếp tục: Cấu hình kiểm tra</span>
+            <span nz-icon nzType="arrow-right"></span>
+          </button>
+        </footer>
+      </section>
+    }
+
+    <!-- STEP 4: Cấu hình kiểm tra -->
+    @if (currentStep() === 4) {
+      <section class="wizard-card step-card-settings" aria-label="Cấu hình kiểm tra">
+        <div class="card-header-block">
+          <h2>4. Cấu hình chế độ &amp; Dữ liệu khảo sát</h2>
+          <p class="section-desc">Chọn các loại cảm biến hình ảnh và nội dung cần kiểm tra chi tiết trong đợt bay.</p>
+        </div>
+
+        <div class="settings-sections">
+          <div class="settings-group">
+            <h3>Loại dữ liệu khảo sát cần thu thập</h3>
+            <div class="checkbox-options-grid">
+              <label class="checkbox-card" [class.selected]="form.controls.enableRgb.value">
+                <input type="checkbox" formControlName="enableRgb" />
+                <div class="checkbox-card-content">
+                  <strong>Ảnh màu độ nét cao (RGB Image)</strong>
+                  <p>Thu thập hình ảnh quang học quan sát bề mặt cột điện, bu lông, chuỗi sứ và dây dẫn.</p>
+                </div>
+              </label>
+
+              <label class="checkbox-card" [class.selected]="form.controls.enableThermal.value">
+                <input type="checkbox" formControlName="enableThermal" />
+                <div class="checkbox-card-content">
+                  <strong>Ảnh nhiệt hồng ngoại (Thermal Image)</strong>
+                  <p>Phát hiện quá nhiệt cục bộ tại các điểm ép nối, ống nối dây dẫn và bát sứ suy hao.</p>
+                </div>
+              </label>
+
+              <label class="checkbox-card" [class.selected]="form.controls.enableCorona.value">
+                <input type="checkbox" formControlName="enableCorona" />
+                <div class="checkbox-card-content">
+                  <strong>Phóng điện vầng quang (Corona Detection)</strong>
+                  <p>Phát hiện phóng điện mờ ban ngày tại các chuỗi sứ và phụ kiện đường dây điện áp cao.</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3>Danh mục kiểm tra (Checklist / Notes)</h3>
+            <textarea
+              class="form-textarea"
+              rows="5"
+              formControlName="checklistNotes"
+              placeholder="Nhập hướng dẫn cụ thể cho đội bay:&#10;- Kiểm tra góc chụp vuông góc chuỗi sứ cách điện&#10;- Chụp chi tiết mối nối lèo pha A và pha C&#10;- Chú ý khoảng cách an toàn tĩnh không đối với cây cối lân cận..."
+            ></textarea>
+          </div>
+        </div>
+
+        <footer class="wizard-actions-bar">
+          <button type="button" class="btn-secondary" (click)="goToStep(3)">← Quay lại</button>
+          <button type="button" class="btn-primary" (click)="goToStep(5)">
+            <span>Tiếp tục: Phân công UAV &amp; Đội bay</span>
+            <span nz-icon nzType="arrow-right"></span>
+          </button>
+        </footer>
+      </section>
+    }
+
+    <!-- STEP 5: Phân công Thanh tra viên & UAV -->
+    @if (currentStep() === 5) {
+      <section class="wizard-card step-card-assign" aria-label="Phân công thanh tra viên và UAV">
+        <div class="card-header-block">
+          <h2>5. Phân công Thanh tra viên &amp; Thiết bị UAV</h2>
+          <p class="section-desc">Chỉ định phi công phụ trách và phương tiện UAV sẵn sàng thực thi nhiệm vụ.</p>
+        </div>
+
+        <div class="form-grid-fields">
+          <!-- Inspector Selector -->
+          <label class="field-item">
+            <span class="field-label">Thanh tra viên / Phi công phụ trách <span class="required-star">*</span></span>
+            <select class="form-select" formControlName="inspectorId">
+              <option value="" disabled>-- Chọn thanh tra viên --</option>
+              @if (currentUser()?.id) {
+                <option [value]="currentUser()?.id">
+                  {{ currentUser()?.fullName || currentUser()?.email }} (Tài khoản hiện tại)
+                </option>
+              }
+              @for (user of users(); track user.id) {
+                <option [value]="user.id">
+                  {{ user.fullName || user.email }} ({{ user.role || 'Inspector' }})
+                </option>
+              }
+            </select>
+            <small class="field-hint">
+              {{ usersLoading() ? 'Đang tải danh sách...' : 'Danh sách thanh tra viên đang hoạt động.' }}
+            </small>
+            @if (form.controls.inspectorId.touched && form.controls.inspectorId.invalid) {
+              <span class="field-error">Vui lòng chọn người phụ trách.</span>
+            }
+          </label>
+
+          <!-- UAV Selector -->
+          <label class="field-item">
+            <span class="field-label">Phương tiện bay (UAV / Drone) <span class="required-star">*</span></span>
+            <select class="form-select" formControlName="droneId">
+              <option value="" disabled>-- Chọn thiết bị UAV --</option>
+              @for (drone of drones(); track drone.id) {
+                <option [value]="drone.id">
+                  {{ drone.droneCode }} - {{ drone.name }} (Pin: {{ drone.battery }}% - {{ drone.operationalStatus }})
+                </option>
+              }
+            </select>
+            <small class="field-hint">
+              {{ dronesLoading() ? 'Đang tải danh sách UAV...' : 'Chỉ hiển thị các UAV trực tuyến và ở trạng thái sẵn sàng (Idle).' }}
+            </small>
+            @if (form.controls.droneId.touched && form.controls.droneId.invalid) {
+              <span class="field-error">Vui lòng chọn UAV thực hiện.</span>
+            }
+          </label>
+        </div>
+
+        <!-- Selected UAV Status Card -->
+        @if (selectedDrone(); as drone) {
+          <div class="uav-status-card">
+            <div class="uav-badge-icon">
+              <span nz-icon nzType="send"></span>
+            </div>
+            <div class="uav-details">
+              <div class="uav-top-line">
+                <strong class="uav-code">{{ drone.droneCode }}</strong>
+                <span class="uav-model">{{ drone.name }}</span>
+                <span class="uav-status-tag" [class.idle]="drone.operationalStatus === 'Idle'">
+                  {{ drone.operationalStatus === 'Idle' ? 'Sẵn sàng bay' : drone.operationalStatus }}
+                </span>
+              </div>
+              <div class="uav-battery-bar">
+                <span>Mức pin: <strong>{{ drone.battery }}%</strong></span>
+                <div class="battery-track">
+                  <div
+                    class="battery-fill"
+                    [style.width.%]="drone.battery"
+                    [class.good]="drone.battery >= 50"
+                    [class.warn]="drone.battery < 50 && drone.battery >= 25"
+                    [class.low]="drone.battery < 25"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
+        <footer class="wizard-actions-bar">
+          <button type="button" class="btn-secondary" (click)="goToStep(4)">← Quay lại</button>
+          <button type="button" class="btn-primary" (click)="goToStep(6)">
+            <span>Tiếp tục: Xác nhận &amp; Khởi tạo</span>
+            <span nz-icon nzType="arrow-right"></span>
+          </button>
+        </footer>
+      </section>
+    }
+
+    <!-- STEP 6: Xác nhận tổng quan & Khởi tạo -->
+    @if (currentStep() === 6) {
+      <section class="wizard-card step-card-review" aria-label="Xác nhận nhiệm vụ">
+        <div class="card-header-block">
+          <h2>6. Xác nhận thông tin nhiệm vụ trước khi khởi tạo</h2>
+          <p class="section-desc">Kiểm tra lại lộ trình, thanh tra viên và danh sách tài sản mục tiêu trước khi gửi yêu cầu điều phối.</p>
+        </div>
+
+        <div class="review-layout-grid">
+          <!-- Summary Details -->
+          <div class="review-details-col">
+            <div class="summary-group">
+              <span class="summary-label">Tên nhiệm vụ:</span>
+              <strong class="summary-val-title">{{ form.controls.name.value }}</strong>
+            </div>
+
+            <div class="summary-group">
+              <span class="summary-label">Lịch trình bay:</span>
+              <strong class="summary-val">
+                {{ form.controls.scheduledAt.value | date:'HH:mm · dd/MM/yyyy' }}
+              </strong>
+            </div>
+
+            <div class="summary-row-grid">
+              <div class="summary-group">
+                <span class="summary-label">Người phụ trách:</span>
+                <strong class="summary-val">
+                  {{ selectedInspector()?.fullName || selectedInspector()?.email || 'Chưa chọn' }}
+                </strong>
+              </div>
+
+              <div class="summary-group">
+                <span class="summary-label">Phương tiện UAV:</span>
+                <strong class="summary-val">
+                  {{ selectedDrone()?.droneCode || form.controls.droneId.value }} ({{ selectedDrone()?.name || 'UAV' }})
+                </strong>
+              </div>
+            </div>
+
+            <div class="summary-group">
+              <span class="summary-label">Chế độ chụp ảnh:</span>
+              <div class="settings-chips">
+                @if (form.controls.enableRgb.value) { <span class="chip">Ảnh màu (RGB)</span> }
+                @if (form.controls.enableThermal.value) { <span class="chip">Ảnh nhiệt (Thermal)</span> }
+                @if (form.controls.enableCorona.value) { <span class="chip">Phóng điện (Corona)</span> }
+              </div>
+            </div>
+
+            @if (form.controls.description.value) {
+              <div class="summary-group">
+                <span class="summary-label">Mô tả nhiệm vụ:</span>
+                <p class="summary-desc">{{ form.controls.description.value }}</p>
+              </div>
+            }
+
+            <div class="summary-group">
+              <div class="summary-targets-head">
+                <span class="summary-label">Tài sản mục tiêu ({{ targetSelection.count() }}):</span>
+                <button type="button" class="btn-text-edit" (click)="goToStep(3)">Chỉnh sửa</button>
+              </div>
+              <ol class="summary-targets-ordered">
+                @for (target of targetSelection.selected(); track target.assetId) {
+                  <li>
+                    <strong>{{ target.code }}</strong> - {{ target.name }}
+                  </li>
+                }
+              </ol>
+            </div>
+          </div>
+
+          <!-- Mini Map Preview -->
+          <div class="review-map-col">
+            <div class="review-map-header">
+              <span class="preview-title">Bản đồ lộ trình kiểm tra dự kiến</span>
+              <span class="sequence-legend">
+                <span class="legend-line"></span>
+                <span>Tuyến kiểm tra đề xuất (Suggested Inspection Sequence)</span>
+              </span>
+            </div>
+            <div class="review-map-wrapper">
+              <div #reviewMapContainer class="review-map-host"></div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="wizard-actions-bar">
+          <button type="button" class="btn-secondary" (click)="goToStep(5)">← Quay lại</button>
+          <button
+            type="submit"
+            class="btn-submit-mission"
+            [disabled]="busy() || targetSelection.count() === 0"
+          >
+            <span nz-icon [nzType]="busy() ? 'loading' : 'check-circle'" [nzSpin]="busy()"></span>
+            <span>{{ busy() ? 'Đang tạo nhiệm vụ...' : 'Khởi tạo & Điều phối nhiệm vụ' }}</span>
+          </button>
+        </footer>
+      </section>
+    }
+  </form>
+</div>
