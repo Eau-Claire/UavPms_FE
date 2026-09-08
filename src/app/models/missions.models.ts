@@ -41,12 +41,21 @@ export interface MissionCreateRequest {
   readonly inspectorId: string;
   readonly droneId: string;
   readonly targetAssetIds: readonly string[];
+  readonly routeData?: string;
 }
 
 export interface MissionTarget {
   readonly assetId: string;
   readonly assetCode: string;
   readonly assetName: string;
+  readonly towerCode?: string;
   readonly sequence: number | null;
   readonly inspectionStatus: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
+}
+
+export interface InspectionSettings {
+  readonly inspectionTypes: readonly string[];
+  readonly checklist: string;
 }
