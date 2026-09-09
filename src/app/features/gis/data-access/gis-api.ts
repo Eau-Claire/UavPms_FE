@@ -138,7 +138,8 @@ export class GisApi {
       timeout(15000),
       map((response) => {
         const data = record(unwrapApiData<unknown>(response));
-        if (!Array.isArray(data['assets']) || !Array.isArray(data['powerLines'])) {
+        const rawTowers = Array.isArray(data['towers']) ? data['towers'] : data['assets'];
+        if (!Array.isArray(rawTowers) || !Array.isArray(data['powerLines'])) {
           throw new Error('Invalid GIS infrastructure response');
         }
         const lines = data['powerLines'].map((item): GisTransmissionLine => {
@@ -151,13 +152,25 @@ export class GisApi {
           }) : [];
           return { id: stringValue(line['id']), lineCode: stringValue(line['code']), lineName: stringValue(line['name']), voltage: stringValue(line['voltageLevel']), coordinates };
         });
-        const towers = data['assets'].map((item): GisTower => {
+        const towers = rawTowers.flatMap((item): readonly GisTower[] => {
           const asset = record(item);
-          if (asset['latitude'] == null || asset['longitude'] == null) throw new Error('Missing GIS coordinates');
-          const line = lines.find((line) => line.id === asset['powerLineId']);
-          return { id: stringValue(asset['id']), towerCode: stringValue(asset['code']), lineAssetId: stringValue(asset['powerLineId']), latitude: Number(asset['latitude']), longitude: Number(asset['longitude']), towerType: stringValue(asset['assetType']), status: stringValue(asset['status']), transmissionLineName: line?.lineName, voltageLevel: line?.voltage };
+          const coordinates = pointCoordinates(asset);
+          const id = stringValue(pick(asset, 'id', 'towerId', 'assetId'));
+          if (!id || !coordinates) return [];
+          const lineAssetId = stringValue(pick(asset, 'powerLineId', 'lineAssetId', 'lineId'));
+          const line = lines.find((candidate) => candidate.id === lineAssetId);
+          return [{
+            id,
+            towerCode: stringValue(pick(asset, 'towerCode', 'code', 'assetCode', 'name')),
+            lineAssetId,
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            towerType: stringValue(pick(asset, 'towerType', 'assetType', 'type')),
+            status: stringValue(asset['status']),
+            transmissionLineName: stringValue(pick(asset, 'transmissionLineName', 'lineName'), line?.lineName),
+            voltageLevel: stringValue(pick(asset, 'voltageLevel', 'voltage'), line?.voltage),
+          }];
         });
-        if (towers.some((tower) => !tower.id || !Number.isFinite(tower.latitude) || !Number.isFinite(tower.longitude))) throw new Error('Invalid GIS asset coordinates');
         const anomalies = Array.isArray(data['anomalies']) ? normalizeGeoJsonAnomalies({ items: data['anomalies'] }) : [];
         const alerts = Array.isArray(data['alerts']) ? data['alerts'].map(normalizeGisAlert) : [];
         if ([...anomalies, ...alerts].some((item) => !item.id || !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude))) throw new Error('Invalid GIS event coordinates');
@@ -205,6 +218,38 @@ const numberValue = (value: unknown) => Number(value ?? 0) || 0;
 
 const pick = (source: Record<string, unknown>, ...keys: string[]) =>
   keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
+
+const pointCoordinates = (source: Record<string, unknown>): { latitude: number; longitude: number } | null => {
+  const directLatitude = pick(source, 'latitude', 'lat');
+  const directLongitude = pick(source, 'longitude', 'lng', 'lon');
+  if (directLatitude != null && directLongitude != null) {
+    const latitude = Number(directLatitude);
+    const longitude = Number(directLongitude);
+    if (validCoordinates(latitude, longitude)) return { latitude, longitude };
+  }
+
+  const geometry = source['geometry'];
+  if (typeof geometry === 'string') {
+    const match = /^POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)$/i.exec(geometry);
+    if (match) {
+      const longitude = Number(match[1]);
+      const latitude = Number(match[2]);
+      if (validCoordinates(latitude, longitude)) return { latitude, longitude };
+    }
+  }
+
+  const geometryRecord = record(geometry);
+  const coordinates = geometryRecord['coordinates'];
+  if (Array.isArray(coordinates) && coordinates.length >= 2) {
+    const longitude = Number(coordinates[0]);
+    const latitude = Number(coordinates[1]);
+    if (validCoordinates(latitude, longitude)) return { latitude, longitude };
+  }
+  return null;
+};
+
+const validCoordinates = (latitude: number, longitude: number): boolean =>
+  Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 
 const itemsFromRecord = (value: unknown): readonly unknown[] => {
   const source = record(value);

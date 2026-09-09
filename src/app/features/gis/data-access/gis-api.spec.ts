@@ -62,6 +62,31 @@ describe('GisApi spatial query', () => {
     expect(result).toMatchObject({ towers: [{ id: 'asset-1', latitude: 20.865143, longitude: 106.683542 }], lines: [{ coordinates: [[20.865143, 106.683542], [20.865421, 106.684125]] }], anomalies: [], alerts: [] });
   });
 
+  it('keeps valid towers when equipment without coordinates is included', () => {
+    let result: { towers: readonly { id: string }[] } | undefined;
+    api.getAllGisData().subscribe(value => result = value);
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({ data: {
+      assets: [
+        { id: 'insulator-1', code: 'INS-01', assetType: 'Insulator' },
+        { id: 'tower-1', towerCode: 'TOW-01', geometry: { type: 'Point', coordinates: [105.8, 21.1] } },
+        { id: 'tower-2', code: 'TOW-02', geometry: 'POINT(105.9 21.2)' },
+      ],
+      powerLines: [], anomalies: [], alerts: [],
+    } });
+    expect(result?.towers.map((tower) => tower.id)).toEqual(['tower-1', 'tower-2']);
+  });
+
+  it('accepts a dedicated towers collection from the GIS response', () => {
+    let result: { towers: readonly { id: string }[] } | undefined;
+    api.getAllGisData().subscribe(value => result = value);
+    http.expectOne(`${environment.apiBaseUrl}/gis/infrastructure`).flush({ data: {
+      towers: [{ towerId: 'tower-1', towerCode: 'TOW-01', lat: 21.1, lng: 105.8 }],
+      powerLines: [], anomalies: [], alerts: [],
+    } });
+    expect(result?.towers).toHaveLength(1);
+    expect(result?.towers[0].id).toBe('tower-1');
+  });
+
   it('distinguishes an empty response from a malformed response', () => {
     let empty: unknown;
     api.getAllGisData().subscribe(value => empty = value);
