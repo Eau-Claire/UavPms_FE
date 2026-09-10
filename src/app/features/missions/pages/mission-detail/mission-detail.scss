@@ -774,13 +774,18 @@
 }
 
 .mission-live-page:not(.workbench-mode) .targets-list-detail article {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  height: auto;
+  min-height: 0;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
 }
 
 .mission-live-page:not(.workbench-mode) .target-status-col {
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 .mission-live-page:not(.workbench-mode) .waypoint {

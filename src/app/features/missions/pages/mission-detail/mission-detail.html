@@ -65,15 +65,6 @@
             </span>
           </div>
 
-          <div class="sequence-flow-diagram" aria-label="Trình tự kiểm tra đề xuất">
-            @for (target of mission.targets; track target.assetId) {
-              <div class="seq-flow-node">
-                <span class="seq-node-index">{{ target.sequence || ($index + 1) }}</span>
-                <span class="seq-node-code">{{ target.assetCode || target.assetName }}</span>
-              </div>
-            }
-          </div>
-
           <div class="targets-list-detail">
             @for (target of mission.targets; track target.assetId) {
               <article>
@@ -101,7 +92,7 @@
             <span>Sơ đồ vị trí nhiệm vụ</span>
             <strong>{{ mission.regionName || 'Khu vực chưa xác định' }}</strong>
           </div>
-          <small>{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí hợp lệ</small>
+          <small>{{ targetsInEvnspcCoverage().length }}/{{ mission.targets.length }} vị trí thuộc EVNSPC</small>
         </header>
         <div #missionMap class="mission-live-map" role="img" aria-label="Sơ đồ vị trí các tài sản mục tiêu"></div>
         @if (hasTargetsOutsideEvnspcCoverage()) {

@@ -148,9 +148,12 @@ export class MissionDetail {
     Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
       && Math.abs(target.latitude!) <= 90 && Math.abs(target.longitude!) <= 180,
   ) ?? []);
-  protected readonly hasTargetsOutsideEvnspcCoverage = computed(() => this.targetsWithCoordinates().some((target) =>
-    target.latitude! < 8 || target.latitude! > 16.2 || target.longitude! < 102 || target.longitude! > 109.6,
+  protected readonly targetsInEvnspcCoverage = computed(() => this.targetsWithCoordinates().filter((target) =>
+    target.latitude! >= 8 && target.latitude! <= 16.2 && target.longitude! >= 102 && target.longitude! <= 109.6,
   ));
+  protected readonly hasTargetsOutsideEvnspcCoverage = computed(
+    () => this.targetsInEvnspcCoverage().length !== this.targetsWithCoordinates().length,
+  );
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -445,7 +448,7 @@ export class MissionDetail {
     }
 
     this.missionTargetsLayer.clearLayers();
-    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const targets = [...this.targetsInEvnspcCoverage()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     const points = targets.map((target) => L.latLng(target.latitude!, target.longitude!));
 
     if (points.length > 1) {
