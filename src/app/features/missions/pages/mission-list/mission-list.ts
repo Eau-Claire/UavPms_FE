@@ -40,7 +40,7 @@ export class MissionList {
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
   protected readonly statsItems = signal<readonly Mission[]>([]);
-  protected readonly statuses = ['Pending', 'Executing', 'Completed', 'Failed', 'Cancelled'];
+  protected readonly statuses = ['Draft', 'Assigned', 'Preparing', 'Ready', 'InProgress', 'Completed', 'Cancelled'];
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
@@ -122,6 +122,10 @@ export class MissionList {
   protected statusLabel(status: string): string {
     return ({
       Pending: 'Chờ xử lý',
+      Draft: 'Bản nháp',
+      Assigned: 'Đã phân công',
+      Preparing: 'Đang chuẩn bị',
+      Ready: 'Sẵn sàng',
       Executing: 'Đang xử lý AI',
       InProgress: 'Đang bay',
       'In Progress': 'Đang bay',
@@ -176,7 +180,7 @@ export class MissionList {
   }
 
   private isInProgress(status: string): boolean {
-    return ['Executing', 'InProgress', 'Processing', 'AIProcessing'].includes(status.replace(/\s+/g, ''));
+    return ['Executing', 'Preparing', 'Ready', 'InProgress', 'Processing', 'AIProcessing'].includes(status.replace(/\s+/g, ''));
   }
 
   private isFailed(status: string): boolean {

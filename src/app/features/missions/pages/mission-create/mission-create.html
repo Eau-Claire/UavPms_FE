@@ -132,6 +132,14 @@
             }
           </label>
 
+          <label class="field-item">
+            <span class="field-label">Kết thúc dự kiến <span class="required-star">*</span></span>
+            <input type="datetime-local" class="form-input" formControlName="plannedEnd" />
+            @if (form.controls.plannedEnd.touched && form.controls.plannedEnd.invalid) {
+              <span class="field-error">Vui lòng chọn thời gian kết thúc nhiệm vụ.</span>
+            }
+          </label>
+
           <label class="field-item field-item--full">
             <span class="field-label">Mô tả nhiệm vụ &amp; Ghi chú tổng quan</span>
             <textarea
@@ -147,7 +155,6 @@
           <a routerLink="/missions" class="btn-secondary">Hủy bỏ</a>
           <button type="button" class="btn-primary" (click)="goToStep(2)">
             <span>Tiếp tục: Chọn tài sản (GIS)</span>
-            <span nz-icon nzType="arrow-right"></span>
           </button>
         </footer>
       </section>
@@ -159,7 +166,7 @@
         <div class="region-filter" aria-label="Phạm vi Region">
           <label for="mission-region">Region / Khu vực</label>
           <select id="mission-region" #missionRegion [value]="selectedRegionId()" (change)="changeRegion(missionRegion.value)" [disabled]="gisLoading() || busy()">
-            <option value="">Tất cả Region được cấp quyền</option>
+            <option value="">Chọn Region được cấp quyền</option>
             @for (region of regions(); track region.id) {
               <option [value]="region.id">{{ region.name }}</option>
             }
@@ -179,7 +186,7 @@
                 (input)="searchQuery.set($any($event.target).value)"
               />
               @if (searchQuery()) {
-                <button type="button" class="search-clear" (click)="searchQuery.set('')">✕</button>
+                <button type="button" class="search-clear" aria-label="Xóa tìm kiếm" (click)="searchQuery.set('')">×</button>
               }
             </div>
 
@@ -208,7 +215,7 @@
                         [class.already-added]="targetSelection.has(tower.id)"
                         (click)="addTowerFromSearch(tower)"
                       >
-                        <span>{{ targetSelection.has(tower.id) ? '✓ Đã chọn' : '+ Thêm' }}</span>
+                        <span>{{ targetSelection.has(tower.id) ? 'Đã chọn' : 'Thêm' }}</span>
                       </button>
                     </div>
                   </div>
@@ -227,7 +234,7 @@
               title="Nhấp chuột vào từng cột điện trên bản đồ để chọn/bỏ chọn"
             >
               <span nz-icon nzType="select"></span>
-              <span>👆 Chọn lẻ</span>
+              <span>Chọn lẻ</span>
             </button>
 
             <button
@@ -238,7 +245,7 @@
               title="Kéo thả chuột trên bản đồ để chọn vùng hình chữ nhật"
             >
               <span nz-icon nzType="border"></span>
-              <span>▭ Chọn vùng chữ nhật</span>
+              <span>Vùng chữ nhật</span>
             </button>
 
             <button
@@ -249,7 +256,7 @@
               title="Nhấp các đỉnh để vẽ vùng đa giác, nhấp điểm đầu để hoàn tất"
             >
               <span nz-icon nzType="radar-chart"></span>
-              <span>⬡ Chọn vùng đa giác</span>
+              <span>Vùng đa giác</span>
             </button>
 
             <button
@@ -259,7 +266,7 @@
               title="Định vị theo vị trí GPS hiện tại của máy bạn"
             >
               <span nz-icon nzType="aim"></span>
-              <span>⌖ Vị trí của tôi</span>
+              <span>Vị trí của tôi</span>
             </button>
 
             <button
@@ -269,7 +276,7 @@
               title="Xóa vùng vẽ trên bản đồ"
             >
               <span nz-icon nzType="clear"></span>
-              <span>🧹 Xóa vùng vẽ</span>
+              <span>Xóa vùng vẽ</span>
             </button>
           </div>
         </div>
@@ -293,11 +300,11 @@
 
           <div class="gis-instruction-overlay">
             @if (activeTool() === 'select') {
-              <span>👆 Nhấp vào cột điện trên bản đồ để thêm hoặc bỏ chọn.</span>
+              <span>Nhấp vào cột điện trên bản đồ để thêm hoặc bỏ chọn.</span>
             } @else if (activeTool() === 'rectangle') {
-              <span>▭ Nhấn giữ và kéo chuột trên bản đồ để khoanh vùng chữ nhật.</span>
+              <span>Nhấn giữ và kéo chuột trên bản đồ để khoanh vùng chữ nhật.</span>
             } @else if (activeTool() === 'polygon') {
-              <span>⬡ Nhấp từng điểm để vẽ đa giác. Nhấp điểm đầu hoặc nhấp đúp để khép kín vùng.</span>
+              <span>Nhấp từng điểm để vẽ đa giác. Nhấp điểm đầu hoặc nhấp đúp để khép kín vùng.</span>
             }
           </div>
         </div>
@@ -312,7 +319,7 @@
           <div class="dock-chips">
             @for (target of targetSelection.selected().slice(0, 8); track target.assetId) {
               <span class="target-chip">
-                <span>✓ {{ target.code }}</span>
+                <span>{{ target.code }}</span>
                 <button type="button" (click)="targetSelection.remove(target.assetId)" title="Bỏ chọn">×</button>
               </span>
             }
@@ -333,7 +340,6 @@
               (click)="goToStep(3)"
             >
               <span>Xem lại mục tiêu ({{ targetSelection.count() }})</span>
-              <span nz-icon nzType="arrow-right"></span>
             </button>
           </div>
         </div>
@@ -424,7 +430,6 @@
             (click)="goToStep(4)"
           >
             <span>Tiếp tục: Cấu hình kiểm tra</span>
-            <span nz-icon nzType="arrow-right"></span>
           </button>
         </footer>
       </section>
@@ -483,7 +488,6 @@
           <button type="button" class="btn-secondary" (click)="goToStep(3)">← Quay lại</button>
           <button type="button" class="btn-primary" (click)="goToStep(5)">
             <span>Tiếp tục: Phân công UAV &amp; Đội bay</span>
-            <span nz-icon nzType="arrow-right"></span>
           </button>
         </footer>
       </section>
@@ -576,7 +580,6 @@
           <button type="button" class="btn-secondary" (click)="goToStep(4)">← Quay lại</button>
           <button type="button" class="btn-primary" (click)="goToStep(6)">
             <span>Tiếp tục: Xác nhận &amp; Khởi tạo</span>
-            <span nz-icon nzType="arrow-right"></span>
           </button>
         </footer>
       </section>

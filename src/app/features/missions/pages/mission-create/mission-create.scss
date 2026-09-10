@@ -272,6 +272,20 @@
   gap: 12px;
 }
 
+.region-filter {
+  display: grid;
+  grid-template-columns: minmax(150px, max-content) minmax(220px, 420px);
+  align-items: center;
+  gap: 10px 16px;
+
+  label { font-size: 13px; font-weight: 700; color: #334155; }
+  select {
+    width: 100%; min-width: 0; min-height: 42px; padding: 0 12px;
+    border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a;
+  }
+  [role='alert'] { grid-column: 2; color: #b91c1c; font-size: 12px; }
+}
+
 .gis-workspace-bar {
   display: flex;
   align-items: center;
@@ -343,6 +357,7 @@
       justify-content: space-between;
       padding: 10px 14px;
       border-bottom: 1px solid #f1f5f9;
+      gap: 12px;
 
       &:last-child {
         border-bottom: none;
@@ -356,6 +371,10 @@
         display: flex;
         flex-direction: column;
         gap: 2px;
+        min-width: 0;
+
+        strong,
+        .search-item-sub { overflow-wrap: anywhere; }
 
         strong {
           color: #0f172a;
@@ -537,6 +556,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
 
     .dock-title {
       font-size: 12px;
@@ -558,6 +578,7 @@
     gap: 6px;
     flex-wrap: wrap;
     flex: 1;
+    min-width: 0;
 
     .target-chip {
       display: inline-flex;
@@ -570,6 +591,9 @@
       font-size: 12px;
       font-weight: 600;
       color: #166534;
+      max-width: 100%;
+
+      span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
       button {
         border: none;
@@ -1059,11 +1083,13 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
 
     .uav-top-line {
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
 
       .uav-code {
         font-size: 16px;
@@ -1118,6 +1144,44 @@
       }
     }
   }
+}
+
+@media (max-width: 900px) {
+  .wizard-stepper { justify-content: flex-start; padding: 12px; }
+  .wizard-stepper .step-connector { flex: 0 0 20px; }
+  .gis-workspace-bar { align-items: stretch; }
+  .gis-search-wrapper { flex-basis: 100%; min-width: 0; }
+  .gis-tools-toolbar { width: 100%; }
+  .gis-tools-toolbar .tool-button { flex: 1 1 150px; justify-content: center; }
+  .gis-map-viewport { height: min(480px, 58vh); }
+  .gis-docked-targets-bar { align-items: stretch; }
+  .gis-docked-targets-bar .dock-summary,
+  .gis-docked-targets-bar .dock-actions { width: 100%; }
+  .gis-docked-targets-bar .dock-actions { justify-content: flex-end; }
+}
+
+@media (max-width: 640px) {
+  .mission-create-wizard { gap: 14px; }
+  .wizard-card { padding: 16px; border-radius: 10px; }
+  .form-grid-fields { grid-template-columns: minmax(0, 1fr); }
+  .region-filter { grid-template-columns: minmax(0, 1fr); }
+  .region-filter [role='alert'] { grid-column: 1; }
+  .search-results-dropdown .search-item { align-items: stretch; flex-direction: column; }
+  .search-results-dropdown .search-item-actions { justify-content: flex-end; flex-wrap: wrap; }
+  .gis-tools-toolbar .tool-button { flex-basis: calc(50% - 4px); padding-inline: 10px; }
+  .gis-map-viewport { height: 420px; }
+  .gis-map-viewport .gis-instruction-overlay {
+    right: 8px; bottom: 8px; left: 8px; border-radius: 8px; line-height: 1.4;
+  }
+  .gis-docked-targets-bar .dock-summary { align-items: flex-start; flex-direction: column; }
+  .gis-docked-targets-bar .dock-actions { display: grid; grid-template-columns: 1fr; }
+  .gis-docked-targets-bar .dock-actions button { width: 100%; }
+  .wizard-actions-bar { align-items: stretch; flex-direction: column-reverse; }
+  .wizard-actions-bar .btn-primary,
+  .wizard-actions-bar .btn-secondary,
+  .wizard-actions-bar .btn-submit-mission { width: 100%; justify-content: center; }
+  .uav-status-card { align-items: flex-start; padding: 14px; }
+  .review-layout-grid .review-details-col .summary-row-grid { grid-template-columns: 1fr; }
 }
 
 /* =========================================================

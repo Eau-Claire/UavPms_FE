@@ -102,6 +102,7 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   protected readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
     scheduledAt: ['', Validators.required],
+    plannedEnd: ['', Validators.required],
     inspectorId: ['', Validators.required],
     droneId: ['', Validators.required],
     description: [''],
@@ -166,16 +167,20 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
     // Validation before moving forward from step 1
     if (this.currentStep() === 1 && step > 1) {
-      if (this.form.controls.name.invalid || this.form.controls.scheduledAt.invalid) {
+      if (this.form.controls.name.invalid || this.form.controls.scheduledAt.invalid || this.form.controls.plannedEnd.invalid) {
         this.form.controls.name.markAsTouched();
         this.form.controls.scheduledAt.markAsTouched();
-        this.error.set('Vui lòng điền đầy đủ Tên nhiệm vụ và Lịch thực hiện.');
+        this.error.set('Vui lòng điền đầy đủ Tên nhiệm vụ, thời gian bắt đầu và kết thúc.');
         return;
       }
     }
 
     // Validation before moving forward from step 2
     if (this.currentStep() === 2 && step > 2) {
+      if (!this.selectedRegionId()) {
+        this.error.set('Vui lòng chọn Region quản lý nhiệm vụ.');
+        return;
+      }
       if (this.targetSelection.count() === 0) {
         this.error.set('Vui lòng chọn ít nhất một tài sản mục tiêu trên bản đồ GIS.');
         return;
@@ -532,9 +537,9 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
       marker.bindTooltip(`
         <div class="pylon-tooltip">
-          <strong>⚡ Cột điện: ${tower.towerCode}</strong><br>
+          <strong>Cột điện: ${tower.towerCode}</strong><br>
           <small>${tower.transmissionLineName || 'Lưới điện khu vực'}</small><br>
-          <span style="color: #0284c7; font-weight: 700;">👉 Nhấp để chọn vào nhiệm vụ</span>
+          <span style="color: #0284c7; font-weight: 700;">Nhấp để chọn vào nhiệm vụ</span>
         </div>
       `, { direction: 'top', offset: [0, -18] });
 
@@ -557,7 +562,7 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
               </svg>
               <div class="pylon-seq-badge">#${index + 1}</div>
             </div>
-            <span class="pylon-tag selected">✓ #${index + 1} ${target.code}</span>
+            <span class="pylon-tag selected">#${index + 1} ${target.code}</span>
           </div>
         `,
         iconSize: [42, 50],
@@ -568,10 +573,10 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
       marker.bindTooltip(`
         <div class="pylon-tooltip">
-          <strong style="color: #15803d;">✓ ĐÃ CHỌN - Thứ tự kiểm tra: #${index + 1}</strong><br>
+          <strong style="color: #15803d;">Đã chọn · Thứ tự kiểm tra: #${index + 1}</strong><br>
           <strong>Mã cột: ${target.code}</strong><br>
           <small>${target.name || ''}</small><br>
-          <span style="color: #ef4444; font-weight: 700;">👉 Nhấp để bỏ chọn</span>
+          <span style="color: #ef4444; font-weight: 700;">Nhấp để bỏ chọn</span>
         </div>
       `, { direction: 'top', offset: [0, -22] });
 
@@ -792,9 +797,11 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
   // --- SUBMISSION (Step 7) ---
   protected save(): void {
-    if (this.form.invalid || !this.targetSelection.count()) {
+    if (this.form.invalid || !this.selectedRegionId() || !this.targetSelection.count()) {
       this.form.markAllAsTouched();
-      if (!this.targetSelection.count()) {
+      if (!this.selectedRegionId()) {
+        this.error.set('Vui lòng chọn Region quản lý nhiệm vụ.');
+      } else if (!this.targetSelection.count()) {
         this.error.set('Vui lòng chọn ít nhất một tài sản mục tiêu trên bản đồ GIS.');
       } else {
         this.error.set('Vui lòng điền đầy đủ các trường bắt buộc.');
@@ -817,13 +824,27 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       checklist: value.checklistNotes.trim(),
     };
 
+    const plannedStart = new Date(value.scheduledAt);
+    const plannedEnd = new Date(value.plannedEnd);
+    if (plannedStart >= plannedEnd) {
+      this.busy.set(false);
+      this.error.set('Thời gian kết thúc phải sau thời gian bắt đầu.');
+      return;
+    }
+    const boundaryWkt = this.targetBoundaryWkt();
+
     this.api.create({
       name: value.name.trim(),
-      scheduledAt: new Date(value.scheduledAt).toISOString(),
+      scheduledAt: plannedStart.toISOString(),
+      plannedEnd: plannedEnd.toISOString(),
+      regionId: this.selectedRegionId(),
+      missionType: 'AD_HOC',
+      triggerReason: value.description.trim() || undefined,
       inspectorId: value.inspectorId,
       droneId: value.droneId.trim(),
       description: value.description.trim(),
       targetAssetIds: this.targetSelection.selected().map((asset) => asset.assetId),
+      boundaryWkt,
       routeData: JSON.stringify(routeDataObj),
     })
       .pipe(
@@ -837,6 +858,16 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
         },
         error: (error: unknown) => this.error.set(this.errorMessage(error)),
       });
+  }
+
+  private targetBoundaryWkt(): string {
+    const targets = this.targetSelection.selected();
+    const padding = 0.00001;
+    const west = Math.min(...targets.map((target) => target.longitude)) - padding;
+    const east = Math.max(...targets.map((target) => target.longitude)) + padding;
+    const south = Math.min(...targets.map((target) => target.latitude)) - padding;
+    const north = Math.max(...targets.map((target) => target.latitude)) + padding;
+    return `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`;
   }
 
   // Data loaders

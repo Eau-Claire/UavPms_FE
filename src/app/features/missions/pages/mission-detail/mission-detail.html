@@ -137,7 +137,7 @@
           <section class="asset-upload-view mission-tab-upload" aria-label="Upload Media">
             <section class="mission-card" aria-label="Thông tin nhiệm vụ">
               <div class="mission-item"><span>Mã nhiệm vụ</span><strong [title]="mission.missionCode">{{ middleEllipsis(mission.missionCode, 28) }}</strong></div>
-              <div class="mission-item mission-line"><span>Tuyến đường dây</span><strong [title]="displayValue(mission.routeData)"><i aria-hidden="true">ϟ</i>{{ middleEllipsis(displayValue(mission.routeData), 34) }}</strong></div>
+              <div class="mission-item mission-line"><span>Tuyến đường dây</span><strong [title]="displayValue(mission.routeData)">{{ middleEllipsis(displayValue(mission.routeData), 34) }}</strong></div>
               <div class="mission-item"><span>Trạng thái</span><strong>{{ statusLabel(mission.status) }}</strong></div>
               <div class="mission-item"><span>Ngày tạo</span><strong><span nz-icon nzType="calendar" aria-hidden="true"></span>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</strong></div>
             </section>
@@ -264,7 +264,7 @@
                 </div>
               </div>
               <div class="proc-pipeline-flow">
-                <div class="step done"><span class="num">✓</span><span>Tải dữ liệu</span></div>
+                <div class="step done"><span class="num">1</span><span>Tải dữ liệu</span></div>
                 <div class="step active"><span class="num">2</span><span>Trích xuất frame & suy luận</span></div>
                 <div class="step"><span class="num">3</span><span>Phát hiện & Bounding Box</span></div>
                 <div class="step"><span class="num">4</span><span>Lập báo cáo rủi ro</span></div>
@@ -524,7 +524,7 @@
 
                   <div class="review-actions">
                     <button type="button" class="reject-action" [disabled]="reviewBusy()" (click)="reviewDetection('Rejected')">× Từ chối - AI sai</button>
-                    <button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">✓ Xác nhận - Có lỗi thật</button>
+                    <button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">Xác nhận có lỗi</button>
                   </div>
                 </div>
               </aside>

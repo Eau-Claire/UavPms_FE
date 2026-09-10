@@ -1,4 +1,4 @@
-export type MissionStatus = 'Pending' | 'Executing' | 'Completed' | 'Failed' | 'Cancelled' | string;
+export type MissionStatus = 'Draft' | 'Assigned' | 'Preparing' | 'Ready' | 'InProgress' | 'Completed' | 'Cancelled' | string;
 
 export interface Mission {
   readonly id: string;
@@ -16,6 +16,16 @@ export interface Mission {
   readonly updatedAt: string | null;
   readonly targets: readonly MissionTarget[];
   readonly scheduledStartAt?: string | null;
+  readonly regionId?: string;
+  readonly regionName?: string;
+  readonly missionType?: 'Scheduled' | 'AdHoc' | string;
+  readonly triggerReason?: string | null;
+  readonly plannedStart?: string | null;
+  readonly plannedEnd?: string | null;
+  readonly actualStart?: string | null;
+  readonly actualCompleted?: string | null;
+  readonly boundaryWkt?: string | null;
+  readonly team?: readonly MissionAssignment[];
 }
 
 export interface MissionPage {
@@ -39,10 +49,25 @@ export interface MissionCreateRequest {
   readonly name: string;
   readonly description: string;
   readonly scheduledAt: string;
+  readonly plannedEnd: string;
+  readonly regionId: string;
+  readonly missionType: 'AD_HOC' | 'SCHEDULED';
+  readonly triggerReason?: string;
+  readonly scheduleId?: string;
   readonly inspectorId: string;
   readonly droneId: string;
   readonly targetAssetIds: readonly string[];
+  readonly boundaryWkt: string;
   readonly routeData?: string;
+}
+
+export interface MissionAssignment {
+  readonly id: string;
+  readonly userId: string;
+  readonly userName: string;
+  readonly assignmentRole: string;
+  readonly status: string;
+  readonly checkedInAt?: string | null;
 }
 
 export interface MissionTarget {

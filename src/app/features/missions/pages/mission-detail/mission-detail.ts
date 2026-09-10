@@ -662,7 +662,7 @@ export class MissionDetail {
           this.selectedDetection.set(updated);
           this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
           this.resultMessage.set(
-            decision === 'Approved' ? '✓ Đã xác nhận khuyết tật.' : '× Đã từ chối phát hiện AI (Nhận diện sai).',
+            decision === 'Approved' ? 'Đã xác nhận khuyết tật.' : 'Đã từ chối phát hiện AI (nhận diện sai).',
           );
         },
         error: (error: unknown) => this.resultMessage.set(this.errorMessage(error)),
@@ -697,6 +697,10 @@ export class MissionDetail {
     return (
       ({
         Pending: 'Chờ xử lý',
+        Draft: 'Bản nháp',
+        Assigned: 'Đã phân công',
+        Preparing: 'Đang chuẩn bị',
+        Ready: 'Sẵn sàng',
         Executing: 'Đang xử lý AI',
         InProgress: 'Đang bay',
         'In Progress': 'Đang bay',

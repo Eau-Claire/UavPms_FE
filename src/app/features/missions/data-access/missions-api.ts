@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map } from 'rxjs';
+import { map, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { Mission, MissionCreateRequest, MissionMutationRequest, MissionPage, MissionTarget } from '../../../models/missions.models';
@@ -35,8 +35,37 @@ export class MissionsApi {
   }
 
   create(request: MissionCreateRequest) {
-    return this.http.post<unknown>(this.url, request).pipe(map((response) => normalizeMission(unwrapApiData(response))));
+    const createBody = {
+      title: request.name,
+      description: request.description,
+      regionId: request.regionId,
+      missionType: request.missionType,
+      scheduleId: request.scheduleId || null,
+      triggerReason: request.triggerReason || null,
+      plannedStart: request.scheduledAt,
+      plannedEnd: request.plannedEnd,
+    };
+    return this.http.post<unknown>(this.url, createBody).pipe(
+      map((response) => {
+        const data = unwrapApiData(response);
+        return typeof data === 'string' ? data : stringValue(record(data)['id']);
+      }),
+      switchMap((missionId) => missionId
+        ? this.http.put(`${this.url}/${missionId}/assets`, { boundaryWkt: request.boundaryWkt, assetIds: request.targetAssetIds }).pipe(map(() => missionId))
+        : throwError(() => new Error('Backend did not return the created mission ID.'))),
+      switchMap((missionId) => this.http.post(`${this.url}/${missionId}/assignments`, {
+        userId: request.inspectorId,
+        assignmentRole: 'Inspector',
+      }).pipe(map(() => missionId))),
+      switchMap((missionId) => this.http.put(`${this.url}/${missionId}/drone`, { droneId: request.droneId }).pipe(map(() => missionId))),
+      switchMap((missionId) => this.get(missionId)),
+    );
   }
+
+  checkIn(id: string) { return this.http.post<unknown>(`${this.url}/${id}/check-in`, {}); }
+  start(id: string) { return this.http.post<unknown>(`${this.url}/${id}/start`, {}); }
+  complete(id: string) { return this.http.post<unknown>(`${this.url}/${id}/complete`, {}); }
+  cancel(id: string) { return this.http.post<unknown>(`${this.url}/${id}/cancel`, {}); }
 
   update(id: string, request: MissionMutationRequest) {
     return this.http.put<unknown>(`${this.url}/${id}`, request).pipe(map((response) => normalizeMission(unwrapApiData(response))));
@@ -89,13 +118,28 @@ const normalizeMission = (value: unknown): Mission => {
     assignedToUserId: stringValue(source['assignedToUserId']),
     assignedToUsername: stringValue(pick(source, 'assignedToUsername', 'inspectorEmail', 'assignedToEmail'), 'Chưa phân công'),
     droneCode: stringValue(source['droneCode'], 'Chưa gán UAV'),
-    status: stringValue(source['status'], 'Pending'),
+    status: stringValue(source['status'], 'Draft'),
     description: stringValue(source['description']),
     managerId: stringValue(source['managerId']),
     managerUsername: stringValue(pick(source, 'managerUsername', 'managerEmail'), 'Chưa có quản lý'),
     createdAt: stringValue(source['createdAt']),
     updatedAt: source['updatedAt'] === undefined || source['updatedAt'] === null ? null : String(source['updatedAt']),
     scheduledStartAt: stringValue(pick(source, 'scheduledStartAt', 'scheduledAt')) || null,
+    regionId: stringValue(source['regionId']),
+    regionName: stringValue(source['regionName']),
+    missionType: stringValue(source['missionType']),
+    triggerReason: source['triggerReason'] == null ? null : stringValue(source['triggerReason']),
+    plannedStart: source['plannedStart'] == null ? null : stringValue(source['plannedStart']),
+    plannedEnd: source['plannedEnd'] == null ? null : stringValue(source['plannedEnd']),
+    actualStart: source['actualStart'] == null ? null : stringValue(source['actualStart']),
+    actualCompleted: source['actualCompleted'] == null ? null : stringValue(source['actualCompleted']),
+    boundaryWkt: source['boundaryWkt'] == null ? null : stringValue(source['boundaryWkt']),
+    team: Array.isArray(source['team']) ? source['team'].map((item) => {
+      const member = record(item);
+      return { id: stringValue(member['id']), userId: stringValue(member['userId']), userName: stringValue(member['userName']),
+        assignmentRole: stringValue(member['assignmentRole']), status: stringValue(member['status']),
+        checkedInAt: member['checkedInAt'] == null ? null : stringValue(member['checkedInAt']) };
+    }) : [],
     targets: normalizeTargets(pick(source, 'missionTargets', 'targets', 'targetAssets')),
   };
 };

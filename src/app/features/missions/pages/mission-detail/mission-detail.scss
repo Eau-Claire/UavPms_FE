@@ -224,6 +224,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .media-title-row {
@@ -231,13 +232,39 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 
   h3 {
     margin: 0;
     font-size: 16px;
     font-weight: 800;
     color: #0b1c30;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
+}
+
+.mission-detail-tabs { overflow-x: auto; scrollbar-width: thin; }
+.mission-detail-tabs button { flex: 0 0 auto; white-space: nowrap; }
+.mission-live-header > div { min-width: 0; }
+.mission-live-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mission-live-footer > div { min-width: 0; }
+
+@media (max-width: 640px) {
+  .mission-live-page { padding-inline: 10px; }
+  .mission-live-header { min-height: 64px; height: auto; padding-block: 10px; flex-wrap: wrap; }
+  .mission-live-header .mission-signal { display: none; }
+  .mission-detail-tabs { margin-inline: -10px; padding-inline: 10px; }
+  .mission-telemetry-panel,
+  .mission-camera-panel,
+  .mission-ai-workbench { min-width: 0; padding: 14px; }
+  .mission-targets .targets-list-detail article { align-items: flex-start; flex-direction: column; }
+  .mission-targets .targets-list-detail article .target-status-col { align-items: flex-start; }
+  .preview-hero-box { padding: 12px; }
+  .media-title-row { flex-direction: column; }
+  .mission-detection-images,
+  .mission-review-actions,
+  .maint-tasks-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .badge-ready-ai {
