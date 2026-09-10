@@ -523,6 +523,313 @@
   }
 }
 
+/* Overview uses one explicit map card and the same neutral surface system as the other mission tabs. */
+.mission-live-page:not(.workbench-mode) {
+  grid-template-areas:
+    'header header header'
+    'tabs tabs tabs'
+    'telemetry map camera'
+    'footer footer footer';
+  grid-template-columns: minmax(260px, 300px) minmax(420px, 1fr) minmax(260px, 300px);
+  grid-template-rows: auto auto minmax(560px, 1fr) auto;
+  gap: 16px;
+  height: auto;
+  min-height: calc(100vh - 64px);
+  overflow: visible;
+  padding: 20px;
+  background: #f4f7fb;
+  color: #172033;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-live-header,
+.mission-live-page:not(.workbench-mode) .mission-detail-tabs,
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel,
+.mission-live-page:not(.workbench-mode) .mission-camera-panel,
+.mission-live-page:not(.workbench-mode) .mission-map-panel,
+.mission-live-page:not(.workbench-mode) .mission-live-footer {
+  border: 1px solid #dce3ec;
+  background: #ffffff;
+  color: #172033;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, .06);
+  backdrop-filter: none;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-live-header {
+  grid-area: header;
+  min-height: 58px;
+  margin: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-live-header a {
+  color: #334155;
+  font-weight: 700;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-detail-tabs {
+  grid-area: tabs;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-detail-tabs button {
+  min-height: 38px;
+  border-color: transparent;
+  background: transparent;
+  color: #536176;
+  font-weight: 700;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-detail-tabs button:hover {
+  background: #f3f6fa;
+  color: #172033;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-detail-tabs button.active {
+  border-color: #f3c16b;
+  background: #fff8e9;
+  color: #7a4a00;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel {
+  grid-area: telemetry;
+  align-self: stretch;
+  max-height: none;
+  overflow: visible;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-camera-panel {
+  grid-area: camera;
+  align-self: stretch;
+  align-content: start;
+  max-height: none;
+  overflow: visible;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel h2,
+.mission-live-page:not(.workbench-mode) .mission-camera-panel h2 {
+  color: #667085;
+  letter-spacing: .06em;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel dl {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel dl > div,
+.mission-live-page:not(.workbench-mode) .waypoint {
+  border-color: #e4e9f0;
+  background: #f8fafc;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel dt {
+  color: #667085;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-telemetry-panel dd {
+  color: #172033;
+  overflow: visible;
+  white-space: normal;
+}
+
+.mission-map-panel {
+  position: relative;
+  grid-area: map;
+  display: grid;
+  min-width: 0;
+  min-height: 560px;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.mission-map-panel > header {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  border-bottom: 1px solid #e4e9f0;
+  padding: 12px 16px;
+}
+
+.mission-map-panel > header div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mission-map-panel > header span,
+.mission-map-panel > header small {
+  color: #667085;
+  font-size: 12px;
+}
+
+.mission-map-panel > header strong {
+  overflow: hidden;
+  color: #172033;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-map-panel .mission-live-map {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  filter: none;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-targets-header {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.mission-live-page:not(.workbench-mode) .sequence-banner {
+  max-width: 100%;
+  border-radius: 6px;
+  white-space: normal;
+}
+
+.mission-live-page:not(.workbench-mode) .sequence-flow-diagram {
+  flex-wrap: wrap;
+  overflow: visible;
+  padding: 8px;
+}
+
+.mission-live-page:not(.workbench-mode) .seq-flow-node {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.mission-live-page:not(.workbench-mode) .seq-node-code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mission-live-page:not(.workbench-mode) .targets-list-detail article {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mission-live-page:not(.workbench-mode) .target-status-col {
+  align-items: flex-start;
+}
+
+.mission-live-page:not(.workbench-mode) .waypoint {
+  grid-template-columns: 28px minmax(0, 1fr);
+  color: #172033;
+}
+
+.waypoint-index {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  grid-row: 1 / span 2;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9eef5;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mission-live-page:not(.workbench-mode) .waypoint strong,
+.mission-live-page:not(.workbench-mode) .waypoint small {
+  overflow: visible;
+  color: #172033;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.mission-live-page:not(.workbench-mode) .waypoint small {
+  color: #667085;
+}
+
+.waypoint-empty {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-live-footer {
+  grid-area: footer;
+  border-radius: 10px;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-live-footer small {
+  color: #667085;
+}
+
+.mission-live-page:not(.workbench-mode) .mission-progress {
+  background: #e7ebf1;
+}
+
+@media (max-width: 1200px) {
+  .mission-live-page:not(.workbench-mode) {
+    grid-template-areas:
+      'header header'
+      'tabs tabs'
+      'telemetry map'
+      'camera camera'
+      'footer footer';
+    grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(520px, auto) auto auto;
+  }
+
+  .mission-live-page:not(.workbench-mode) .mission-camera-panel {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .mission-live-page:not(.workbench-mode) {
+    grid-template-areas: 'header' 'tabs' 'telemetry' 'map' 'camera' 'footer';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(6, auto);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .mission-live-page:not(.workbench-mode) .mission-live-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mission-live-page:not(.workbench-mode) .mission-camera-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-map-panel,
+  .mission-map-panel .mission-live-map {
+    min-height: 420px;
+  }
+
+  .mission-live-page:not(.workbench-mode) .mission-live-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-live-page:not(.workbench-mode) .mission-live-footer div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .mission-timeline-track-wrap {
   background: #0f172a;
   border: 1px solid #334155;

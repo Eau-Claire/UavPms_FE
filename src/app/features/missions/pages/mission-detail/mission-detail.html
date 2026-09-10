@@ -6,49 +6,41 @@
   } @else if (error()) {
     <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lại danh sách</a></div>
   } @else if (mission(); as mission) {
-    @if (activeTab() === 'overview') {
-      <iframe class="mission-live-map" [src]="mapUrl" title="Google Maps mission background" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-      <div class="mission-map-overlay" aria-hidden="true"></div>
-    }
-
     <header class="mission-live-header">
       <div>
         <strong>Nhiệm vụ: {{ mission.missionCode }}</strong>
         <span class="mission-live-badge {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span>
       </div>
-      <div class="mission-signal">
-        <span nz-icon nzType="thunderbolt"></span>SIGNAL: EXCELLENT (98%) · UAV RTK READY
-      </div>
       <div class="mission-live-actions">
-        <a routerLink="/missions"><span nz-icon nzType="arrow-left"></span>Danh sách</a>
+        <a routerLink="/missions">Quay lại danh sách</a>
       </div>
     </header>
 
     <!-- Mission Detail Navigation Tabs -->
     <nav class="mission-detail-tabs" aria-label="Mission detail sections">
       <button type="button" [class.active]="activeTab() === 'overview'" (click)="setTab('overview')">
-        <span nz-icon nzType="dashboard"></span> Overview
+        Tổng quan
       </button>
       <button type="button" [class.active]="activeTab() === 'upload'" (click)="setTab('upload')">
-        <span nz-icon nzType="cloud-upload"></span> Upload Media
+        Tải dữ liệu
       </button>
       <button type="button" [class.active]="activeTab() === 'processing'" (click)="setTab('processing')">
-        <span nz-icon nzType="sync"></span> AI Processing
+        Phân tích AI
       </button>
       <button type="button" [class.active]="activeTab() === 'results'" (click)="setTab('results')">
-        <span nz-icon nzType="experiment"></span> AI Results
+        Kết quả AI
         <span class="tab-count-bubble">{{ detections().length }}</span>
       </button>
       <button type="button" [class.active]="activeTab() === 'assets'" (click)="setTab('assets')">
-        <span nz-icon nzType="safety-certificate"></span> Assets
+        Tài sản
         <span class="tab-count-bubble">{{ missionAssets().length }}</span>
       </button>
       <button type="button" [class.active]="activeTab() === 'maintenance'" (click)="setTab('maintenance')">
-        <span nz-icon nzType="tool"></span> Maintenance
+        Bảo trì
         <span class="tab-count-bubble warn">{{ maintenanceTasks().length }}</span>
       </button>
       <button type="button" [class.active]="activeTab() === 'activity'" (click)="setTab('activity')">
-        <span nz-icon nzType="history"></span> Activity
+        Hoạt động
       </button>
     </nav>
 
@@ -69,19 +61,16 @@
             <h2>Tài sản mục tiêu ({{ mission.targets.length }})</h2>
             <span class="sequence-banner">
               <span class="sequence-line-indicator"></span>
-              <strong>Trình tự kiểm tra đề xuất (Suggested Inspection Sequence)</strong>
+              <strong>Trình tự kiểm tra đề xuất</strong>
             </span>
           </div>
 
           <div class="sequence-flow-diagram" aria-label="Trình tự kiểm tra đề xuất">
-            @for (target of mission.targets; track target.assetId; let last = $last) {
+            @for (target of mission.targets; track target.assetId) {
               <div class="seq-flow-node">
                 <span class="seq-node-index">{{ target.sequence || ($index + 1) }}</span>
                 <span class="seq-node-code">{{ target.assetCode || target.assetName }}</span>
               </div>
-              @if (!last) {
-                <span class="seq-flow-arrow" aria-hidden="true">→</span>
-              }
             }
           </div>
 
@@ -106,23 +95,38 @@
       }
       </aside>
 
+      <section class="mission-map-panel" aria-label="Phạm vi bản đồ nhiệm vụ">
+        <header>
+          <div>
+            <span>Bản đồ nhiệm vụ</span>
+            <strong>{{ mission.regionName || 'Khu vực chưa xác định' }}</strong>
+          </div>
+          <small>{{ mission.targets.length }} tài sản mục tiêu</small>
+        </header>
+        <iframe class="mission-live-map" [src]="mapUrl" title="Bản đồ phạm vi nhiệm vụ" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </section>
+
       <aside class="mission-camera-panel">
         <div class="mission-camera-feed">
           <img src="/images/defect-preview-frame.png" alt="Mock live UAV feed" />
           <span>CAM-01 FPV · RTK FIX</span>
         </div>
         <section>
-          <h2>Điểm kiểm tra (Waypoints)</h2>
-          <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 040</strong><small>Đã quét hình ảnh</small></div>
-          <div class="waypoint done"><span nz-icon nzType="check-circle"></span><strong>Cột 041</strong><small>Đã lưu dữ liệu</small></div>
-          <div class="waypoint active"><span nz-icon nzType="aim"></span><strong>Cột 042</strong><small>Đang kiểm tra AI...</small></div>
-          <div class="waypoint"><strong>Cột 043</strong><small>Chờ xử lý</small></div>
+          <h2>Điểm kiểm tra</h2>
+          @for (target of mission.targets; track target.assetId) {
+            <div class="waypoint" [class.done]="target.inspectionStatus.toLowerCase() === 'completed'">
+              <span class="waypoint-index">{{ target.sequence || ($index + 1) }}</span>
+              <strong>{{ target.towerCode || target.assetCode }}</strong>
+              <small>{{ target.assetName || target.inspectionStatus }}</small>
+            </div>
+          } @empty {
+            <p class="waypoint-empty">Chưa có điểm kiểm tra.</p>
+          }
         </section>
       </aside>
 
       <footer class="mission-live-footer">
         <div>
-          <span nz-icon nzType="environment"></span>
           <strong [title]="mission.title || 'Chưa đặt tên nhiệm vụ'">{{ middleEllipsis(mission.title || 'Chưa đặt tên nhiệm vụ', 48) }}</strong>
           <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
         </div>
