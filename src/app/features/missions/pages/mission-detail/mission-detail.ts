@@ -16,6 +16,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
+import { leafletLayer } from 'protomaps-leaflet';
 import { catchError, finalize, of, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
@@ -147,6 +148,9 @@ export class MissionDetail {
     Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
       && Math.abs(target.latitude!) <= 90 && Math.abs(target.longitude!) <= 180,
   ) ?? []);
+  protected readonly hasTargetsOutsideEvnspcCoverage = computed(() => this.targetsWithCoordinates().some((target) =>
+    target.latitude! < 8 || target.latitude! > 16.2 || target.longitude! < 102 || target.longitude! > 109.6,
+  ));
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -417,11 +421,26 @@ export class MissionDetail {
 
     if (!this.missionMap) {
       this.missionMap = L.map(container, {
-        center: [16.2, 106.2],
+        center: [11.7, 106.5],
         zoom: 6,
         zoomControl: true,
-        attributionControl: false,
+        attributionControl: true,
+        maxBounds: L.latLngBounds([7.5, 101.5], [16.7, 110.1]),
+        maxBoundsViscosity: 1,
       });
+
+      const offlineBasemap = leafletLayer({
+        url: '/maps/evnspc-south-z12.pmtiles',
+        flavor: 'light',
+        lang: 'vi',
+        maxDataZoom: 12,
+        maxZoom: 18,
+        noWrap: true,
+        bounds: L.latLngBounds([8, 102], [16.2, 109.6]),
+        attribution: '&copy; OpenStreetMap contributors',
+      }) as unknown as L.Layer;
+      offlineBasemap.addTo(this.missionMap);
+
       this.missionTargetsLayer.addTo(this.missionMap);
     }
 

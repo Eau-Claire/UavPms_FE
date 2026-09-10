@@ -701,6 +701,21 @@
   background-size: 32px 32px;
 }
 
+.mission-map-coverage-warning {
+  position: absolute;
+  z-index: 500;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  border: 1px solid #f5c26b;
+  border-radius: 6px;
+  background: rgba(255, 249, 235, .96);
+  color: #7a4b00;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .mission-target-map-label {
   border: 1px solid #cbd5e1;
   border-radius: 5px;
