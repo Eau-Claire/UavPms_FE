@@ -531,7 +531,7 @@
     'telemetry map camera'
     'footer footer footer';
   grid-template-columns: minmax(260px, 300px) minmax(420px, 1fr) minmax(260px, 300px);
-  grid-template-rows: auto auto minmax(560px, 1fr) auto;
+  grid-template-rows: auto auto auto auto;
   gap: 16px;
   height: 100%;
   min-height: 0;
@@ -608,7 +608,7 @@
 
 .mission-live-page:not(.workbench-mode) .mission-camera-panel {
   grid-area: camera;
-  align-self: stretch;
+  align-self: start;
   align-content: start;
   max-height: none;
   overflow: visible;
@@ -646,6 +646,8 @@
   position: relative;
   grid-area: map;
   display: grid;
+  align-self: start;
+  height: 620px;
   min-width: 0;
   min-height: 560px;
   grid-template-rows: auto minmax(0, 1fr);
@@ -853,8 +855,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .mission-map-panel,
+  .mission-map-panel {
+    height: 480px;
+    min-height: 480px;
+  }
+
   .mission-map-panel .mission-live-map {
+    height: 420px;
     min-height: 420px;
   }
 
