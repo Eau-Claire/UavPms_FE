@@ -142,6 +142,7 @@ export class MissionDetail {
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
   private missionMap: MapLibreMap | null = null;
   private missionTargetMarkers: Marker[] = [];
+  private missionMapResizeObserver: ResizeObserver | null = null;
 
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
@@ -380,6 +381,8 @@ export class MissionDetail {
       this.stopResultDetailResize();
       this.missionTargetMarkers.forEach((marker) => marker.remove());
       this.missionTargetMarkers = [];
+      this.missionMapResizeObserver?.disconnect();
+      this.missionMapResizeObserver = null;
       this.missionMap?.remove();
       this.missionMap = null;
     });
@@ -424,6 +427,8 @@ export class MissionDetail {
     if (!container) return;
 
     if (this.missionMap && this.missionMap.getContainer() !== container) {
+      this.missionMapResizeObserver?.disconnect();
+      this.missionMapResizeObserver = null;
       this.missionMap.remove();
       this.missionMap = null;
     }
@@ -455,11 +460,19 @@ export class MissionDetail {
         center: [106.5, 11.7],
         zoom: 6,
         attributionControl: {},
-        maxBounds: [[101.5, 7.5], [110.1, 16.7]],
+        maxBounds: [[102, 8], [109.6, 16.2]],
         minZoom: 5,
-        maxZoom: 18,
+        maxZoom: 15,
+        maxTileCacheSize: 256,
+        refreshExpiredTiles: false,
+        fadeDuration: 150,
+        renderWorldCopies: false,
+        dragRotate: false,
+        pitchWithRotate: false,
       });
       this.missionMap.addControl(new NavigationControl({ showCompass: false }), 'top-left');
+      this.missionMapResizeObserver = new ResizeObserver(() => this.missionMap?.resize());
+      this.missionMapResizeObserver.observe(container);
       this.missionMap.once('load', () => this.updateMissionMapTargets());
       return;
     }
