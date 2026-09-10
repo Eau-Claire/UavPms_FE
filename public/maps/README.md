@@ -10,6 +10,7 @@ provider at runtime.
 - Maximum data zoom: `12` (the UI may overzoom for mission markers)
 - Basemap data: OpenStreetMap contributors, ODbL
 - PMTiles tooling: Protomaps, BSD-3-Clause
+- Local label glyphs: Noto Sans Regular from `protomaps/basemaps-assets`, SIL Open Font License 1.1
 
 Rebuild the checked-in extract with:
 

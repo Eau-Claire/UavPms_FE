@@ -599,7 +599,7 @@
 
 .mission-live-page:not(.workbench-mode) .mission-telemetry-panel {
   grid-area: telemetry;
-  align-self: stretch;
+  align-self: start;
   max-height: none;
   overflow: visible;
   border-radius: 10px;
@@ -806,6 +806,63 @@
 .mission-live-page:not(.workbench-mode) .waypoint {
   grid-template-columns: 28px minmax(0, 1fr);
   color: #172033;
+  width: 100%;
+  border: 1px solid #e4e9f0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mission-live-page:not(.workbench-mode) .waypoint:hover,
+.mission-live-page:not(.workbench-mode) .waypoint.selected {
+  border-color: #7eb6dd;
+  background: #eef7fd;
+}
+
+.selected-target-card {
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.selected-target-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.selected-target-heading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.selected-target-heading small,
+.selected-target-card dt {
+  color: #667085;
+  font-size: 11px;
+}
+
+.selected-target-card dl {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.selected-target-card dl > div {
+  display: grid !important;
+  min-height: 0 !important;
+  grid-template-columns: 70px minmax(0, 1fr) !important;
+  gap: 8px;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.selected-target-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
 }
 
 .waypoint-index {

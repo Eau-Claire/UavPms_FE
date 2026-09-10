@@ -58,30 +58,23 @@
       @if (mission.targets.length) {
         <section class="mission-targets" aria-label="Tài sản mục tiêu kiểm tra">
           <div class="mission-targets-header">
-            <h2>Tài sản mục tiêu ({{ mission.targets.length }})</h2>
-            <span class="sequence-banner">
-              <span class="sequence-line-indicator"></span>
-              <strong>Trình tự kiểm tra đề xuất</strong>
-            </span>
+            <h2>Tài sản đang chọn</h2>
           </div>
-
-          <div class="targets-list-detail">
-            @for (target of mission.targets; track target.assetId) {
-              <article>
-                <div>
-                  <strong>{{ target.sequence ? target.sequence + '. ' : '' }}{{ target.assetCode || target.assetName }}</strong>
-                  <span>{{ target.assetName }}</span>
-                  @if (target.towerCode) { <small class="target-tower-sub">Vị trí: Cột {{ target.towerCode }}</small> }
-                </div>
-                <div class="target-status-col">
-                  <span class="target-status-badge">{{ target.inspectionStatus }}</span>
-                  @if (target.latitude && target.longitude) {
-                    <small class="target-gps">{{ target.latitude.toFixed(5) }}, {{ target.longitude.toFixed(5) }}</small>
-                  }
-                </div>
-              </article>
-            }
-          </div>
+          @if (selectedTarget(); as target) {
+            <article class="selected-target-card">
+              <div class="selected-target-heading">
+                <span class="waypoint-index">{{ target.sequence || 1 }}</span>
+                <div><strong>{{ target.assetCode || target.assetName }}</strong><small>{{ target.assetName }}</small></div>
+              </div>
+              <dl>
+                <div><dt>Vị trí</dt><dd>{{ target.towerCode ? 'Cột ' + target.towerCode : 'Chưa xác định' }}</dd></div>
+                <div><dt>Trạng thái</dt><dd>{{ target.inspectionStatus }}</dd></div>
+                @if (target.latitude && target.longitude) {
+                  <div><dt>Tọa độ</dt><dd>{{ target.latitude.toFixed(5) }}, {{ target.longitude.toFixed(5) }}</dd></div>
+                }
+              </dl>
+            </article>
+          }
         </section>
       }
       </aside>
@@ -111,13 +104,13 @@
           <span>CAM-01 FPV · RTK FIX</span>
         </div>
         <section>
-          <h2>Điểm kiểm tra</h2>
+          <h2>Trình tự kiểm tra</h2>
           @for (target of mission.targets; track target.assetId) {
-            <div class="waypoint" [class.done]="target.inspectionStatus.toLowerCase() === 'completed'">
+            <button type="button" class="waypoint" [class.selected]="selectedTargetId() === target.assetId" [class.done]="target.inspectionStatus.toLowerCase() === 'completed'" [attr.aria-pressed]="selectedTargetId() === target.assetId" (click)="selectTarget(target.assetId)">
               <span class="waypoint-index">{{ target.sequence || ($index + 1) }}</span>
               <strong>{{ target.towerCode || target.assetCode }}</strong>
               <small>{{ target.assetName || target.inspectionStatus }}</small>
-            </div>
+            </button>
           } @empty {
             <p class="waypoint-empty">Chưa có điểm kiểm tra.</p>
           }

@@ -159,6 +159,11 @@ export class MissionDetail {
   protected readonly hasTargetsOutsideEvnspcCoverage = computed(
     () => this.targetsInEvnspcCoverage().length !== this.targetsWithCoordinates().length,
   );
+  protected readonly selectedTargetId = signal('');
+  protected readonly selectedTarget = computed(() => {
+    const targets = this.mission()?.targets ?? [];
+    return targets.find((target) => target.assetId === this.selectedTargetId()) ?? targets[0] ?? null;
+  });
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -397,6 +402,7 @@ export class MissionDetail {
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
+          this.selectedTargetId.set(mission.targets[0]?.assetId ?? '');
           this.missionAssets.set(mission.targets.map((target) => ({
             id: target.assetId,
             code: target.assetCode,
@@ -422,6 +428,13 @@ export class MissionDetail {
     }
   }
 
+  protected selectTarget(assetId: string): void {
+    this.selectedTargetId.set(assetId);
+    const target = this.mission()?.targets.find((item) => item.assetId === assetId);
+    if (!target || !this.targetsInEvnspcCoverage().some((item) => item.assetId === assetId)) return;
+    this.missionMap?.flyTo({ center: [target.longitude!, target.latitude!], zoom: 14, duration: 650 });
+  }
+
   private renderMissionMap(): void {
     const container = this.missionMapContainer()?.nativeElement;
     if (!container) return;
@@ -437,6 +450,7 @@ export class MissionDetail {
       const archiveUrl = new URL('/maps/evnspc-south-z12.pmtiles', window.location.origin).href;
       const style: StyleSpecification = {
         version: 8,
+        glyphs: new URL('/maps/fonts/{fontstack}/{range}.pbf', window.location.origin).href,
         sources: {
           basemap: {
             type: 'vector',
@@ -451,6 +465,34 @@ export class MissionDetail {
           { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
           { id: 'boundaries', type: 'line', source: 'basemap', 'source-layer': 'boundaries', paint: { 'line-color': '#9aa9bb', 'line-width': 1 } },
           { id: 'roads', type: 'line', source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 12, 2.2] } },
+          {
+            id: 'place-labels',
+            type: 'symbol',
+            source: 'basemap',
+            'source-layer': 'places',
+            minzoom: 4,
+            layout: {
+              'text-field': ['coalesce', ['get', 'name:vi'], ['get', 'name']],
+              'text-font': ['Noto Sans Regular'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 15],
+              'text-allow-overlap': false,
+            },
+            paint: { 'text-color': '#334155', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+          },
+          {
+            id: 'road-labels',
+            type: 'symbol',
+            source: 'basemap',
+            'source-layer': 'roads',
+            minzoom: 10,
+            layout: {
+              'symbol-placement': 'line',
+              'text-field': ['coalesce', ['get', 'name:vi'], ['get', 'name'], ['get', 'ref']],
+              'text-font': ['Noto Sans Regular'],
+              'text-size': 11,
+            },
+            paint: { 'text-color': '#64748b', 'text-halo-color': '#ffffff', 'text-halo-width': 1.25 },
+          },
         ],
       };
 
@@ -520,6 +562,7 @@ export class MissionDetail {
       markerLabel.className = 'mission-target-map-label';
       markerLabel.textContent = `${target.sequence ?? index + 1}. ${label}`;
       markerElement.append(markerLabel, markerDot);
+      markerElement.addEventListener('click', () => this.selectTarget(target.assetId));
       this.missionTargetMarkers.push(new Marker({ element: markerElement, anchor: 'bottom' })
         .setLngLat(coordinates[index])
         .addTo(map));
