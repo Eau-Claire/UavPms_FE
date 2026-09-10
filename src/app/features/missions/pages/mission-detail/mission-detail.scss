@@ -533,9 +533,12 @@
   grid-template-columns: minmax(260px, 300px) minmax(420px, 1fr) minmax(260px, 300px);
   grid-template-rows: auto auto minmax(560px, 1fr) auto;
   gap: 16px;
-  height: auto;
-  min-height: calc(100vh - 64px);
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 20px;
   background: #f4f7fb;
   color: #172033;
