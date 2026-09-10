@@ -692,6 +692,41 @@
   height: 100%;
   min-height: 500px;
   filter: none;
+  background-color: #eef3f8;
+  background-image:
+    linear-gradient(rgba(100, 116, 139, .12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100, 116, 139, .12) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.mission-target-map-label {
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #172033;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .12);
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mission-target-map-label::before {
+  border-top-color: #ffffff;
+}
+
+.mission-map-empty {
+  position: absolute;
+  z-index: 500;
+  top: 50%;
+  left: 50%;
+  width: min(320px, calc(100% - 32px));
+  transform: translate(-50%, -50%);
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .94);
+  color: #667085;
+  padding: 16px;
+  text-align: center;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-targets-header {

@@ -98,12 +98,15 @@
       <section class="mission-map-panel" aria-label="Phạm vi bản đồ nhiệm vụ">
         <header>
           <div>
-            <span>Bản đồ nhiệm vụ</span>
+            <span>Sơ đồ vị trí nhiệm vụ</span>
             <strong>{{ mission.regionName || 'Khu vực chưa xác định' }}</strong>
           </div>
-          <small>{{ mission.targets.length }} tài sản mục tiêu</small>
+          <small>{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí hợp lệ</small>
         </header>
-        <iframe class="mission-live-map" [src]="mapUrl" title="Bản đồ phạm vi nhiệm vụ" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div #missionMap class="mission-live-map" role="img" aria-label="Sơ đồ vị trí các tài sản mục tiêu"></div>
+        @if (!targetsWithCoordinates().length) {
+          <div class="mission-map-empty">Chưa có tọa độ hợp lệ cho các tài sản trong nhiệm vụ.</div>
+        }
       </section>
 
       <aside class="mission-camera-panel">

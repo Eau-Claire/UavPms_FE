@@ -7,13 +7,15 @@ import {
   ElementRef,
   ViewChild,
   computed,
+  effect,
   inject,
   signal,
+  viewChild,
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import * as L from 'leaflet';
 import { catchError, finalize, of, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
@@ -130,15 +132,21 @@ export class MissionDetail {
   private readonly assetApi = inject(AssetManagementApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly route = inject(ActivatedRoute);
-  private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
+  private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
+  private missionMap: L.Map | null = null;
+  private missionTargetsLayer = L.layerGroup();
 
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly mission = signal<Mission | null>(null);
+  protected readonly targetsWithCoordinates = computed(() => this.mission()?.targets.filter((target) =>
+    Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
+      && Math.abs(target.latitude!) <= 90 && Math.abs(target.longitude!) <= 180,
+  ) ?? []);
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -204,9 +212,12 @@ export class MissionDetail {
   protected readonly reviewNotes = signal('');
   protected readonly resultMessage = signal('');
   protected readonly detailPanelWidth = signal(400);
-  protected readonly mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-    'https://www.google.com/maps?q=Hanoi,Vietnam&z=12&output=embed',
-  );
+  private readonly missionMapEffect = effect(() => {
+    const mission = this.mission();
+    const tab = this.activeTab();
+    if (!mission || tab !== 'overview') return;
+    setTimeout(() => this.renderMissionMap(), 0);
+  });
 
   // Video Inspection Playback State
   protected readonly videoCurrentTime = signal<number>(0);
@@ -354,7 +365,11 @@ export class MissionDetail {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => this.handleAiAnalysisStatus(event));
 
-    this.destroyRef.onDestroy(() => this.stopResultDetailResize());
+    this.destroyRef.onDestroy(() => {
+      this.stopResultDetailResize();
+      this.missionMap?.remove();
+      this.missionMap = null;
+    });
     this.realtime.connect();
 
     this.api
@@ -389,6 +404,62 @@ export class MissionDetail {
       const missionId = this.mission()?.id;
       if (missionId) this.loadDetections(missionId);
     }
+  }
+
+  private renderMissionMap(): void {
+    const container = this.missionMapContainer()?.nativeElement;
+    if (!container) return;
+
+    if (this.missionMap && this.missionMap.getContainer() !== container) {
+      this.missionMap.remove();
+      this.missionMap = null;
+    }
+
+    if (!this.missionMap) {
+      this.missionMap = L.map(container, {
+        center: [16.2, 106.2],
+        zoom: 6,
+        zoomControl: true,
+        attributionControl: false,
+      });
+      this.missionTargetsLayer.addTo(this.missionMap);
+    }
+
+    this.missionTargetsLayer.clearLayers();
+    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const points = targets.map((target) => L.latLng(target.latitude!, target.longitude!));
+
+    if (points.length > 1) {
+      L.polyline(points, { color: '#2563eb', weight: 3, opacity: .7, dashArray: '7 7' })
+        .addTo(this.missionTargetsLayer);
+    }
+
+    targets.forEach((target, index) => {
+      const label = target.towerCode || target.assetCode || `Điểm ${index + 1}`;
+      const tooltip = document.createElement('span');
+      tooltip.textContent = `${target.sequence ?? index + 1}. ${label}`;
+      L.circleMarker(points[index], {
+        radius: 9,
+        color: '#ffffff',
+        weight: 3,
+        fillColor: '#0b72b9',
+        fillOpacity: 1,
+      })
+        .bindTooltip(tooltip, {
+          permanent: true,
+          direction: 'top',
+          className: 'mission-target-map-label',
+          offset: [0, -8],
+        })
+        .addTo(this.missionTargetsLayer);
+    });
+
+    requestAnimationFrame(() => {
+      this.missionMap?.invalidateSize();
+      if (points.length) {
+        this.missionMap?.fitBounds(L.latLngBounds(points), { padding: [56, 56], maxZoom: 15 });
+      }
+    });
   }
 
   protected chooseMedia(event: Event): void {
