@@ -717,6 +717,8 @@
 }
 
 .mission-target-map-label {
+  display: block;
+  margin-bottom: 6px;
   border: 1px solid #cbd5e1;
   border-radius: 5px;
   background: #ffffff;
@@ -727,8 +729,21 @@
   font-weight: 800;
 }
 
-.mission-target-map-label::before {
-  border-top-color: #ffffff;
+.mission-target-map-marker {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.mission-target-map-dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #0b72b9;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .28);
 }
 
 .mission-map-empty {

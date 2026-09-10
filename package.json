@@ -29,8 +29,9 @@
     "@types/leaflet-draw": "^1.0.13",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
+    "maplibre-gl": "^5.7.1",
     "ng-zorro-antd": "^21.3.1",
-    "protomaps-leaflet": "^5.0.0",
+    "pmtiles": "^4.4.1",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.3.1",
     "tslib": "^2.3.0"

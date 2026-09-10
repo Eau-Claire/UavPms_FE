@@ -15,14 +15,18 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import * as L from 'leaflet';
-import { leafletLayer } from 'protomaps-leaflet';
+import type { FeatureCollection, LineString } from 'geojson';
+import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, addProtocol, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
+import { Protocol } from 'pmtiles';
 import { catchError, finalize, of, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
 import { AiAnalysisStatusChangedEvent, NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
+
+const pmtilesProtocol = new Protocol();
+addProtocol('pmtiles', pmtilesProtocol.tile);
 
 export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
 export type MediaKind = 'image' | 'video';
@@ -136,8 +140,8 @@ export class MissionDetail {
   private readonly destroyRef = inject(DestroyRef);
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
-  private missionMap: L.Map | null = null;
-  private missionTargetsLayer = L.layerGroup();
+  private missionMap: MapLibreMap | null = null;
+  private missionTargetMarkers: Marker[] = [];
 
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
@@ -374,6 +378,8 @@ export class MissionDetail {
 
     this.destroyRef.onDestroy(() => {
       this.stopResultDetailResize();
+      this.missionTargetMarkers.forEach((marker) => marker.remove());
+      this.missionTargetMarkers = [];
       this.missionMap?.remove();
       this.missionMap = null;
     });
@@ -423,63 +429,97 @@ export class MissionDetail {
     }
 
     if (!this.missionMap) {
-      this.missionMap = L.map(container, {
-        center: [11.7, 106.5],
+      const archiveUrl = new URL('/maps/evnspc-south-z12.pmtiles', window.location.origin).href;
+      const style: StyleSpecification = {
+        version: 8,
+        sources: {
+          basemap: {
+            type: 'vector',
+            url: `pmtiles://${archiveUrl}`,
+            attribution: '&copy; OpenStreetMap contributors',
+          },
+        },
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#edf2f7' } },
+          { id: 'earth', type: 'fill', source: 'basemap', 'source-layer': 'earth', paint: { 'fill-color': '#f7f5ef' } },
+          { id: 'landuse', type: 'fill', source: 'basemap', 'source-layer': 'landuse', paint: { 'fill-color': '#e8f2e4', 'fill-opacity': 0.72 } },
+          { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
+          { id: 'boundaries', type: 'line', source: 'basemap', 'source-layer': 'boundaries', paint: { 'line-color': '#9aa9bb', 'line-width': 1 } },
+          { id: 'roads', type: 'line', source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 12, 2.2] } },
+        ],
+      };
+
+      this.missionMap = new MapLibreMap({
+        container,
+        style,
+        center: [106.5, 11.7],
         zoom: 6,
-        zoomControl: true,
-        attributionControl: true,
-        maxBounds: L.latLngBounds([7.5, 101.5], [16.7, 110.1]),
-        maxBoundsViscosity: 1,
-      });
-
-      const offlineBasemap = leafletLayer({
-        url: '/maps/evnspc-south-z12.pmtiles',
-        flavor: 'light',
-        lang: 'vi',
-        maxDataZoom: 12,
+        attributionControl: {},
+        maxBounds: [[101.5, 7.5], [110.1, 16.7]],
+        minZoom: 5,
         maxZoom: 18,
-        noWrap: true,
-        bounds: L.latLngBounds([8, 102], [16.2, 109.6]),
-        attribution: '&copy; OpenStreetMap contributors',
-      }) as unknown as L.Layer;
-      offlineBasemap.addTo(this.missionMap);
-
-      this.missionTargetsLayer.addTo(this.missionMap);
+      });
+      this.missionMap.addControl(new NavigationControl({ showCompass: false }), 'top-left');
+      this.missionMap.once('load', () => this.updateMissionMapTargets());
+      return;
     }
 
-    this.missionTargetsLayer.clearLayers();
-    const targets = [...this.targetsInEvnspcCoverage()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-    const points = targets.map((target) => L.latLng(target.latitude!, target.longitude!));
+    if (this.missionMap.isStyleLoaded()) this.updateMissionMapTargets();
+  }
 
-    if (points.length > 1) {
-      L.polyline(points, { color: '#2563eb', weight: 3, opacity: .7, dashArray: '7 7' })
-        .addTo(this.missionTargetsLayer);
+  private updateMissionMapTargets(): void {
+    const map = this.missionMap;
+    if (!map) return;
+
+    this.missionTargetMarkers.forEach((marker) => marker.remove());
+    this.missionTargetMarkers = [];
+    const targets = [...this.targetsInEvnspcCoverage()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const coordinates = targets.map((target) => [target.longitude!, target.latitude!] as [number, number]);
+
+    const routeData: FeatureCollection<LineString> = {
+      type: 'FeatureCollection',
+      features: coordinates.length > 1 ? [{
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates },
+      }] : [],
+    };
+    const routeSource = map.getSource<GeoJSONSource>('mission-route');
+    if (routeSource) {
+      routeSource.setData(routeData);
+    } else {
+      map.addSource('mission-route', { type: 'geojson', data: routeData });
+      map.addLayer({
+        id: 'mission-route',
+        type: 'line',
+        source: 'mission-route',
+        paint: { 'line-color': '#2563eb', 'line-width': 3, 'line-opacity': 0.75, 'line-dasharray': [2, 2] },
+      });
     }
 
     targets.forEach((target, index) => {
       const label = target.towerCode || target.assetCode || `Điểm ${index + 1}`;
-      const tooltip = document.createElement('span');
-      tooltip.textContent = `${target.sequence ?? index + 1}. ${label}`;
-      L.circleMarker(points[index], {
-        radius: 9,
-        color: '#ffffff',
-        weight: 3,
-        fillColor: '#0b72b9',
-        fillOpacity: 1,
-      })
-        .bindTooltip(tooltip, {
-          permanent: true,
-          direction: 'top',
-          className: 'mission-target-map-label',
-          offset: [0, -8],
-        })
-        .addTo(this.missionTargetsLayer);
+      const markerElement = document.createElement('div');
+      markerElement.className = 'mission-target-map-marker';
+      const markerDot = document.createElement('span');
+      markerDot.className = 'mission-target-map-dot';
+      const markerLabel = document.createElement('span');
+      markerLabel.className = 'mission-target-map-label';
+      markerLabel.textContent = `${target.sequence ?? index + 1}. ${label}`;
+      markerElement.append(markerLabel, markerDot);
+      this.missionTargetMarkers.push(new Marker({ element: markerElement, anchor: 'bottom' })
+        .setLngLat(coordinates[index])
+        .addTo(map));
     });
 
     requestAnimationFrame(() => {
-      this.missionMap?.invalidateSize();
-      if (points.length) {
-        this.missionMap?.fitBounds(L.latLngBounds(points), { padding: [56, 56], maxZoom: 15 });
+      map.resize();
+      if (coordinates.length) {
+        const bounds = coordinates.reduce(
+          (current, point) => current.extend(point),
+          new LngLatBounds(coordinates[0], coordinates[0]),
+        );
+        map.fitBounds(bounds, { padding: 56, maxZoom: 15 });
       }
     });
   }
