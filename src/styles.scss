@@ -26,6 +26,8 @@
 /* State-PMS presentation: information is conveyed by plain text and numbers. */
 .anticon,
 [nz-icon] { display: none !important; }
+.app-notification-button .anticon,
+.app-notification-button [nz-icon] { display: inline-block !important; }
 button[aria-label]:only-child::after { content: attr(aria-label); }
 .skip-link { position: fixed; z-index: 2000; left: 16px; top: -60px; padding: 10px 14px; border-radius: 4px; background: #fff; color: var(--app-brand); }
 .skip-link:focus { top: 12px; }

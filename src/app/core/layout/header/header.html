@@ -3,7 +3,7 @@
   <div class="app-header-spacer"></div>
   <div class="app-header-actions">
     <div class="app-notification-wrap">
-      <button type="button" class="app-header-icon" [class.app-header-icon-active]="notificationOpen()" aria-label="Notifications" (click)="toggleNotifications()"><span nz-icon nzType="bell"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
+      <button type="button" class="app-header-icon app-notification-button" [class.app-header-icon-active]="notificationOpen()" aria-label="Notifications" (click)="toggleNotifications()"><span nz-icon nzType="bell"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
       @if (notificationOpen()) {
         <section class="notification-popover" aria-label="Notifications popover">
           <header class="notification-popover-header">
