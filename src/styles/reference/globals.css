@@ -50,12 +50,12 @@
   --evn-blue: #20398b;
   --evn-shell-blue: #234791;
   --evn-purple: #7644e1;
-  --evn-amber: #ffb700;
-  --evn-action: #fea619;
-  --evn-auth-action: #f59e0b;
-  --evn-action-text: #684000;
-  --evn-warn-text: #855300;
-  --evn-amber-dark: #d97706;
+  --evn-amber: #20398b;
+  --evn-action: #20398b;
+  --evn-auth-action: #20398b;
+  --evn-action-text: #ffffff;
+  --evn-warn-text: #20398b;
+  --evn-amber-dark: #17296f;
   --evn-cyan: #77dae6;
   --evn-dark: #1a162e;
   --evn-navy: #171c28;
