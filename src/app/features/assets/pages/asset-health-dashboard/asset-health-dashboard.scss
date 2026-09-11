@@ -68,11 +68,7 @@
 .kpi-card { border-radius: 5px; border-color: #d8dee8; box-shadow: none; padding: 14px 16px; }
 .kpi-card-header { margin-bottom: 8px; }
 .kpi-card-icon-wrap { display: none; }
-.kpi-card--critical { border-left: 3px solid #c62828; }
-.kpi-card--high { border-left: 3px solid #e76f00; }
-.kpi-card--medium { border-left: 3px solid #d99a00; }
-.kpi-card--low { border-left: 3px solid #2e7d32; }
-.kpi-card--total { border-left: 3px solid #17365d; }
+.kpi-card--critical, .kpi-card--high, .kpi-card--medium, .kpi-card--low, .kpi-card--total { border-left-color: #d9e1ea; }
 .kpi-card-label { color: #64748b; font-size: 12px; }
 .kpi-card-value { color: #1f2937; font-size: 28px; }
 .kpi-card-hint { color: #64748b; font-size: 11px; }
