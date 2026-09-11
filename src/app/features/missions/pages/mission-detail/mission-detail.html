@@ -90,7 +90,7 @@
         <div #missionMap class="mission-live-map" role="img" aria-label="Sơ đồ vị trí các tài sản mục tiêu"></div>
         @if (hasTargetsOutsideEvnspcCoverage()) {
           <div class="mission-map-coverage-warning" role="status">
-            Một số vị trí nằm ngoài dữ liệu bản đồ offline EVNSPC; hệ thống đang dùng bản đồ trực tuyến thay thế.
+            Vị trí nằm ngoài dữ liệu PMTiles EVNSPC; đang hiển thị bản đồ schematic local để bảo vệ dữ liệu vị trí.
           </div>
         }
         @if (!targetsWithCoordinates().length) {

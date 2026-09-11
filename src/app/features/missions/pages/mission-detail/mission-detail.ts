@@ -16,13 +16,17 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { FeatureCollection, LineString } from 'geojson';
-import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
+import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, addProtocol, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
+import { Protocol } from 'pmtiles';
 import { catchError, finalize, of, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
 import { AiAnalysisStatusChangedEvent, NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
+
+const pmtilesProtocol = new Protocol();
+addProtocol('pmtiles', pmtilesProtocol.tile);
 
 export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
 export type MediaKind = 'image' | 'video';
@@ -443,26 +447,38 @@ export class MissionDetail {
     }
 
     if (!this.missionMap) {
+      const useOfflineArchive = this.targetsWithCoordinates().length > 0 && this.targetsInEvnspcCoverage().length === this.targetsWithCoordinates().length;
+      const archiveUrl = new URL('/maps/evnspc-south-z12.pmtiles', window.location.origin).href;
+      const localGrid: FeatureCollection<LineString> = {
+        type: 'FeatureCollection',
+        features: [
+          ...Array.from({ length: 9 }, (_, index) => {
+            const longitude = 102 + index;
+            return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[longitude, 8], [longitude, 24]] } };
+          }),
+          ...Array.from({ length: 9 }, (_, index) => {
+            const latitude = 8 + index * 2;
+            return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[102, latitude], [110, latitude]] } };
+          }),
+        ],
+      };
       const style: StyleSpecification = {
         version: 8,
+        glyphs: useOfflineArchive ? new URL('/maps/fonts/{fontstack}/{range}.pbf', window.location.origin).href : undefined,
         sources: {
-          onlineBasemap: {
-            type: 'raster',
-            // Google tiles are already used by mission-create and remain available
-            // when the local EVNSPC PMTiles archive does not cover the target area.
-            tiles: [
-              'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-              'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-              'https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-              'https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-            ],
-            tileSize: 256,
-            attribution: '&copy; Google Maps',
-          },
+          localGrid: { type: 'geojson', data: localGrid },
+          ...(useOfflineArchive ? { basemap: { type: 'vector' as const, url: `pmtiles://${archiveUrl}`, attribution: '&copy; OpenStreetMap contributors' } } : {}),
         },
         layers: [
           { id: 'background', type: 'background', paint: { 'background-color': '#edf2f7' } },
-          { id: 'online-basemap', type: 'raster', source: 'onlineBasemap', paint: { 'raster-opacity': 1 } },
+          { id: 'local-grid', type: 'line', source: 'localGrid', paint: { 'line-color': '#cbd5e1', 'line-width': 1, 'line-opacity': 0.7 } },
+          ...(useOfflineArchive ? [
+            { id: 'earth', type: 'fill' as const, source: 'basemap', 'source-layer': 'earth', paint: { 'fill-color': '#f7f5ef' } },
+            { id: 'landuse', type: 'fill' as const, source: 'basemap', 'source-layer': 'landuse', paint: { 'fill-color': '#e8f2e4', 'fill-opacity': 0.72 } },
+            { id: 'water', type: 'fill' as const, source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
+            { id: 'boundaries', type: 'line' as const, source: 'basemap', 'source-layer': 'boundaries', paint: { 'line-color': '#9aa9bb', 'line-width': 1 } },
+            { id: 'roads', type: 'line' as const, source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ffffff', 'line-width': 2 } },
+          ] : []),
         ],
       };
 
