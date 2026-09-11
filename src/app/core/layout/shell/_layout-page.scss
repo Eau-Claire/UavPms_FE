@@ -155,7 +155,7 @@
   align-items: center;
   gap: 14px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 3px;
   background: transparent;
   color: #667489;
   padding: 0 16px;
@@ -165,13 +165,15 @@
 
 .app-nav-item:hover,
 .app-nav-item-active {
-  background: rgba(245, 161, 26, 0.12);
-  color: var(--evn-amber);
+  border-left: 3px solid #17365d;
+  background: #eef2f6;
+  color: #17365d;
 }
 
 .app-nav-icon {
   width: 22px;
   font-size: 20px;
+  color: currentColor;
 }
 
 .app-nav-label {

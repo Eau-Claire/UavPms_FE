@@ -150,27 +150,18 @@
 .mission-stat {
   display: grid;
   min-height: 106px;
-  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  gap: 8px;
+  border: 1px solid #d8dee8;
+  border-left: 3px solid #17365d;
+  border-radius: 5px;
   background: #fff;
   padding: 18px 24px;
 }
 
 .mission-stat > .anticon {
-  display: grid;
-  width: 52px;
-  height: 52px;
-  place-items: center;
-  align-self: center;
-  justify-self: center;
-  border-radius: 12px;
-  background: #eff4ff;
-  color: #101c2e;
-  font-size: 24px;
-  line-height: 1;
+  display: none;
 }
 
 .mission-stat > div {
@@ -198,6 +189,9 @@
 .mission-stat.warning .anticon { background: #fef3c7; color: #92400e; }
 .mission-stat.success .anticon { background: #d1fae5; color: #047857; }
 .mission-stat.danger .anticon { background: #ffe4e6; color: #be123c; }
+.mission-stat.warning { border-left-color: #e76f00; }
+.mission-stat.success { border-left-color: #2e7d32; }
+.mission-stat.danger { border-left-color: #c62828; }
 
 .mission-table-card {
   overflow: hidden;

@@ -166,10 +166,12 @@
 .empty-state-card {
   text-align: center;
   padding: 60px 20px;
+  min-height: 180px;
+  border: 1px solid #d8dee8;
+  border-radius: 5px;
+  background: #fff;
   .empty-icon-success {
-    font-size: 48px;
-    color: #22c55e;
-    margin-bottom: 16px;
+    display: none;
   }
   h3 {
     font-size: 18px;
