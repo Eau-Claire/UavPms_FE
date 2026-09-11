@@ -1964,6 +1964,27 @@
   color: #fff;
 }
 
+/* Mission detail primary accent: EVN blue. Warning/error colors remain semantic. */
+.mission-live-page .mission-footer-upload,
+.mission-live-page .mission-upload-btn,
+.mission-live-page .mission-primary-btn,
+.mission-live-page .mission-action-primary { background: var(--color-primary); color: #fff; }
+.mission-live-page .mission-footer-upload:hover,
+.mission-live-page .mission-upload-btn:hover,
+.mission-live-page .mission-primary-btn:hover,
+.mission-live-page .mission-action-primary:hover { background: var(--color-primary-hover); }
+.mission-live-page .mission-detail-tabs button.active,
+.mission-live-page .mission-priority button.active,
+.mission-live-page .mission-drop-zone.drag-active,
+.mission-live-page .mission-drop-thumb.active,
+.mission-live-page .mission-upload-row.active { border-color: var(--color-primary); }
+.mission-live-page .mission-detail-tabs button.active,
+.mission-live-page .mission-media-picker .anticon,
+.mission-live-page .mission-media-meta .text-primary { color: var(--color-primary); }
+.mission-live-page .mission-progress span,
+.mission-live-page .mission-upload-progress span { background: var(--color-primary); }
+.mission-live-page .mission-camera-feed { border-color: var(--color-primary); }
+
 @media (max-width: 1100px) {
   .mission-stats,
   .mission-stepper {
