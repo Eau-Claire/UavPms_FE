@@ -2,6 +2,11 @@
   position: relative;
 }
 
+.app-notification-button {
+  gap: 4px;
+  padding-inline: 4px 10px;
+}
+
 .app-header-icon-active {
   background: #eff4ff;
 }
