@@ -16,17 +16,13 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { FeatureCollection, LineString } from 'geojson';
-import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, addProtocol, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
+import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import { catchError, finalize, of, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
 import { AiAnalysisStatusChangedEvent, NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
-
-const pmtilesProtocol = new Protocol();
-addProtocol('pmtiles', pmtilesProtocol.tile);
 
 export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
 export type MediaKind = 'image' | 'video';
@@ -447,10 +443,8 @@ export class MissionDetail {
     }
 
     if (!this.missionMap) {
-      const archiveUrl = new URL('/maps/evnspc-south-z12.pmtiles', window.location.origin).href;
       const style: StyleSpecification = {
         version: 8,
-        glyphs: new URL('/maps/fonts/{fontstack}/{range}.pbf', window.location.origin).href,
         sources: {
           onlineBasemap: {
             type: 'raster',
@@ -465,48 +459,10 @@ export class MissionDetail {
             tileSize: 256,
             attribution: '&copy; Google Maps',
           },
-          basemap: {
-            type: 'vector',
-            url: `pmtiles://${archiveUrl}`,
-            attribution: '&copy; OpenStreetMap contributors',
-          },
         },
         layers: [
           { id: 'background', type: 'background', paint: { 'background-color': '#edf2f7' } },
           { id: 'online-basemap', type: 'raster', source: 'onlineBasemap', paint: { 'raster-opacity': 1 } },
-          { id: 'earth', type: 'fill', source: 'basemap', 'source-layer': 'earth', paint: { 'fill-color': '#f7f5ef' } },
-          { id: 'landuse', type: 'fill', source: 'basemap', 'source-layer': 'landuse', paint: { 'fill-color': '#e8f2e4', 'fill-opacity': 0.72 } },
-          { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
-          { id: 'boundaries', type: 'line', source: 'basemap', 'source-layer': 'boundaries', paint: { 'line-color': '#9aa9bb', 'line-width': 1 } },
-          { id: 'roads', type: 'line', source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.6, 12, 2.2] } },
-          {
-            id: 'place-labels',
-            type: 'symbol',
-            source: 'basemap',
-            'source-layer': 'places',
-            minzoom: 4,
-            layout: {
-              'text-field': ['coalesce', ['get', 'name:vi'], ['get', 'name']],
-              'text-font': ['Noto Sans Regular'],
-              'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 10, 15],
-              'text-allow-overlap': false,
-            },
-            paint: { 'text-color': '#334155', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
-          },
-          {
-            id: 'road-labels',
-            type: 'symbol',
-            source: 'basemap',
-            'source-layer': 'roads',
-            minzoom: 10,
-            layout: {
-              'symbol-placement': 'line',
-              'text-field': ['coalesce', ['get', 'name:vi'], ['get', 'name'], ['get', 'ref']],
-              'text-font': ['Noto Sans Regular'],
-              'text-size': 11,
-            },
-            paint: { 'text-color': '#64748b', 'text-halo-color': '#ffffff', 'text-halo-width': 1.25 },
-          },
         ],
       };
 
