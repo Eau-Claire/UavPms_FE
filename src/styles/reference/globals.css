@@ -45,17 +45,20 @@
 }
 
 :root {
+  --color-primary: #005bac;
+  --color-primary-hover: #004a8f;
+  --color-primary-soft: #eaf3fb;
   --evn-red: #ff383c;
   --evn-green: #34c759;
-  --evn-blue: #20398b;
+  --evn-blue: #005bac;
   --evn-shell-blue: #234791;
   --evn-purple: #7644e1;
-  --evn-amber: #20398b;
-  --evn-action: #20398b;
-  --evn-auth-action: #20398b;
+  --evn-amber: #005bac;
+  --evn-action: #005bac;
+  --evn-auth-action: #005bac;
   --evn-action-text: #ffffff;
   --evn-warn-text: #20398b;
-  --evn-amber-dark: #17296f;
+  --evn-amber-dark: #004a8f;
   --evn-cyan: #77dae6;
   --evn-dark: #1a162e;
   --evn-navy: #171c28;

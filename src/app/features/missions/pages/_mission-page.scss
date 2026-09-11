@@ -54,6 +54,15 @@
   text-decoration: none;
 }
 
+.mission-primary-btn,
+.mission-filter-btn,
+.mission-create-actions button { background: var(--color-primary); color: #fff; }
+.mission-primary-btn:hover,
+.mission-filter-btn:hover:not(:disabled),
+.mission-create-actions button:hover:not(:disabled) { background: var(--color-primary-hover); }
+.mission-detail-tabs button.active,
+.mission-live-page.workbench-mode .mission-detail-tabs button.active { border-color: var(--color-primary); color: var(--color-primary); }
+
 .mission-refresh-btn {
   background: #101c2e;
   color: #fff;
@@ -1950,9 +1959,9 @@
 }
 
 .mission-pagination .page-number.active {
-  border-color: #fea619;
-  background: #fea619;
-  color: #684000;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
 }
 
 @media (max-width: 1100px) {
