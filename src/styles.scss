@@ -23,11 +23,6 @@
 .button.primary { border-color: var(--evn-action); background: var(--evn-action); color: var(--evn-action-text); }
 .button.secondary { border-color: var(--app-border-input); background: #fff; color: var(--app-text); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-/* State-PMS presentation: information is conveyed by plain text and numbers. */
-.anticon,
-[nz-icon] { display: none !important; }
-.app-notification-button .anticon,
-.app-notification-button [nz-icon] { display: inline-block !important; }
 button[aria-label]:only-child::after { content: attr(aria-label); }
 .skip-link { position: fixed; z-index: 2000; left: 16px; top: -60px; padding: 10px 14px; border-radius: 4px; background: #fff; color: var(--app-brand); }
 .skip-link:focus { top: 12px; }
