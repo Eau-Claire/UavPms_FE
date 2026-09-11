@@ -605,9 +605,24 @@
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs button.active {
-  border-color: #f3c16b;
-  background: #fff8e9;
-  color: #7a4a00;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.mission-live-page .mission-detail-tabs .tab-count-bubble {
+  background: #17365d;
+  color: #fff;
+}
+.mission-live-page .mission-detail-tabs .tab-count-bubble.warn {
+  background: #d99a00;
+  color: #fff;
+}
+
+.mission-live-page .mission-detail-tabs button.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-telemetry-panel {
