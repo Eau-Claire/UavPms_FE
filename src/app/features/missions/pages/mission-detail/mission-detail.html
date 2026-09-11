@@ -85,12 +85,12 @@
             <span>Sơ đồ vị trí nhiệm vụ</span>
             <strong>{{ mission.regionName || 'Khu vực chưa xác định' }}</strong>
           </div>
-          <small>{{ targetsInEvnspcCoverage().length }}/{{ mission.targets.length }} vị trí thuộc EVNSPC</small>
+          <small>{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí có tọa độ</small>
         </header>
         <div #missionMap class="mission-live-map" role="img" aria-label="Sơ đồ vị trí các tài sản mục tiêu"></div>
         @if (hasTargetsOutsideEvnspcCoverage()) {
           <div class="mission-map-coverage-warning" role="status">
-            Nhiệm vụ có tọa độ nằm ngoài phạm vi bản đồ EVNSPC miền Nam. Vui lòng kiểm tra lại dữ liệu tài sản.
+            Một số vị trí nằm ngoài dữ liệu bản đồ offline EVNSPC; hệ thống đang dùng bản đồ trực tuyến thay thế.
           </div>
         }
         @if (!targetsWithCoordinates().length) {

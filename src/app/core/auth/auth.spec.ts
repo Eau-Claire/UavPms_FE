@@ -61,4 +61,31 @@ describe('Auth', () => {
     expect(auth.isAuthenticated()).toBe(true);
     expect(auth.user()?.role).toBe('Inspector');
   });
+
+  it('does not treat an expired JWT as an authenticated session', () => {
+    localStorage.setItem('uavpms.session', JSON.stringify({
+      user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector', mustChangePassword: false },
+      tokens: { accessToken: jwtWithExpiry(Math.floor(Date.now() / 1000) - 60), refreshToken: 'refresh' },
+    }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    auth = TestBed.inject(Auth);
+    http = TestBed.inject(HttpTestingController);
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('exposes refresh activity so protected content can be hidden', () => {
+    auth.verifyOtp({ email: 'operator@evn.vn', otp: '123456', purpose: 'Login' }).subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/auth/otp/verify`).flush({ data: { authResult: { accessToken: 'access', refreshToken: 'refresh', user: { id: 'u1', role: 'Inspector' } } } });
+
+    auth.refresh().subscribe();
+    expect(auth.refreshing()).toBe(true);
+    http.expectOne(`${environment.apiBaseUrl}/auth/refresh-token`).flush({ data: { accessToken: 'new-access', refreshToken: 'new-refresh' } });
+    expect(auth.refreshing()).toBe(false);
+  });
 });
+
+const jwtWithExpiry = (expiresAtSeconds: number): string => {
+  const encoded = btoa(JSON.stringify({ exp: expiresAtSeconds })).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return `header.${encoded}.signature`;
+};

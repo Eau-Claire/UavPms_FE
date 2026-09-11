@@ -1,9 +1,17 @@
-<a class="skip-link" href="#main-content">Đi đến nội dung chính</a>
-<div class="app-shell ant-layout ant-layout-has-sider">
+@if (auth.isAuthenticated() && !auth.refreshing()) {
+  <a class="skip-link" href="#main-content">Đi đến nội dung chính</a>
+  <div class="app-shell ant-layout ant-layout-has-sider">
   <app-sidebar [open]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
   @if (sidebarOpen()) { <button type="button" class="app-backdrop" aria-label="Đóng điều hướng" (click)="sidebarOpen.set(false)"></button> }
   <div class="app-main ant-layout">
     <app-header (menuOpened)="sidebarOpen.set(true)" />
     <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" tabindex="-1"><div class="app-content-inner"><router-outlet /></div></main>
   </div>
-</div>
+  </div>
+} @else {
+  <main class="session-gate" aria-live="polite" aria-busy="true">
+    <span class="session-gate-spinner" aria-hidden="true"></span>
+    <strong>{{ auth.refreshing() ? 'Đang khôi phục phiên đăng nhập' : 'Đang chuyển đến trang đăng nhập' }}</strong>
+    <p>Vui lòng chờ trong giây lát…</p>
+  </main>
+}

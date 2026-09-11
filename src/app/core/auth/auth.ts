@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { map, tap } from 'rxjs';
+import { finalize, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { unwrapApiData } from '../../models/api.models';
 import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } from '../../models/auth.models';
@@ -12,9 +12,19 @@ export class Auth {
   private readonly http = inject(HttpClient);
   private readonly sessionKey = 'uavpms.session';
   private readonly sessionState = signal<AuthSession | null>(this.readSession());
+  private readonly refreshingState = signal(false);
+  private sessionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
   readonly session = this.sessionState.asReadonly();
+  readonly refreshing = this.refreshingState.asReadonly();
   readonly user = computed(() => this.sessionState()?.user ?? null);
-  readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.tokens.accessToken));
+  readonly isAuthenticated = computed(() => {
+    const accessToken = this.sessionState()?.tokens.accessToken;
+    return Boolean(accessToken) && !this.isJwtExpired(accessToken!);
+  });
+
+  constructor() {
+    this.scheduleSessionExpiry(this.sessionState()?.tokens.accessToken);
+  }
 
   login(credentials: { username: string; password: string }) {
     const rawUsername = this.normalizeUsername(credentials.username);
@@ -67,6 +77,7 @@ export class Auth {
   }
 
   refresh() {
+    this.refreshingState.set(true);
     return this.http
       .post<unknown>(`${environment.apiBaseUrl}/auth/refresh-token`, {
         refreshToken: this.sessionState()?.tokens.refreshToken,
@@ -77,17 +88,22 @@ export class Auth {
           const current = this.sessionState();
           if (current) this.setSession({ ...current, tokens });
         }),
+        finalize(() => this.refreshingState.set(false)),
       );
   }
 
   logout(): void {
+    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
+    this.sessionExpiryTimer = null;
     localStorage.removeItem(this.sessionKey);
     this.sessionState.set(null);
+    this.refreshingState.set(false);
   }
 
   private setSession(session: AuthSession): void {
     localStorage.setItem(this.sessionKey, JSON.stringify(session));
     this.sessionState.set(session);
+    this.scheduleSessionExpiry(session.tokens.accessToken);
   }
   private readSession(): AuthSession | null {
     try {
@@ -192,6 +208,46 @@ export class Auth {
     }
   }
 
+  private isJwtExpired(token: string): boolean {
+    try {
+      const payload = this.parseTokenPayload(token);
+      const expiresAtSeconds = Number(payload['exp']);
+      return Number.isFinite(expiresAtSeconds) && expiresAtSeconds * 1000 <= Date.now();
+    } catch {
+      // Some test/dev environments use opaque access tokens without JWT claims.
+      return false;
+    }
+  }
+
+  private scheduleSessionExpiry(token?: string): void {
+    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
+    this.sessionExpiryTimer = null;
+    if (!token) return;
+    try {
+      const expiresAtMs = Number(this.parseTokenPayload(token)['exp']) * 1000;
+      if (!Number.isFinite(expiresAtMs)) return;
+      const remainingMs = expiresAtMs - Date.now();
+      if (remainingMs <= 0) return;
+      this.sessionExpiryTimer = setTimeout(() => this.logout(), remainingMs);
+    } catch {
+      // Opaque development tokens do not provide an expiry timestamp.
+    }
+  }
+
+  private parseTokenPayload(token: string): Record<string, unknown> {
+    const parts = token.split('.');
+    if (parts.length < 2) throw new Error('Invalid JWT');
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const jsonPayload = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((character) => `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    );
+    return JSON.parse(jsonPayload) as Record<string, unknown>;
+  }
+
   private hasTokens(payload: Record<string, unknown>): boolean {
     const tokens = (payload['tokens'] ?? payload) as Record<string, unknown>;
     return (
@@ -207,4 +263,3 @@ export class Auth {
     return username.trim();
   }
 }
-

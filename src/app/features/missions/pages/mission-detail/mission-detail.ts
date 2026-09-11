@@ -431,7 +431,7 @@ export class MissionDetail {
   protected selectTarget(assetId: string): void {
     this.selectedTargetId.set(assetId);
     const target = this.mission()?.targets.find((item) => item.assetId === assetId);
-    if (!target || !this.targetsInEvnspcCoverage().some((item) => item.assetId === assetId)) return;
+    if (!target || !this.targetsWithCoordinates().some((item) => item.assetId === assetId)) return;
     this.missionMap?.flyTo({ center: [target.longitude!, target.latitude!], zoom: 14, duration: 650 });
   }
 
@@ -452,6 +452,12 @@ export class MissionDetail {
         version: 8,
         glyphs: new URL('/maps/fonts/{fontstack}/{range}.pbf', window.location.origin).href,
         sources: {
+          onlineBasemap: {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors',
+          },
           basemap: {
             type: 'vector',
             url: `pmtiles://${archiveUrl}`,
@@ -460,6 +466,7 @@ export class MissionDetail {
         },
         layers: [
           { id: 'background', type: 'background', paint: { 'background-color': '#edf2f7' } },
+          { id: 'online-basemap', type: 'raster', source: 'onlineBasemap', paint: { 'raster-opacity': 1 } },
           { id: 'earth', type: 'fill', source: 'basemap', 'source-layer': 'earth', paint: { 'fill-color': '#f7f5ef' } },
           { id: 'landuse', type: 'fill', source: 'basemap', 'source-layer': 'landuse', paint: { 'fill-color': '#e8f2e4', 'fill-opacity': 0.72 } },
           { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
@@ -502,7 +509,7 @@ export class MissionDetail {
         center: [106.5, 11.7],
         zoom: 6,
         attributionControl: {},
-        maxBounds: [[102, 8], [109.6, 16.2]],
+        maxBounds: [[102, 8], [110, 24]],
         minZoom: 5,
         maxZoom: 15,
         maxTileCacheSize: 256,
@@ -528,7 +535,7 @@ export class MissionDetail {
 
     this.missionTargetMarkers.forEach((marker) => marker.remove());
     this.missionTargetMarkers = [];
-    const targets = [...this.targetsInEvnspcCoverage()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     const coordinates = targets.map((target) => [target.longitude!, target.latitude!] as [number, number]);
 
     const routeData: FeatureCollection<LineString> = {
