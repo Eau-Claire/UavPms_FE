@@ -110,14 +110,6 @@
           </div>
         </div>
 
-        <div class="quick-demo-strip">
-          <span class="demo-label">Hoặc dùng tệp mẫu kiểm thử nhanh:</span>
-          <button type="button" class="btn-demo-sample" (click)="loadSampleDemo()">
-            <span nz-icon nzType="play-circle" aria-hidden="true"></span>
-            <span>Nạp {{ workflowMode() === 'video' ? 'Video 4K UAV Mẫu' : 'Ảnh Flycam Độ Phân Giải Cao' }}</span>
-          </button>
-        </div>
-
         @if (uploadError()) {
           <div class="studio-alert danger" role="alert">
             <span nz-icon nzType="close-circle" aria-hidden="true"></span>

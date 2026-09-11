@@ -5,45 +5,6 @@ import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { DroneDto } from '../../../models/drones.models';
 
-const MOCK_FALLBACK_DRONES: readonly DroneDto[] = [
-  {
-    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-    droneCode: 'UAV-001',
-    name: 'Matrice 300 RTK',
-    online: true,
-    battery: 88.5,
-    operationalStatus: 'Idle',
-    lastSeenAt: new Date().toISOString(),
-    latitude: 10.762622,
-    longitude: 106.660172,
-    altitude: 120.0,
-  },
-  {
-    id: 'b2c3d4e5-6789-4abc-def0-123456789abc',
-    droneCode: 'UAV-002',
-    name: 'Matrice 350 RTK',
-    online: true,
-    battery: 94.0,
-    operationalStatus: 'Idle',
-    lastSeenAt: new Date().toISOString(),
-    latitude: 10.7635,
-    longitude: 106.6612,
-    altitude: 150.0,
-  },
-  {
-    id: 'c3d4e5f6-789a-4bcd-ef01-23456789abcd',
-    droneCode: 'UAV-003',
-    name: 'Mavic 3 Enterprise',
-    online: true,
-    battery: 76.0,
-    operationalStatus: 'Idle',
-    lastSeenAt: new Date().toISOString(),
-    latitude: 10.764,
-    longitude: 106.662,
-    altitude: 100.0,
-  },
-];
-
 @Injectable({ providedIn: 'root' })
 export class DronesApi {
   private readonly http = inject(HttpClient);
@@ -52,7 +13,7 @@ export class DronesApi {
   getAll(): Observable<readonly DroneDto[]> {
     return this.http.get<unknown>(this.url).pipe(
       map((res) => normalizeDroneList(unwrapApiData(res))),
-      catchError(() => of(MOCK_FALLBACK_DRONES)),
+      catchError(() => of([])),
     );
   }
 

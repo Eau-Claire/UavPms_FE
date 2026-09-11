@@ -100,8 +100,7 @@
 
       <aside class="mission-camera-panel">
         <div class="mission-camera-feed">
-          <img src="/images/defect-preview-frame.png" alt="Mock live UAV feed" />
-          <span>CAM-01 FPV · RTK FIX</span>
+          <span class="mission-camera-empty">Chưa có tín hiệu camera</span>
         </div>
         <section>
           <h2>Trình tự kiểm tra</h2>
@@ -122,7 +121,7 @@
           <strong [title]="mission.title || 'Chưa đặt tên nhiệm vụ'">{{ middleEllipsis(mission.title || 'Chưa đặt tên nhiệm vụ', 48) }}</strong>
           <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
         </div>
-        <div class="mission-progress"><span style="width: 65%"></span></div>
+        <div class="mission-progress" role="progressbar" [attr.aria-valuenow]="0" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ nhiệm vụ"><span [style.width.%]="0"></span></div>
         <button type="button" class="mission-footer-upload" (click)="setTab('upload')"><span nz-icon nzType="upload"></span>Upload media</button>
       </footer>
 

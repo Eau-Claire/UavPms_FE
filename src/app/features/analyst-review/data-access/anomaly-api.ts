@@ -62,9 +62,6 @@ export const REJECT_REASONS = [
   { value: 'Other', label: 'Lý do khác (Other)' },
 ] as const;
 
-// In-memory / local storage mock store when backend 404
-const MOCK_STORAGE_KEY = 'uavpms.mock.anomalies';
-
 @Injectable({
   providedIn: 'root',
 })
@@ -89,9 +86,8 @@ export class AnomalyApi {
           return normalizeAnomalyPage(raw, pageIndex, pageSize);
         }),
         catchError((error: HttpErrorResponse) => {
-          // If backend endpoint is not implemented or returns 404, fallback to simulated detections
           if (error.status === 404 || error.status === 0 || error.status === 502) {
-            return of(this.getFallbackAnomalyPage(pageIndex, pageSize));
+            return of({ items: [], totalCount: 0, pageIndex, pageSize, totalPages: 0 });
           }
           throw error;
         }),
@@ -103,70 +99,12 @@ export class AnomalyApi {
       .put<void>(`${this.baseUrl}/anomalies/${encodeURIComponent(id)}/validate`, request)
       .pipe(
         catchError((error: HttpErrorResponse) => {
-          if (error.status === 404 || error.status === 0) {
-            // Update local mock store on 404 fallback
-            this.updateLocalMockStatus(id, request.status, request.analystNotes);
-            return of(undefined as unknown as void);
-          }
+          if (error.status === 404 || error.status === 0) return of(undefined as unknown as void);
           throw error;
         }),
       );
   }
 
-  private getFallbackAnomalyPage(pageIndex: number, pageSize: number): AnomalyPage {
-    const allItems = this.getOrInitMockDetections();
-    const pendingItems = allItems.filter((it) => it.validationStatus === 'Pending');
-
-    const startIndex = (pageIndex - 1) * pageSize;
-    const items = pendingItems.slice(startIndex, startIndex + pageSize);
-    const totalCount = pendingItems.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-    return {
-      items,
-      totalCount,
-      pageIndex,
-      pageSize,
-      totalPages,
-    };
-  }
-
-  private getOrInitMockDetections(): AnomalyItem[] {
-    try {
-      const saved = localStorage.getItem(MOCK_STORAGE_KEY);
-      if (saved) {
-        return JSON.parse(saved) as AnomalyItem[];
-      }
-    } catch {
-      // ignore
-    }
-
-    const defaultMocks = createInitialMockAnomalies();
-    try {
-      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaultMocks));
-    } catch {
-      // ignore
-    }
-    return defaultMocks;
-  }
-
-  private updateLocalMockStatus(id: string, status: AnomalyValidationStatus, notes?: string): void {
-    try {
-      const items = this.getOrInitMockDetections();
-      const next = items.map((it) =>
-        it.id === id
-          ? {
-              ...it,
-              validationStatus: status,
-              analystNotes: notes || it.analystNotes,
-            }
-          : it,
-      );
-      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  }
 }
 
 const createInitialMockAnomalies = (): AnomalyItem[] => [

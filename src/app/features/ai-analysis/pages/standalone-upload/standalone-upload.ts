@@ -23,7 +23,6 @@ import {
   AiDetection,
   AnalysisSessionResult,
   captureVideoFrameAtTime,
-  createSimulatedDetections,
   extractCropDataUrl,
   VideoTimelineMarker,
 } from '../../data-access/ai-analysis-api';
@@ -344,35 +343,6 @@ export class StandaloneUpload {
     this.selectedDetection.set(null);
   }
 
-  loadSampleDemo(): void {
-    const isVideo = this.workflowMode() === 'video';
-    const sampleFiles = isVideo ? ['UAV_Flight_Line220kV_Section04.mp4'] : ['DJI_0042_Insulator_PhaB.jpg'];
-    const fakeFile = new File(['mock content'], sampleFiles[0], {
-      type: isVideo ? 'video/mp4' : 'image/jpeg',
-    });
-
-    const sampleMedia: StandaloneMediaPreview = {
-      id: `sample-${Date.now()}`,
-      file: fakeFile,
-      name: sampleFiles[0],
-      sizeFormatted: isVideo ? '48.6 MB' : '4.2 MB',
-      previewUrl: isVideo ? '/images/defect-preview-frame.png' : '/images/defect-insulator-crack.png',
-      thumbnailUrl: isVideo ? '/images/defect-preview-frame.png' : '/images/defect-insulator-crack.png',
-      resolution: isVideo ? '3840 x 2160 (4K UHD)' : '4000 x 3000 (12MP)',
-      fps: isVideo ? '60 FPS' : '-',
-      duration: isVideo ? '01:00' : '-',
-      durationSeconds: isVideo ? 60 : 0,
-      kind: isVideo ? 'video' : 'image',
-      status: 'Sẵn sàng phân tích AI',
-      progress: 0,
-    };
-
-    this.selectedFiles.set([sampleMedia]);
-    this.activeMediaId.set(sampleMedia.id);
-    this.videoDuration.set(60);
-    this.workflowStage.set('ready');
-  }
-
   onSubmit(): void {
     const files = this.selectedFiles().map((item) => item.file);
     if (!files.length) {
@@ -421,15 +391,6 @@ export class StandaloneUpload {
                 imageUrl: userMediaUrl || d.imageUrl,
                 sourceUrl: userMediaUrl || d.sourceUrl,
               }));
-            } else {
-              // Asynchronous processing or simulated backend response
-              detections = createSimulatedDetections(
-                files.map((f) => f.name),
-                isVideo,
-                duration,
-                userMediaUrl,
-                preferredModel,
-              );
             }
 
             const result: AnalysisSessionResult = {
@@ -448,25 +409,8 @@ export class StandaloneUpload {
           }
         },
         error: () => {
-          // If backend offline or preliminary, use dynamic detection generator matching the user's file and model
-          const simulated = createSimulatedDetections(
-            files.map((f) => f.name),
-            isVideo,
-            duration,
-            userMediaUrl,
-            preferredModel,
-          );
-          const mockResult: AnalysisSessionResult = {
-            id: `AI-${Date.now().toString().slice(-6)}`,
-            status: 'Completed',
-            analysisType: formValues.analysisType as any,
-            notes: formValues.notes,
-            createdAt: new Date().toISOString(),
-            filesCount: files.length,
-            detections: simulated,
-          };
-          this.uploadSuccessResult.set(mockResult);
-          this.applyDetectionsWithCrops(simulated, isVideo, userMediaUrl);
+          this.uploadError.set('Không thể kết nối dịch vụ phân tích. Vui lòng thử lại sau.');
+          this.workflowStage.set('ready');
         },
       });
   }

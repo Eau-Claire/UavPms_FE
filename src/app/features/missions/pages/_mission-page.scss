@@ -978,10 +978,20 @@
   top: 10px;
   left: 10px;
   border-radius: 999px;
-  background: rgba(0,0,0,.68);
+  background: #111827;
+  color: #fff;
   padding: 4px 8px;
   font-size: 10px;
   font-weight: 900;
+}
+
+.mission-camera-empty {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .waypoint {
@@ -1064,7 +1074,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #855300, #fea619);
+  background: #fea619;
 }
 
 .mission-footer-upload {
