@@ -79,6 +79,8 @@
 }
 
 .panel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -130,7 +132,13 @@
 }
 
 .panel > :not(header) {
-  padding: 20px 24px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.panel-defects > :not(header) {
+  padding: 0;
 }
 
 .count {

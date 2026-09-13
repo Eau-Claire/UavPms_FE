@@ -189,54 +189,50 @@
 
         <button
           type="button"
-          class="risk-tab risk-tab--critical"
+          class="risk-tab"
           [class.risk-tab--active]="store.filterRiskLevel() === 'Critical Risk'"
           (click)="onRiskFilterChange('Critical Risk')"
           role="tab"
           [attr.aria-selected]="store.filterRiskLevel() === 'Critical Risk'"
         >
-          <span class="status-dot dot-critical" aria-hidden="true"></span>
           <span>Nguy cấp</span>
-          <span class="tab-badge tab-badge--critical">{{ store.kpiSummary().criticalRiskCount }}</span>
+          <span class="tab-badge">{{ store.kpiSummary().criticalRiskCount }}</span>
         </button>
 
         <button
           type="button"
-          class="risk-tab risk-tab--high"
+          class="risk-tab"
           [class.risk-tab--active]="store.filterRiskLevel() === 'High Risk'"
           (click)="onRiskFilterChange('High Risk')"
           role="tab"
           [attr.aria-selected]="store.filterRiskLevel() === 'High Risk'"
         >
-          <span class="status-dot dot-high" aria-hidden="true"></span>
           <span>Rủi ro cao</span>
-          <span class="tab-badge tab-badge--high">{{ store.kpiSummary().highRiskCount }}</span>
+          <span class="tab-badge">{{ store.kpiSummary().highRiskCount }}</span>
         </button>
 
         <button
           type="button"
-          class="risk-tab risk-tab--medium"
+          class="risk-tab"
           [class.risk-tab--active]="store.filterRiskLevel() === 'Medium Risk'"
           (click)="onRiskFilterChange('Medium Risk')"
           role="tab"
           [attr.aria-selected]="store.filterRiskLevel() === 'Medium Risk'"
         >
-          <span class="status-dot dot-medium" aria-hidden="true"></span>
           <span>Trung bình</span>
-          <span class="tab-badge tab-badge--medium">{{ store.kpiSummary().mediumRiskCount }}</span>
+          <span class="tab-badge">{{ store.kpiSummary().mediumRiskCount }}</span>
         </button>
 
         <button
           type="button"
-          class="risk-tab risk-tab--low"
+          class="risk-tab"
           [class.risk-tab--active]="store.filterRiskLevel() === 'Low Risk'"
           (click)="onRiskFilterChange('Low Risk')"
           role="tab"
           [attr.aria-selected]="store.filterRiskLevel() === 'Low Risk'"
         >
-          <span class="status-dot dot-low" aria-hidden="true"></span>
           <span>Ổn định</span>
-          <span class="tab-badge tab-badge--low">{{ store.kpiSummary().lowRiskCount }}</span>
+          <span class="tab-badge">{{ store.kpiSummary().lowRiskCount }}</span>
         </button>
       </div>
 

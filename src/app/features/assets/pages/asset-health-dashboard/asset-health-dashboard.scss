@@ -9,7 +9,102 @@
 
 /* Header & Action Area */
 .asset-page-head {
-  margin-bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+
+  .page-heading-group {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+
+    strong {
+      color: #10387d;
+    }
+  }
+
+  .page-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #0f172a;
+  }
+
+  .page-subtitle {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+
+    .refresh-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: #64748b;
+      white-space: nowrap;
+
+      .refresh-icon {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 14px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover:not(:disabled) {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #0f172a;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-icon {
+        font-size: 13px;
+      }
+    }
+  }
 }
 
 /* KPI Summary Cards Grid */
@@ -208,7 +303,7 @@
 .risk-tab {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 6px 14px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -234,17 +329,6 @@
       background: rgba(255, 255, 255, 0.22);
       color: #ffffff;
     }
-  }
-
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-
-    &.dot-critical { background: #dc2626; }
-    &.dot-high { background: #ea580c; }
-    &.dot-medium { background: #d97706; }
-    &.dot-low { background: #16a34a; }
   }
 
   .tab-badge {

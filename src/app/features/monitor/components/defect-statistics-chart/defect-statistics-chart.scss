@@ -1,4 +1,10 @@
-﻿.chart-wrap {
+:host {
+  display: block;
+  padding: 20px 24px;
+  box-sizing: border-box;
+}
+
+.chart-wrap {
   display: grid;
   grid-template-columns: minmax(9rem, 13rem) minmax(8rem, 1fr);
   align-items: center;
