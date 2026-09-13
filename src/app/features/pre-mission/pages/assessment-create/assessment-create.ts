@@ -1,6 +1,91 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PreMissionApi } from '../../data-access/pre-mission-api';
-@Component({ selector:'app-assessment-create', imports:[ReactiveFormsModule], template:`<section class="ops-page"><header class="page-header"><div><p class="eyebrow">MF01 · PRE-MISSION</p><h1>Create assessment</h1></div></header><form [formGroup]="form" (ngSubmit)="submit()"><label>Region ID*<input formControlName="regionId"></label><label>Asset IDs*<input formControlName="scopeAssetIds"></label><label>Planned start*<input type="datetime-local" formControlName="plannedStart"></label><label>Planned end*<input type="datetime-local" formControlName="plannedEnd"></label><button class="button primary" [disabled]="form.invalid || busy">Create assessment</button></form></section>`, styles:[`.ops-page{padding:24px;max-width:760px;margin:auto}.page-header{margin-bottom:20px}.eyebrow{color:var(--app-brand);font-weight:700}label{display:grid;gap:6px;margin:16px 0;font-weight:600}input{padding:10px;border:1px solid var(--app-border-input);border-radius:4px}.button{padding:10px 16px}.primary{background:var(--app-brand);color:#fff;border:0}`], changeDetection:ChangeDetectionStrategy.OnPush })
-export class AssessmentCreate { private readonly api=inject(PreMissionApi); private readonly fb=inject(FormBuilder); private readonly router=inject(Router); protected busy=false; protected readonly form=this.fb.nonNullable.group({regionId:['',Validators.required],scopeAssetIds:['',Validators.required],plannedStart:['',Validators.required],plannedEnd:['',Validators.required]}); protected submit(){if(this.form.invalid||this.busy)return;this.busy=true;const v=this.form.getRawValue();this.api.create({...v,scopeAssetIds:v.scopeAssetIds.split(',').map(x=>x.trim()).filter(Boolean)}).subscribe({next:x=>this.router.navigate(['/pre-mission',x.id]),error:()=>this.busy=false});}}
+
+function dateWindowValidator(control: AbstractControl): ValidationErrors | null {
+  const start = control.get('plannedStart')?.value;
+  const end = control.get('plannedEnd')?.value;
+  if (!start || !end) return null;
+  if (new Date(end) <= new Date(start)) {
+    return { endBeforeStart: true };
+  }
+  return null;
+}
+
+@Component({
+  selector: 'app-assessment-create',
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule],
+  templateUrl: './assessment-create.html',
+  styleUrl: './assessment-create.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AssessmentCreate {
+  private readonly api = inject(PreMissionApi);
+  private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
+
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+
+  protected readonly form = this.fb.nonNullable.group(
+    {
+      regionId: ['', [Validators.required, Validators.minLength(2)]],
+      lineName: [''],
+      scopeAssetIds: ['', [Validators.required]],
+      plannedStart: ['', [Validators.required]],
+      plannedEnd: ['', [Validators.required]],
+    },
+    { validators: [dateWindowValidator] }
+  );
+
+  protected readonly parsedAssetCount = computed(() => {
+    // Reactive calculation of parsed asset IDs count
+    return 0; // updated via form change if needed
+  });
+
+  protected get assetCount(): number {
+    const val = this.form.controls.scopeAssetIds.value;
+    if (!val) return 0;
+    return val.split(/[,\n]/).map((x) => x.trim()).filter(Boolean).length;
+  }
+
+  protected submit(): void {
+    if (this.form.invalid || this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+
+    const raw = this.form.getRawValue();
+    const assetIds = raw.scopeAssetIds
+      .split(/[,\n]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (assetIds.length === 0) {
+      this.error.set('Vui lòng nhập ít nhất một mã vị trí/thiết bị cột điện (Asset ID).');
+      this.busy.set(false);
+      return;
+    }
+
+    this.api
+      .create({
+        regionId: raw.regionId.trim(),
+        plannedStart: raw.plannedStart,
+        plannedEnd: raw.plannedEnd,
+        scopeAssetIds: assetIds,
+      })
+      .subscribe({
+        next: (created) => {
+          this.router.navigate(['/pre-mission', created.id]);
+        },
+        error: (err) => {
+          this.busy.set(false);
+          this.error.set(
+            err?.error?.message ||
+              'Không thể tạo đánh giá tiền nhiệm vụ. Vui lòng kiểm tra lại thông tin phạm vi và thời gian.'
+          );
+        },
+      });
+  }
+}

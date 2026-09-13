@@ -179,7 +179,7 @@
                   <!-- Thumbnails Queue Grid -->
                   <div class="mission-drop-thumbs" aria-label="Selected media">
                     @for (media of mediaQueue(); track media.id) {
-                      <article class="mission-drop-thumb {{ media.kind }}" [class.active]="selectedMedia()?.id === media.id" (click)="selectMedia(media.id)">
+                      <article class="mission-drop-thumb {{ media.kind }}" [class.active]="selectedMedia()?.id === media.id" tabindex="0" (keydown.enter)="selectMedia(media.id)" (click)="selectMedia(media.id)">
                         @if (media.kind === 'video') {
                           <video [src]="media.url" muted preload="metadata" (loadedmetadata)="onVideoMetadata($event, media.id)"></video>
                         } @else {
@@ -223,7 +223,7 @@
                   <span role="columnheader">Tên file</span><span role="columnheader">Kích thước</span><span role="columnheader">Độ phân giải</span><span role="columnheader">Trạng thái</span><span role="columnheader">Loại</span>
                 </div>
                 @for (media of mediaQueue(); track media.id) {
-                  <div class="queue-row" role="row" (click)="selectMedia(media.id)" [class.selected]="selectedMedia()?.id === media.id">
+                  <div class="queue-row" role="row" tabindex="0" (keydown.enter)="selectMedia(media.id)" (click)="selectMedia(media.id)" [class.selected]="selectedMedia()?.id === media.id">
                     <span role="cell" class="file-name" [title]="media.name"><i [class]="'file-dot ' + (media.progress >= 100 ? 'done' : media.progress > 0 ? 'uploading' : 'pending')"></i>{{ middleEllipsis(media.name, 38) }}</span>
                     <span role="cell">{{ media.size }}</span>
                     <span role="cell" class="font-mono">{{ media.resolution }}</span>
@@ -424,7 +424,17 @@
                           <span class="font-mono text-xs">{{ formatTime(videoCurrentTime()) }} / {{ formatTime(videoDuration() || 60) }}</span>
                         </div>
 
-                        <div class="mission-timeline-scrubber" (click)="onTimelineTrackScrub($event)">
+                        <div
+                          class="mission-timeline-scrubber"
+                          tabindex="0"
+                          role="slider"
+                          [attr.aria-valuenow]="videoCurrentTime()"
+                          aria-valuemin="0"
+                          [attr.aria-valuemax]="videoDuration() || 60"
+                          aria-label="Thanh thời gian video"
+                          (keydown.enter)="onTimelineTrackScrub($event)"
+                          (click)="onTimelineTrackScrub($event)"
+                        >
                           <div class="timeline-rail"></div>
                           <div class="timeline-fill" [style.width.%]="(videoCurrentTime() / (videoDuration() || 60)) * 100"></div>
 
@@ -435,6 +445,8 @@
                               [class.active]="selected.id === marker.detectionId"
                               [class.emergency]="marker.isEmergency"
                               [style.left.%]="marker.percent"
+                              tabindex="0"
+                              (keydown.enter)="seekVideoDetection(selected); $event.stopPropagation()"
                               (click)="seekVideoDetection(selected); $event.stopPropagation()"
                               (mouseenter)="setHoveredMarker(marker)"
                               (mouseleave)="setHoveredMarker(null)"

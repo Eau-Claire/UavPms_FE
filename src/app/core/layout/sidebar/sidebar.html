@@ -1,6 +1,5 @@
-<aside class="app-sidebar ant-layout-sider" [class.app-sidebar-mobile]="open()" aria-label="Điều hướng chính"><div class="ant-layout-sider-children">
-  <div class="app-sidebar-brand"><img ngSrc="/images/evn-sidebar-logo.png" width="186" height="140" priority alt="EVN Logo" class="app-sidebar-logo" /></div>
-  <nav class="app-sidebar-nav">
+<nav class="app-sidebar" [class.app-sidebar-mobile]="open()" aria-label="Điều hướng chính">
+  <div class="app-sidebar-nav">
     <div class="app-sidebar-nav-primary">
       @for (item of primaryLinks(); track item.path) {
         <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" [routerLinkActiveOptions]="{ exact: item.exact ?? false }" (click)="closed.emit()">
@@ -20,5 +19,5 @@
         </a>
       }
     </div>
-  </nav>
-</div></aside>
+  </div>
+</nav>

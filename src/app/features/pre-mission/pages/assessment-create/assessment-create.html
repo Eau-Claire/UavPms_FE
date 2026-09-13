@@ -1,0 +1,149 @@
+<div class="pre-mission-page">
+  <!-- EVN Header Bar -->
+  <header class="pre-mission-head">
+    <div>
+      <div class="pre-mission-breadcrumb">
+        <span>TIỀN NHIỆM VỤ</span>
+        <span class="separator">/</span>
+        <strong>TẠO ĐÁNH GIÁ MỚI (MF01)</strong>
+      </div>
+      <h1>Khởi tạo đánh giá tiền nhiệm vụ</h1>
+      <p>Xác lập phạm vi và khung giờ dự kiến để hệ thống kiểm tra mặt bằng, nhân sự và thiết bị bay</p>
+    </div>
+    <div class="head-actions">
+      <a class="evn-btn secondary" routerLink="/pre-mission">
+        <span nz-icon nzType="arrow-left"></span>Quay lại danh sách
+      </a>
+    </div>
+  </header>
+
+  <!-- Error alert if any -->
+  @if (error()) {
+    <div class="evn-alert" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="error.set('')">Đóng</button>
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="assessment-form-layout">
+    <!-- Panel 1: Phạm vi khảo sát -->
+    <div class="evn-panel">
+      <div class="panel-header">
+        <h3>1. Phạm vi khảo sát dự kiến (Scope)</h3>
+        <span class="panel-badge">Bắt buộc</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="regionId">
+              Mã khu vực / Điện lực <span class="required">*</span>
+            </label>
+            <input
+              id="regionId"
+              type="text"
+              placeholder="VD: REGION-HCM-01 hoặc PC-DONGNAI"
+              formControlName="regionId"
+              [class.has-error]="form.controls.regionId.touched && form.controls.regionId.invalid"
+            />
+            @if (form.controls.regionId.touched && form.controls.regionId.invalid) {
+              <span class="error-msg">Vui lòng nhập mã khu vực quản lý</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label for="lineName">
+              Tên tuyến / Xuất tuyến (tùy chọn)
+            </label>
+            <input
+              id="lineName"
+              type="text"
+              placeholder="VD: Đường dây 220kV Cát Lái - Thủ Đức"
+              formControlName="lineName"
+            />
+          </div>
+
+          <div class="form-group full-width">
+            <label for="scopeAssetIds">
+              Danh sách mã vị trí cột / Thiết bị (Asset IDs) <span class="required">*</span>
+              <span class="label-hint">(Nhập phân tách bằng dấu phẩy hoặc xuống dòng)</span>
+            </label>
+            <textarea
+              id="scopeAssetIds"
+              rows="3"
+              placeholder="VD: TWR-220-001, TWR-220-002, TWR-220-003..."
+              formControlName="scopeAssetIds"
+              [class.has-error]="form.controls.scopeAssetIds.touched && form.controls.scopeAssetIds.invalid"
+            ></textarea>
+            <div class="field-meta">
+              <span>Đã nhập: <strong>{{ assetCount }}</strong> vị trí/cột</span>
+              @if (form.controls.scopeAssetIds.touched && form.controls.scopeAssetIds.invalid) {
+                <span class="error-msg">Vui lòng nhập ít nhất một mã vị trí/cột điện</span>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Khung thời gian dự kiến -->
+    <div class="evn-panel">
+      <div class="panel-header">
+        <h3>2. Khung thời gian thực hiện dự kiến (Time Window)</h3>
+        <span class="panel-badge">Bắt buộc</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="plannedStart">
+              Thời gian bắt đầu dự kiến <span class="required">*</span>
+            </label>
+            <input
+              id="plannedStart"
+              type="datetime-local"
+              formControlName="plannedStart"
+              [class.has-error]="form.controls.plannedStart.touched && form.controls.plannedStart.invalid"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="plannedEnd">
+              Thời gian kết thúc dự kiến <span class="required">*</span>
+            </label>
+            <input
+              id="plannedEnd"
+              type="datetime-local"
+              formControlName="plannedEnd"
+              [class.has-error]="(form.controls.plannedEnd.touched && form.controls.plannedEnd.invalid) || form.errors?.['endBeforeStart']"
+            />
+          </div>
+
+          @if (form.errors?.['endBeforeStart']) {
+            <div class="form-group full-width">
+              <span class="error-msg" style="display: block; padding: 4px 8px; background: #fee2e2; border-radius: 2px;">
+                <span nz-icon nzType="warning"></span> Thời gian kết thúc phải diễn ra sau thời gian bắt đầu dự kiến.
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions bar -->
+    <div class="form-actions-bar">
+      <a class="evn-btn secondary" routerLink="/pre-mission">
+        Hủy bỏ
+      </a>
+      <button
+        type="submit"
+        class="evn-btn primary"
+        [disabled]="form.invalid || busy()"
+      >
+        @if (busy()) {
+          <span nz-icon nzType="loading"></span> Đang khởi tạo...
+        } @else {
+          <span nz-icon nzType="check"></span> Tạo đánh giá & Kiểm tra sẵn sàng
+        }
+      </button>
+    </div>
+  </form>
+</div>

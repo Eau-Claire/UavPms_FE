@@ -18,7 +18,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { FeatureCollection, LineString } from 'geojson';
 import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, addProtocol, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
-import { catchError, finalize, of, throwError } from 'rxjs';
+import { catchError, finalize, of } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission } from '../../../../models/missions.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';

@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -23,7 +23,9 @@ import { DatePipe } from '@angular/common';
 import { Auth } from '../../../../core/auth/auth';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { DroneDto } from '../../../../models/drones.models';
+import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { UserRecord } from '../../../../models/users.models';
+import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
 import { GisApi, GisDataSnapshot, GisTower, GisTransmissionLine } from '../../../gis/data-access/gis-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { DronesApi } from '../../data-access/drones-api';
@@ -48,8 +50,13 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly preMissionApi = inject(PreMissionApi);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly targetSelection = inject(MissionTargetSelection);
+
+  protected readonly sourceAssessmentId = signal<string>('');
+  protected readonly assessmentData = signal<PreMissionAssessment | null>(null);
 
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
   private readonly reviewMapContainer = viewChild<ElementRef<HTMLDivElement>>('reviewMapContainer');
@@ -141,6 +148,31 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       error: () => this.gisError.set('Không tải được danh sách Region.')
     });
     this.loadGisData();
+
+    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
+    if (assessmentId) {
+      this.sourceAssessmentId.set(assessmentId);
+      this.preMissionApi.get(assessmentId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: (ass) => {
+          this.assessmentData.set(ass);
+          if (ass.status === 'READY') {
+            const startVal = ass.plannedStart ? ass.plannedStart.slice(0, 16) : '';
+            const endVal = ass.plannedEnd ? ass.plannedEnd.slice(0, 16) : '';
+            this.form.patchValue({
+              name: `Khảo sát ${ass.regionName}${ass.lineName ? ' - ' + ass.lineName : ''}`,
+              scheduledAt: startVal,
+              plannedEnd: endVal,
+              description: `Nhiệm vụ được tạo từ Đánh giá tiền nhiệm vụ ${ass.assessmentCode}. Phạm vi: ${ass.assetCount} vị trí cột.`,
+            });
+          } else {
+            this.error.set(`Cảnh báo: Đánh giá ${ass.assessmentCode} ở trạng thái ${ass.status} (chưa đạt READY).`);
+          }
+        },
+        error: () => {
+          this.error.set('Không thể tải thông tin Đánh giá tiền nhiệm vụ liên kết.');
+        },
+      });
+    }
   }
 
   protected changeRegion(regionId: string): void {

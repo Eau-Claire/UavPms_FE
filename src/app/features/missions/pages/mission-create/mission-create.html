@@ -23,6 +23,19 @@
     </div>
   }
 
+  <!-- Linked Pre-Mission Assessment Banner (MF01 -> MF02) -->
+  @if (assessmentData(); as ass) {
+    <div class="assessment-source-banner" role="status">
+      <span nz-icon nzType="check-circle" class="banner-icon"></span>
+      <div class="banner-content">
+        <span>Khởi tạo từ Đánh giá tiền nhiệm vụ:</span>
+        <a [routerLink]="['/pre-mission', ass.id]" class="banner-code">{{ ass.assessmentCode }}</a>
+        <span class="banner-tag success">{{ ass.status }}</span>
+        <span class="banner-scope">Phạm vi: <strong>{{ ass.regionName }}</strong> · {{ ass.assetCount }} vị trí cột</span>
+      </div>
+    </div>
+  }
+
   <!-- 6-Stage Stepper Bar -->
   <nav class="wizard-stepper" aria-label="Tiến trình tạo nhiệm vụ">
     <button

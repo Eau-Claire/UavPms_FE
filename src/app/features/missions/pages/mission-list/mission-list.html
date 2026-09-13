@@ -19,23 +19,14 @@
     <button type="button" class="mission-filter-btn mission-refresh-btn" [disabled]="loading()" (click)="refreshList()"><span nz-icon nzType="reload"></span>Refresh</button>
   </section>
 
-  <section class="mission-stats" aria-label="Tổng quan nhiệm vụ">
-    @if (loading() && !statsTotalCount()) {
-      @for (item of [1,2,3,4]; track item) { <article class="mission-stat mission-stat-skeleton"><span></span><div><p></p><strong></strong></div></article> }
-    } @else {
-      @for (item of stats(); track item.label) {
-        <article class="mission-stat {{ item.tone }}">
-          <span nz-icon [nzType]="item.icon"></span>
-          <div><p>{{ item.label }}</p><strong>{{ item.value }}</strong></div>
-        </article>
-      }
-    }
+  <section class="mission-summary-strip" aria-label="Tổng quan nhiệm vụ">
+    @for (item of stats(); track item.label) { <span><strong>{{ item.value }}</strong> {{ item.label }}</span> }
   </section>
 
   <section class="mission-table-card" [class.is-loading]="loading()" aria-busy="{{ loading() }}">
     <div class="mission-table-scroll">
       <table>
-        <thead><tr><th>Mã</th><th>Tên nhiệm vụ</th><th>Ngày</th><th>Tuyến đường</th><th>Đội bay</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <thead><tr><th>Mã nhiệm vụ</th><th>Tên nhiệm vụ</th><th>Ngày tạo</th><th>Khu vực / Tuyến</th><th>Thanh tra viên / UAV</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
         <tbody>
           @if (loading()) {
             @for (row of [1,2,3,4,5,6]; track row) {

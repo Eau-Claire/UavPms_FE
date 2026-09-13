@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { NgOptimizedImage } from '@angular/common';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../auth/auth';
 import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
@@ -16,7 +15,7 @@ export interface NavLinkItem {
 @Component({
   selector: 'app-sidebar',
   host: { style: 'display: contents' },
-  imports: [RouterLink, RouterLinkActive, NgOptimizedImage, NzIconModule],
+  imports: [RouterLink, RouterLinkActive, NzIconModule],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

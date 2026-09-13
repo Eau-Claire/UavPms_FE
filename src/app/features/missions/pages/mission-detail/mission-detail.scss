@@ -553,76 +553,101 @@
 .mission-live-page:not(.workbench-mode) .mission-camera-panel,
 .mission-live-page:not(.workbench-mode) .mission-map-panel,
 .mission-live-page:not(.workbench-mode) .mission-live-footer {
-  border: 1px solid #dce3ec;
+  border: 1px solid #9fc3e4;
   background: #ffffff;
-  color: #172033;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, .06);
+  color: #0b1c30;
+  box-shadow: none;
   backdrop-filter: none;
+  border-radius: 0;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-live-header {
   grid-area: header;
-  min-height: 58px;
+  min-height: 38px;
   margin: 0;
-  border-radius: 10px;
-  padding: 10px 16px;
+  border-radius: 0;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  strong {
+    font-size: 15px;
+    font-weight: 700;
+    color: #173b70;
+  }
 }
 
 .mission-live-page:not(.workbench-mode) .mission-live-header a {
-  color: #334155;
+  color: #174f83;
   font-weight: 700;
+  font-size: 11px;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs {
   grid-area: tabs;
   flex-wrap: nowrap;
   overflow-x: auto;
-  border-radius: 10px;
-  padding: 6px;
+  border-radius: 0;
+  padding: 2px 4px;
+  background: #eaf3fb;
+  min-height: 32px;
+  gap: 2px;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs button {
-  min-height: 38px;
-  border-color: transparent;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
   background: transparent;
-  color: #536176;
-  font-weight: 700;
+  color: #174f83;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 0;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs .tab-count-bubble {
-  background: #132238;
+  background: #174f83;
   color: #ffffff;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs .tab-count-bubble.warn {
-  background: #f59e0b;
-  color: #4a2b00;
+  background: #b45309;
+  color: #ffffff;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs button:hover {
-  background: #f3f6fa;
-  color: #172033;
+  background: #d9edf9;
+  color: #173b70;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-detail-tabs button.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: #fff;
+  border-color: #9fc3e4;
+  border-top: 2px solid #1d4f91;
+  background: #ffffff;
+  color: #173b70;
+  font-weight: 700;
 }
 
 .mission-live-page .mission-detail-tabs .tab-count-bubble {
-  background: #17365d;
+  background: #174f83;
   color: #fff;
 }
 .mission-live-page .mission-detail-tabs .tab-count-bubble.warn {
-  background: #d99a00;
+  background: #b45309;
   color: #fff;
 }
 
 .mission-live-page .mission-detail-tabs button.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: #fff;
+  border-color: #9fc3e4;
+  border-top: 2px solid #1d4f91;
+  background: #ffffff;
+  color: #173b70;
 }
 
 .mission-live-page:not(.workbench-mode) .mission-telemetry-panel {

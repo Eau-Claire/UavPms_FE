@@ -1,1 +1,183 @@
-<section class="ops-page"><header class="page-header"><div><p class="eyebrow">PRE-MISSION READINESS</p><h1>Pre-Mission Assessments</h1><p>Đánh giá tính khả thi và mức sẵn sàng trước khi tạo nhiệm vụ.</p></div><a class="button primary" routerLink="/pre-mission/new">Tạo đánh giá</a></header><div class="toolbar"><span>Assessment list</span><button class="button secondary" type="button" (click)="load()">Làm mới</button></div>@if (error()) { <div class="inline-error" role="alert">{{ error() }}</div> }<div class="table-scroll"><table><thead><tr><th>ID</th><th>Phạm vi</th><th>Planned window</th><th>Site</th><th>Personnel</th><th>UAV</th><th>Overall</th><th>Valid until</th><th>Action</th></tr></thead><tbody>@if (loading()) { <tr><td colspan="9">Đang tải assessments…</td></tr> } @else if (!items().length) { <tr><td colspan="9">Chưa có assessment nào trong phạm vi được cấp quyền.</td></tr> } @for (item of items(); track item.id) { <tr><td><a [routerLink]="['/pre-mission', item.id]">{{ item.assessmentCode }}</a></td><td>{{ item.regionName }}{{ item.lineName ? ' / ' + item.lineName : '' }} · {{ item.assetCount }} assets</td><td>{{ item.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ item.plannedEnd | date:'dd/MM/yyyy HH:mm' }}</td><td><span class="status {{ statusTone(item.site.status) }}">{{ statusLabel(item.site.status) }}</span></td><td><span class="status {{ statusTone(item.personnel.status) }}">{{ statusLabel(item.personnel.status) }}</span></td><td><span class="status {{ statusTone(item.uav.status) }}">{{ statusLabel(item.uav.status) }}</span></td><td><span class="status {{ statusTone(item.status) }}">{{ statusLabel(item.status) }}</span></td><td>{{ item.validUntil ? (item.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td><td><a [routerLink]="['/pre-mission', item.id]">Mở</a></td></tr> }</tbody></table></div></section>
+<div class="pre-mission-page">
+  <!-- EVN Header Bar -->
+  <header class="pre-mission-head">
+    <div>
+      <div class="pre-mission-breadcrumb">
+        <span>TIỀN NHIỆM VỤ</span>
+        <span class="separator">/</span>
+        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG (MF01)</strong>
+      </div>
+      <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
+      <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
+    </div>
+    <div class="head-actions">
+      <a class="evn-btn primary" routerLink="/pre-mission/new">
+        <span nz-icon nzType="plus"></span>Tạo đánh giá mới
+      </a>
+    </div>
+  </header>
+
+  <!-- Error alert if any -->
+  @if (error()) {
+    <div class="evn-alert" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="error.set('')">Đóng</button>
+    </div>
+  }
+
+  <!-- Light Blue Filter Toolbar -->
+  <section class="pre-mission-filters" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
+    <div class="search-input-wrap">
+      <span nz-icon nzType="search" class="search-icon"></span>
+      <input
+        type="search"
+        placeholder="Tìm theo mã, khu vực, tuyến..."
+        [value]="searchQuery()"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </div>
+
+    <label>
+      <span>Trạng thái:</span>
+      <select [value]="statusFilter()" (change)="onStatusChange($any($event.target).value)">
+        @for (opt of statuses; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </label>
+
+    <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="load()">
+      <span nz-icon nzType="reload"></span>Làm mới
+    </button>
+  </section>
+
+  <!-- Summary Metric Strip -->
+  <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu">
+    @for (stat of stats(); track stat.label) {
+      <div class="summary-item">
+        <strong>{{ stat.value }}</strong>
+        <span>{{ stat.label }}</span>
+      </div>
+    }
+  </section>
+
+  <!-- Dense EVN Bordered Table Card -->
+  <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 140px;">Mã đánh giá</th>
+            <th>Phạm vi (Khu vực / Tuyến / Thiết bị)</th>
+            <th style="width: 220px;">Khung giờ dự kiến</th>
+            <th style="width: 100px;">Mặt bằng</th>
+            <th style="width: 100px;">Nhân sự</th>
+            <th style="width: 100px;">UAV</th>
+            <th style="width: 110px;">Tổng thể</th>
+            <th style="width: 130px;">Hiệu lực đến</th>
+            <th style="width: 80px;">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading()) {
+            @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
+              <tr class="skeleton-row">
+                <td colspan="9" class="text-center" style="color: #64748b; font-style: italic;">
+                  Đang tải dữ liệu đánh giá...
+                </td>
+              </tr>
+            }
+          } @else if (!filteredItems().length) {
+            <tr>
+              <td colspan="9" class="text-center" style="padding: 24px; color: #64748b;">
+                Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
+              </td>
+            </tr>
+          } @else {
+            @for (item of filteredItems(); track item.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
+                    {{ item.assessmentCode }}
+                  </a>
+                </td>
+                <td>
+                  <strong>{{ item.regionName }}</strong>
+                  @if (item.lineName) {
+                    <span> / {{ item.lineName }}</span>
+                  }
+                  <span style="color: #64748b;"> · {{ item.assetCount }} vị trí</span>
+                </td>
+                <td>
+                  {{ item.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ item.plannedEnd | date:'dd/MM/yyyy HH:mm' }}
+                </td>
+                <td class="text-center">
+                  <span class="evn-status {{ statusTone(item.site.status) }}">
+                    {{ statusLabel(item.site.status) }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="evn-status {{ statusTone(item.personnel.status) }}">
+                    {{ statusLabel(item.personnel.status) }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="evn-status {{ statusTone(item.uav.status) }}">
+                    {{ statusLabel(item.uav.status) }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="evn-status {{ statusTone(item.status) }}">
+                    {{ statusLabel(item.status) }}
+                  </span>
+                </td>
+                <td>
+                  {{ item.validUntil ? (item.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}
+                </td>
+                <td class="text-center">
+                  <a [routerLink]="['/pre-mission', item.id]" class="evn-btn secondary" style="height: 22px; min-height: 22px; padding: 0 8px; font-size: 10px;">
+                    Mở
+                  </a>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Table Footer with Pagination -->
+    <footer>
+      <span>
+        Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ totalCount() || items().length }} đánh giá
+      </span>
+      <div class="evn-pagination">
+        <button
+          type="button"
+          [disabled]="page() <= 1"
+          (click)="goToPage(page() - 1)"
+          aria-label="Trang trước"
+        >
+          <span nz-icon nzType="left"></span>
+        </button>
+        @for (p of pageButtons(); track p) {
+          <button
+            type="button"
+            [class.active]="p === page()"
+            (click)="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+        }
+        <button
+          type="button"
+          [disabled]="page() >= totalPages()"
+          (click)="goToPage(page() + 1)"
+          aria-label="Trang tiếp"
+        >
+          <span nz-icon nzType="right"></span>
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

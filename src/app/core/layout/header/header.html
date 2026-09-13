@@ -1,13 +1,13 @@
 <header class="app-header ant-layout-header">
-  <button type="button" class="app-mobile-menu" aria-label="Open menu" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
-  <a class="app-header-brand" routerLink="/dashboard" aria-label="UAV-PMS dashboard">
+  <button type="button" class="app-mobile-menu" aria-label="Mở điều hướng" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
+  <a class="app-header-brand" routerLink="/dashboard" aria-label="Trang tổng quan UAV-PMS">
     <span class="app-header-brand-mark" aria-hidden="true">EVN</span>
-    <span class="app-header-brand-copy"><strong>UAV-PMS</strong><small>Technical Operations</small></span>
+    <span class="app-header-brand-copy"><strong>HỆ THỐNG UAV-PMS</strong><small>Quản lý vận hành và kiểm tra lưới điện</small></span>
   </a>
   <div class="app-header-spacer"></div>
   <div class="app-header-actions">
     <div class="app-notification-wrap">
-      <button type="button" class="app-header-icon app-notification-button" [class.app-header-icon-active]="notificationOpen()" aria-label="Notifications" (click)="toggleNotifications()"><span nz-icon nzType="bell" aria-hidden="true"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
+      <button type="button" class="app-header-icon app-notification-button" [class.app-header-icon-active]="notificationOpen()" aria-label="Thông báo" (click)="toggleNotifications()"><span nz-icon nzType="bell" aria-hidden="true"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
       @if (notificationOpen()) {
         <section class="notification-popover" aria-label="Notifications popover">
           <header class="notification-popover-header">
@@ -114,8 +114,7 @@
         </section>
       }
     </div>
-    <button type="button" class="app-header-icon" aria-label="Apps"><span nz-icon nzType="appstore"></span></button>
     <div class="app-header-divider"></div>
-    <div class="app-profile-wrap"><button type="button" class="app-profile-button" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.role === 'Admin' ? 'Administrator' : user()?.fullName }}</span><span class="app-user-role">System Admin</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Profile</button><button type="button"><span nz-icon nzType="setting"></span> Settings</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Logout</button></div> }</div>
+    <div class="app-profile-wrap"><button type="button" class="app-profile-button" aria-label="Mở menu tài khoản" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.fullName || user()?.email }}</span><span class="app-user-role">{{ user()?.role }}</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Hồ sơ</button><button type="button"><span nz-icon nzType="setting"></span> Cài đặt</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button></div> }</div>
   </div>
 </header>
