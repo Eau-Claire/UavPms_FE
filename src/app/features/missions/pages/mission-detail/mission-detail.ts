@@ -789,7 +789,8 @@ export class MissionDetail {
     }
   }
 
-  protected onTimelineTrackScrub(event: MouseEvent): void {
+  protected onTimelineTrackScrub(event: MouseEvent | Event): void {
+    if (!(event instanceof MouseEvent)) return;
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
