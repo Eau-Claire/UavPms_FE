@@ -1,1 +1,79 @@
-.alerts { display: grid; }.alerts article { display: grid; grid-template-columns: 2.25rem 1fr; gap: .75rem; padding: .85rem .25rem; border-top: 1px solid var(--color-border); }.alerts article:first-child { border-top: 0; }.alerts article.unread { margin-inline: -.5rem; padding-inline: .75rem; border-radius: .65rem; background: #fffaf0; }.alert-icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: .65rem; background: #fff1d6; color: #b45309; font-weight: 900; }.alert-title { display: flex; justify-content: space-between; gap: .5rem; }.alert-title span { padding: .1rem .4rem; border-radius: 999px; background: #fee2e2; color: #b91c1c; font-size: .62rem; font-weight: 800; }.alerts p { margin: .2rem 0; color: #64748b; font-size: .78rem; line-height: 1.4; }.alerts time { color: #94a3b8; font-size: .68rem; }
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alerts article {
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+  background: #ffffff;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+  }
+}
+
+.alerts article.unread {
+  background: #f8fbff;
+  border-left: 3px solid #10387d;
+  border-color: #e0ecfb;
+}
+
+.alert-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.alerts article.unread .alert-icon {
+  background: #e2edf8;
+  color: #10387d;
+}
+
+.alert-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  strong {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  span {
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #fef2f2;
+    color: #dc2626;
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+}
+
+.alerts p {
+  margin: 4px 0 2px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.alerts time {
+  color: #94a3b8;
+  font-size: 11px;
+}
+

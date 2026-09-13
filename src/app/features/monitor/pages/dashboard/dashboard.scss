@@ -58,28 +58,32 @@
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
-  gap: 16px;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+
+  @media (min-width: 1200px) {
+    grid-template-columns: repeat(7, 1fr);
+  }
 }
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(18rem, .8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(18rem, .85fr) minmax(0, 1.15fr);
   grid-template-areas:
     "alerts alerts"
     "statistics missions"
     "defects defects";
-  gap: 1rem;
+  gap: 20px;
   align-items: start;
 }
 
 .panel {
   min-width: 0;
-  border: 1px solid #cbdde9;
-  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(16, 56, 125, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   overflow: hidden;
   padding: 0;
 }
@@ -93,20 +97,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
-  padding: 8px 14px;
-  background: linear-gradient(180deg, #1c5296 0%, #133d80 100%);
-  color: #ffffff;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
   margin-bottom: 0;
 }
 
 .panel h2 {
   margin: 0;
-  color: #ffffff;
-  font-size: 13px;
+  color: #1e293b;
+  font-size: 13.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
 .panel header .kicker {
@@ -114,33 +119,33 @@
 }
 
 .panel header a {
-  color: #dbeafe;
-  font-size: 12px;
+  color: #10387d;
+  font-size: 12.5px;
   font-weight: 600;
   text-decoration: none;
 
   &:hover {
-    color: #ffffff;
     text-decoration: underline;
   }
 }
 
 .panel > :not(header) {
-  padding: 16px;
+  padding: 20px 24px;
 }
 
 .count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: #ef4444;
-  color: #ffffff;
-  font-size: 11px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: #eff6ff;
+  color: #10387d;
+  font-size: 11.5px;
   font-weight: 700;
+  border: 1px solid #dbeafe;
 }
 
 .stale-warning {
