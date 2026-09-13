@@ -4,9 +4,31 @@
     <app-header (menuOpened)="sidebarOpen.set(true)" />
     <app-sidebar [open]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
     @if (sidebarOpen()) { <button type="button" class="app-backdrop" aria-label="Đóng điều hướng" (click)="sidebarOpen.set(false)"></button> }
-  <div class="app-main ant-layout">
-    <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" tabindex="-1"><div class="app-content-inner"><router-outlet /></div></main>
-  </div>
+    <div class="app-main ant-layout">
+      <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" tabindex="-1">
+        <div class="app-content-inner">
+          <router-outlet />
+        </div>
+        @if (!isAssetRoute()) {
+          <footer class="app-footer" role="contentinfo">
+            <div class="app-footer-inner">
+              <div class="app-footer-brand">
+                <strong>TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM (EVN)</strong>
+                <span>HỆ THỐNG QUẢN LÝ KỸ THUẬT & GIÁM SÁT LƯỚI ĐIỆN UAV</span>
+              </div>
+              <div class="app-footer-links">
+                <a routerLink="/system/audit-logs" class="footer-link"><span nz-icon nzType="history" aria-hidden="true"></span> Nhật ký hệ thống</a>
+                <a routerLink="/system" class="footer-link"><span nz-icon nzType="setting" aria-hidden="true"></span> Cấu hình hệ thống</a>
+                <a routerLink="/inspections" class="footer-link"><span nz-icon nzType="question-circle" aria-hidden="true"></span> Hỗ trợ & Hướng dẫn</a>
+              </div>
+              <div class="app-footer-meta">
+                <small>© 2026 EVN. Bản quyền thuộc về Tập đoàn Điện lực Việt Nam.</small>
+              </div>
+            </div>
+          </footer>
+        }
+      </main>
+    </div>
   </div>
 } @else {
   <main class="session-gate" aria-live="polite" aria-busy="true">

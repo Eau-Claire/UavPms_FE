@@ -54,6 +54,7 @@
   border-bottom: 1px solid #0d2c63;
   background: #10387d;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  overflow: hidden; /* Do not scroll */
 }
 
 .app-sidebar-nav {
@@ -63,12 +64,8 @@
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  overflow-x: auto;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  overflow: hidden; /* Do not scroll */
+  white-space: nowrap;
 }
 
 .app-sidebar-nav-primary,
@@ -563,5 +560,81 @@ table {
     color: #7f1d1d;
     font-size: 12px;
     line-height: 1.55;
+  }
+}
+
+/* -------------------------------------------------------------
+   Enterprise EVN Footer (Scroll to bottom of content)
+   ------------------------------------------------------------- */
+.app-footer {
+  margin-top: 36px;
+  padding-top: 18px;
+  padding-bottom: 24px;
+  border-top: 1px solid #cbdde9;
+  color: #526b82;
+
+  .app-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    width: 100%;
+    max-width: 1720px;
+    margin-inline: auto;
+  }
+
+  .app-footer-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      color: #10387d;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    span {
+      color: #64748b;
+      font-size: 11px;
+    }
+  }
+
+  .app-footer-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .footer-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #10387d;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      background: #e2edf8;
+      border: 1px solid #b8d1e8;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #10387d;
+        color: #ffffff;
+        border-color: #0d2a60;
+      }
+    }
+  }
+
+  .app-footer-meta {
+    width: 100%;
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 11px;
+    text-align: center;
   }
 }

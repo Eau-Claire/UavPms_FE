@@ -11,13 +11,15 @@
         </a>
       }
     </div>
-    <div class="app-sidebar-nav-secondary">
-      @for (item of secondaryLinks(); track item.path) {
-        <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" [routerLinkActiveOptions]="{ exact: item.exact ?? (item.path === '/system') }" (click)="closed.emit()">
-          <span nz-icon [nzType]="item.icon" class="app-nav-icon" aria-hidden="true"></span>
-          <span class="app-nav-label">{{ item.label }}</span>
-        </a>
-      }
-    </div>
+    @if (open()) {
+      <div class="app-sidebar-nav-secondary">
+        @for (item of secondaryLinks(); track item.path) {
+          <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" [routerLinkActiveOptions]="{ exact: item.exact ?? (item.path === '/system') }" (click)="closed.emit()">
+            <span nz-icon [nzType]="item.icon" class="app-nav-icon" aria-hidden="true"></span>
+            <span class="app-nav-label">{{ item.label }}</span>
+          </a>
+        }
+      </div>
+    }
   </div>
 </nav>
