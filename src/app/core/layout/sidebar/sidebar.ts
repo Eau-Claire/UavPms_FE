@@ -39,6 +39,7 @@ export class Sidebar {
     if (currentRole === 'admin' || currentRole === 'systemadmin' || currentRole === 'administrator') {
       return [
         { path: '/admin/users', icon: 'team', label: 'Quản lý người dùng' },
+        { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền nhiệm vụ' },
         { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan hệ thống' },
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
         { path: '/assets', icon: 'safety-certificate', label: 'Tài sản lưới điện' },
@@ -51,6 +52,7 @@ export class Sidebar {
     // 2. Manager / Supervisor
     if (currentRole === 'manager' || currentRole === 'supervisor') {
       return [
+        { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền nhiệm vụ' },
         { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
         { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe & Rủi ro' },

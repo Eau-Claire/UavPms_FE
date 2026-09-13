@@ -8,6 +8,22 @@
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
 :root {
+  --color-brand-primary: #1d4f91;
+  --color-brand-primary-strong: #123b73;
+  --color-surface-app: #f3f7fb;
+  --color-surface-panel: #ffffff;
+  --color-surface-table-header: #e7f0f9;
+  --color-border-default: #cbd8e5;
+  --color-text-primary: #17324d;
+  --color-text-secondary: #526b82;
+  --color-status-success: #166534;
+  --color-status-warning: #92400e;
+  --color-status-danger: #991b1b;
+  --color-status-info: #1e40af;
+  --color-status-neutral: #334155;
+  --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px;
+  --radius-sm: 4px; --radius-md: 8px;
+  --shadow-panel: 0 1px 3px rgba(24, 55, 86, .10);
   --color-brand: var(--app-brand);
   --color-brand-dark: var(--app-brand-hover);
   --color-accent: var(--evn-action);

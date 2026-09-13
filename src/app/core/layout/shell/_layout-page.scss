@@ -1,21 +1,21 @@
 /* Owned layout styles. */
 .app-shell {
-  background: var(--evn-bg);
+  background: var(--color-surface-app);
 }
 
 .app-main {
-  background: var(--evn-bg);
+  background: var(--color-surface-app);
 }
 
 .app-content {
   padding: 0 34px 34px;
-  background: var(--evn-bg);
+  background: var(--color-surface-app);
 }
 
 .app-header {
   height: 64px;
   border-bottom: 0;
-  background: var(--evn-bg);
+  background: var(--color-brand-primary-strong);
   padding-inline: 24px;
   box-shadow: none;
 }
@@ -35,7 +35,7 @@
 .app-profile-button {
   border: 0;
   background: transparent;
-  color: var(--evn-navy);
+  color: #fff;
 }
 
 .app-header-icon {
@@ -84,14 +84,14 @@
 }
 
 .app-user-name {
-  color: var(--evn-navy);
+  color: #fff;
   font-size: 15px;
   font-weight: 800;
   line-height: 1.1;
 }
 
 .app-user-role {
-  color: var(--evn-muted);
+  color: #dbeafe;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
