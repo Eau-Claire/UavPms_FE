@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
@@ -12,7 +13,7 @@ import { NotificationsStore } from '../../../features/notifications/data-access/
     '(document:click)': 'handleDocumentClick($event)',
     '(document:keydown.escape)': 'closeNotifications()',
   },
-  imports: [NzIconModule],
+  imports: [NzIconModule, RouterLink, RouterLinkActive],
   templateUrl: './header.html',
   styleUrl: './header.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

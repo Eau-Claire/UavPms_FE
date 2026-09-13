@@ -16,6 +16,8 @@ test('selects assets from a drawn area and creates a mission', async ({ page }) 
       await route.fulfill({ json: { data: { id: 'm1', name: 'Area inspection', missionTargets: [] } } });
     } else if (url.endsWith('/users/assignable')) {
       await route.fulfill({ json: { data: [{ id: 'u1', email: 'manager@evn.vn', fullName: 'Manager' }] } });
+    } else if (url.endsWith('/drones/available')) {
+      await route.fulfill({ json: { data: [{ id: 'drone-1', droneCode: 'UAV-001', name: 'Test UAV', online: true, operationalStatus: 'Idle' }] } });
     } else {
       await route.fulfill({ json: { data: [] } });
     }
@@ -24,7 +26,7 @@ test('selects assets from a drawn area and creates a mission', async ({ page }) 
   await page.goto('/gis');
 
   // 1. Click the drawing tool in the right-side toolbar
-  await page.getByRole('button', { name: 'Chọn tài sản theo vùng' }).click();
+  await page.getByRole('button', { name: 'Khoanh vùng & Chọn tài sản' }).click();
 
   // 2. Popup should open — choose Rectangle
   await page.getByRole('button', { name: 'Vẽ vùng chữ nhật' }).click();
@@ -44,9 +46,15 @@ test('selects assets from a drawn area and creates a mission', async ({ page }) 
   // 5. Select all and create mission
   await page.getByRole('button', { name: 'Chọn tất cả' }).click();
   await page.getByRole('button', { name: 'Tạo nhiệm vụ (1)' }).click();
-  await page.getByLabel('Tên nhiệm vụ *').fill('Area inspection');
-  await page.getByLabel('Lịch thực hiện *').fill('2026-09-03T08:00');
-  await page.getByLabel('UAV *').fill('drone-1');
+  await page.getByLabel('Tên nhiệm vụ').fill('Area inspection');
+  await page.locator('input[formControlName="scheduledAt"]').fill('2026-09-03T08:00');
+  await page.getByRole('button', { name: /Tiếp tục: Chọn tài sản/ }).click();
+  await page.getByRole('button', { name: /Xem lại mục tiêu \(1\)/ }).click();
+  await page.getByRole('button', { name: /Tiếp tục: Cấu hình kiểm tra/ }).click();
+  await page.getByRole('button', { name: /Tiếp tục: Phân công UAV/ }).click();
+  await page.locator('select[formControlName="droneId"]').selectOption('drone-1');
+  await page.locator('select[formControlName="inspectorId"]').selectOption('u1');
+  await page.getByRole('button', { name: /Tiếp tục: Xác nhận/ }).click();
   await page.getByRole('button', { name: /Tạo nhiệm vụ/ }).click();
   await expect(page).toHaveURL(/\/missions\/m1$/);
 });

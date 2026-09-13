@@ -18,5 +18,5 @@ test('authenticated shell keeps fixed sidebar and horizontal layout', async ({ p
   const header = await page.locator('.app-header').boundingBox();
   expect(sidebar).toMatchObject({ x: 0, y: 0, width: 256, height: 900 });
   expect(header).toMatchObject({ x: 256, y: 0, width: 1184, height: 64 });
-  await expect(page.getByText('Quản lý tài sản', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Tài sản lưới điện', exact: true })).toBeVisible();
 });

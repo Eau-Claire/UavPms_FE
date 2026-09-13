@@ -52,7 +52,7 @@ describe('DronesApi', () => {
     expect(result[0].operationalStatus).toBe('Idle');
   });
 
-  it('falls back to mock list when available endpoint fails', () => {
+  it('falls back to the filtered all-drones list when available endpoint fails', () => {
     let result: readonly DroneDto[] = [];
     api.getAvailableDrones().subscribe((drones) => {
       result = drones;
@@ -65,6 +65,6 @@ describe('DronesApi', () => {
     reqAll.flush('Not Found', { status: 404, statusText: 'Not Found' });
 
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThan(0);
+    expect(result).toEqual([]);
   });
 });
