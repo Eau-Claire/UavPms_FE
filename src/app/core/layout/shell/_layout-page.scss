@@ -13,10 +13,10 @@
 }
 
 .app-header {
-  height: 64px;
+  height: 58px;
   border-bottom: 0;
   background: var(--color-brand-primary-strong);
-  padding-inline: 24px;
+  padding-inline: 18px;
   box-shadow: none;
 }
 
@@ -30,7 +30,8 @@
 .app-header-brand-copy strong { font-size: 15px; letter-spacing: .04em; }
 .app-header-brand-copy small { color: #dbeafe; font-size: 10px; }
 .app-header-modules { display: flex; align-items: stretch; height: 100%; gap: 2px; }
-.app-header-modules a { display: inline-flex; align-items: center; padding: 0 12px; color: #dbeafe; font-size: 12px; font-weight: 700; text-decoration: none; }
+.app-header-modules a { display: inline-flex; align-items: center; padding: 0 12px; color: #dbeafe; font-size: 12px; font-weight: 700; text-decoration: none; border-bottom: 3px solid transparent; }
+.app-header-modules a.active { border-bottom-color: #f4b942; }
 .app-header-modules a:hover, .app-header-modules a.active { background: rgba(255,255,255,.14); color: #fff; }
 
 .app-header-actions {
@@ -129,10 +130,10 @@
 
 .app-sidebar-brand {
   display: flex;
-  min-height: 126px;
+  min-height: 92px;
   align-items: center;
   gap: 14px;
-  padding: 28px 30px 18px;
+  padding: 18px 24px 12px;
 }
 
 .app-sidebar-logo {
@@ -160,14 +161,14 @@
 .app-nav-item {
   display: flex;
   width: 100%;
-  min-height: 52px;
+  min-height: 42px;
   align-items: center;
   gap: 14px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: #667489;
-  padding: 0 16px;
+  padding: 0 12px;
   text-align: left;
   transition: background 0.18s ease, color 0.18s ease;
 }

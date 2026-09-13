@@ -1,0 +1,26 @@
+.ops-page {
+  width: 100%;
+  max-width: 1680px;
+  margin-inline: auto;
+  color: var(--color-text-primary);
+}
+
+.ops-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-lg) 0 var(--space-md);
+}
+
+.ops-page .page-header h1 { margin: 0; font-size: 24px; line-height: 1.2; }
+.ops-page .page-header p { margin: 6px 0 0; color: var(--color-text-secondary); }
+.ops-page .toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); min-height: 48px; padding: 8px var(--space-md); border: 1px solid var(--color-border-default); background: var(--color-surface-table-header); }
+.ops-page .table-scroll { box-shadow: var(--shadow-panel); }
+.ops-page table th { font-weight: 700; letter-spacing: .02em; }
+.ops-page table a { color: var(--color-brand-primary); font-weight: 700; }
+.ops-page button, .ops-page a { transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+
+@media (max-width: 900px) {
+  .ops-page .page-header { flex-direction: column; }
+}
