@@ -1,19 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { RouterLink } from '@angular/router';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
+import { FacilityItem, FacilityStore } from '../../facility/facility-store';
 
 @Component({
   selector: 'app-header',
   host: {
     style: 'display: contents',
     '(document:click)': 'handleDocumentClick($event)',
-    '(document:keydown.escape)': 'closeNotifications()',
+    '(document:keydown.escape)': 'onEscape()',
   },
-  imports: [NzIconModule, RouterLink],
+  imports: [NzIconModule, RouterLink, RouterLinkActive],
   templateUrl: './header.html',
   styleUrl: './header.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,12 +21,20 @@ import { NotificationsStore } from '../../../features/notifications/data-access/
 export class Header {
   private readonly auth = inject(Auth);
   protected readonly notifications = inject(NotificationsStore);
+  protected readonly facilityStore = inject(FacilityStore);
   private readonly router = inject(Router);
   readonly menuOpened = output<void>();
   protected readonly user = this.auth.user;
   protected readonly menuOpen = signal(false);
   protected readonly notificationOpen = signal(false);
   protected readonly notificationFiltersOpen = signal(false);
+  protected readonly facilityMenuOpen = signal(false);
+
+  protected readonly userDisplayName = computed(() => {
+    const u = this.user();
+    if (!u) return 'HieuHV';
+    return u.fullName || u.email?.split('@')[0] || 'HieuHV';
+  });
   protected readonly groupedNotifications = computed(() => {
     const list = this.notifications.filteredNotifications();
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
@@ -56,13 +64,50 @@ export class Header {
   protected toggleNotifications(): void {
     const nextOpen = !this.notificationOpen();
     this.notificationOpen.set(nextOpen);
-    this.menuOpen.set(false);
+    if (nextOpen) {
+      this.menuOpen.set(false);
+      this.facilityMenuOpen.set(false);
+    }
   }
   protected closeNotifications(): void { this.notificationOpen.set(false); this.notificationFiltersOpen.set(false); this.notifications.clearSelection(); }
+
+  protected toggleFacilityMenu(): void {
+    const nextOpen = !this.facilityMenuOpen();
+    this.facilityMenuOpen.set(nextOpen);
+    if (nextOpen) {
+      this.menuOpen.set(false);
+      this.closeNotifications();
+    }
+  }
+
+  protected closeFacilityMenu(): void {
+    this.facilityMenuOpen.set(false);
+  }
+
+  protected chooseFacility(facility: FacilityItem): void {
+    this.facilityStore.selectFacility(facility);
+    this.facilityMenuOpen.set(false);
+  }
+
+  protected onEscape(): void {
+    this.closeNotifications();
+    this.closeFacilityMenu();
+    this.menuOpen.set(false);
+  }
+
   protected handleDocumentClick(event: Event): void {
     const target = event.target;
-    if (!this.notificationOpen() || !(target instanceof Element)) return;
-    if (!target.closest('.app-notification-wrap')) this.closeNotifications();
+    if (!(target instanceof Element)) return;
+
+    if (this.notificationOpen() && !target.closest('.app-notification-wrap')) {
+      this.closeNotifications();
+    }
+    if (this.facilityMenuOpen() && !target.closest('.app-facility-wrap')) {
+      this.closeFacilityMenu();
+    }
+    if (this.menuOpen() && !target.closest('.app-profile-wrap')) {
+      this.menuOpen.set(false);
+    }
   }
   protected selectNotification(notification: AppNotification): void { this.notifications.select(notification); }
   protected deleteNotification(event: Event, id: string): void { event.stopPropagation(); this.notifications.delete(id); }

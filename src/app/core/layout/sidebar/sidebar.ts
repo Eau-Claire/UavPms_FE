@@ -37,27 +37,28 @@ export class Sidebar {
     // 1. SystemAdmin / Admin
     if (currentRole === 'admin' || currentRole === 'systemadmin' || currentRole === 'administrator') {
       return [
-        { path: '/admin/users', icon: 'team', label: 'Quản lý người dùng' },
+        { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị' },
+        { path: '/missions', icon: 'appstore', label: 'Vận hành bay' },
+        { path: '/ai-review', icon: 'audit', label: 'Sự cố AI' },
+        { path: '/inspections', icon: 'file-text', label: 'Giám sát kiểm tra' },
+        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền nhiệm vụ' },
-        { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan hệ thống' },
-        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Tài sản lưới điện' },
-        { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
-        { path: '/ai-review', icon: 'audit', label: 'Duyệt sự cố AI' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
+        { path: '/admin/users', icon: 'team', label: 'Người dùng' },
       ];
     }
 
     // 2. Manager / Supervisor
     if (currentRole === 'manager' || currentRole === 'supervisor') {
       return [
-        { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền nhiệm vụ' },
-        { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
-        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe & Rủi ro' },
-        { path: '/missions', icon: 'appstore', label: 'Quản lý nhiệm vụ' },
+        { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị' },
+        { path: '/missions', icon: 'appstore', label: 'Vận hành bay' },
+        { path: '/ai-review', icon: 'audit', label: 'Sự cố AI' },
         { path: '/inspections', icon: 'file-text', label: 'Giám sát kiểm tra' },
-        { path: '/ai-review', icon: 'audit', label: 'Duyệt sự cố AI' },
+        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
+        { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền nhiệm vụ' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
       ];
     }
@@ -65,21 +66,22 @@ export class Sidebar {
     // 3. Inspector (Pilot)
     if (currentRole === 'inspector' || currentRole === 'pilot') {
       return [
+        { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
         { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
-        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
+        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/inspections', icon: 'file-text', label: 'Nhật ký & Log bay' },
-        { path: '/assets', icon: 'safety-certificate', label: 'Thông tin cột điện' },
+        { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị' },
       ];
     }
 
     // 4. Analyst (AI Specialist)
     if (currentRole === 'analyst') {
       return [
-        { path: '/ai-review', icon: 'audit', label: 'Duyệt sự cố AI' },
-        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS Lưới điện' },
+        { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+        { path: '/ai-review', icon: 'audit', label: 'Sự cố AI' },
         { path: '/ai-analysis/upload', icon: 'experiment', label: 'Phân tích AI' },
+        { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/inspections', icon: 'file-text', label: 'Ảnh kiểm tra' },
-        { path: '/dashboard', icon: 'dashboard', label: 'Thống kê sự cố' },
         { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe thiết bị' },
       ];
     }
@@ -87,18 +89,19 @@ export class Sidebar {
     // 5. Technician / MaintenanceTechnician
     if (currentRole === 'technician' || currentRole === 'maintenancetechnician') {
       return [
+        { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
         { path: '/inspections', icon: 'file-text', label: 'Công việc & Sự cố' },
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/assets', icon: 'safety-certificate', label: 'Thông tin thiết bị' },
-        { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
       ];
     }
 
     // Default / Viewer fallback
     return [
-      { path: '/dashboard', icon: 'dashboard', label: 'Tổng quan' },
+      { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+      { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị' },
+      { path: '/missions', icon: 'appstore', label: 'Vận hành bay' },
       { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
-      { path: '/assets', icon: 'safety-certificate', label: 'Sức khỏe & Rủi ro' },
       { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
     ];
   });

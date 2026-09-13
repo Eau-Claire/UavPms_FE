@@ -1,9 +1,17 @@
 <header class="app-header ant-layout-header">
   <button type="button" class="app-mobile-menu" aria-label="Mở điều hướng" (click)="menuOpened.emit()"><span nz-icon nzType="menu"></span></button>
-  <a class="app-header-brand" routerLink="/dashboard" aria-label="Trang tổng quan UAV-PMS">
-    <span class="app-header-brand-mark" aria-hidden="true">EVN</span>
-    <span class="app-header-brand-copy"><strong>HỆ THỐNG UAV-PMS</strong><small>Quản lý vận hành và kiểm tra lưới điện</small></span>
+  <a class="app-header-brand" routerLink="/dashboard" aria-label="Hệ thống quản lý kỹ thuật EVN">
+    <img src="/images/evn.svg" alt="EVN Logo" class="app-header-evn-logo" />
+    <div class="app-header-brand-copy">
+      <span class="brand-top-text">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</span>
+      <span class="brand-bottom-text">HỆ THỐNG QUẢN LÝ KỸ THUẬT</span>
+    </div>
   </a>
+  <nav class="app-header-modules" aria-label="Phân hệ kỹ thuật">
+    <a routerLink="/assets" routerLinkActive="active" class="module-tab">THIẾT BỊ</a>
+    <a routerLink="/missions" routerLinkActive="active" class="module-tab">SẢN XUẤT ĐIỆN</a>
+    <a routerLink="/pre-mission" routerLinkActive="active" class="module-tab">DỰ TOÁN</a>
+  </nav>
   <div class="app-header-spacer"></div>
   <div class="app-header-actions">
     <div class="app-notification-wrap">
@@ -69,7 +77,7 @@
                   <span class="notification-date-line"></span>
                 </div>
                 @for (item of group.items; track item.id) {
-                  <div class="notification-item-container" [class.notification-item-unread]="!item.isRead" (click)="selectNotification(item)">
+                  <button type="button" class="notification-item-container" [class.notification-item-unread]="!item.isRead" (click)="selectNotification(item)">
                     <div class="notification-item-content">
                       <div class="notification-item-text">
                         @for (segment of parseTitleSegments(item.title); track $index) {
@@ -97,14 +105,14 @@
                       <div class="notification-item-meta">
                         <span class="notification-time">{{ formatDate(item.createdAt) }}</span>
                         @if (isReplyActionAvailable(item)) {
-                          <button type="button" class="notification-reply-btn" (click)="$event.stopPropagation(); selectNotification(item)">Reply</button>
+                          <span class="notification-reply-btn" role="button" tabindex="0" (click)="$event.stopPropagation(); selectNotification(item)" (keydown.enter)="$event.stopPropagation(); selectNotification(item)">Reply</span>
                         }
                       </div>
                     </div>
                     @if (!item.isRead) {
                       <span class="notification-unread-dot"></span>
                     }
-                  </div>
+                  </button>
                 }
               }
             </div>
@@ -114,7 +122,66 @@
         </section>
       }
     </div>
-    <div class="app-header-divider"></div>
-    <div class="app-profile-wrap"><button type="button" class="app-profile-button" aria-label="Mở menu tài khoản" (click)="menuOpen.update((value) => !value)"><span class="app-user-name-wrap"><span class="app-user-name">{{ user()?.fullName || user()?.email }}</span><span class="app-user-role">{{ user()?.role }}</span></span></button>@if (menuOpen()) { <div class="app-profile-menu"><button type="button"><span nz-icon nzType="user"></span> Hồ sơ</button><button type="button"><span nz-icon nzType="setting"></span> Cài đặt</button><hr /><button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button></div> }</div>
+    <div class="app-header-user-text">
+      <span class="app-user-display-name">{{ userDisplayName() }}</span>
+    </div>
+    <div class="app-facility-wrap">
+      <button
+        type="button"
+        class="app-facility-btn"
+        aria-label="Chọn đơn vị cơ sở"
+        [attr.aria-expanded]="facilityMenuOpen()"
+        (click)="toggleFacilityMenu()"
+      >
+        <svg class="facility-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <path d="M12 3L2 9V21H22V9L12 3ZM19 19H16V13H14V19H10V13H8V19H5V10.19L12 5.99L19 10.19V19Z"/>
+        </svg>
+        <span class="facility-btn-text">{{ facilityStore.currentFacilityName() }}</span>
+        <span nz-icon nzType="down" class="facility-caret" [class.rotated]="facilityMenuOpen()" aria-hidden="true"></span>
+      </button>
+
+      @if (facilityMenuOpen()) {
+        <div class="facility-dropdown-menu" role="menu">
+          <div class="facility-dropdown-header">
+            <span>CƠ SỞ / ĐƠN VỊ THÀNH VIÊN</span>
+            <small class="facility-count">({{ facilityStore.facilities().length }})</small>
+          </div>
+          <div class="facility-dropdown-list">
+            @for (fac of facilityStore.facilities(); track fac.id) {
+              <button
+                type="button"
+                class="facility-option"
+                [class.selected]="fac.id === facilityStore.selectedFacility().id"
+                (click)="chooseFacility(fac)"
+                role="menuitem"
+              >
+                <span nz-icon nzType="bank" class="facility-option-icon"></span>
+                <span class="facility-option-name">{{ fac.name }}</span>
+                @if (fac.id === facilityStore.selectedFacility().id) {
+                  <span nz-icon nzType="check" class="facility-check"></span>
+                }
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    <div class="app-profile-wrap">
+      <button type="button" class="app-profile-button" aria-label="Mở menu tài khoản" (click)="menuOpen.update((value) => !value)">
+        <span class="app-profile-avatar"><span nz-icon nzType="user"></span></span>
+      </button>
+      @if (menuOpen()) {
+        <div class="app-profile-menu">
+          <div class="app-profile-menu-header">
+            <strong>{{ userDisplayName() }}</strong>
+            <small>{{ user()?.role || 'User' }}</small>
+          </div>
+          <hr />
+          <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)"><span nz-icon nzType="lock"></span> Đổi mật khẩu</button>
+          <hr />
+          <button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button>
+        </div>
+      }
+    </div>
   </div>
 </header>
