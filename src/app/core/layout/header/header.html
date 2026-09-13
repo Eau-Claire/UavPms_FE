@@ -7,11 +7,6 @@
       <span class="brand-bottom-text">HỆ THỐNG QUẢN LÝ KỸ THUẬT</span>
     </div>
   </a>
-  <nav class="app-header-modules" aria-label="Phân hệ kỹ thuật">
-    <a routerLink="/assets" routerLinkActive="active" class="module-tab">THIẾT BỊ</a>
-    <a routerLink="/missions" routerLinkActive="active" class="module-tab">SẢN XUẤT ĐIỆN</a>
-    <a routerLink="/pre-mission" routerLinkActive="active" class="module-tab">DỰ TOÁN</a>
-  </nav>
   <div class="app-header-spacer"></div>
   <div class="app-header-actions">
     <div class="app-notification-wrap">
@@ -122,8 +117,33 @@
         </section>
       }
     </div>
-    <div class="app-header-user-text">
-      <span class="app-user-display-name">{{ userDisplayName() }}</span>
+    <div class="app-profile-wrap">
+      <button
+        type="button"
+        class="app-header-user-btn"
+        aria-label="Tài khoản người dùng"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.update((value) => !value)"
+      >
+        <span class="app-user-display-name">{{ userDisplayName() }}</span>
+        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
+      </button>
+      @if (menuOpen()) {
+        <div class="app-profile-menu" role="menu">
+          <div class="app-profile-menu-header">
+            <strong>{{ userDisplayName() }}</strong>
+            <small>{{ user()?.role || 'Người dùng' }}</small>
+          </div>
+          <hr />
+          <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
+            <span nz-icon nzType="lock"></span> Đổi mật khẩu
+          </button>
+          <hr />
+          <button type="button" class="danger" (click)="logout()" role="menuitem">
+            <span nz-icon nzType="logout"></span> Đăng xuất
+          </button>
+        </div>
+      }
     </div>
     <div class="app-facility-wrap">
       <button
@@ -163,23 +183,6 @@
               </button>
             }
           </div>
-        </div>
-      }
-    </div>
-    <div class="app-profile-wrap">
-      <button type="button" class="app-profile-button" aria-label="Mở menu tài khoản" (click)="menuOpen.update((value) => !value)">
-        <span class="app-profile-avatar"><span nz-icon nzType="user"></span></span>
-      </button>
-      @if (menuOpen()) {
-        <div class="app-profile-menu">
-          <div class="app-profile-menu-header">
-            <strong>{{ userDisplayName() }}</strong>
-            <small>{{ user()?.role || 'User' }}</small>
-          </div>
-          <hr />
-          <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)"><span nz-icon nzType="lock"></span> Đổi mật khẩu</button>
-          <hr />
-          <button type="button" class="danger" (click)="logout()"><span nz-icon nzType="logout"></span> Đăng xuất</button>
         </div>
       }
     </div>

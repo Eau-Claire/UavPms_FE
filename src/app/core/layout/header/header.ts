@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
@@ -13,7 +13,7 @@ import { FacilityItem, FacilityStore } from '../../facility/facility-store';
     '(document:click)': 'handleDocumentClick($event)',
     '(document:keydown.escape)': 'onEscape()',
   },
-  imports: [NzIconModule, RouterLink, RouterLinkActive],
+  imports: [NzIconModule, RouterLink],
   templateUrl: './header.html',
   styleUrl: './header.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

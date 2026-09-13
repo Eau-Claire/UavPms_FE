@@ -584,61 +584,45 @@
   white-space: nowrap;
 }
 
-.app-header-modules {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 24px;
-  flex-shrink: 0;
-}
-
-.module-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-decoration: none;
-  color: #ffffff;
-  background: #94a3b8;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-
-  &:hover {
-    background: #64748b;
-    color: #ffffff;
-  }
-
-  &.active {
-    background: #10387d;
-    color: #ffffff;
-    box-shadow: 0 2px 4px rgba(16, 56, 125, 0.3);
-  }
-}
-
 .app-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-left: auto;
   flex-shrink: 0;
 }
 
-.app-header-user-text {
-  display: flex;
+.app-header-user-btn {
+  display: inline-flex;
   align-items: center;
-}
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
 
-.app-user-display-name {
-  color: #10387d;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  margin-right: 2px;
+  &:hover {
+    background: rgba(16, 56, 125, 0.08);
+  }
+
+  .app-user-display-name {
+    color: #10387d;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .user-caret {
+    font-size: 9px;
+    color: #10387d;
+    transition: transform 0.2s ease;
+
+    &.rotated {
+      transform: rotate(180deg);
+    }
+  }
 }
 
 .app-facility-wrap {
@@ -799,32 +783,6 @@
 
 .app-profile-wrap {
   position: relative;
-}
-
-.app-profile-button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.app-profile-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1a459c;
-  color: #ffffff;
-  font-size: 14px;
-  transition: opacity 0.15s ease;
-
-  &:hover {
-    opacity: 0.9;
-  }
 }
 
 .app-profile-menu {
