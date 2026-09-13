@@ -35,6 +35,9 @@ export const routes: Routes = [
       { path: 'admin/audit-logs', redirectTo: 'system/audit-logs' },
       { path: 'audit-logs', redirectTo: 'system/audit-logs' },
       { path: 'missions/create', pathMatch: 'full', redirectTo: 'missions/new' },
+      { path: 'pre-mission', loadComponent: () => import('./features/pre-mission/pages/assessment-list/assessment-list').then((m) => m.AssessmentList), title: 'Pre-Mission Assessments | UAV-PMS' },
+      { path: 'pre-mission/new', canActivate: [roleGuard(['Admin', 'Manager'])], loadComponent: () => import('./features/pre-mission/pages/assessment-create/assessment-create').then((m) => m.AssessmentCreate), title: 'Create Assessment | UAV-PMS' },
+      { path: 'pre-mission/:id', loadComponent: () => import('./features/pre-mission/pages/assessment-workspace/assessment-workspace').then((m) => m.AssessmentWorkspace), title: 'Assessment Workspace | UAV-PMS' },
       { path: 'missions/new', canActivate: [roleGuard(['Admin', 'Manager'])], loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Create mission | UAV-PMS' },
       { path: 'missions/:id', loadComponent: () => import('./features/missions/pages/mission-detail/mission-detail').then((m) => m.MissionDetail), title: 'Mission detail | UAV-PMS' },
       { path: 'missions', loadComponent: () => import('./features/missions/pages/mission-list/mission-list').then((m) => m.MissionList), title: 'Mission management | UAV-PMS' },
@@ -44,4 +47,3 @@ export const routes: Routes = [
   },
   { path: '**', redirectTo: 'dashboard' },
 ];
-
