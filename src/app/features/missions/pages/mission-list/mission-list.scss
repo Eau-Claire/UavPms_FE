@@ -1,5 +1,12 @@
 @use '../mission-page';
 
+:host {
+  display: block;
+  max-width: 100rem;
+  margin-inline: auto;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 .mission-list-page { padding: 0; max-width: none; }
 .mission-list-page .mission-page-head {
   min-height: auto;
