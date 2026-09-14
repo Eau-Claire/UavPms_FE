@@ -30,143 +30,70 @@
     </div>
   </header>
 
-    <!-- KPI Summary Cards Grid -->
-    <section class="kpi-grid" aria-label="Thống kê tổng quan sức khỏe thiết bị">
-      <!-- Total Assets -->
-      <div class="kpi-card kpi-card--total">
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Tổng thiết bị giám sát</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--blue">
-            <span nz-icon nzType="appstore" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value">{{ store.kpiSummary().totalAssets }}</div>
-        <div class="kpi-card-footer">
-          <span class="kpi-card-hint">Bao gồm 4 nhóm thiết bị chính</span>
-        </div>
+    <!-- KPI Summary Status Bar (Thống nhất chuẩn EVN không icon) -->
+    <section class="asset-status-bar" aria-label="Thống kê tổng quan sức khỏe thiết bị">
+      <div class="status-item">
+        <span class="status-label">Tổng thiết bị</span>
+        <strong class="status-value">{{ store.kpiSummary().totalAssets }}</strong>
       </div>
 
-      <!-- Critical Risk -->
-      <div
-        class="kpi-card kpi-card--critical"
-        [class.kpi-card--active]="store.filterRiskLevel() === 'Critical Risk'"
+      <div class="status-sep" aria-hidden="true"></div>
+
+      <button
+        type="button"
+        class="status-item filter-btn"
+        [class.active]="store.filterRiskLevel() === 'Critical Risk'"
         (click)="onRiskFilterChange('Critical Risk')"
-        (keydown.enter)="onRiskFilterChange('Critical Risk')"
-        (keydown.space)="onRiskFilterChange('Critical Risk')"
-        role="button"
-        tabindex="0"
-        aria-label="Lọc tài sản nguy cấp"
+        title="Lọc thiết bị nguy cấp"
       >
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Nguy cấp (&lt; 40 điểm)</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--red">
-            <span nz-icon nzType="alert" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value-wrap">
-          <span class="kpi-card-value text-red-600">{{ store.kpiSummary().criticalRiskCount }}</span>
-          @if (store.kpiSummary().criticalRiskCount > 0) {
-            <span class="urgent-tag">Khẩn cấp</span>
-          }
-        </div>
-        <div class="kpi-card-footer">
-          <span class="kpi-card-hint text-red-500">Cần xử lý & thay thế ngay</span>
-        </div>
-      </div>
+        <span class="status-label">Nguy cấp (&lt; 40)</span>
+        <strong class="status-value">{{ store.kpiSummary().criticalRiskCount }}</strong>
+      </button>
 
-      <!-- High Risk -->
-      <div
-        class="kpi-card kpi-card--high"
-        [class.kpi-card--active]="store.filterRiskLevel() === 'High Risk'"
+      <div class="status-sep" aria-hidden="true"></div>
+
+      <button
+        type="button"
+        class="status-item filter-btn"
+        [class.active]="store.filterRiskLevel() === 'High Risk'"
         (click)="onRiskFilterChange('High Risk')"
-        (keydown.enter)="onRiskFilterChange('High Risk')"
-        (keydown.space)="onRiskFilterChange('High Risk')"
-        role="button"
-        tabindex="0"
-        aria-label="Lọc tài sản rủi ro cao"
+        title="Lọc thiết bị rủi ro cao"
       >
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Rủi ro cao (40–59 điểm)</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--orange">
-            <span nz-icon nzType="warning" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value text-orange-600">{{ store.kpiSummary().highRiskCount }}</div>
-        <div class="kpi-card-footer">
-          <span class="kpi-card-hint text-orange-500">Ưu tiên lập lịch bảo dưỡng</span>
-        </div>
-      </div>
+        <span class="status-label">Rủi ro cao (40–59)</span>
+        <strong class="status-value">{{ store.kpiSummary().highRiskCount }}</strong>
+      </button>
 
-      <!-- Medium Risk -->
-      <div
-        class="kpi-card kpi-card--medium"
-        [class.kpi-card--active]="store.filterRiskLevel() === 'Medium Risk'"
+      <div class="status-sep" aria-hidden="true"></div>
+
+      <button
+        type="button"
+        class="status-item filter-btn"
+        [class.active]="store.filterRiskLevel() === 'Medium Risk'"
         (click)="onRiskFilterChange('Medium Risk')"
-        (keydown.enter)="onRiskFilterChange('Medium Risk')"
-        (keydown.space)="onRiskFilterChange('Medium Risk')"
-        role="button"
-        tabindex="0"
-        aria-label="Lọc tài sản rủi ro trung bình"
+        title="Lọc thiết bị rủi ro trung bình"
       >
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Rủi ro TB (60–79 điểm)</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--amber">
-            <span nz-icon nzType="info-circle" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value text-amber-600">{{ store.kpiSummary().mediumRiskCount }}</div>
-        <div class="kpi-card-footer">
-          <span class="kpi-card-hint text-amber-500">Theo dõi định kỳ</span>
-        </div>
-      </div>
+        <span class="status-label">Rủi ro TB (60–79)</span>
+        <strong class="status-value">{{ store.kpiSummary().mediumRiskCount }}</strong>
+      </button>
 
-      <!-- Low Risk -->
-      <div
-        class="kpi-card kpi-card--low"
-        [class.kpi-card--active]="store.filterRiskLevel() === 'Low Risk'"
+      <div class="status-sep" aria-hidden="true"></div>
+
+      <button
+        type="button"
+        class="status-item filter-btn"
+        [class.active]="store.filterRiskLevel() === 'Low Risk'"
         (click)="onRiskFilterChange('Low Risk')"
-        (keydown.enter)="onRiskFilterChange('Low Risk')"
-        (keydown.space)="onRiskFilterChange('Low Risk')"
-        role="button"
-        tabindex="0"
-        aria-label="Lọc tài sản bình thường"
+        title="Lọc thiết bị ổn định"
       >
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Ổn định (≥ 80 điểm)</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--green">
-            <span nz-icon nzType="check-circle" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value text-green-600">{{ store.kpiSummary().lowRiskCount }}</div>
-        <div class="kpi-card-footer">
-          <span class="kpi-card-hint text-green-500">Hoạt động bình thường</span>
-        </div>
-      </div>
+        <span class="status-label">Ổn định (≥ 80)</span>
+        <strong class="status-value">{{ store.kpiSummary().lowRiskCount }}</strong>
+      </button>
 
-      <!-- Average Health Score -->
-      <div class="kpi-card kpi-card--score">
-        <div class="kpi-card-header">
-          <span class="kpi-card-label">Điểm SK Trung bình</span>
-          <div class="kpi-card-icon-wrap kpi-card-icon-wrap--teal">
-            <span nz-icon nzType="dashboard" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="kpi-card-value-wrap">
-          <span
-            class="kpi-card-value"
-            [style.color]="getHealthScoreColor(store.kpiSummary().averageHealthScore)"
-          >
-            {{ store.kpiSummary().averageHealthScore | number:'1.1-1' }}
-          </span>
-          <span class="kpi-score-max">/ 100</span>
-        </div>
-        <div class="kpi-score-bar-bg">
-          <div
-            class="kpi-score-bar-fill"
-            [style.width.%]="store.kpiSummary().averageHealthScore"
-            [style.backgroundColor]="getHealthScoreColor(store.kpiSummary().averageHealthScore)"
-          ></div>
-        </div>
+      <div class="status-sep" aria-hidden="true"></div>
+
+      <div class="status-item">
+        <span class="status-label">Điểm SK Trung bình</span>
+        <strong class="status-value">{{ store.kpiSummary().averageHealthScore | number:'1.1-1' }} / 100</strong>
       </div>
     </section>
 

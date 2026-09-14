@@ -25,22 +25,22 @@
 <section class="reports-status-bar" aria-label="Thống kê báo cáo">
   <div class="status-item">
     <span class="status-label">Tổng số báo cáo</span>
-    <strong class="status-value text-navy">{{ stats().total }}</strong>
+    <strong class="status-value">{{ stats().total }}</strong>
   </div>
   <div class="status-sep" aria-hidden="true"></div>
   <div class="status-item">
-    <span class="status-label"><span class="status-dot dot-red"></span>Khuyết tật AI</span>
-    <strong class="status-value text-red">{{ stats().defect }}</strong>
+    <span class="status-label">Khuyết tật AI</span>
+    <strong class="status-value">{{ stats().defect }}</strong>
   </div>
   <div class="status-sep" aria-hidden="true"></div>
   <div class="status-item">
-    <span class="status-label"><span class="status-dot dot-green"></span>Kiểm tra định kỳ UAV</span>
-    <strong class="status-value text-green">{{ stats().periodic }}</strong>
+    <span class="status-label">Kiểm tra định kỳ UAV</span>
+    <strong class="status-value">{{ stats().periodic }}</strong>
   </div>
   <div class="status-sep" aria-hidden="true"></div>
   <div class="status-item">
-    <span class="status-label"><span class="status-dot dot-orange"></span>Nhiệt & Hành lang</span>
-    <strong class="status-value text-orange">{{ stats().thermal + stats().corridor }}</strong>
+    <span class="status-label">Nhiệt & Hành lang</span>
+    <strong class="status-value">{{ stats().thermal + stats().corridor }}</strong>
   </div>
 </section>
 

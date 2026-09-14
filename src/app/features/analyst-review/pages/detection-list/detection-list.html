@@ -33,46 +33,26 @@
   }
 
   <!-- Stats Bar -->
-  <section class="review-stats" aria-label="Thống kê thẩm định">
-    <article class="review-stat-card stat-pending">
-      <div class="stat-icon-wrap">
-        <span nz-icon nzType="exclamation-circle"></span>
-      </div>
-      <div class="stat-info">
-        <span class="stat-label">Chờ thẩm định</span>
-        <strong class="stat-value">{{ response().totalCount || pendingCount() }}</strong>
-      </div>
-    </article>
-
-    <article class="review-stat-card stat-critical">
-      <div class="stat-icon-wrap">
-        <span nz-icon nzType="thunderbolt"></span>
-      </div>
-      <div class="stat-info">
-        <span class="stat-label">Sự cố khẩn cấp</span>
-        <strong class="stat-value">{{ criticalCount() }}</strong>
-      </div>
-    </article>
-
-    <article class="review-stat-card stat-confirmed">
-      <div class="stat-icon-wrap">
-        <span nz-icon nzType="check-circle"></span>
-      </div>
-      <div class="stat-info">
-        <span class="stat-label">Độ tin cậy cao (≥90%)</span>
-        <strong class="stat-value">{{ highConfidenceCount() }}</strong>
-      </div>
-    </article>
-
-    <article class="review-stat-card stat-total">
-      <div class="stat-icon-wrap">
-        <span nz-icon nzType="file-text"></span>
-      </div>
-      <div class="stat-info">
-        <span class="stat-label">Tổng số trang</span>
-        <strong class="stat-value">{{ response().totalPages }}</strong>
-      </div>
-    </article>
+  <section class="review-status-bar" aria-label="Thống kê thẩm định">
+    <div class="status-item">
+      <span class="status-label">Chờ thẩm định</span>
+      <strong class="status-value">{{ response().totalCount || pendingCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Sự cố khẩn cấp</span>
+      <strong class="status-value">{{ criticalCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Độ tin cậy cao (≥90%)</span>
+      <strong class="status-value">{{ highConfidenceCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Tổng số trang</span>
+      <strong class="status-value">{{ response().totalPages }}</strong>
+    </div>
   </section>
 
   <!-- Filter & Search Bar -->

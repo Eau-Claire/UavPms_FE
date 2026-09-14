@@ -21,19 +21,19 @@
       <div class="status-items">
         <div class="status-item">
           <span class="item-label">Tổng nhiệm vụ</span>
-          <strong class="item-value text-navy">{{ summary.totalMissions }}</strong>
+          <strong class="item-value">{{ summary.totalMissions }}</strong>
         </div>
         <div class="status-item">
-          <span class="item-label"><span class="status-dot dot-amber"></span>Chờ xử lý</span>
-          <strong class="item-value text-amber">{{ summary.pendingMissions }}</strong>
+          <span class="item-label">Chờ xử lý</span>
+          <strong class="item-value">{{ summary.pendingMissions }}</strong>
         </div>
         <div class="status-item">
-          <span class="item-label"><span class="status-dot dot-blue"></span>Đang thực hiện</span>
-          <strong class="item-value text-blue">{{ summary.inProgressMissions }}</strong>
+          <span class="item-label">Đang thực hiện</span>
+          <strong class="item-value">{{ summary.inProgressMissions }}</strong>
         </div>
         <div class="status-item">
-          <span class="item-label"><span class="status-dot dot-green"></span>Hoàn thành</span>
-          <strong class="item-value text-green">{{ summary.completedMissions }}</strong>
+          <span class="item-label">Hoàn thành</span>
+          <strong class="item-value">{{ summary.completedMissions }}</strong>
         </div>
       </div>
     </div>
@@ -49,20 +49,15 @@
       <div class="status-items">
         <div class="status-item">
           <span class="item-label">Lượt kiểm tra</span>
-          <strong class="item-value text-purple">{{ summary.totalInspections }}</strong>
+          <strong class="item-value">{{ summary.totalInspections }}</strong>
         </div>
         <div class="status-item">
-          <span class="item-label"><span class="status-dot dot-orange"></span>Tổng sự cố</span>
-          <strong class="item-value text-orange">{{ summary.totalDefects }}</strong>
+          <span class="item-label">Tổng sự cố</span>
+          <strong class="item-value">{{ summary.totalDefects }}</strong>
         </div>
-        <div class="status-item" [class.highlight-danger]="summary.criticalDefects > 0">
-          <span class="item-label"><span class="status-dot dot-red"></span>Sự cố nghiêm trọng</span>
-          <div class="item-val-row">
-            <strong class="item-value text-red">{{ summary.criticalDefects }}</strong>
-            @if (summary.criticalDefects > 0) {
-              <span class="badge-urgent">Cần xử lý</span>
-            }
-          </div>
+        <div class="status-item">
+          <span class="item-label">Sự cố nghiêm trọng</span>
+          <strong class="item-value">{{ summary.criticalDefects }}</strong>
         </div>
       </div>
     </div>
