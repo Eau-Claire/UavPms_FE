@@ -163,14 +163,14 @@
 }
 
 /* Formal utility-PMS KPI treatment: semantic color stays on the edge only. */
-.kpi-card { border-radius: 5px; border-color: #d8dee8; box-shadow: none; padding: 14px 16px; }
-.kpi-card-header { margin-bottom: 8px; }
+.kpi-card { border-radius: 6px; border-color: #e2e8f0; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); padding: 8px 12px; min-height: auto; }
+.kpi-card-header { margin-bottom: 2px; }
 .kpi-card-icon-wrap { display: none; }
-.kpi-card--critical, .kpi-card--high, .kpi-card--medium, .kpi-card--low, .kpi-card--total { border-left-color: #d9e1ea; }
-.kpi-card-label { color: #64748b; font-size: 12px; }
-.kpi-card-value { color: #1f2937; font-size: 28px; }
-.kpi-card-hint { color: #64748b; font-size: 11px; }
-.kpi-score-bar-bg { height: 5px; border-radius: 2px; }
+.kpi-card--critical, .kpi-card--high, .kpi-card--medium, .kpi-card--low, .kpi-card--total { border-left-color: #cbd5e1; }
+.kpi-card-label { color: #64748b; font-size: 11.5px; font-weight: 600; }
+.kpi-card-value { color: #0f2952; font-size: 18px; font-weight: 700; margin: 2px 0; }
+.kpi-card-hint { color: #94a3b8; font-size: 10.5px; }
+.kpi-score-bar-bg { height: 4px; border-radius: 2px; }
 .kpi-card .kpi-card-icon-wrap { display: none; }
 
 .kpi-card-header {

@@ -8,5 +8,5 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SummaryCard {
-  readonly label = input.required<string>(); readonly value = input.required<number>(); readonly icon = input('•'); readonly tone = input<'blue' | 'amber' | 'green' | 'red' | 'violet'>('blue'); readonly note = input('Tổng trực tiếp');
+  readonly label = input.required<string>(); readonly value = input.required<number>(); readonly icon = input('•'); readonly tone = input<'blue' | 'amber' | 'green' | 'red' | 'violet'>('blue'); readonly note = input('');
 }

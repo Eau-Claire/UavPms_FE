@@ -21,39 +21,26 @@
   </div>
 }
 
-<!-- Thẻ thống kê tổng quan -->
-<section class="stats-overview" aria-label="Thống kê báo cáo">
-  <div class="stat-card">
-    <div class="stat-icon icon-total"><span nz-icon nzType="file-text"></span></div>
-    <div class="stat-content">
-      <span class="stat-label">Tổng số báo cáo</span>
-      <strong class="stat-value">{{ stats().total }}</strong>
-      <span class="stat-hint">Hồ sơ đã lưu trữ</span>
-    </div>
+<!-- Thanh thống kê số liệu tinh gọn (Chuẩn web quản trị VN) -->
+<section class="reports-status-bar" aria-label="Thống kê báo cáo">
+  <div class="status-item">
+    <span class="status-label">Tổng số báo cáo</span>
+    <strong class="status-value text-navy">{{ stats().total }}</strong>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-defect"><span nz-icon nzType="warning"></span></div>
-    <div class="stat-content">
-      <span class="stat-label">Khuyết tật AI</span>
-      <strong class="stat-value">{{ stats().defect }}</strong>
-      <span class="stat-hint">Sự cố phát hiện qua ảnh</span>
-    </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label"><span class="status-dot dot-red"></span>Khuyết tật AI</span>
+    <strong class="status-value text-red">{{ stats().defect }}</strong>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-periodic"><span nz-icon nzType="send"></span></div>
-    <div class="stat-content">
-      <span class="stat-label">Kiểm tra định kỳ UAV</span>
-      <strong class="stat-value">{{ stats().periodic }}</strong>
-      <span class="stat-hint">Tuyến bay hoàn thành</span>
-    </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label"><span class="status-dot dot-green"></span>Kiểm tra định kỳ UAV</span>
+    <strong class="status-value text-green">{{ stats().periodic }}</strong>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-thermal"><span nz-icon nzType="fire"></span></div>
-    <div class="stat-content">
-      <span class="stat-label">Nhiệt & Hành lang</span>
-      <strong class="stat-value">{{ stats().thermal + stats().corridor }}</strong>
-      <span class="stat-hint">Phát nhiệt và khoảng cách an toàn</span>
-    </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label"><span class="status-dot dot-orange"></span>Nhiệt & Hành lang</span>
+    <strong class="status-value text-orange">{{ stats().thermal + stats().corridor }}</strong>
   </div>
 </section>
 

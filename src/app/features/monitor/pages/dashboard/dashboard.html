@@ -12,14 +12,60 @@
 } @else if (store.error() && !store.dashboard()) {
   <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
 } @else if (store.summary(); as summary) {
-  <section class="summary-grid" aria-label="Monitoring summary">
-    <app-summary-card label="Tổng nhiệm vụ" [value]="summary.totalMissions" icon="◫" />
-    <app-summary-card label="Chờ xử lý" [value]="summary.pendingMissions" icon="▷" tone="amber" />
-    <app-summary-card label="Đang thực hiện" [value]="summary.inProgressMissions" icon="↻" />
-    <app-summary-card label="Hoàn thành" [value]="summary.completedMissions" icon="✓" tone="green" />
-    <app-summary-card label="Lượt kiểm tra" [value]="summary.totalInspections" icon="◎" tone="violet" />
-    <app-summary-card label="Tổng sự cố" [value]="summary.totalDefects" icon="◇" tone="amber" />
-    <app-summary-card label="Sự cố nghiêm trọng" [value]="summary.criticalDefects" icon="!" tone="red" note="Cần xử lý" />
+  <section class="dashboard-status-bar" aria-label="Thống kê trạng thái vận hành">
+    <!-- Nhóm 1: Nhiệm vụ bay -->
+    <div class="status-group">
+      <div class="group-header">
+        <span class="group-tag">Nhiệm vụ bay</span>
+      </div>
+      <div class="status-items">
+        <div class="status-item">
+          <span class="item-label">Tổng nhiệm vụ</span>
+          <strong class="item-value text-navy">{{ summary.totalMissions }}</strong>
+        </div>
+        <div class="status-item">
+          <span class="item-label"><span class="status-dot dot-amber"></span>Chờ xử lý</span>
+          <strong class="item-value text-amber">{{ summary.pendingMissions }}</strong>
+        </div>
+        <div class="status-item">
+          <span class="item-label"><span class="status-dot dot-blue"></span>Đang thực hiện</span>
+          <strong class="item-value text-blue">{{ summary.inProgressMissions }}</strong>
+        </div>
+        <div class="status-item">
+          <span class="item-label"><span class="status-dot dot-green"></span>Hoàn thành</span>
+          <strong class="item-value text-green">{{ summary.completedMissions }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vách phân cách -->
+    <div class="status-divider" aria-hidden="true"></div>
+
+    <!-- Nhóm 2: Giám sát & Sự cố -->
+    <div class="status-group">
+      <div class="group-header">
+        <span class="group-tag">Giám sát & Sự cố</span>
+      </div>
+      <div class="status-items">
+        <div class="status-item">
+          <span class="item-label">Lượt kiểm tra</span>
+          <strong class="item-value text-purple">{{ summary.totalInspections }}</strong>
+        </div>
+        <div class="status-item">
+          <span class="item-label"><span class="status-dot dot-orange"></span>Tổng sự cố</span>
+          <strong class="item-value text-orange">{{ summary.totalDefects }}</strong>
+        </div>
+        <div class="status-item" [class.highlight-danger]="summary.criticalDefects > 0">
+          <span class="item-label"><span class="status-dot dot-red"></span>Sự cố nghiêm trọng</span>
+          <div class="item-val-row">
+            <strong class="item-value text-red">{{ summary.criticalDefects }}</strong>
+            @if (summary.criticalDefects > 0) {
+              <span class="badge-urgent">Cần xử lý</span>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   @if (store.error()) {
