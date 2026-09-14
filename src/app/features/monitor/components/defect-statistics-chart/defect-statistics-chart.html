@@ -1,14 +1,14 @@
-﻿<div class="chart-wrap">
+<div class="chart-wrap">
   <div
     class="chart"
     role="img"
-    [attr.aria-label]="'Defect distribution pie chart, ' + total() + ' total defects'"
+    [attr.aria-label]="'Biểu đồ phân bổ sự cố, tổng cộng ' + total() + ' sự cố'"
     [style.background]="gradient()"
   ></div>
 
   <div class="chart-meta">
     <strong class="chart-total">{{ total() }}</strong>
-    <span class="chart-caption">Total defects</span>
+    <span class="chart-caption">Tổng sự cố</span>
     <ul>
       @for (item of data(); track item.defectType; let index = $index) {
         <li>

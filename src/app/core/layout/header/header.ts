@@ -40,9 +40,9 @@ export class Header {
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
     list.forEach((item) => {
       const date = new Date(item.createdAt);
-      let label = 'Unknown Date';
+      let label = 'Không rõ ngày';
       if (!Number.isNaN(date.getTime())) {
-        label = new Intl.DateTimeFormat('en-GB', {
+        label = new Intl.DateTimeFormat('vi', {
           day: 'numeric',
           month: 'long',
           year: 'numeric',
@@ -116,8 +116,8 @@ export class Header {
   protected updateSortFilter(event: Event): void { this.notifications.setSortFilter(((event.target as HTMLSelectElement | null)?.value ?? 'newest') as NotificationSort); }
   protected formatDate(value: string): string {
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Unknown time';
-    return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    if (Number.isNaN(date.getTime())) return 'Không rõ thời gian';
+    return new Intl.DateTimeFormat('vi', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
   }
   protected markAllAsRead(): void {
     const unread = this.notifications.unreadNotifications();
