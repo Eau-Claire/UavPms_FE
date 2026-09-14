@@ -83,6 +83,7 @@ export class Sidebar {
         { path: '/ai-analysis/upload', icon: 'experiment', label: 'Phân tích AI' },
         { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
         { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
+        { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
       ];
     }
 
@@ -93,6 +94,7 @@ export class Sidebar {
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
         { path: '/inspections', icon: 'file-text', label: 'Công việc & Sự cố' },
+        { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
       ];
     }
 
@@ -103,6 +105,7 @@ export class Sidebar {
       { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
       { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
       { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
+      { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
     ];
   });
 

@@ -41,7 +41,7 @@ export const routes: Routes = [
       { path: 'missions/new', canActivate: [roleGuard(['Admin', 'Manager'])], loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Tạo nhiệm vụ | UAV-PMS' },
       { path: 'missions/:id', loadComponent: () => import('./features/missions/pages/mission-detail/mission-detail').then((m) => m.MissionDetail), title: 'Chi tiết nhiệm vụ | UAV-PMS' },
       { path: 'missions', loadComponent: () => import('./features/missions/pages/mission-list/mission-list').then((m) => m.MissionList), title: 'Quản lý nhiệm vụ | UAV-PMS' },
-      { path: 'reports', loadComponent: () => import('./features/shared/pages/coming-soon/coming-soon').then((m) => m.ComingSoon), data: { title: 'Báo cáo và phân tích' } },
+      { path: 'reports', loadComponent: () => import('./features/reports/pages/reports-page/reports-page').then((m) => m.ReportsPage), title: 'Báo cáo & Phân tích | UAV-PMS' },
       { path: '403', loadComponent: () => import('./features/shared/pages/forbidden/forbidden').then((m) => m.Forbidden), title: '403 Quyền truy cập bị từ chối | UAV-PMS' },
     ],
   },
