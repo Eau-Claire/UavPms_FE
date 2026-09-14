@@ -12,13 +12,13 @@
     <div class="app-notification-wrap">
       <button type="button" class="app-header-icon app-notification-button" [class.app-header-icon-active]="notificationOpen()" aria-label="Thông báo" (click)="toggleNotifications()"><span nz-icon nzType="bell" aria-hidden="true"></span>@if (notifications.unreadCount()) { <span class="app-header-count">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span> }</button>
       @if (notificationOpen()) {
-        <section class="notification-popover" aria-label="Notifications popover">
+        <section class="notification-popover" aria-label="Bảng thông báo">
           <header class="notification-popover-header">
             <div class="notification-header-left">
               <button type="button" class="notification-filters-btn" [class.active]="notificationFiltersOpen()" (click)="notificationFiltersOpen.update((value) => !value)">
-                <span nz-icon nzType="filter"></span> Filters
+                <span nz-icon nzType="filter"></span> Bộ lọc
               </button>
-              <button type="button" class="notification-reset-btn" aria-label="Reset notifications" (click)="resetNotifications()">
+              <button type="button" class="notification-reset-btn" aria-label="Làm mới thông báo" (click)="resetNotifications()">
                 <span nz-icon nzType="reload"></span>
               </button>
             </div>
@@ -27,42 +27,42 @@
                 <path d="M17 5L9.5 12.5L7 10" />
                 <path d="M22 5L14.5 12.5L13.5 11.5" />
               </svg>
-              Mark As Read
+              Đánh dấu đã đọc
             </button>
           </header>
           @if (notificationFiltersOpen()) {
             <div class="notification-filter-menu">
-              <label><span>Status</span><select [value]="notifications.filters().read" (change)="updateReadFilter($event)"><option value="all">All</option><option value="unread">Unread</option><option value="read">Read</option></select></label>
-              <label><span>Type</span><select [value]="notifications.filters().type" (change)="updateTypeFilter($event)"><option value="">All types</option>@for (type of notifications.types(); track type) { <option [value]="type">{{ type }}</option> }</select></label>
-              <label><span>Sort</span><select [value]="notifications.filters().sort" (change)="updateSortFilter($event)"><option value="newest">Newest</option><option value="oldest">Oldest</option></select></label>
+              <label><span>Trạng thái</span><select [value]="notifications.filters().read" (change)="updateReadFilter($event)"><option value="all">Tất cả</option><option value="unread">Chưa đọc</option><option value="read">Đã đọc</option></select></label>
+              <label><span>Loại</span><select [value]="notifications.filters().type" (change)="updateTypeFilter($event)"><option value="">Tất cả loại</option>@for (type of notifications.types(); track type) { <option [value]="type">{{ type }}</option> }</select></label>
+              <label><span>Sắp xếp</span><select [value]="notifications.filters().sort" (change)="updateSortFilter($event)"><option value="newest">Mới nhất</option><option value="oldest">Cũ nhất</option></select></label>
             </div>
           }
           @if (notifications.error()) { <div class="notification-error" role="alert">{{ notifications.error() }}</div> }
           @if (notifications.selected(); as selected) {
             <article class="notification-detail">
               <button type="button" class="notification-back" (click)="notifications.clearSelection()">
-                <span nz-icon nzType="arrow-left"></span> Back to list
+                <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
               </button>
               <div class="notification-detail-heading">
-                <span class="notification-type">{{ selected.type || 'General' }}</span>
+                <span class="notification-type">{{ selected.type || 'Chung' }}</span>
                 <span class="notification-detail-dot">•</span>
                 <time class="notification-detail-time">{{ formatDate(selected.createdAt) }}</time>
               </div>
               <h3>{{ selected.title }}</h3>
-              <p>{{ selected.body || 'No notification body.' }}</p>
+              <p>{{ selected.body || 'Không có nội dung thông báo.' }}</p>
               @if (selected.referenceType || selected.referenceId) {
                 <dl>
-                  <dt>Reference</dt>
-                  <dd>{{ selected.referenceType || 'Item' }} @if (selected.referenceId) { <span>{{ selected.referenceId }}</span> }</dd>
+                  <dt>Tham chiếu</dt>
+                  <dd>{{ selected.referenceType || 'Mục' }} @if (selected.referenceId) { <span>{{ selected.referenceId }}</span> }</dd>
                 </dl>
               }
               <div class="notification-detail-actions">
-                @if (!selected.isRead) { <button type="button" (click)="notifications.markRead(selected.id)">Mark read</button> }
-                <button type="button" class="danger" [disabled]="notifications.deletingId() === selected.id" (click)="deleteNotification($event, selected.id)">Delete</button>
+                @if (!selected.isRead) { <button type="button" (click)="notifications.markRead(selected.id)">Đánh dấu đã đọc</button> }
+                <button type="button" class="danger" [disabled]="notifications.deletingId() === selected.id" (click)="deleteNotification($event, selected.id)">Xóa</button>
               </div>
             </article>
           } @else if (notifications.loading()) {
-            <div class="notification-empty">Loading notifications...</div>
+            <div class="notification-empty">Đang tải thông báo...</div>
           } @else if (groupedNotifications().length) {
             <div class="notification-list" role="list">
               @for (group of groupedNotifications(); track group.dateLabel) {
@@ -100,7 +100,7 @@
                       <div class="notification-item-meta">
                         <span class="notification-time">{{ formatDate(item.createdAt) }}</span>
                         @if (isReplyActionAvailable(item)) {
-                          <span class="notification-reply-btn" role="button" tabindex="0" (click)="$event.stopPropagation(); selectNotification(item)" (keydown.enter)="$event.stopPropagation(); selectNotification(item)">Reply</span>
+                          <span class="notification-reply-btn" role="button" tabindex="0" (click)="$event.stopPropagation(); selectNotification(item)" (keydown.enter)="$event.stopPropagation(); selectNotification(item)">Trả lời</span>
                         }
                       </div>
                     </div>
@@ -112,7 +112,7 @@
               }
             </div>
           } @else {
-            <div class="notification-empty">No notifications match these filters.</div>
+            <div class="notification-empty">Không có thông báo phù hợp với bộ lọc.</div>
           }
         </section>
       }

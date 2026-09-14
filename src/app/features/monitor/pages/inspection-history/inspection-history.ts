@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
@@ -17,6 +17,17 @@ import { MonitorStore } from '../../data-access/monitor-store';
 })
 export class InspectionHistory {
   protected readonly store = inject(MonitorStore);
+
+  protected readonly defectCount = computed(() => {
+    const items = this.store.inspections()?.items || [];
+    return items.filter((i) => i.isDefect).length;
+  });
+
+  protected readonly normalCount = computed(() => {
+    const items = this.store.inspections()?.items || [];
+    return items.filter((i) => !i.isDefect).length;
+  });
+
   private readonly filters = signal<Filters>({
     missionId: '',
     isDefect: null,

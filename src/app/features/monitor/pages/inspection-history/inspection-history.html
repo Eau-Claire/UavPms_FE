@@ -1,10 +1,39 @@
 <section class="page-heading">
   <div>
-    <p>Monitor / Inspections</p>
-    <h1>Inspection history</h1>
-    <span>Search and review AI inspection records across missions.</span>
+    <div class="page-breadcrumb"><span>GIÁM SÁT</span><span>/</span><strong>LỊCH SỬ KIỂM TRA</strong></div>
+    <h1>Lịch sử kiểm tra</h1>
+    <p class="review-subtitle">Tìm kiếm và rà soát hồ sơ kiểm tra khuyết tật AI qua các nhiệm vụ bay.</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="button secondary" (click)="retry()" [disabled]="store.inspectionsLoading()">
+      Làm mới dữ liệu
+    </button>
   </div>
 </section>
+
+@if (store.inspections(); as data) {
+  <section class="inspection-status-bar" aria-label="Thống kê hồ sơ kiểm tra">
+    <div class="status-item">
+      <span class="status-label">Tổng lượt kiểm tra</span>
+      <strong class="status-value">{{ data.totalCount }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Phát hiện sự cố</span>
+      <strong class="status-value">{{ defectCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Bình thường (Không lỗi)</span>
+      <strong class="status-value">{{ normalCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Tổng số trang</span>
+      <strong class="status-value">{{ data.totalPages }}</strong>
+    </div>
+  </section>
+}
 
 <section class="panel filters">
   <app-inspection-filters (filtersChanged)="apply($event)" />
@@ -13,30 +42,30 @@
 <section class="panel results">
   <header>
     <div>
-      <p class="kicker">Inspection archive</p>
-      <h2>Detection records</h2>
+      <p class="kicker">Lưu trữ kiểm tra</p>
+      <h2>Bản ghi phát hiện sự cố</h2>
     </div>
     @if (store.inspections(); as data) {
-      <span>{{ data.totalCount }} records</span>
+      <span>{{ data.totalCount }} bản ghi</span>
     }
   </header>
 
   @if (store.inspectionsLoading()) {
-    <app-data-state kind="loading" title="Loading inspections" />
+    <app-data-state kind="loading" title="Đang tải dữ liệu kiểm tra..." />
   } @else if (store.error()) {
     <app-data-state kind="error" [message]="store.error() || ''" (retry)="retry()" />
   } @else if (store.inspections(); as data) {
     @if (data.items.length) {
       <div class="table-scroll">
         <table>
-          <caption class="sr-only">Inspection history records</caption>
+          <caption class="sr-only">Hồ sơ lịch sử kiểm tra</caption>
           <thead>
             <tr>
-              <th>Mission</th>
-              <th>Inspection image</th>
-              <th>Defect status</th>
-              <th>Defect type</th>
-              <th>Detection time</th>
+              <th>Nhiệm vụ</th>
+              <th>Ảnh kiểm tra</th>
+              <th>Trạng thái sự cố</th>
+              <th>Loại sự cố</th>
+              <th>Thời gian phát hiện</th>
             </tr>
           </thead>
           <tbody>
@@ -55,19 +84,19 @@
                 <td>
                   @if (item.imageUrl) {
                     <a [href]="item.imageUrl" target="_blank" rel="noopener">
-                      <img [src]="item.imageUrl" alt="Inspection captured for {{ item.missionName }}" />
+                      <img [src]="item.imageUrl" alt="Ảnh kiểm tra cho {{ item.missionName }}" />
                     </a>
                   } @else {
-                    <span class="no-image">No image</span>
+                    <span class="no-image">Không có ảnh</span>
                   }
                 </td>
                 <td>
                   <span class="status" [class.clear]="!item.isDefect">
-                    {{ item.isDefect ? 'Defect detected' : 'No defect' }}
+                    {{ item.isDefect ? 'Phát hiện sự cố' : 'Bình thường' }}
                   </span>
                 </td>
                 <td>{{ item.defectType || '—' }}</td>
-                <td>{{ item.detectedAt | date:'MMM d, y, HH:mm' }}</td>
+                <td>{{ item.detectedAt | date:'dd/MM/yyyy HH:mm' }}</td>
               </tr>
             }
           </tbody>
@@ -75,7 +104,7 @@
       </div>
       <app-pagination [page]="data.page" [totalPages]="data.totalPages" [totalCount]="data.totalCount" (pageChanged)="changePage($event)" />
     } @else {
-      <app-data-state kind="empty" title="No inspections found" message="Try clearing filters or changing the selected date range." />
+      <app-data-state kind="empty" title="Không tìm thấy bản ghi kiểm tra" message="Thử xóa bộ lọc hoặc thay đổi khoảng thời gian đã chọn." />
     }
   }
 </section>

@@ -15,45 +15,49 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  margin-bottom: 24px;
 
   .page-heading-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
   }
 
   .page-breadcrumb {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 2px;
+    gap: 6px;
+    margin-bottom: 4px;
     color: #64748b;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 
+    span {
+      color: #64748b;
+    }
+
     strong {
-      color: #1e293b;
+      color: #10387d;
       font-weight: 700;
     }
   }
 
   .page-title {
-    margin: 0;
-    color: #0f172a;
-    font-size: 26px;
+    margin: 4px 0 4px;
+    color: #0f2952;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.25;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
   .page-subtitle {
-    margin: 4px 0 0;
-    color: #64748b;
-    font-size: 14px;
-    line-height: 1.5;
+    margin: 0;
+    color: #526b82;
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 400;
   }
 
   .header-actions {

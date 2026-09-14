@@ -1,3 +1,29 @@
-article { min-height: 104px; padding: 16px 18px; border: 1px solid #d9e1ea; border-radius: 5px; background: #fff; box-shadow: 0 1px 2px rgba(31, 41, 55, .04); }
+article {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
 .icon { display: none; }
-p, small { margin: 0; color: #64748b; } p { font-size: 12px; font-weight: 600; } strong { display: block; margin-top: 8px; color: #1f2937; font-size: 28px; line-height: 1.1; } small { display: block; margin-top: 8px; font-size: 11px; }
+p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+strong {
+  display: block;
+  margin-top: 3px;
+  color: #0f2952;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
+}
+small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #94a3b8;
+}

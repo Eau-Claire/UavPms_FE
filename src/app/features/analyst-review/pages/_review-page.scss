@@ -1,6 +1,5 @@
 .review-page {
-  display: grid;
-  gap: 20px;
+  display: block;
   color: #0f172a;
   padding-bottom: 32px;
 }
@@ -11,21 +10,31 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 24px;
 }
 
 .review-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 4px;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 
+  span {
+    color: #64748b;
+  }
+
+  strong {
+    color: #10387d;
+    font-weight: 700;
+  }
+
   a {
-    color: #0284c7;
+    color: #10387d;
     text-decoration: none;
     transition: color 0.15s ease;
 
@@ -37,98 +46,74 @@
 }
 
 .review-page h1 {
-  margin: 0;
-  font-size: 26px;
+  margin: 4px 0 4px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.25;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+  color: #0f2952;
+  letter-spacing: -0.01em;
 }
 
 .review-page p.review-subtitle {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 14px;
+  margin: 0;
+  color: #526b82;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
-/* Stats summary */
-.review-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.review-stat-card {
+/* Stats summary - Compact EVN Blue Status Bar */
+.review-status-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
+  justify-content: space-around;
   background: #ffffff;
-  border-radius: 8px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 6px;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+.review-status-bar .status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+
+  .status-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #526b82;
+    white-space: nowrap;
   }
 
-  .stat-icon-wrap {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .status-value {
     font-size: 18px;
-    flex-shrink: 0;
-    background: #f8fafc;
-    color: #475569;
-    border: 1px solid #f1f5f9;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0f2952;
+    font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
   }
+}
 
-  &.stat-pending .stat-icon-wrap {
-    color: #b45309;
-    background: #fffbeb;
-    border-color: #fef3c7;
-  }
+.review-status-bar .status-sep {
+  width: 1px;
+  height: 32px;
+  background: #e2e8f0;
+  flex-shrink: 0;
 
-  &.stat-confirmed .stat-icon-wrap {
-    color: #15803d;
-    background: #f0fdf4;
-    border-color: #dcfce7;
-  }
-
-  &.stat-critical .stat-icon-wrap {
-    color: #b91c1c;
-    background: #fef2f2;
-    border-color: #fee2e2;
-  }
-
-  &.stat-total .stat-icon-wrap {
-    color: #10387d;
-    background: #eff6ff;
-    border-color: #dbeafe;
-  }
-
-  .stat-info {
-    display: flex;
-    flex-direction: column;
-
-    .stat-label {
-      font-size: 12.5px;
-      font-weight: 500;
-      color: #64748b;
-    }
-
-    .stat-value {
-      font-size: 22px;
-      font-weight: 700;
-      color: #0f172a;
-      line-height: 1.2;
-      margin-top: 2px;
-    }
+  @media (max-width: 600px) {
+    display: none;
   }
 }
 

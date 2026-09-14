@@ -1,12 +1,19 @@
-@import '@fontsource/inter/vietnamese-400.css';
-@import '@fontsource/inter/vietnamese-500.css';
-@import '@fontsource/inter/vietnamese-600.css';
-@import '@fontsource/inter/vietnamese-700.css';
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css';
+@import '@fontsource/be-vietnam-pro/700.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import '@fontsource/roboto/700.css';
 @import '@fontsource/source-serif-pro/vietnamese-600.css';
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet-draw/dist/leaflet.draw.css';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 @import './styles/operations';
+
+html, body, button, input, select, textarea {
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
 
 :root {
   --color-brand-primary: #1d4f91;
@@ -51,3 +58,95 @@
 .app-profile-menu hr { margin: 5px 0; border: 0; border-top: 1px solid var(--app-border); }
 @media (max-width: 768px) { .app-mobile-menu { display: inline-grid; place-items: center; } .app-sidebar { transform: translateX(-100%); } .app-sidebar.app-sidebar-mobile { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* =============================================================
+   Unified Page Headings & Breadcrumbs (Standardized with Trang chủ)
+   ============================================================= */
+.page-heading,
+.page-head,
+.page-header,
+.mission-page-head,
+.pre-mission-head,
+.gis-page-head,
+.asset-page-head,
+.audit-page-head,
+.review-page-head,
+.user-page-header {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-bottom: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+
+  .page-heading-group,
+  > div:first-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  h1,
+  .page-title {
+    margin: 4px 0 4px 0 !important;
+    color: #0f2952 !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    letter-spacing: -0.01em !important;
+    font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  }
+
+  p,
+  .review-subtitle,
+  .page-subtitle {
+    display: block !important;
+    margin: 0 !important;
+    color: #526b82 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+  }
+}
+
+.page-breadcrumb,
+.mission-breadcrumb,
+.pre-mission-breadcrumb,
+.review-breadcrumb,
+.asset-breadcrumb {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin: 0 0 4px 0 !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+
+  span {
+    color: #64748b !important;
+  }
+
+  strong {
+    color: #10387d !important;
+    font-weight: 700 !important;
+  }
+
+  a {
+    color: #10387d !important;
+    text-decoration: none !important;
+    &:hover {
+      text-decoration: underline !important;
+    }
+  }
+
+  .separator {
+    color: #94a3b8 !important;
+  }
+}

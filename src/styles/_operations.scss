@@ -10,22 +10,24 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 0 14px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 20px;
+  padding: 0;
+  border-bottom: none;
+  margin-bottom: 24px;
 
   h1 {
-    margin: 0;
+    margin: 4px 0 4px;
     font-size: 22px;
     font-weight: 700;
     line-height: 1.25;
-    color: #0f172a;
+    color: #0f2952;
+    letter-spacing: -0.01em;
   }
 
   p {
-    margin: 4px 0 0;
-    color: #64748b;
+    margin: 0;
+    color: #526b82;
     font-size: 13px;
+    line-height: 1.4;
   }
 }
 

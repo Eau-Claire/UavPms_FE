@@ -1,5 +1,5 @@
 <div class="gis-monitoring-page">
-  <!-- Page Header (Standardized layout like AI Review) -->
+  <!-- Page Header (Standardized layout like AI Review & Dashboard) -->
   <header class="page-header gis-page-head">
     <div class="page-heading-group">
       <div class="page-breadcrumb">
@@ -11,18 +11,6 @@
       <p class="page-subtitle">
         Hệ thống định vị, giám sát sự cố và quản lý tọa độ cột điện, đường dây truyền tải điện thời gian thực.
       </p>
-    </div>
-    <div class="header-actions">
-      <button
-        type="button"
-        class="action-btn btn-outline"
-        (click)="loadGisData()"
-        [disabled]="loading()"
-        aria-label="Làm mới dữ liệu GIS"
-      >
-        <span nz-icon [nzType]="loading() ? 'loading' : 'sync'" class="btn-icon" [nzSpin]="loading()" aria-hidden="true"></span>
-        <span>Làm mới</span>
-      </button>
     </div>
   </header>
 
@@ -37,7 +25,7 @@
     <!-- Top Floating HUD Bar -->
     <header class="gis-top-hud">
 
-    <!-- Map Type Switcher Tabs (Google Maps vs Satellite vs Terrain) -->
+    <!-- Map Type Switcher Tabs (Bản đồ vs Vệ tinh vs Địa hình) -->
     <div class="gis-map-type-switcher" aria-label="Chuyển chế độ bản đồ">
       <button
         type="button"
@@ -45,8 +33,7 @@
         [class.active]="currentMapType() === 'google-streets'"
         (click)="setMapType('google-streets')"
       >
-        <span nz-icon nzType="environment"></span>
-        <span>Google Bản đồ</span>
+        <span>Bản đồ</span>
       </button>
       <button
         type="button"
@@ -54,8 +41,7 @@
         [class.active]="currentMapType() === 'google-hybrid'"
         (click)="setMapType('google-hybrid')"
       >
-        <span nz-icon nzType="picture"></span>
-        <span>Google Vệ tinh</span>
+        <span>Vệ tinh</span>
       </button>
       <button
         type="button"
@@ -63,7 +49,6 @@
         [class.active]="currentMapType() === 'google-terrain'"
         (click)="setMapType('google-terrain')"
       >
-        <span nz-icon nzType="dashboard"></span>
         <span>Địa hình</span>
       </button>
     </div>
@@ -92,7 +77,8 @@
       class="tool-btn"
       [class.active]="showFilterPanel()"
       title="Bộ lọc & Phân lớp dữ liệu"
-      (click)="showFilterPanel.update(v => !v)"
+      aria-label="Bộ lọc & Phân lớp dữ liệu"
+      (click)="toggleFilterPanel()"
     >
       <span nz-icon nzType="filter"></span>
     </button>
@@ -101,7 +87,8 @@
       class="tool-btn"
       [class.active]="showLegendPanel()"
       title="Chú giải ký hiệu bản đồ"
-      (click)="showLegendPanel.update(v => !v)"
+      aria-label="Chú giải ký hiệu bản đồ"
+      (click)="toggleLegendPanel()"
     >
       <span nz-icon nzType="info-circle"></span>
     </button>
@@ -109,18 +96,10 @@
       type="button"
       class="tool-btn"
       title="Căn giữa toàn bộ tuyến dây"
+      aria-label="Căn giữa toàn bộ tuyến dây"
       (click)="fitMapBounds()"
     >
       <span nz-icon nzType="environment"></span>
-    </button>
-    <button
-      type="button"
-      class="tool-btn"
-      [title]="loading() ? 'Đang tải...' : 'Làm mới dữ liệu'"
-      [disabled]="loading()"
-      (click)="loadGisData()"
-    >
-      <span nz-icon nzType="reload" [nzSpin]="loading()"></span>
     </button>
 
     <!-- Asset Selection / Drawing Tool -->
@@ -128,7 +107,7 @@
       type="button"
       class="tool-btn tool-btn-selection"
       [class.active]="showSelectionPopup()"
-      title="Khoanh vùng & Chọn tài sản (Bút vẽ / Đa giác)"
+      title="Khoanh vùng & Chọn tài sản"
       aria-label="Khoanh vùng & Chọn tài sản"
       (click)="toggleSelectionTool()"
     >
@@ -447,8 +426,11 @@
 
   <!-- Marker Legend Floating Panel -->
   @if (showLegendPanel()) {
-    <div class="gis-legend-panel" [class.offset-legend]="showSelectionPopup()">
-      <h4>Chú giải bản đồ</h4>
+    <div class="gis-legend-panel">
+      <div class="panel-header">
+        <h4>Chú giải bản đồ</h4>
+        <button type="button" class="btn-close-panel" aria-label="Đóng chú giải" (click)="showLegendPanel.set(false)">✕</button>
+      </div>
       <div class="legend-items">
         <div class="legend-item">
           <span class="legend-symbol sym-tower"></span>

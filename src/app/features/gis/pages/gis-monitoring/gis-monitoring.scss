@@ -47,21 +47,35 @@
    ────────────────────────────────────────────────────── */
 .gis-selection-popup {
   position: absolute;
-  z-index: 850;
-  left: 18px;
-  bottom: 24px;
-  width: min(360px, calc(100% - 80px));
-  max-height: calc(100vh - 200px);
+  z-index: 500;
+  top: 76px;
+  right: 64px;
+  left: auto;
+  bottom: auto;
+  width: 340px;
+  max-height: calc(100% - 96px);
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(14px);
   border: 1px solid #cbd5e1;
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
   color: #1e293b;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+@media (max-width: 768px) {
+  .gis-selection-popup {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-height: calc(100% - 100px);
+  }
 }
 
 .popup-head {
@@ -601,21 +615,7 @@
   cursor: crosshair !important;
 }
 
-/* ──────────────────────────────────────────────────────
-   Legend Panel Offset when Selection Popup is Active
-   ────────────────────────────────────────────────────── */
-.gis-legend-panel.offset-legend {
-  left: 390px;
-  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
 
-@media (max-width: 768px) {
-  .gis-legend-panel.offset-legend {
-    left: 16px;
-    bottom: auto;
-    top: 90px;
-  }
-}
 
 /* ──────────────────────────────────────────────────────
    Leaflet Draw SVG and Vertex Customization

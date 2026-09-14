@@ -1,7 +1,12 @@
+:host {
+  display: block;
+  max-width: 100rem;
+  margin-inline: auto;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 .asset-dashboard-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: block;
   width: 100%;
   color: #0f172a;
   font-family: inherit;
@@ -14,9 +19,9 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 20px;
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-bottom: 24px;
 
   .page-heading-group {
     flex: 1;
@@ -27,31 +32,34 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     color: #64748b;
-    font-size: 11.5px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 
     strong {
       color: #10387d;
+      font-weight: 700;
     }
   }
 
   .page-title {
-    margin: 0;
+    margin: 4px 0 4px;
     font-size: 22px;
     font-weight: 700;
     line-height: 1.25;
-    color: #0f172a;
+    color: #0f2952;
+    letter-spacing: -0.01em;
   }
 
   .page-subtitle {
-    margin: 4px 0 0;
-    color: #64748b;
-    font-size: 13.5px;
-    line-height: 1.5;
+    margin: 0;
+    color: #526b82;
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 400;
   }
 
   .header-actions {
@@ -107,170 +115,90 @@
   }
 }
 
-/* KPI Summary Cards Grid */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.kpi-card {
+/* KPI Summary Status Bar - Unified EVN Blue Compact Bar */
+.asset-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+.asset-status-bar .status-item {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  transition: all 0.2s ease;
-  cursor: default;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
 
-  &[role='button'] {
+  .status-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #526b82;
+    white-space: nowrap;
+  }
+
+  .status-value {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0f2952;
+    font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
+  }
+
+  &.filter-btn {
     cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      border-color: #cbd5e1;
+      background-color: #f1f5f9;
+    }
+
+    &.active {
+      background-color: #eff6ff;
+      outline: 1px solid #10387d;
+
+      .status-label {
+        color: #10387d;
+        font-weight: 700;
+      }
+
+      .status-value {
+        color: #10387d;
+      }
     }
   }
-
-  &--active {
-    ring: 2px;
-    outline: 2px solid #3b82f6;
-    border-color: transparent;
-  }
-
-  &--critical.kpi-card--active {
-    outline-color: #ef4444;
-  }
-
-  &--high.kpi-card--active {
-    outline-color: #f97316;
-  }
-
-  &--medium.kpi-card--active {
-    outline-color: #f59e0b;
-  }
-
-  &--low.kpi-card--active {
-    outline-color: #10b981;
-  }
 }
 
-/* Formal utility-PMS KPI treatment: semantic color stays on the edge only. */
-.kpi-card { border-radius: 5px; border-color: #d8dee8; box-shadow: none; padding: 14px 16px; }
-.kpi-card-header { margin-bottom: 8px; }
-.kpi-card-icon-wrap { display: none; }
-.kpi-card--critical, .kpi-card--high, .kpi-card--medium, .kpi-card--low, .kpi-card--total { border-left-color: #d9e1ea; }
-.kpi-card-label { color: #64748b; font-size: 12px; }
-.kpi-card-value { color: #1f2937; font-size: 28px; }
-.kpi-card-hint { color: #64748b; font-size: 11px; }
-.kpi-score-bar-bg { height: 5px; border-radius: 2px; }
-.kpi-card .kpi-card-icon-wrap { display: none; }
-
-.kpi-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.kpi-card-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.kpi-card-icon-wrap {
-  width: 32px;
+.asset-status-bar .status-sep {
+  width: 1px;
   height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-
-  &--blue {
-    background: #eff6ff;
-    color: #2563eb;
-  }
-  &--red {
-    background: #fef2f2;
-    color: #dc2626;
-  }
-  &--orange {
-    background: #fff7ed;
-    color: #ea580c;
-  }
-  &--amber {
-    background: #fffbeb;
-    color: #d97706;
-  }
-  &--green {
-    background: #f0fdf4;
-    color: #16a34a;
-  }
-  &--teal {
-    background: #f0fdfa;
-    color: #0d9488;
-  }
-}
-
-.kpi-card-value-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.kpi-card-value {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: #0f172a;
-}
-
-.urgent-tag {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.kpi-score-max {
-  font-size: 14px;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.kpi-card-footer {
-  margin-top: 6px;
-}
-
-.kpi-card-hint {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.kpi-score-bar-bg {
-  width: 100%;
-  height: 6px;
   background: #e2e8f0;
-  border-radius: 9999px;
-  overflow: hidden;
-  margin-top: 10px;
+  flex-shrink: 0;
+
+  @media (max-width: 600px) {
+    display: none;
+  }
 }
 
-.kpi-score-bar-fill {
-  height: 100%;
-  border-radius: 9999px;
-  transition: width 0.4s ease;
-}
 
 /* Toolbar & Filter Bar */
 .asset-toolbar {

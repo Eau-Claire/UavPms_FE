@@ -1,0 +1,228 @@
+<section class="page-heading">
+  <div>
+    <div class="page-breadcrumb"><span>BÁO CÁO</span><span>/</span><strong>BÁO CÁO & PHÂN TÍCH</strong></div>
+    <h1>Báo cáo và phân tích</h1>
+    <p class="review-subtitle">Tổng hợp báo cáo kiểm tra định kỳ, thống kê khuyết tật thiết bị và xuất dữ liệu báo cáo vận hành.</p>
+  </div>
+  <div class="actions">
+    <button type="button" class="button secondary" (click)="refreshReports()">
+      <span nz-icon nzType="reload"></span> Làm mới
+    </button>
+    <button type="button" class="button primary" (click)="openCreateModal()">
+      <span nz-icon nzType="plus"></span> Lập báo cáo mới
+    </button>
+  </div>
+</section>
+
+@if (toastMessage(); as msg) {
+  <div class="toast-alert" role="status">
+    <span nz-icon nzType="check-circle" class="toast-icon"></span>
+    <span>{{ msg }}</span>
+  </div>
+}
+
+<!-- Thanh thống kê số liệu tinh gọn (Chuẩn web quản trị VN) -->
+<section class="reports-status-bar" aria-label="Thống kê báo cáo">
+  <div class="status-item">
+    <span class="status-label">Tổng số báo cáo</span>
+    <strong class="status-value">{{ stats().total }}</strong>
+  </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label">Khuyết tật AI</span>
+    <strong class="status-value">{{ stats().defect }}</strong>
+  </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label">Kiểm tra định kỳ UAV</span>
+    <strong class="status-value">{{ stats().periodic }}</strong>
+  </div>
+  <div class="status-sep" aria-hidden="true"></div>
+  <div class="status-item">
+    <span class="status-label">Nhiệt & Hành lang</span>
+    <strong class="status-value">{{ stats().thermal + stats().corridor }}</strong>
+  </div>
+</section>
+
+<!-- Bộ lọc và tìm kiếm -->
+<section class="panel filters-panel">
+  <div class="filters-grid">
+    <div class="filter-group search-group">
+      <label for="report-search">Tìm kiếm báo cáo</label>
+      <div class="search-box">
+        <span nz-icon nzType="search" class="search-icon"></span>
+        <input
+          id="report-search"
+          type="search"
+          placeholder="Tìm theo tiêu đề, mã số, tuyến đường dây, người lập..."
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value)"
+        />
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <label for="report-type">Loại báo cáo</label>
+      <select
+        id="report-type"
+        [value]="selectedType()"
+        (change)="selectedType.set($any($event.target).value)"
+      >
+        <option value="all">Tất cả loại báo cáo</option>
+        <option value="defect">Khuyết tật AI</option>
+        <option value="periodic">Kiểm tra định kỳ UAV</option>
+        <option value="thermal">Nhiệt hồng ngoại</option>
+        <option value="corridor">Hành lang tuyến</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="report-status">Trạng thái phê duyệt</label>
+      <select
+        id="report-status"
+        [value]="selectedStatus()"
+        (change)="selectedStatus.set($any($event.target).value)"
+      >
+        <option value="all">Tất cả trạng thái</option>
+        <option value="approved">Đã duyệt</option>
+        <option value="pending">Chờ duyệt</option>
+        <option value="draft">Bản nháp</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<!-- Danh sách báo cáo -->
+<section class="panel table-panel">
+  <header class="table-header">
+    <div>
+      <p class="kicker">HỒ SƠ VẬN HÀNH</p>
+      <h2>Danh mục báo cáo phân tích lưới điện</h2>
+    </div>
+    <span class="record-badge">{{ filteredReports().length }} báo cáo</span>
+  </header>
+
+  @if (filteredReports().length) {
+    <div class="table-scroll">
+      <table>
+        <caption class="sr-only">Danh sách báo cáo phân tích</caption>
+        <thead>
+          <tr>
+            <th>Mã & Tiêu đề báo cáo</th>
+            <th>Phân loại</th>
+            <th>Tuyến / Trạm điện</th>
+            <th>Ngày lập</th>
+            <th>Người thực hiện</th>
+            <th>Trạng thái</th>
+            <th class="actions-col">Xuất dữ liệu</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of filteredReports(); track item.id) {
+            <tr>
+              <td>
+                <div class="report-title-cell">
+                  <strong>{{ item.title }}</strong>
+                  <div class="report-meta-line">
+                    <span class="code-badge">{{ item.code }}</span>
+                    @if (item.defectCount > 0) {
+                      <span class="defect-indicator">{{ item.defectCount }} sự cố ghi nhận</span>
+                    }
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge-type" [class]="item.type">{{ item.typeName }}</span>
+              </td>
+              <td>
+                <span class="line-name">{{ item.lineOrSubstation }}</span>
+              </td>
+              <td>
+                <span class="date-text">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              </td>
+              <td>
+                <span class="creator-name">{{ item.creator }}</span>
+              </td>
+              <td>
+                <span class="status-badge" [class]="item.status">{{ item.statusName }}</span>
+              </td>
+              <td class="actions-col">
+                <div class="btn-group">
+                  <button
+                    type="button"
+                    class="btn-action-download pdf"
+                    title="Tải tệp PDF ({{ item.fileSizePdf }})"
+                    (click)="downloadReport(item, 'PDF')"
+                  >
+                    <span nz-icon nzType="file-pdf"></span> PDF
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-download excel"
+                    title="Tải tệp Excel ({{ item.fileSizeExcel }})"
+                    (click)="downloadReport(item, 'EXCEL')"
+                  >
+                    <span nz-icon nzType="file-excel"></span> Excel
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="empty-state">
+      <span nz-icon nzType="inbox" class="empty-icon"></span>
+      <h3>Không tìm thấy báo cáo phù hợp</h3>
+      <p>Vui lòng điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các tiêu chí lọc.</p>
+    </div>
+  }
+</section>
+
+<!-- Modal Lập báo cáo mới -->
+@if (isCreateModalOpen()) {
+  <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h3>Lập báo cáo vận hành mới</h3>
+        <button type="button" class="btn-close" (click)="closeCreateModal()">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="new-title">Tiêu đề báo cáo *</label>
+          <input
+            id="new-title"
+            type="text"
+            placeholder="Ví dụ: Báo cáo kiểm tra khuyết tật đường dây 500kV..."
+            [(ngModel)]="newReportTitle"
+          />
+        </div>
+        <div class="modal-field">
+          <label for="new-type">Phân loại báo cáo</label>
+          <select id="new-type" [(ngModel)]="newReportType">
+            <option value="defect">Khuyết tật AI</option>
+            <option value="periodic">Kiểm tra định kỳ UAV</option>
+            <option value="thermal">Nhiệt hồng ngoại</option>
+            <option value="corridor">Hành lang tuyến</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="new-line">Tuyến đường dây / Trạm biến áp</label>
+          <select id="new-line" [(ngModel)]="newReportLine">
+            <option value="ĐZ 500kV Quảng Trạch - Dốc Sỏi">ĐZ 500kV Quảng Trạch - Dốc Sỏi</option>
+            <option value="ĐZ 220kV Hòa Bình - Nho Quan">ĐZ 220kV Hòa Bình - Nho Quan</option>
+            <option value="TBA 220kV Tây Hà Nội">TBA 220kV Tây Hà Nội</option>
+            <option value="ĐZ 500kV Thường Tín - Nho Quan">ĐZ 500kV Thường Tín - Nho Quan</option>
+            <option value="ĐZ 220kV Chèm - Tây Hà Nội">ĐZ 220kV Chèm - Tây Hà Nội</option>
+            <option value="ĐZ 110kV Hà Đông - Thanh Oai">ĐZ 110kV Hà Đông - Thanh Oai</option>
+          </select>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="button secondary" (click)="closeCreateModal()">Hủy</button>
+        <button type="button" class="button primary" (click)="createReport()">Tạo báo cáo</button>
+      </footer>
+    </div>
+  </div>
+}

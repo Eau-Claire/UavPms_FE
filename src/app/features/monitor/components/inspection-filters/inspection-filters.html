@@ -1,1 +1,26 @@
-<form [formGroup]="form" (ngSubmit)="apply()"><label><span>Mission</span><input formControlName="missionId" placeholder="Mission ID" /></label><label><span>Defect status</span><select formControlName="defectStatus"><option value="all">All inspections</option><option value="defect">Defect detected</option><option value="clear">No defect</option></select></label><label><span>From date</span><input type="date" formControlName="fromDate" /></label><label><span>To date</span><input type="date" formControlName="toDate" /></label><div class="actions"><button type="button" class="button secondary" (click)="clear()">Clear</button><button type="submit" class="button primary">Apply filters</button></div></form>
+<form [formGroup]="form" (ngSubmit)="apply()">
+  <label>
+    <span>Mã / Tên nhiệm vụ</span>
+    <input formControlName="missionId" placeholder="Nhập mã hoặc tên nhiệm vụ..." />
+  </label>
+  <label>
+    <span>Trạng thái sự cố</span>
+    <select formControlName="defectStatus">
+      <option value="all">Tất cả kiểm tra</option>
+      <option value="defect">Phát hiện sự cố</option>
+      <option value="clear">Bình thường (Không sự cố)</option>
+    </select>
+  </label>
+  <label>
+    <span>Từ ngày</span>
+    <input type="date" formControlName="fromDate" />
+  </label>
+  <label>
+    <span>Đến ngày</span>
+    <input type="date" formControlName="toDate" />
+  </label>
+  <div class="actions">
+    <button type="button" class="button secondary" (click)="clear()">Xóa lọc</button>
+    <button type="submit" class="button primary">Áp dụng</button>
+  </div>
+</form>
