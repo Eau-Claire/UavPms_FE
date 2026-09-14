@@ -93,13 +93,12 @@
 
   .group-tag {
     display: inline-block;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: #10387d;
-    background: #eff6ff;
-    border: 1px solid #dbeafe;
-    padding: 3px 8px;
-    border-radius: 4px;
+    background: #ffffff;
+    border: none;
+    padding: 0;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;
@@ -109,15 +108,18 @@
 .status-items {
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: space-around;
+  gap: 12px;
   flex: 1;
-  flex-wrap: wrap;
 }
 
 .status-item {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 2px;
+  flex: 1;
   min-width: 0;
 
   .item-label {
@@ -136,6 +138,7 @@
     font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
   }
 }
+
 
 
 .status-divider {

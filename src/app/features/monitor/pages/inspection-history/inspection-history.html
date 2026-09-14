@@ -11,6 +11,30 @@
   </div>
 </section>
 
+@if (store.inspections(); as data) {
+  <section class="inspection-status-bar" aria-label="Thống kê hồ sơ kiểm tra">
+    <div class="status-item">
+      <span class="status-label">Tổng lượt kiểm tra</span>
+      <strong class="status-value">{{ data.totalCount }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Phát hiện sự cố</span>
+      <strong class="status-value">{{ defectCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Bình thường (Không lỗi)</span>
+      <strong class="status-value">{{ normalCount() }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Tổng số trang</span>
+      <strong class="status-value">{{ data.totalPages }}</strong>
+    </div>
+  </section>
+}
+
 <section class="panel filters">
   <app-inspection-filters (filtersChanged)="apply($event)" />
 </section>

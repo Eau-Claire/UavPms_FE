@@ -40,16 +40,16 @@
 .reports-status-bar {
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: space-around;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 10px 18px;
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  flex-wrap: wrap;
 
   @media (max-width: 768px) {
+    flex-wrap: wrap;
     gap: 12px;
   }
 }
@@ -57,7 +57,10 @@
 .status-item {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 2px;
+  flex: 1;
   min-width: 0;
 
   .status-label {
@@ -76,6 +79,7 @@
     font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
   }
 }
+
 
 
 .status-sep {
