@@ -11,21 +11,31 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 24px;
 }
 
 .review-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 4px;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 
+  span {
+    color: #64748b;
+  }
+
+  strong {
+    color: #10387d;
+    font-weight: 700;
+  }
+
   a {
-    color: #0284c7;
+    color: #10387d;
     text-decoration: none;
     transition: color 0.15s ease;
 
@@ -37,18 +47,20 @@
 }
 
 .review-page h1 {
-  margin: 0;
-  font-size: 26px;
+  margin: 4px 0 4px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.25;
-  color: #0f172a;
-  letter-spacing: -0.02em;
+  color: #0f2952;
+  letter-spacing: -0.01em;
 }
 
 .review-page p.review-subtitle {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 14px;
+  margin: 0;
+  color: #526b82;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
 /* Stats summary */

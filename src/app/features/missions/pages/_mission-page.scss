@@ -6,10 +6,11 @@
 
 .mission-page-head {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
   min-width: 0;
+  margin-bottom: 24px;
 }
 
 .mission-page-head > div { min-width: 0; }
@@ -18,23 +19,34 @@
 
 .mission-breadcrumb {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  color: #6b7280;
-  font-size: 12px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+
+  span { color: #64748b; }
+  strong { color: #10387d; font-weight: 700; }
 }
 
 .mission-page h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 36px;
+  margin: 4px 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #0f2952;
+  letter-spacing: -0.01em;
 }
 
 .mission-page p {
-  margin: 6px 0 0;
-  color: #64748b;
+  margin: 0;
+  color: #526b82;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
 .mission-primary-btn,

@@ -7,7 +7,59 @@
 }
 
 .gis-page-head {
-  margin-bottom: 14px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  border: none !important;
+  border-bottom: none !important;
+
+  .page-heading-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px 0;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+
+    span {
+      color: #64748b;
+    }
+
+    strong {
+      color: #10387d;
+      font-weight: 700;
+    }
+  }
+
+  h1,
+  .page-title {
+    margin: 4px 0 4px 0;
+    color: #0f2952;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    font-family: inherit;
+  }
+
+  p,
+  .page-subtitle {
+    margin: 0;
+    color: #526b82;
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
 }
 
 .gis-alert {

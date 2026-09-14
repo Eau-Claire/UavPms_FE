@@ -198,42 +198,54 @@
 }
 
 /* -------------------------------------------------------------
-   Unified Page Headings & Breadcrumbs (EVN PMIS Theme)
+   Unified Page Headings & Breadcrumbs (EVN PMIS Theme - Standardized with Trang chủ)
    ------------------------------------------------------------- */
 .page-heading,
 .page-head,
 .mission-page-head,
+.pre-mission-head,
+.gis-page-head,
+.asset-page-head,
+.audit-page-head,
+.review-page-head,
 .ops-page .page-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #d8e4f0;
+  margin-bottom: 24px;
+  padding: 0;
+  border: none;
+  border-bottom: none;
+  background: transparent;
 
   h1,
   .page-title {
-    margin: 2px 0 0;
+    margin: 4px 0 4px;
     color: #0f2952;
-    font-size: 21px;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.25;
     letter-spacing: -0.01em;
+    font-family: inherit;
   }
 
   p,
   .review-subtitle,
   .page-subtitle {
-    margin: 3px 0 0;
+    margin: 0;
     color: #526b82;
-    font-size: 12.5px;
+    font-size: 13px;
     line-height: 1.4;
+    display: block;
   }
 }
 
 .page-breadcrumb,
-.mission-breadcrumb {
+.mission-breadcrumb,
+.pre-mission-breadcrumb,
+.review-breadcrumb,
+.asset-breadcrumb {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -244,8 +256,24 @@
   text-transform: uppercase;
   margin-bottom: 2px;
 
+  span {
+    color: #64748b;
+  }
+
   strong {
     color: #10387d;
+  }
+
+  a {
+    color: #10387d;
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .separator {
+    color: #94a3b8;
   }
 }
 
