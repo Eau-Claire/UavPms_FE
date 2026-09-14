@@ -110,7 +110,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly showFilterPanel = signal(false);
-  protected readonly showLegendPanel = signal(true);
+  protected readonly showLegendPanel = signal(false);
   protected readonly selectedEntity = signal<SelectedGisEntity | null>(null);
   protected readonly drawMode = signal<SelectionDrawMode>('none');
   protected readonly uxState = signal<SelectionUxState>('idle');
@@ -279,11 +279,37 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.map.on(L.Draw.Event.EDITED, () => this.onEditCompleted());
   }
 
-  /** Toggle the selection tool: open/close the popup. */
+  /** Bật/tắt bảng bộ lọc (tự động đóng chú giải & khoanh vùng để tránh đè lấn) */
+  protected toggleFilterPanel(): void {
+    const next = !this.showFilterPanel();
+    if (next) {
+      this.showLegendPanel.set(false);
+      if (this.showSelectionPopup()) {
+        this.closeSelectionPopup();
+      }
+    }
+    this.showFilterPanel.set(next);
+  }
+
+  /** Bật/tắt bảng chú giải (tự động đóng bộ lọc & khoanh vùng để tránh đè lấn) */
+  protected toggleLegendPanel(): void {
+    const next = !this.showLegendPanel();
+    if (next) {
+      this.showFilterPanel.set(false);
+      if (this.showSelectionPopup()) {
+        this.closeSelectionPopup();
+      }
+    }
+    this.showLegendPanel.set(next);
+  }
+
+  /** Toggle the selection tool: open/close the popup, closing other floating panels. */
   protected toggleSelectionTool(): void {
     if (this.showSelectionPopup()) {
       this.closeSelectionPopup();
     } else {
+      this.showFilterPanel.set(false);
+      this.showLegendPanel.set(false);
       this.showSelectionPopup.set(true);
       if (!this.hasBoundary()) {
         this.uxState.set('choosing');
