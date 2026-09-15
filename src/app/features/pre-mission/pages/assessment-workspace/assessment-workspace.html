@@ -14,7 +14,10 @@
             {{ statusLabel(a.status) }}
           </span>
           @if (isExpired()) {
-            <span class="evn-status expired">Đã hết hiệu lực</span>
+            <span class="evn-status expired">Hết hiệu lực</span>
+          }
+          @if (isCancelled()) {
+            <span class="evn-status danger">Đã hủy</span>
           }
         </div>
         <p>
@@ -29,14 +32,25 @@
         <a class="evn-btn secondary" routerLink="/pre-mission">
           <span nz-icon nzType="arrow-left"></span>Danh sách
         </a>
-        <button
-          type="button"
-          class="evn-btn secondary"
-          [disabled]="busy()"
-          (click)="reevaluate()"
-        >
-          <span nz-icon [nzType]="busy() ? 'loading' : 'reload'"></span> Đánh giá lại
-        </button>
+        @if (!isCancelled() && !isConsumed()) {
+          <button
+            type="button"
+            class="evn-btn secondary"
+            style="color: #dc2626;"
+            [disabled]="busy()"
+            (click)="cancelAssessment()"
+          >
+            <span nz-icon nzType="close"></span> Hủy đánh giá
+          </button>
+          <button
+            type="button"
+            class="evn-btn secondary"
+            [disabled]="busy() || isEvaluating()"
+            (click)="reevaluate()"
+          >
+            <span nz-icon [nzType]="busy() ? 'loading' : 'reload'"></span> Đánh giá lại
+          </button>
+        }
         @if (canProceedToMf02()) {
           <a
             class="evn-btn primary"
@@ -63,15 +77,68 @@
       </div>
     }
 
+    <!-- Lifecycle Status Notification Banners -->
+    @if (isEvaluating()) {
+      <div class="evn-alert" style="background: #eff6ff; border-color: #93c5fd; color: #1e40af;" role="status">
+        <span nz-icon nzType="loading"></span>
+        <span>Hệ thống đang tiến hành đối chiếu quy tắc tĩnh không, nhân sự và kiểm định UAV...</span>
+      </div>
+    } @else if (isExpired()) {
+      <div class="evn-alert" style="background: #fffbeb; border-color: #fcd34d; color: #92400e;" role="alert">
+        <span nz-icon nzType="warning"></span>
+        <span>
+          Bản đánh giá đã hết hạn hiệu lực (hạn chót: {{ a.validUntil | date:'dd/MM/yyyy HH:mm' }}). Không thể sử dụng để tạo nhiệm vụ. Vui lòng bấm <strong>"Đánh giá lại"</strong> để cập nhật dữ liệu mới.
+        </span>
+      </div>
+    } @else if (isCancelled()) {
+      <div class="evn-alert" style="background: #fef2f2; border-color: #fca5a5; color: #991b1b;" role="alert">
+        <span nz-icon nzType="stop"></span>
+        <span>Bản đánh giá tiền nhiệm vụ này đã bị hủy bỏ và không thể tiếp tục thực hiện.</span>
+      </div>
+    } @else if (isConsumed()) {
+      <div class="evn-alert" style="background: #f0fdf4; border-color: #86efac; color: #166534;" role="status">
+        <span nz-icon nzType="check-circle"></span>
+        <span>
+          Đánh giá này đã được sử dụng thành công để khởi tạo nhiệm vụ kiểm tra
+          @if (a.consumedMissionId) {
+            <a [routerLink]="['/missions', a.consumedMissionId]" style="font-weight: bold; text-decoration: underline; margin-left: 4px;">#{{ a.consumedMissionId }}</a>
+          }.
+        </span>
+      </div>
+    } @else if (failedConditions().length > 0 && !isReady()) {
+      <div class="evn-alert" style="background: #fff1f2; border-color: #fecdd3; color: #9f1239;" role="alert">
+        <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+          <div style="font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span nz-icon nzType="exclamation-circle"></span>
+            Chưa đạt điều kiện sẵn sàng (NOT READY) — Còn {{ failedConditions().length }} tiêu chuẩn chưa thỏa mãn:
+          </div>
+          <ul style="margin: 4px 0 6px 18px; padding: 0; font-size: 11px; line-height: 1.5;">
+            @for (fail of failedConditions(); track fail.pillar) {
+              <li>
+                <strong>{{ fail.pillar }}:</strong> {{ fail.reason }}
+                <button
+                  type="button"
+                  style="background: transparent; border: 0; color: #0284c7; text-decoration: underline; cursor: pointer; padding: 0; margin-left: 6px;"
+                  (click)="setTab(fail.actionTab)"
+                >
+                  [{{ fail.actionLabel }}]
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    }
+
     <!-- 4 Core Readiness Status Strip (Dense EVN Cards) -->
     <section class="readiness-grid" aria-label="Kết quả 4 trụ cột đánh giá">
       <!-- Site -->
       <div class="readiness-card" [class.is-pass]="a.site.status === 'PASS' || a.site.status === 'FEASIBLE'">
         <div class="card-head">
-          <span class="card-title">1. Mặt bằng khảo sát</span>
+          <span class="card-title">1. Mặt bằng khảo sát (Mock)</span>
           <span class="evn-status {{ statusTone(a.site.status) }}">{{ statusLabel(a.site.status) }}</span>
         </div>
-        <p class="card-desc">{{ a.site.reason || 'Đạt tiêu chuẩn tĩnh không và điều kiện thời tiết cho phép.' }}</p>
+        <p class="card-desc">{{ a.site.reason || '(Mock) Đạt tiêu chuẩn tĩnh không và điều kiện thời tiết cho phép.' }}</p>
         @if (a.site.evaluatedAt) {
           <span class="card-time">Đánh giá: {{ a.site.evaluatedAt | date:'HH:mm dd/MM' }}</span>
         }
@@ -108,11 +175,11 @@
       <!-- Technical -->
       <div class="readiness-card" [class.is-pass]="a.technical.status === 'PASS' || a.technical.status === 'HEALTHY'">
         <div class="card-head">
-          <span class="card-title">4. Sức khỏe kỹ thuật</span>
+          <span class="card-title">4. Sức khỏe kỹ thuật (Mock)</span>
           <span class="evn-status {{ statusTone(a.technical.status) }}">{{ statusLabel(a.technical.status) }}</span>
         </div>
         <p class="card-desc">
-          Hệ thống cảm biến, pin và ESC đạt tiêu chuẩn vận hành an toàn.
+          {{ a.technical.reason || '(Mock) Thông số cảm biến, nguồn pin và động cơ đạt tiêu chuẩn vận hành an toàn.' }}
         </p>
         @if (a.technical.evaluatedAt) {
           <span class="card-time">Đánh giá: {{ a.technical.evaluatedAt | date:'HH:mm dd/MM' }}</span>
@@ -127,14 +194,14 @@
         [class.active]="activeTab() === 'overview'"
         (click)="setTab('overview')"
       >
-        <span nz-icon nzType="profile"></span> Tổng quan phạm vi
+        <span nz-icon nzType="profile"></span> Tổng quan & Bản đồ phạm vi
       </button>
       <button
         type="button"
         [class.active]="activeTab() === 'site'"
         (click)="setTab('site')"
       >
-        <span nz-icon nzType="environment"></span> Tính khả thi mặt bằng
+        <span nz-icon nzType="environment"></span> Tính khả thi mặt bằng (Mock)
       </button>
       <button
         type="button"
@@ -155,11 +222,11 @@
         [class.active]="activeTab() === 'technical'"
         (click)="setTab('technical')"
       >
-        <span nz-icon nzType="dashboard"></span> Kiểm tra kỹ thuật ({{ a.technicalMetrics.length }})
+        <span nz-icon nzType="dashboard"></span> Kỹ thuật drone BIST (Mock)
       </button>
     </nav>
 
-    <!-- Tab 1: Overview -->
+    <!-- Tab 1: Overview & Scope Map -->
     @if (activeTab() === 'overview') {
       <div class="evn-panel">
         <div class="panel-header">
@@ -215,10 +282,21 @@
             </div>
           </div>
 
+          <!-- Scope Map Visualizer -->
+          <div style="margin-top: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0;">
+                Bản đồ vị trí các cột trong phạm vi khảo sát (Scope GIS Map):
+              </h4>
+              <span style="font-size: 10px; color: #64748b;">{{ a.scopeAssetIds.length }} cột điện</span>
+            </div>
+            <div #scopeMapContainer style="height: 250px; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; background: #e2e8f0;"></div>
+          </div>
+
           @if (a.scopeAssetIds.length > 0) {
             <div style="margin-top: 14px;">
               <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 6px;">
-                Danh sách mã cột trong phạm vi ({{ a.scopeAssetIds.length }} cột):
+                Danh sách mã cột:
               </h4>
               <div class="asset-chips-wrap">
                 @for (assetId of a.scopeAssetIds; track assetId) {
@@ -235,26 +313,85 @@
     @if (activeTab() === 'site') {
       <div class="evn-panel">
         <div class="panel-header">
-          <h3>Đánh giá tính khả thi mặt bằng & Địa hình tuyến</h3>
+          <div>
+            <h3 style="margin: 0;">Đánh giá tính khả thi mặt bằng & Địa hình tuyến (Site Feasibility)</h3>
+            <span class="panel-subinfo" style="color: #b45309; font-weight: 600;">(Dữ liệu mô phỏng - Mock Data: Cần đối chiếu Giấy phép bay Cục Tác chiến & kiểm tra thực địa)</span>
+          </div>
           <span class="evn-status {{ statusTone(a.site.status) }}">{{ statusLabel(a.site.status) }}</span>
         </div>
         <div class="panel-body">
-          <div class="feasibility-box">
+          <!-- Legal & Compliance Notice Box -->
+          <div class="legal-compliance-banner" style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; padding: 12px 16px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <span nz-icon nzType="safety-certificate" style="font-size: 20px; color: #b45309; margin-top: 2px;"></span>
+              <div style="font-size: 11px; line-height: 1.6; color: #78350f;">
+                <strong style="font-size: 12px; color: #92400e; display: block; margin-bottom: 4px;">
+                  LƯU Ý PHÁP LÝ & GIẢI TRÌNH NGUỒN DỮ LIỆU HIỆN TRƯỜNG (TOÀN BỘ LÀ DỮ LIỆU MÔ PHỎNG / MOCK DATA)
+                </strong>
+                <ul style="margin: 0; padding-left: 18px;">
+                  <li>
+                    <strong>Thẩm quyền cấp phép bay:</strong> Theo <em>Nghị định 36/2008/NĐ-CP</em> và <em>Quyết định 18/2020/QĐ-TTg</em> của Thủ tướng Chính phủ, chỉ có <strong>Cục Tác chiến - Bộ Tổng Tham mưu Quân đội nhân dân Việt Nam</strong> mới có thẩm quyền cấp phép bay UAV bằng văn bản. Mọi kết quả "PASS / READY" trên hệ thống này hoàn toàn là <strong>dữ liệu mô phỏng (Mock)</strong>, tuyệt đối không thay thế Giấy phép bay quân sự.
+                  </li>
+                  <li>
+                    <strong>Nguồn dữ liệu vùng cấm / tĩnh không:</strong> Hệ thống hiện <strong>chưa tích hợp API trực tuyến</strong> với cơ sở dữ liệu vùng trời quản lý bay quân sự hay Cục Hàng không Việt Nam (CAAV/VATM). Các cảnh báo chỉ dựa trên tọa độ ranh giới giả định thử nghiệm <strong>(Mock)</strong>.
+                  </li>
+                  <li>
+                    <strong>Đo lường khí tượng & sức gió:</strong> Hệ thống <strong>chưa kết nối trạm quan trắc vi khí hậu tự động</strong> tại cột điện. Số liệu sức gió (3-5 m/s) là <strong>giả định (Mock)</strong>. Đội bay hiện trường <strong>bắt buộc phải sử dụng máy đo gió cầm tay (Anemometer)</strong> để đo thực tế tại chân cột trước khi cất cánh (giới hạn an toàn bay UAV EVN: gió bề mặt &le; 10 m/s).
+                  </li>
+                  <li>
+                    <strong>Quy chuẩn an toàn điện:</strong> Đối chiếu khoảng cách an toàn phóng điện tiếp cận dây dẫn theo <em>QCVN QTĐ-5:2009/BCT</em> và <em>Nghị định 14/2014/NĐ-CP</em> (Khoảng cách an toàn tối thiểu: &ge; 4.0m đối với ĐZ 220kV, &ge; 6.0m đối với ĐZ 500kV). Phải kiểm tra thực tế bằng mắt hoặc máy đo khoảng cách laser tại hiện trường.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="feasibility-box" style="margin-bottom: 14px;">
             <div class="feasibility-row">
-              <strong>Kết luận hệ thống:</strong>
-              <span>{{ a.site.reason || 'Mặt bằng và hành lang lưới điện đáp ứng yêu cầu an toàn bay UAV theo quy định EVN.' }}</span>
+              <strong>Kết luận hệ thống (Mô phỏng):</strong>
+              <span>{{ a.site.reason || '(Mock) Mặt bằng và hành lang lưới điện đáp ứng yêu cầu an toàn bay UAV theo quy định EVN.' }}</span>
             </div>
             <div class="feasibility-row">
               <strong>Thời điểm đánh giá:</strong>
               <span>{{ a.site.evaluatedAt ? (a.site.evaluatedAt | date:'dd/MM/yyyy HH:mm:ss') : 'Vừa cập nhật' }}</span>
             </div>
-            <div class="feasibility-row">
-              <strong>Vùng cấm bay / Giới hạn độ cao:</strong>
-              <span style="color: #15803d;"><span nz-icon nzType="check-circle"></span> Không vi phạm vùng cấm bay quân sự / sân bay</span>
-            </div>
-            <div class="feasibility-row">
-              <strong>Khoảng cách an toàn đường dây:</strong>
-              <span style="color: #15803d;"><span nz-icon nzType="check-circle"></span> Đảm bảo khoảng cách an toàn hành lang điện áp cao</span>
+          </div>
+
+          <!-- Site Checks Table -->
+          <div class="pre-mission-table-card" style="border: 0;">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 280px;">Tiêu chuẩn kiểm tra mặt bằng (Mock)</th>
+                    <th style="width: 110px;">Trạng thái</th>
+                    <th style="width: 100px;">Mức cảnh báo</th>
+                    <th>Chi tiết đánh giá & Ràng buộc vận hành (Mock)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (check of a.siteChecks; track check.code) {
+                    <tr>
+                      <td><strong>{{ check.name }}</strong></td>
+                      <td class="text-center">
+                        <span class="evn-status {{ statusTone(check.status) }}">
+                          {{ statusLabel(check.status) }}
+                        </span>
+                      </td>
+                      <td class="text-center">
+                        @if (check.severity) {
+                          <span class="evn-status {{ check.severity === 'high' ? 'danger' : (check.severity === 'medium' ? 'warning' : 'neutral') }}">
+                            {{ check.severity }}
+                          </span>
+                        } @else {
+                          <span>—</span>
+                        }
+                      </td>
+                      <td>{{ check.details }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -265,8 +402,19 @@
     @if (activeTab() === 'personnel') {
       <div class="evn-panel">
         <div class="panel-header">
-          <h3>Danh sách ứng viên nhân sự (Cán bộ giám sát / Phi công UAV)</h3>
-          <span class="panel-subinfo">MF01 hiển thị ứng viên hợp lệ để MF02 lựa chọn phân công</span>
+          <div>
+            <h3 style="margin: 0;">Danh sách ứng viên nhân sự (Cán bộ giám sát / Phi công UAV)</h3>
+            <span class="panel-subinfo">MF01 hiển thị các ứng viên hợp lệ để MF02 phân công nhiệm vụ</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input
+              type="search"
+              placeholder="Lọc ứng viên..."
+              [value]="personnelSearch()"
+              (input)="personnelSearch.set($any($event.target).value)"
+              style="height: 26px; font-size: 11px; padding: 0 6px; border: 1px solid #cbd5e1; border-radius: 3px;"
+            />
+          </div>
         </div>
         <div class="pre-mission-table-card" style="border: 0;">
           <div class="table-scroll">
@@ -282,14 +430,14 @@
                 </tr>
               </thead>
               <tbody>
-                @if (!a.personnelCandidates.length) {
+                @if (!filteredPersonnel().length) {
                   <tr>
                     <td colspan="6" class="text-center" style="padding: 16px; color: #64748b;">
-                      Chưa tìm thấy ứng viên nhân sự khả dụng trong khung thời gian này.
+                      Chưa tìm thấy ứng viên nhân sự phù hợp điều kiện lọc.
                     </td>
                   </tr>
                 } @else {
-                  @for (person of a.personnelCandidates; track person.id) {
+                  @for (person of filteredPersonnel(); track person.id) {
                     <tr>
                       <td><strong>{{ person.name }}</strong></td>
                       <td>{{ person.role }}</td>
@@ -326,26 +474,27 @@
       <div class="evn-panel">
         <div class="panel-header">
           <h3>Danh sách thiết bị bay ứng viên (UAV Candidates)</h3>
-          <span class="panel-subinfo">Tình trạng vận hành và hạn kiểm định kỹ thuật</span>
+          <span class="panel-subinfo">Tình trạng vận hành, sức khỏe kỹ thuật và hạn kiểm định</span>
         </div>
         <div class="pre-mission-table-card" style="border: 0;">
           <div class="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th style="width: 140px;">Mã UAV</th>
+                  <th style="width: 130px;">Mã UAV</th>
                   <th>Tên thiết bị</th>
                   <th style="width: 130px;">Trạng thái vận hành</th>
                   <th style="width: 130px;">Sức khỏe kỹ thuật</th>
-                  <th style="width: 140px;">Kiểm định gần nhất</th>
-                  <th style="width: 140px;">Hạn kiểm định</th>
-                  <th style="width: 120px;">Đủ điều kiện</th>
+                  <th style="width: 130px;">Kiểm định gần nhất</th>
+                  <th style="width: 130px;">Hạn kiểm định</th>
+                  <th style="width: 110px;">Đủ điều kiện</th>
+                  <th style="width: 120px;">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 @if (!a.uavCandidates.length) {
                   <tr>
-                    <td colspan="7" class="text-center" style="padding: 16px; color: #64748b;">
+                    <td colspan="8" class="text-center" style="padding: 16px; color: #64748b;">
                       Chưa tìm thấy UAV nào sẵn sàng trong khu vực.
                     </td>
                   </tr>
@@ -371,6 +520,17 @@
                           {{ uav.eligibility }}
                         </span>
                       </td>
+                      <td class="text-center">
+                        <button
+                          type="button"
+                          class="evn-btn secondary"
+                          style="height: 22px; min-height: 22px; padding: 0 8px; font-size: 10px;"
+                          (click)="selectDroneForInspection(uav)"
+                          title="Chuyển sang kiểm định kỹ thuật cho thiết bị này"
+                        >
+                          <span nz-icon nzType="dashboard"></span> Kiểm định
+                        </button>
+                      </td>
                     </tr>
                   }
                 }
@@ -381,62 +541,155 @@
       </div>
     }
 
-    <!-- Tab 5: Technical Inspection Metrics -->
+    <!-- Tab 5: Drone Technical Inspection Dashboard (Section 5.7) -->
     @if (activeTab() === 'technical') {
       <div class="evn-panel">
-        <div class="panel-header">
-          <h3>Chi tiết chỉ số kỹ thuật Drone (Drone Technical Health)</h3>
-          <span class="panel-subinfo">Kiểm tra thông số vi điều khiển, động cơ, pin và hệ thống an toàn</span>
-        </div>
-        <div class="pre-mission-table-card" style="border: 0;">
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 180px;">Hệ thống con (Subsystem)</th>
-                  <th>Thông số kiểm tra (Metric)</th>
-                  <th style="width: 120px;">Giá trị thực đo</th>
-                  <th style="width: 80px;">Đơn vị</th>
-                  <th style="width: 120px;">Mức cảnh báo</th>
-                  <th style="width: 100px;">Kết quả</th>
-                </tr>
-              </thead>
-              <tbody>
-                @if (!a.technicalMetrics.length) {
-                  <tr>
-                    <td colspan="6" class="text-center" style="padding: 16px; color: #64748b;">
-                      Chưa có bảng số liệu kỹ thuật trực tiếp. Sức khỏe thiết bị được kiểm định theo chuẩn tự kiểm tra (BIST).
-                    </td>
-                  </tr>
-                } @else {
-                  @for (metric of a.technicalMetrics; track $index) {
-                    <tr>
-                      <td><strong>{{ metric.subsystem }}</strong></td>
-                      <td>{{ metric.metric }}</td>
-                      <td>{{ metric.value }}</td>
-                      <td>{{ metric.unit || '—' }}</td>
-                      <td class="text-center">
-                        @if (metric.severity) {
-                          <span class="evn-status {{ statusTone(metric.severity) }}">{{ metric.severity }}</span>
-                        } @else {
-                          <span>—</span>
-                        }
-                      </td>
-                      <td class="text-center">
-                        @if (metric.passed === true) {
-                          <span class="evn-status success">ĐẠT</span>
-                        } @else if (metric.passed === false) {
-                          <span class="evn-status danger">KHÔNG ĐẠT</span>
-                        } @else {
-                          <span class="evn-status neutral">KIỂM TRA</span>
-                        }
-                      </td>
-                    </tr>
-                  }
-                }
-              </tbody>
-            </table>
+        <div class="panel-header" style="flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="margin: 0;">Drone Technical Inspection Dashboard</h3>
+            <span class="panel-subinfo">Kiểm định chuyên sâu 6 hệ thống con, vi điều khiển, nguồn pin và an toàn bay</span>
           </div>
+
+          <!-- Drone selector & Action -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+              <span>Thiết bị kiểm định:</span>
+              <select
+                [value]="selectedDroneId()"
+                (change)="selectedDroneId.set($any($event.target).value); loadLatestInspection($any($event.target).value)"
+                style="height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px;"
+              >
+                @for (d of a.uavCandidates; track d.id) {
+                  <option [value]="d.id || d.code">{{ d.code }} - {{ d.name || 'UAV' }}</option>
+                }
+              </select>
+            </label>
+
+            <button
+              type="button"
+              class="evn-btn primary"
+              style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 11px;"
+              [disabled]="inspecting()"
+              (click)="runInspectionNow()"
+            >
+              @if (inspecting()) {
+                <span nz-icon nzType="loading"></span> Đang đo kiểm...
+              } @else {
+                <span nz-icon nzType="play-circle"></span> Chạy kiểm định kỹ thuật
+              }
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- Mock Telemetry Disclaimer Banner -->
+          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-left: 3px solid #0284c7; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 11px; color: #334155; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <strong>Nguồn dữ liệu kỹ thuật:</strong> Toàn bộ thông số đo kiểm BIST, điện áp cell, dao động IMU và vi điều khiển dưới đây là <strong>Dữ liệu mô phỏng (MOCK TELEMETRY)</strong> phục vụ kiểm thử giao diện nghiệp vụ luồng MF01 (chưa kết nối MAVLink trực tiếp ngoài thực địa).
+            </div>
+            <span class="evn-status neutral" style="font-weight: 700;">MOCK DATA</span>
+          </div>
+
+          @if (inspectionResult(); as insp) {
+            <!-- Hardware Connection & Firmware Metadata Strip -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin-bottom: 14px; font-size: 11px;">
+              <div>
+                <span style="color: #64748b;">Kết nối thiết bị:</span><br/>
+                <span style="color: #166534; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block;"></span>
+                  {{ insp.connectionStatus }}
+                </span>
+              </div>
+              <div>
+                <span style="color: #64748b;">Bo mạch (FC Target):</span><br/>
+                <strong>{{ insp.fcTarget || 'MATEK-H743' }}</strong>
+              </div>
+              <div>
+                <span style="color: #64748b;">Firmware:</span><br/>
+                <strong>{{ insp.firmwareVersion || 'ArduCopter v4.5.2-EVN' }}</strong>
+              </div>
+              <div>
+                <span style="color: #64748b;">Nguồn dữ liệu kiểm định:</span><br/>
+                <span class="evn-code">{{ insp.inspectionSource }}</span>
+              </div>
+              <div>
+                <span style="color: #64748b;">Hạn kiểm định kỹ thuật:</span><br/>
+                <strong>{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '3 ngày' }}</strong>
+              </div>
+            </div>
+
+            <!-- 6 Subsystem Checklist Grid -->
+            <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 8px;">
+              Tình trạng 6 hệ thống con trọng yếu (Subsystem Health):
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-bottom: 16px;">
+              @for (sub of insp.subsystems; track sub.id) {
+                <div style="border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 10px; background: #ffffff; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <strong style="font-size: 11px; color: #1e293b;">{{ sub.name }}</strong>
+                    <span class="evn-status {{ statusTone(sub.status) }}">{{ sub.status }}</span>
+                  </div>
+                  @if (sub.description) {
+                    <span style="font-size: 10px; color: #64748b;">{{ sub.description }}</span>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Technical Metric Table -->
+            <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 6px;">
+              Bảng thông số kiểm tra chi tiết (Technical Metric Table):
+            </h4>
+            <div class="pre-mission-table-card" style="border: 0;">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 170px;">Hệ thống con</th>
+                      <th>Thông số kiểm tra</th>
+                      <th style="width: 120px;">Giá trị thực đo</th>
+                      <th style="width: 70px;">Đơn vị</th>
+                      <th style="width: 120px;">Ngưỡng yêu cầu</th>
+                      <th style="width: 100px;">Mức cảnh báo</th>
+                      <th style="width: 90px;">Kết quả</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (metric of insp.metrics; track $index) {
+                      <tr>
+                        <td><strong>{{ metric.subsystem }}</strong></td>
+                        <td>{{ metric.metric }}</td>
+                        <td>{{ metric.value }}</td>
+                        <td>{{ metric.unit || '—' }}</td>
+                        <td>{{ metric.required || '—' }}</td>
+                        <td class="text-center">
+                          @if (metric.severity) {
+                            <span class="evn-status {{ statusTone(metric.severity) }}">{{ metric.severity }}</span>
+                          } @else {
+                            <span>—</span>
+                          }
+                        </td>
+                        <td class="text-center">
+                          @if (metric.passed === true) {
+                            <span class="evn-status success">ĐẠT</span>
+                          } @else if (metric.passed === false) {
+                            <span class="evn-status danger">KHÔNG ĐẠT</span>
+                          } @else {
+                            <span class="evn-status neutral">KIỂM TRA</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          } @else {
+            <div style="padding: 24px; text-align: center; color: #64748b;">
+              <p>Đang chuẩn bị bảng số liệu kiểm định drone...</p>
+              <button type="button" class="evn-btn primary" (click)="runInspectionNow()">Chạy kiểm định ngay</button>
+            </div>
+          }
         </div>
       </div>
     }
@@ -446,23 +699,34 @@
       <div class="footer-left">
         <span style="font-size: 11px; color: #174f83;">
           Trạng thái tổng hợp:
-          <strong style="color: #003f99;">{{ statusLabel(a.status) }}</strong>
+          <strong style="color: #003f99; text-transform: uppercase;">{{ statusLabel(a.status) }}</strong>
           @if (!canProceedToMf02()) {
             <span style="color: #dc2626; margin-left: 8px;">
-              (Cần đạt trạng thái READY và còn hạn hiệu lực để tạo nhiệm vụ)
+              (Cần đạt trạng thái READY, chưa tiêu thụ và còn hạn hiệu lực để tạo nhiệm vụ)
             </span>
           }
         </span>
       </div>
       <div class="footer-right">
-        <button
-          type="button"
-          class="evn-btn secondary"
-          [disabled]="busy()"
-          (click)="reevaluate()"
-        >
-          <span nz-icon [nzType]="busy() ? 'loading' : 'reload'"></span> Đánh giá lại
-        </button>
+        @if (!isCancelled() && !isConsumed()) {
+          <button
+            type="button"
+            class="evn-btn secondary"
+            style="color: #dc2626;"
+            [disabled]="busy()"
+            (click)="cancelAssessment()"
+          >
+            Hủy đánh giá
+          </button>
+          <button
+            type="button"
+            class="evn-btn secondary"
+            [disabled]="busy()"
+            (click)="reevaluate()"
+          >
+            <span nz-icon [nzType]="busy() ? 'loading' : 'reload'"></span> Đánh giá lại
+          </button>
+        }
         @if (canProceedToMf02()) {
           <a
             class="evn-btn primary"
