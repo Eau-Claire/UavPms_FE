@@ -29,43 +29,110 @@
     <!-- Panel 1: Phạm vi khảo sát -->
     <div class="evn-panel">
       <div class="panel-header">
-        <h3>1. Phạm vi khảo sát dự kiến (Scope)</h3>
+        <h3>1. Phạm vi khảo sát dự kiến (Proposed Inspection Scope)</h3>
         <span class="panel-badge">Bắt buộc</span>
       </div>
       <div class="panel-body">
         <div class="form-grid">
           <div class="form-group">
             <label for="regionId">
-              Mã khu vực / Điện lực <span class="required">*</span>
+              Khu vực quản lý / Đơn vị điện lực <span class="required">*</span>
             </label>
-            <input
+            <select
               id="regionId"
-              type="text"
-              placeholder="VD: REGION-HCM-01 hoặc PC-DONGNAI"
-              formControlName="regionId"
+              [value]="form.controls.regionId.value"
+              (change)="onRegionSelect($any($event.target).value)"
               [class.has-error]="form.controls.regionId.touched && form.controls.regionId.invalid"
-            />
+            >
+              <option value="">-- Chọn khu vực quản lý --</option>
+              @for (reg of regions(); track reg.id) {
+                <option [value]="reg.id">{{ reg.name }}</option>
+              }
+            </select>
             @if (form.controls.regionId.touched && form.controls.regionId.invalid) {
-              <span class="error-msg">Vui lòng nhập mã khu vực quản lý</span>
+              <span class="error-msg">Vui lòng chọn khu vực quản lý</span>
             }
           </div>
 
           <div class="form-group">
             <label for="lineName">
-              Tên tuyến / Xuất tuyến (tùy chọn)
+              Tuyến đường dây / Xuất tuyến
+              @if (loadingGis()) {
+                <span style="font-size: 10px; color: #0284c7; font-weight: normal;">(Đang tải GIS...)</span>
+              }
             </label>
-            <input
-              id="lineName"
-              type="text"
-              placeholder="VD: Đường dây 220kV Cát Lái - Thủ Đức"
-              formControlName="lineName"
-            />
+            @if (availableLines().length > 0) {
+              <select
+                id="lineName"
+                [value]="form.controls.lineName.value"
+                (change)="onLineSelect($any($event.target).value)"
+              >
+                <option value="">-- Chọn tuyến đường dây --</option>
+                @for (line of availableLines(); track line.id) {
+                  <option [value]="line.lineName">{{ line.lineName }} ({{ line.voltage }}kV)</option>
+                }
+              </select>
+            } @else {
+              <input
+                id="lineName"
+                type="text"
+                placeholder="VD: ĐZ 220kV Cát Lái - Thủ Đức"
+                formControlName="lineName"
+              />
+            }
           </div>
+
+          <!-- Quick pick Towers from selected Line -->
+          @if (filteredTowers().length > 0) {
+            <div class="form-group full-width">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <label style="margin: 0;">
+                  Danh sách vị trí cột khả dụng theo tuyến:
+                  <strong style="color: #0369a1;">{{ filteredTowers().length }} cột</strong>
+                </label>
+                <div style="display: flex; gap: 6px;">
+                  <button
+                    type="button"
+                    class="evn-btn secondary"
+                    style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
+                    (click)="selectAllFilteredTowers()"
+                  >
+                    <span nz-icon nzType="check-square"></span> Chọn tất cả
+                  </button>
+                  <button
+                    type="button"
+                    class="evn-btn secondary"
+                    style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
+                    (click)="clearTowerSelection()"
+                  >
+                    <span nz-icon nzType="close-square"></span> Bỏ chọn
+                  </button>
+                </div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; padding: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                @for (t of filteredTowers(); track t.id) {
+                  <button
+                    type="button"
+                    class="evn-btn"
+                    [class.primary]="isTowerSelected(t.towerCode)"
+                    [class.secondary]="!isTowerSelected(t.towerCode)"
+                    style="height: 24px; min-height: 24px; padding: 0 8px; font-size: 10px;"
+                    (click)="toggleTowerSelection(t.towerCode)"
+                  >
+                    @if (isTowerSelected(t.towerCode)) {
+                      <span nz-icon nzType="check"></span>
+                    }
+                    {{ t.towerCode }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
 
           <div class="form-group full-width">
             <label for="scopeAssetIds">
-              Danh sách mã vị trí cột / Thiết bị (Asset IDs) <span class="required">*</span>
-              <span class="label-hint">(Nhập phân tách bằng dấu phẩy hoặc xuống dòng)</span>
+              Mã danh sách vị trí cột kiểm tra (Asset IDs) <span class="required">*</span>
+              <span class="label-hint">(Phân tách bằng dấu phẩy hoặc xuống dòng)</span>
             </label>
             <textarea
               id="scopeAssetIds"
@@ -75,9 +142,9 @@
               [class.has-error]="form.controls.scopeAssetIds.touched && form.controls.scopeAssetIds.invalid"
             ></textarea>
             <div class="field-meta">
-              <span>Đã nhập: <strong>{{ assetCount }}</strong> vị trí/cột</span>
+              <span>Đã chọn: <strong style="color: #003f99;">{{ assetCount }}</strong> vị trí cột</span>
               @if (form.controls.scopeAssetIds.touched && form.controls.scopeAssetIds.invalid) {
-                <span class="error-msg">Vui lòng nhập ít nhất một mã vị trí/cột điện</span>
+                <span class="error-msg">Vui lòng chọn hoặc nhập ít nhất một vị trí cột điện</span>
               }
             </div>
           </div>
@@ -88,7 +155,7 @@
     <!-- Panel 2: Khung thời gian dự kiến -->
     <div class="evn-panel">
       <div class="panel-header">
-        <h3>2. Khung thời gian thực hiện dự kiến (Time Window)</h3>
+        <h3>2. Khung thời gian thực hiện dự kiến (Planned Window)</h3>
         <span class="panel-badge">Bắt buộc</span>
       </div>
       <div class="panel-body">
@@ -117,6 +184,14 @@
             />
           </div>
 
+          @if (form.errors?.['startInPast']) {
+            <div class="form-group full-width">
+              <span class="error-msg" style="display: block; padding: 4px 8px; background: #fee2e2; border-radius: 2px;">
+                <span nz-icon nzType="warning"></span> Thời gian bắt đầu không được ở trong quá khứ. Vui lòng chọn khung giờ thực tế sắp tới.
+              </span>
+            </div>
+          }
+
           @if (form.errors?.['endBeforeStart']) {
             <div class="form-group full-width">
               <span class="error-msg" style="display: block; padding: 4px 8px; background: #fee2e2; border-radius: 2px;">
@@ -124,6 +199,33 @@
               </span>
             </div>
           }
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 3: Tóm tắt đánh giá sơ bộ (Assessment Summary) -->
+    <div class="evn-panel" style="border-left: 4px solid #143d7d;">
+      <div class="panel-header">
+        <h3>3. Tóm tắt thông số đánh giá (Assessment Summary)</h3>
+      </div>
+      <div class="panel-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 11px;">
+          <div>
+            <span style="color: #64748b;">Đơn vị / Khu vực:</span><br />
+            <strong>{{ selectedRegionObj()?.name || form.controls.regionId.value || '—' }}</strong>
+          </div>
+          <div>
+            <span style="color: #64748b;">Tuyến khảo sát:</span><br />
+            <strong>{{ form.controls.lineName.value || 'Theo danh mục vị trí cột' }}</strong>
+          </div>
+          <div>
+            <span style="color: #64748b;">Tổng số vị trí cột:</span><br />
+            <strong style="color: #003f99;">{{ assetCount }} cột</strong>
+          </div>
+          <div>
+            <span style="color: #64748b;">Khung giờ:</span><br />
+            <strong>{{ form.controls.plannedStart.value | date:'dd/MM HH:mm' }} – {{ form.controls.plannedEnd.value | date:'dd/MM HH:mm' }}</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -136,12 +238,12 @@
       <button
         type="submit"
         class="evn-btn primary"
-        [disabled]="form.invalid || busy()"
+        [disabled]="form.invalid || busy() || assetCount === 0"
       >
         @if (busy()) {
-          <span nz-icon nzType="loading"></span> Đang khởi tạo...
+          <span nz-icon nzType="loading"></span> Đang khởi tạo & đánh giá...
         } @else {
-          <span nz-icon nzType="check"></span> Tạo đánh giá & Kiểm tra sẵn sàng
+          <span nz-icon nzType="check"></span> Tạo đánh giá & Bắt đầu kiểm tra
         }
       </button>
     </div>

@@ -162,3 +162,14 @@
     gap: 8px;
   }
 }
+
+:host ::ng-deep .evn-map-tooltip {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
