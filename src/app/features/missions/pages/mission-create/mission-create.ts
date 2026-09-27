@@ -651,7 +651,9 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // --- Dispatch Action ---
-  protected dispatchMission(): void {
+  changeRegion(_regionId: string): void {}
+  save(): void { this.dispatchMission(); }
+  dispatchMission(): void {
     this.error.set('');
 
     if (this.form.invalid) {
@@ -709,7 +711,7 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       scheduledAt: f.scheduledAt,
       plannedEnd: f.plannedEnd,
       regionId,
-      missionType: 'SCHEDULED',
+      missionType: ass?.id ? 'SCHEDULED' : 'AD_HOC',
       inspectorId: f.inspectorId,
       droneId: f.droneId,
       targetAssetIds,

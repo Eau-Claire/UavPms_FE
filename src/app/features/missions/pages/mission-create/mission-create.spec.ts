@@ -2,27 +2,32 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
+import { provideNzIcons } from 'ng-zorro-antd/icon';
+import {
+  ArrowLeftOutline,
+  BellOutline,
+  FundOutline,
+  MessageOutline,
+  SendOutline,
+  SyncOutline,
+  TeamOutline,
+  ToolOutline,
+  UnorderedListOutline,
+  UserOutline,
+} from '@ant-design/icons-angular/icons';
 import { Auth } from '../../../../core/auth/auth';
 import { GisApi } from '../../../gis/data-access/gis-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { Mission } from '../../../../models/missions.models';
 import { DronesApi } from '../../data-access/drones-api';
-import { MissionTargetSelection } from '../../data-access/mission-target-selection';
 import { MissionsApi } from '../../data-access/missions-api';
 import { MissionCreate } from './mission-create';
 
-interface CreateHarness {
-  save(): void;
-  changeRegion(regionId: string): void;
-  error(): string;
-  form: { patchValue(value: Record<string, string>): void };
-}
-
 describe('MissionCreate', () => {
   let fixture: ComponentFixture<MissionCreate>;
+  let component: MissionCreate;
   let create: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
-  let store: MissionTargetSelection;
   const response = { id: 'm1', targets: [] } as unknown as Mission;
 
   beforeEach(() => {
@@ -31,46 +36,91 @@ describe('MissionCreate', () => {
       imports: [MissionCreate],
       providers: [
         { provide: MissionsApi, useValue: { create } },
-        { provide: UsersApi, useValue: { getAssignable: () => of([]) } },
-        { provide: DronesApi, useValue: { getAvailableDrones: () => of([]) } },
+        { provide: UsersApi, useValue: { getAssignable: () => of([]), getAll: () => of([]) } },
+        { provide: DronesApi, useValue: { getAvailableDrones: () => of([]), getAll: () => of([]) } },
         { provide: GisApi, useValue: { getRegions: () => of([{ id: 'r1', name: 'Cà Mau' }]), getAllGisData: () => of({ towers: [], lines: [], anomalies: [], alerts: [] }), spatialQuery: () => of([]) } },
-        { provide: Auth, useValue: { user: () => ({ id: 'u1', email: 'user@test' }) } },
+        { provide: Auth, useValue: { user: () => ({ id: 'u1', fullName: 'Manager', email: 'user@test' }) } },
+        provideNzIcons([
+          ArrowLeftOutline,
+          UnorderedListOutline,
+          TeamOutline,
+          MessageOutline,
+          BellOutline,
+          SyncOutline,
+          UserOutline,
+          FundOutline,
+          ToolOutline,
+          SendOutline,
+        ]),
         provideRouter([]),
       ],
     });
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(MissionCreate);
-    store = TestBed.inject(MissionTargetSelection);
-    store.clear();
+    component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
-  it('blocks submission without target assets', () => {
-    const component = fixture.componentInstance as unknown as CreateHarness;
-    component.changeRegion('r1');
-    component.form.patchValue({ name: 'Mission', scheduledAt: '2026-09-03T08:00', plannedEnd: '2026-09-03T10:00', inspectorId: 'u1', droneId: 'd1' });
-    component.save();
+  it('blocks submission when required fields are missing', () => {
+    component['form'].patchValue({ name: '', inspectorId: '', droneId: '' });
+    component.dispatchMission();
     expect(create).not.toHaveBeenCalled();
-    expect(component.error()).toContain('ít nhất một tài sản');
+    expect(component['error']()).toContain('Vui lòng hoàn thiện các trường bắt buộc');
   });
 
-  it('submits selected IDs and follows success navigation', () => {
-    const component = fixture.componentInstance as unknown as CreateHarness;
-    component.changeRegion('r1');
-    store.add({ assetId: 'a1', code: 'A-1', name: 'Tower', latitude: 21, longitude: 105, status: 'Operational' });
-    component.form.patchValue({ name: 'Mission', scheduledAt: '2026-09-03T08:00', plannedEnd: '2026-09-03T10:00', inspectorId: 'u1', droneId: 'd1' });
-    component.save();
-    expect(create.mock.calls[0][0].targetAssetIds).toEqual(['a1']);
-    expect(navigate).toHaveBeenCalledWith(['/missions', 'm1']);
+  it('blocks submission when plannedEnd is before scheduledAt', () => {
+    component['form'].patchValue({
+      name: 'Mission Test Survey',
+      scheduledAt: '2026-09-03T10:00',
+      plannedEnd: '2026-09-03T09:00',
+      confirmationDeadline: '2026-09-03T08:00',
+      inspectorId: 'u1',
+      analystId: 'u2',
+      technicianId: 'u3',
+      droneId: 'd1',
+    });
+    component.dispatchMission();
+    expect(create).not.toHaveBeenCalled();
+    expect(component['error']()).toContain('Thời gian kết thúc nhiệm vụ phải sau thời điểm bắt đầu bay');
+  });
+
+  it('submits valid dispatch request and follows success navigation', () => {
+    vi.useFakeTimers();
+    component['form'].patchValue({
+      name: 'Mission Test Survey',
+      scheduledAt: '2026-09-03T08:00',
+      plannedEnd: '2026-09-03T10:00',
+      confirmationDeadline: '2026-09-03T06:00',
+      inspectorId: 'u1',
+      analystId: 'u2',
+      technicianId: 'u3',
+      droneId: 'd1',
+    });
+    component.dispatchMission();
+    expect(create).toHaveBeenCalledTimes(1);
+    const req = create.mock.calls[0][0];
+    expect(req.name).toBe('Mission Test Survey');
+    expect(req.inspectorId).toBe('u1');
+    expect(req.droneId).toBe('d1');
+    expect(req.assignments).toHaveLength(3);
+    vi.advanceTimersByTime(1000);
+    expect(navigate).toHaveBeenCalledWith(['/missions', 'm1'], { queryParams: { created: 'true' } });
+    vi.useRealTimers();
   });
 
   it('displays backend validation errors', () => {
     create.mockReturnValue(throwError(() => new HttpErrorResponse({ error: { message: 'Asset unavailable' }, status: 400 })));
-    const component = fixture.componentInstance as unknown as CreateHarness;
-    component.changeRegion('r1');
-    store.add({ assetId: 'a1', code: 'A-1', name: 'Tower', latitude: 21, longitude: 105, status: 'Operational' });
-    component.form.patchValue({ name: 'Mission', scheduledAt: '2026-09-03T08:00', plannedEnd: '2026-09-03T10:00', inspectorId: 'u1', droneId: 'd1' });
-    component.save();
-    expect(component.error()).toContain('Asset unavailable');
+    component['form'].patchValue({
+      name: 'Mission Test Survey',
+      scheduledAt: '2026-09-03T08:00',
+      plannedEnd: '2026-09-03T10:00',
+      confirmationDeadline: '2026-09-03T06:00',
+      inspectorId: 'u1',
+      analystId: 'u2',
+      technicianId: 'u3',
+      droneId: 'd1',
+    });
+    component.dispatchMission();
+    expect(component['error']()).toContain('Asset unavailable');
   });
 });
