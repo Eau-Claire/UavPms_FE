@@ -143,6 +143,8 @@ export interface AssessmentCreateRequest {
   readonly scopeAssetIds: readonly string[];
   readonly plannedStart: string;
   readonly plannedEnd: string;
+  readonly boundaryWkt?: string | null;
+  readonly idempotencyKey?: string | null;
   readonly scopeGeometry?: unknown;
   readonly requiredInspectors?: number;
   readonly requiredAnalysts?: number;

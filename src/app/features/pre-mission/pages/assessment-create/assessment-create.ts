@@ -15,7 +15,7 @@ import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { GisApi, GisTower, GisTransmissionLine } from '../../../gis/data-access/gis-api';
-import { PreMissionApi } from '../../data-access/pre-mission-api';
+import { PreMissionApi, isValidGuid } from '../../data-access/pre-mission-api';
 
 function formatDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -606,24 +606,60 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     this.error.set('');
 
     const raw = this.form.getRawValue();
-    const assetIds = raw.scopeAssetIds
+    const enteredTokens = raw.scopeAssetIds
       .split(/[,\n]/)
       .map((x) => x.trim())
       .filter(Boolean);
 
-    if (assetIds.length === 0) {
+    if (enteredTokens.length === 0) {
       this.error.set('Vui lòng chọn hoặc nhập ít nhất một mã vị trí/thiết bị cột điện (Asset ID).');
       this.busy.set(false);
       return;
     }
 
+    // Resolve regionId to a valid GUID
+    let regionId = raw.regionId.trim();
+    if (!isValidGuid(regionId)) {
+      const match = this.regions().find(
+        (r) =>
+          r.id.toLowerCase() === regionId.toLowerCase() ||
+          r.name.toLowerCase() === regionId.toLowerCase()
+      );
+      if (match && isValidGuid(match.id)) {
+        regionId = match.id;
+      }
+    }
+
+    // Resolve entered tokens (e.g. tower codes "INS-HN-001" or "HN-T001") to asset GUIDs
+    const allTowers = this.availableTowers();
+    const resolvedAssetGuids: string[] = [];
+
+    for (const token of enteredTokens) {
+      if (isValidGuid(token)) {
+        resolvedAssetGuids.push(token);
+      } else {
+        const matched = allTowers.find(
+          (t) =>
+            t.towerCode.toLowerCase() === token.toLowerCase() ||
+            t.id.toLowerCase() === token.toLowerCase()
+        );
+        if (matched && isValidGuid(matched.id)) {
+          resolvedAssetGuids.push(matched.id);
+        } else {
+          resolvedAssetGuids.push(token);
+        }
+      }
+    }
+
+    const uniqueAssetIds = Array.from(new Set(resolvedAssetGuids));
+
     this.api
       .create({
-        regionId: raw.regionId.trim(),
+        regionId,
         lineName: raw.lineName.trim() || undefined,
         plannedStart: raw.plannedStart,
         plannedEnd: raw.plannedEnd,
-        scopeAssetIds: assetIds,
+        scopeAssetIds: uniqueAssetIds,
         requiredInspectors: raw.requiredInspectors,
         requiredAnalysts: raw.requiredAnalysts,
         requiredTechnicians: raw.requiredTechnicians,

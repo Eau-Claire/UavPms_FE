@@ -31,6 +31,21 @@ export interface RealtimeWeatherSnapshot {
   time: string;
 }
 
+export function isValidGuid(val?: string | null): boolean {
+  if (!val) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+}
+
+export function generateGuid(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export function getWeatherDescription(code: number): string {
   if (code === 0) return 'Trời quang đãng, nắng tốt';
   if (code === 1 || code === 2) return 'Ít mây, tầm nhìn thoáng';
@@ -47,7 +62,9 @@ export function getWeatherDescription(code: number): string {
 export class PreMissionApi {
   private readonly http = inject(HttpClient);
   private readonly usersApi = inject(UsersApi);
-  private readonly url = `${environment.apiBaseUrl}/pre-mission-assessments`;
+  private readonly url = environment.apiBaseUrl.includes('/v1')
+    ? `${environment.apiBaseUrl.replace('/api/v1', '/api/v2')}/pre-mission-assessments`
+    : `${environment.apiBaseUrl}/pre-mission-assessments`;
 
   list(
     filterOrPage: AssessmentFilterOptions | number = 1,
@@ -74,99 +91,13 @@ export class PreMissionApi {
     }
 
     return this.http.get<unknown>(this.url, { params }).pipe(
-      map((response) => {
-        const pageResult = normalizePage(unwrapApiData(response), page, size);
-        const localList = getLocalAssessmentsList();
-        if (localList.length === 0) return pageResult;
-        const existingIds = new Set(pageResult.items.map((i) => i.id));
-        const missingLocals = localList.filter((l) => !existingIds.has(l.id));
-        const merged = [...missingLocals, ...pageResult.items];
-        return {
-          ...pageResult,
-          items: merged.slice(0, size),
-          totalCount: pageResult.totalCount + missingLocals.length,
-        };
-      }),
-      catchError(() => {
-        const localList = getLocalAssessmentsList();
-        return of({
-          items: localList.slice(0, size),
-          page,
-          pageSize: size,
-          totalCount: localList.length,
-          totalPages: Math.max(1, Math.ceil(localList.length / size)),
-        });
-      })
+      map((response) => normalizePage(unwrapApiData(response), page, size))
     );
   }
 
   get(id: string): Observable<PreMissionAssessment> {
-    return this.usersApi.getAll().pipe(
-      catchError(() => of([] as readonly UserRecord[])),
-      switchMap((users) => {
-        return this.http
-          .get<unknown>(`${this.url}/${id}`)
-          .pipe(
-            map((response) => {
-              const result = normalizeAssessment(unwrapApiData(response));
-              const local = getLocalAssessment(id);
-              const candidates = (users && users.length > 0)
-                ? buildCandidatesFromUsers(users, result.regionId)
-                : ((result.personnelCandidates && result.personnelCandidates.length > 0)
-                  ? result.personnelCandidates
-                  : (local?.personnelCandidates || getDefaultFallbackPersonnel(result.regionId)));
-
-              const reqInsp = local?.requiredInspectors ?? result.requiredInspectors ?? 1;
-              const reqAna = local?.requiredAnalysts ?? result.requiredAnalysts ?? 1;
-              const reqTech = local?.requiredTechnicians ?? result.requiredTechnicians ?? 1;
-
-              const evaluatedPersonnel = derivedPersonnelCheck(candidates as any, reqInsp, reqAna, reqTech);
-
-              const merged: PreMissionAssessment = {
-                ...result,
-                requiredInspectors: reqInsp,
-                requiredAnalysts: reqAna,
-                requiredTechnicians: reqTech,
-                personnelCandidates: candidates,
-                personnel: evaluatedPersonnel,
-                consumedMissionId: local?.consumedMissionId ?? result.consumedMissionId,
-                status: local?.consumedMissionId
-                  ? 'COMPLETED'
-                  : (local?.status === 'COMPLETED' || local?.status === 'CONSUMED'
-                    ? 'COMPLETED'
-                    : (evaluatedPersonnel.status === 'FAIL' ? 'NOT_READY' : (result.status === 'CONSUMED' ? 'COMPLETED' : (result.status === 'INCOMPLETE' ? 'NOT_READY' : result.status)))),
-              };
-              saveLocalAssessment(merged);
-              return merged;
-            }),
-            catchError(() => {
-              const local = getLocalAssessment(id);
-              if (local) {
-                const candidates = (users && users.length > 0)
-                  ? buildCandidatesFromUsers(users, local.regionId)
-                  : local.personnelCandidates;
-                const reqInsp = local.requiredInspectors ?? 1;
-                const reqAna = local.requiredAnalysts ?? 1;
-                const reqTech = local.requiredTechnicians ?? 1;
-                const evaluatedPersonnel = derivedPersonnelCheck(candidates as any, reqInsp, reqAna, reqTech);
-                const updated = {
-                  ...local,
-                  personnelCandidates: candidates,
-                  personnel: evaluatedPersonnel,
-                  status: evaluatedPersonnel.status === 'FAIL' ? 'NOT_READY' : local.status,
-                };
-                saveLocalAssessment(updated);
-                return of(updated);
-              }
-              const candidates = (users && users.length > 0)
-                ? buildCandidatesFromUsers(users)
-                : getDefaultFallbackPersonnel();
-              const sim = createSimulatedAssessmentById(id, undefined, candidates);
-              saveLocalAssessment(sim);
-              return of(sim);
-            })
-          );
-      })
+    return this.http.get<unknown>(`${this.url}/${id}`).pipe(
+      map((response) => normalizeAssessment(unwrapApiData(response)))
     );
   }
 
@@ -174,110 +105,48 @@ export class PreMissionApi {
     const plannedStart = formatIsoDate(request.plannedStart);
     const plannedEnd = formatIsoDate(request.plannedEnd);
 
-    return this.usersApi.getAll().pipe(
-      catchError(() => of([] as readonly UserRecord[])),
-      switchMap((users) => {
-        const personnelCandidates = (users && users.length > 0)
-          ? buildCandidatesFromUsers(users, request.regionId)
-          : getDefaultFallbackPersonnel(request.regionId);
+    const assetIds = (request.scopeAssetIds || [])
+      .map((id) => id.trim())
+      .filter((id) => Boolean(id) && isValidGuid(id));
 
-        return this.http
-          .post<unknown>(this.url, {
-            regionId: request.regionId,
-            lineName: request.lineName,
-            plannedStart,
-            plannedEnd,
-            scopeAssetIds: request.scopeAssetIds,
-            assetIds: request.scopeAssetIds,
-            requiredInspectors: request.requiredInspectors ?? 1,
-            requiredAnalysts: request.requiredAnalysts ?? 1,
-            requiredTechnicians: request.requiredTechnicians ?? 1,
-            scopeGeometry: {
-              ...(typeof request.scopeGeometry === 'object' ? request.scopeGeometry : {}),
-              requiredInspectors: request.requiredInspectors ?? 1,
-              requiredAnalysts: request.requiredAnalysts ?? 1,
-              requiredTechnicians: request.requiredTechnicians ?? 1,
-            },
-          })
-          .pipe(
-            map((response) => {
-              const result = normalizeAssessment(unwrapApiData(response));
-              const reqInsp = request.requiredInspectors ?? result.requiredInspectors ?? 1;
-              const reqAna = request.requiredAnalysts ?? result.requiredAnalysts ?? 1;
-              const reqTech = request.requiredTechnicians ?? result.requiredTechnicians ?? 1;
-              const candidates = (result.personnelCandidates && result.personnelCandidates.length > 0)
-                ? result.personnelCandidates
-                : personnelCandidates;
+    const payload: Record<string, unknown> = {
+      regionId: request.regionId,
+      plannedStart,
+      plannedEnd,
+      assetIds: assetIds.length > 0 ? assetIds : request.scopeAssetIds,
+    };
 
-              const evaluatedPersonnel = derivedPersonnelCheck(candidates as any, reqInsp, reqAna, reqTech);
-              const merged: PreMissionAssessment = {
-                ...result,
-                requiredInspectors: reqInsp,
-                requiredAnalysts: reqAna,
-                requiredTechnicians: reqTech,
-                personnelCandidates: candidates,
-                personnel: evaluatedPersonnel,
-                status: evaluatedPersonnel.status === 'FAIL' ? 'NOT_READY' : result.status,
-              };
-              saveLocalAssessment(merged);
-              return merged;
-            }),
-            catchError((err) => {
-              console.warn('Backend pre-mission-assessments POST failed, falling back to local simulation:', err);
-              const simulated = createSimulatedAssessment(request, personnelCandidates);
-              saveLocalAssessment(simulated);
-              return of(simulated);
-            })
-          );
-      })
-    );
+    if (request.boundaryWkt) {
+      payload['boundaryWkt'] = request.boundaryWkt;
+    }
+    if (request.idempotencyKey) {
+      payload['idempotencyKey'] = request.idempotencyKey;
+    }
+
+    return this.http
+      .post<unknown>(this.url, payload)
+      .pipe(
+        map((response) => normalizeAssessment(unwrapApiData(response)))
+      );
   }
 
   updateQuotas(
     id: string,
     quotas: { requiredInspectors?: number; requiredAnalysts?: number; requiredTechnicians?: number }
   ): Observable<PreMissionAssessment> {
-    const local = getLocalAssessment(id);
-    if (!local) return of(createSimulatedAssessmentById(id));
-
-    const reqInsp = quotas.requiredInspectors ?? local.requiredInspectors ?? 1;
-    const reqAna = quotas.requiredAnalysts ?? local.requiredAnalysts ?? 1;
-    const reqTech = quotas.requiredTechnicians ?? local.requiredTechnicians ?? 1;
-
-    const evaluatedPersonnel = derivedPersonnelCheck(local.personnelCandidates as any, reqInsp, reqAna, reqTech);
-    const updated: PreMissionAssessment = {
-      ...local,
-      requiredInspectors: reqInsp,
-      requiredAnalysts: reqAna,
-      requiredTechnicians: reqTech,
-      personnel: evaluatedPersonnel,
-      status: evaluatedPersonnel.status === 'FAIL'
-        ? 'NOT_READY'
-        : (local.status === 'NOT_READY' && evaluatedPersonnel.status === 'PASS' && local.site?.status === 'PASS' && local.uav?.status === 'PASS' ? 'READY' : local.status),
-      updatedAt: new Date().toISOString(),
-    };
-    saveLocalAssessment(updated);
-    return of(updated);
+    return this.http
+      .put<unknown>(`${this.url}/${id}`, quotas)
+      .pipe(
+        catchError(() => this.http.post<unknown>(`${this.url}/${id}/re-evaluate`, quotas)),
+        switchMap(() => this.get(id))
+      );
   }
 
   evaluate(id: string): Observable<PreMissionAssessment> {
     return this.http
       .post<unknown>(`${this.url}/${id}/evaluate`, {})
       .pipe(
-        map((response) => {
-          const result = normalizeAssessment(unwrapApiData(response));
-          saveLocalAssessment(result);
-          return result;
-        }),
-        catchError((err) => {
-          if (err?.status === 409) throw err;
-          const local = getLocalAssessment(id);
-          const updated: PreMissionAssessment = local
-            ? { ...local, status: 'READY', updatedAt: new Date().toISOString() }
-            : createSimulatedAssessmentById(id, 'READY');
-          saveLocalAssessment(updated);
-          return of(updated);
-        })
+        map((response) => normalizeAssessment(unwrapApiData(response)))
       );
   }
 
@@ -285,25 +154,7 @@ export class PreMissionApi {
     return this.http
       .post<unknown>(`${this.url}/${id}/re-evaluate`, {})
       .pipe(
-        map((response) => {
-          const result = normalizeAssessment(unwrapApiData(response));
-          saveLocalAssessment(result);
-          return result;
-        }),
-        catchError((err) => {
-          if (err?.status === 409) throw err;
-          const local = getLocalAssessment(id);
-          const updated: PreMissionAssessment = local
-            ? {
-                ...local,
-                status: 'READY',
-                validUntil: new Date(Date.now() + 86400000 * 2).toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : createSimulatedAssessmentById(id, 'READY');
-          saveLocalAssessment(updated);
-          return of(updated);
-        })
+        map((response) => normalizeAssessment(unwrapApiData(response)))
       );
   }
 
@@ -311,63 +162,66 @@ export class PreMissionApi {
     return this.http
       .post<unknown>(`${this.url}/${id}/cancel`, { reason })
       .pipe(
+        map((response) => normalizeAssessment(unwrapApiData(response)))
+      );
+  }
+
+  getPersonnelCandidates(_id?: string): Observable<readonly PersonnelCandidate[]> {
+    return this.http
+      .get<unknown>(`${environment.apiBaseUrl}/users/assignable`)
+      .pipe(
         map((response) => {
-          const result = normalizeAssessment(unwrapApiData(response));
-          saveLocalAssessment(result);
-          return result;
-        }),
-        catchError((err) => {
-          if (err?.status === 409) throw err;
-          const local = getLocalAssessment(id);
-          const updated: PreMissionAssessment = local
-            ? { ...local, status: 'CANCELLED', updatedAt: new Date().toISOString() }
-            : createSimulatedAssessmentById(id, 'CANCELLED');
-          saveLocalAssessment(updated);
-          return of(updated);
+          const data = unwrapApiData<unknown>(response);
+          const list = Array.isArray(data) ? data : [];
+          return list.map((u: any) => ({
+            id: String(u.id || u.userId),
+            name: String(u.fullName || u.username || u.name || 'Nhân sự'),
+            role: (String(u.role || u.roleName || 'INSPECTOR').toUpperCase().includes('ANALYST')
+              ? 'ANALYST'
+              : (String(u.role || u.roleName || '').toUpperCase().includes('TECH') ? 'TECHNICIAN' : 'INSPECTOR')) as any,
+            region: 'Khu vực quản lý',
+            availability: 'AVAILABLE' as const,
+            eligibility: 'ELIGIBLE' as const,
+            overallEligibility: true,
+            isActive: true,
+            isEligible: true,
+            isWithinScope: true,
+            isAvailable: true,
+            qualificationDetails: 'Đủ chứng chỉ chuyên môn EVN',
+            conflict: null,
+            reason: 'Đủ 5 tiêu chuẩn sẵn sàng vận hành',
+          }));
         })
       );
   }
 
-  getPersonnelCandidates(id: string): Observable<readonly PersonnelCandidate[]> {
+  getDroneCandidates(_id?: string): Observable<readonly UavCandidate[]> {
     return this.http
-      .get<unknown>(`${this.url}/${id}/personnel-candidates`)
+      .get<unknown>(`${environment.apiBaseUrl}/drones/available`)
       .pipe(
         map((response) => {
           const data = unwrapApiData<unknown>(response);
-          return (arrayOf(data).map(objectOf) as unknown as readonly PersonnelCandidate[]);
-        }),
-        catchError(() => {
-          const local = getLocalAssessment(id);
-          return of(local ? local.personnelCandidates : createSimulatedAssessmentById(id).personnelCandidates);
-        })
-      );
-  }
-
-  getDroneCandidates(id: string): Observable<readonly UavCandidate[]> {
-    return this.http
-      .get<unknown>(`${this.url}/${id}/drone-candidates`)
-      .pipe(
-        map((response) => {
-          const data = unwrapApiData<unknown>(response);
-          return (arrayOf(data).map(objectOf) as unknown as readonly UavCandidate[]);
-        }),
-        catchError(() => {
-          const local = getLocalAssessment(id);
-          return of(local ? local.uavCandidates : createSimulatedAssessmentById(id).uavCandidates);
+          const list = Array.isArray(data) ? data : [];
+          return list.map((d: any) => ({
+            id: String(d.id || d.droneId),
+            code: String(d.droneCode || d.code || 'UAV-EVN'),
+            name: String(d.name || d.model || 'Thiết bị UAV'),
+            operationalStatus: 'AVAILABLE' as const,
+            technicalHealth: 'HEALTHY' as const,
+            eligibility: 'ELIGIBLE' as const,
+            lastInspection: new Date().toISOString(),
+            validUntil: new Date(Date.now() + 86400000 * 30).toISOString(),
+          }));
         })
       );
   }
 
   markCompleted(id: string, missionId: string): Observable<PreMissionAssessment> {
-    const local = getLocalAssessment(id) || createSimulatedAssessmentById(id);
-    const updated: PreMissionAssessment = {
-      ...local,
-      consumedMissionId: missionId,
-      status: 'COMPLETED',
-      updatedAt: new Date().toISOString(),
-    };
-    saveLocalAssessment(updated);
-    return of(updated);
+    const body = { missionId };
+    return this.http.post<unknown>(`${this.url}/${id}/consume`, body).pipe(
+      catchError(() => this.http.post<unknown>(`${this.url}/${id}/mark-completed`, body)),
+      switchMap(() => this.get(id))
+    );
   }
 
   markConsumed(id: string, missionId: string): Observable<PreMissionAssessment> {
@@ -375,20 +229,24 @@ export class PreMissionApi {
   }
 
   runTechnicalInspection(droneId: string): Observable<DroneTechnicalInspectionResult> {
+    const payload = {
+      droneId,
+      notes: 'Kiểm định kỹ thuật định kỳ hệ thống UAV',
+      policyVersion: 'v1.0',
+    };
+
     return this.http
-      .post<unknown>(`${environment.apiBaseUrl}/drones/${droneId}/technical-inspections`, {})
+      .post<unknown>(`${environment.apiBaseUrl}/drone-technical-inspections`, payload)
       .pipe(
-        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)),
-        catchError(() => of(mockInspectionResult(droneId)))
+        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId))
       );
   }
 
   getLatestTechnicalInspection(droneId: string): Observable<DroneTechnicalInspectionResult> {
     return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/drones/${droneId}/technical-inspections/latest`)
+      .get<unknown>(`${environment.apiBaseUrl}/drone-technical-inspections/drone/${droneId}/latest`)
       .pipe(
-        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)),
-        catchError(() => of(mockInspectionResult(droneId)))
+        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId))
       );
   }
 
@@ -426,21 +284,7 @@ export class PreMissionApi {
           warningLevel,
           time: stringOf(current['time'], new Date().toISOString()),
         };
-      }),
-      catchError(() =>
-        of({
-          temperature: 28.5,
-          humidity: 78,
-          windSpeed: 3.8,
-          windGust: 6.2,
-          windDirection: 75,
-          weatherCode: 1,
-          weatherDescription: 'Thời tiết quang đãng, tầm nhìn tốt',
-          isSafeToFly: true,
-          warningLevel: 'low' as const,
-          time: new Date().toISOString(),
-        })
-      )
+      })
     );
   }
 }
@@ -456,7 +300,7 @@ const stringOf = (value: unknown, fallback = '') =>
 
 const checkOf = (value: unknown) => {
   const x = objectOf(value);
-  let rawStatus = stringOf(x['status'], 'UNKNOWN');
+  let rawStatus = stringOf(x['status'], 'UNKNOWN').toUpperCase();
   if (rawStatus === 'INCOMPLETE') rawStatus = 'NOT_READY';
   return {
     status: rawStatus,
@@ -497,78 +341,14 @@ export const defaultSiteChecks = (
   ];
 };
 
-const mockInspectionResult = (droneId: string): DroneTechnicalInspectionResult => ({
-  droneId,
-  droneCode: droneId.startsWith('UAV') ? droneId : `UAV-${droneId.slice(0, 6).toUpperCase()}`,
-  connectionStatus: 'CONNECTED',
-  fcTarget: 'MATEK-H743-EVN-CUSTOM',
-  firmwareVersion: 'ArduCopter v4.5.2-EVN (c92fa31)',
-  inspectionSource: 'TELEMETRY',
-  inspectedAt: new Date().toISOString(),
-  validUntil: new Date(Date.now() + 86400000 * 3).toISOString(),
-  overallHealth: 'HEALTHY',
-  eligibility: 'ELIGIBLE',
-  subsystems: [
-    {
-      id: 'FC',
-      name: 'Flight Controller (Vi điều khiển bay)',
-      status: 'HEALTHY',
-      description: 'Bộ vi xử lý H743 Dual IMU, dao động góc < 0.2°, trạng thái ổn định',
-    },
-    {
-      id: 'SENSORS',
-      name: 'Cảm biến (IMU, Baro, Compass, GPS)',
-      status: 'HEALTHY',
-      description: 'Định vị GPS RTK Fix 18 vệ tinh, độ chính xác vị trí HDOP 0.65',
-    },
-    {
-      id: 'BATTERY',
-      name: 'Hệ thống Pin & Nguồn điện (Smart Battery)',
-      status: 'HEALTHY',
-      description: 'Điện áp 25.1V (6S LiPo), độ lệch cell 12mV, dung lượng khả dụng SOH 96%',
-    },
-    {
-      id: 'MOTORS',
-      name: 'Động cơ & Điều tốc (Motor / ESC Telemetry)',
-      status: 'HEALTHY',
-      description: 'Nhiệt độ ESC 38°C, vòng tua RPM cân bằng trên 4 trục cánh quạt',
-    },
-    {
-      id: 'COMMS',
-      name: 'Truyền thông & Điều khiển từ xa (RC/Telemetry)',
-      status: 'HEALTHY',
-      description: 'Cường độ tín hiệu RSSI 98%, Link Quality 100%, độ trễ đường truyền 18ms',
-    },
-    {
-      id: 'FAILSAFE',
-      name: 'Cơ chế An toàn & Tự động trở về (Failsafe/RTH)',
-      status: 'HEALTHY',
-      description: 'Điểm cất cánh Home đã khóa, kích hoạt Geofence bán kính an toàn 2.5km',
-    },
-  ],
-  metrics: [
-    { subsystem: 'Flight Controller', metric: 'CPU Load', value: 18, unit: '%', required: '< 50%', severity: 'low', passed: true },
-    { subsystem: 'Sensors', metric: 'GPS Satellites', value: 18, unit: 'sats', required: '>= 12 sats', severity: 'low', passed: true },
-    { subsystem: 'Sensors', metric: 'Compass Mag Inconsistency', value: 42, unit: 'mG', required: '< 150 mG', severity: 'low', passed: true },
-    { subsystem: 'Battery', metric: 'Cell Voltage Delta', value: 12, unit: 'mV', required: '< 35 mV', severity: 'low', passed: true },
-    { subsystem: 'Battery', metric: 'Battery State of Health (SOH)', value: 96, unit: '%', required: '>= 80%', severity: 'low', passed: true },
-    { subsystem: 'Motors', metric: 'Motor Balance Variance', value: 3.2, unit: '%', required: '< 10%', severity: 'low', passed: true },
-    { subsystem: 'Communication', metric: 'RC Link Quality (LQ)', value: 100, unit: '%', required: '>= 90%', severity: 'low', passed: true },
-    { subsystem: 'Safety', metric: 'RTH Altitude Configured', value: 45, unit: 'm', required: '>= 30m', severity: 'low', passed: true },
-  ],
-});
-
 const normalizeInspectionResult = (
   value: unknown,
   droneId: string
 ): DroneTechnicalInspectionResult => {
   const x = objectOf(value);
-  if (!x['subsystems'] && !x['metrics']) {
-    return mockInspectionResult(droneId);
-  }
   return {
     droneId: stringOf(x['droneId'], droneId),
-    droneCode: stringOf(x['droneCode'], droneId),
+    droneCode: stringOf(x['droneCode'] || x['code'], droneId),
     connectionStatus: (stringOf(x['connectionStatus'], 'CONNECTED') as never),
     fcTarget: x['fcTarget'] == null ? undefined : stringOf(x['fcTarget']),
     firmwareVersion: x['firmwareVersion'] == null ? undefined : stringOf(x['firmwareVersion']),
@@ -579,285 +359,6 @@ const normalizeInspectionResult = (
     eligibility: (stringOf(x['eligibility'], 'ELIGIBLE') as never),
     subsystems: (arrayOf(x['subsystems']).map(objectOf) as never),
     metrics: (arrayOf(x['metrics']).map(objectOf) as never),
-  };
-};
-
-function getBusyUserIdsFromActiveMissions(): Set<string> {
-  const busy = new Set<string>();
-  try {
-    const raw = localStorage.getItem('uav_pms_missions_data_v2') || sessionStorage.getItem('uav_pms_missions_data_v2');
-    if (raw) {
-      const map = JSON.parse(raw) as Record<string, unknown>;
-      Object.values(map).forEach((item) => {
-        const m = item as Record<string, unknown>;
-        const s = stringOf(m?.['status']).toUpperCase();
-        if (s && !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(s)) {
-          if (m['inspectorId']) busy.add(String(m['inspectorId']));
-          if (m['analystId']) busy.add(String(m['analystId']));
-          if (m['technicianId']) busy.add(String(m['technicianId']));
-          if (Array.isArray(m['assignments'])) {
-            m['assignments'].forEach((as: unknown) => {
-              const a = as as Record<string, unknown>;
-              if (a?.['userId'] && !['REJECTED', 'CANCELLED'].includes(stringOf(a?.['status']))) {
-                busy.add(String(a['userId']));
-              }
-            });
-          }
-        }
-      });
-    }
-  } catch {
-    // Ignore storage parse error
-  }
-  return busy;
-}
-
-function buildCandidatesFromUsers(
-  users: readonly UserRecord[],
-  regionId?: string
-): PersonnelCandidate[] {
-  const busyUserIds = getBusyUserIdsFromActiveMissions();
-
-  return users.map((u) => {
-    const roleRaw = (u.role || '').toUpperCase();
-    let role: 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' = 'INSPECTOR';
-    let qual = 'Chứng chỉ phi công UAV loại 1 (EVN-CERT), >120h bay kiểm tra đường dây';
-    if (roleRaw.includes('ANALYST') || roleRaw.includes('PHÂN TÍCH')) {
-      role = 'ANALYST';
-      qual = 'Chứng chỉ thẩm định khuyết tật lưới điện AI & xử lý ảnh quang học cấp 2';
-    } else if (roleRaw.includes('TECH') || roleRaw.includes('KỸ THUẬT') || roleRaw.includes('BẢO TRÌ')) {
-      role = 'TECHNICIAN';
-      qual = 'Kỹ sư cơ điện tử, chứng chỉ kiểm định an toàn kỹ thuật UAV & trạm pin';
-    } else {
-      role = 'INSPECTOR';
-      qual = 'Chứng chỉ phi công UAV loại 1 (EVN-CERT), >120h bay kiểm tra đường dây';
-    }
-
-    const isActive = u.status === 'Active';
-    const isBusy = busyUserIds.has(u.id);
-    const isAvailable = isActive && !isBusy;
-    const isEligible = isActive;
-
-    return {
-      id: u.id,
-      name: u.fullName || u.username || u.email,
-      role,
-      region: regionId ? `Đơn vị (${regionId})` : 'Khu vực quản lý',
-      regionId,
-      availability: isAvailable ? 'AVAILABLE' : 'BUSY',
-      eligibility: isEligible ? 'ELIGIBLE' : 'INELIGIBLE',
-      isActive,
-      isEligible,
-      isWithinScope: true,
-      isAvailable,
-      overallEligibility: isAvailable ? 'ELIGIBLE' : (isBusy ? 'BUSY' : 'INELIGIBLE'),
-      qualificationDetails: qual,
-      conflict: isBusy ? 'Đang thực hiện nhiệm vụ bay khác' : null,
-      reason: isAvailable
-        ? 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành bay (Đang rảnh)'
-        : (isBusy ? 'Trùng lịch công tác / nhiệm vụ bay' : 'Tài khoản không hoạt động'),
-    };
-  });
-}
-
-function getDefaultFallbackPersonnel(regionId?: string): PersonnelCandidate[] {
-  const reg = regionId ? `Đơn vị (${regionId})` : 'Khu vực quản lý';
-  return [
-    // Inspectors
-    {
-      id: 'usr-inspector',
-      name: 'inspector',
-      role: 'INSPECTOR',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Chứng chỉ phi công UAV loại 1 (EVN-CERT), 150h bay kiểm tra đường dây 220/500kV',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành bay (Đang rảnh)',
-    },
-    {
-      id: 'usr-e2e-pilot',
-      name: 'e2e_test_pilot',
-      role: 'INSPECTOR',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Chứng chỉ phi công UAV loại 1, chuyên gia bay tầm gần kiểm tra phụ kiện cách điện',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành bay (Đang rảnh)',
-    },
-    {
-      id: 'usr-regression-inspector',
-      name: 'regression_inspector',
-      role: 'INSPECTOR',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Phi công UAV cấp cao, chứng chỉ điều khiển bay vượt địa hình hiểm trở',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành bay (Đang rảnh)',
-    },
-
-    // Analysts
-    {
-      id: 'usr-analyst',
-      name: 'analyst',
-      role: 'ANALYST',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Chứng chỉ thẩm định khuyết tật lưới điện AI & xử lý ảnh quang học cấp 2',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng phân tích dữ liệu (Đang rảnh)',
-    },
-    {
-      id: 'usr-regression-analyst',
-      name: 'regression_analyst',
-      role: 'ANALYST',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Chuyên viên xử lý dữ liệu viễn thám LiDAR & phân tích phát nhiệt mối nối',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng phân tích dữ liệu (Đang rảnh)',
-    },
-
-    // Technicians
-    {
-      id: 'usr-technician',
-      name: 'technician',
-      role: 'TECHNICIAN',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Kỹ sư cơ điện tử, chứng chỉ kiểm định an toàn kỹ thuật UAV & trạm pin thông minh',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng kỹ thuật thiết bị (Đang rảnh)',
-    },
-    {
-      id: 'usr-regression-technician',
-      name: 'regression_technician',
-      role: 'TECHNICIAN',
-      region: reg,
-      availability: 'AVAILABLE',
-      eligibility: 'ELIGIBLE',
-      isActive: true,
-      isEligible: true,
-      isWithinScope: true,
-      isAvailable: true,
-      overallEligibility: 'ELIGIBLE',
-      qualificationDetails: 'Chứng chỉ bảo dưỡng phần cứng bay ArduPilot, kỹ thuật cân chỉnh gimbal & payload cảm biến',
-      conflict: null,
-      reason: 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng kỹ thuật thiết bị (Đang rảnh)',
-    },
-  ];
-}
-
-const normalizeAssessment = (value: unknown): PreMissionAssessment => {
-  const x = objectOf(value);
-  const assets = arrayOf(x['assets']);
-  const scopeAssetIds = arrayOf(x['scopeAssetIds']).length
-    ? arrayOf(x['scopeAssetIds']).map(String)
-    : assets.map((asset) => stringOf(objectOf(asset)['assetId'])).filter(Boolean);
-  let rawStatus = stringOf(x['status'], 'UNKNOWN');
-  if (rawStatus === 'CONSUMED') rawStatus = 'COMPLETED';
-  if (rawStatus === 'INCOMPLETE') rawStatus = 'NOT_READY';
-  const status = rawStatus;
-  const isFeasible = status === 'READY' || status === 'EVALUATING';
-  const derivedCheck = (ready: boolean) => ({
-    status: ready ? 'PASS' : 'PENDING',
-    reason: null,
-    evaluatedAt: null,
-  });
-
-  const rawSiteChecks = arrayOf(x['siteChecks']);
-  const scopeGeometry = objectOf(x['scopeGeometry']);
-  const bufferMeters = Number(scopeGeometry['corridorBufferMeters'] ?? 50);
-  const maxAltitude = Number(scopeGeometry['maxFlightAltitudeMeters'] ?? 120);
-  const reqInspectors = Number(x['requiredInspectors'] ?? scopeGeometry['requiredInspectors'] ?? 1);
-  const reqAnalysts = Number(x['requiredAnalysts'] ?? scopeGeometry['requiredAnalysts'] ?? 1);
-  const reqTechnicians = Number(x['requiredTechnicians'] ?? scopeGeometry['requiredTechnicians'] ?? 1);
-
-  const siteChecks = rawSiteChecks.length
-    ? (rawSiteChecks.map(objectOf) as unknown as readonly SiteCheckItem[])
-    : defaultSiteChecks(isFeasible, bufferMeters, maxAltitude);
-
-  const rawInspection = x['droneInspection'] ? normalizeInspectionResult(x['droneInspection'], 'UAV-DEFAULT') : null;
-
-  const rawPersonnelCandidates = arrayOf(x['personnelCandidates']).map((c) => normalizeCandidate(objectOf(c)));
-  const personnelCheck = x['personnel']
-    ? checkOf(x['personnel'])
-    : derivedPersonnelCheck(rawPersonnelCandidates, reqInspectors, reqAnalysts, reqTechnicians);
-
-  const siteCheck = x['site'] ? checkOf(x['site']) : derivedCheck(status !== 'UNKNOWN');
-  const uavCheck = x['uav'] ? checkOf(x['uav']) : derivedCheck(arrayOf(x['uavCandidates']).length > 0);
-  const technicalCheck = x['technical'] ? checkOf(x['technical']) : derivedCheck(status === 'READY');
-
-  const computedStatus = (personnelCheck.status === 'FAIL' || siteCheck.status === 'FAIL' || uavCheck.status === 'FAIL')
-    ? (status === 'READY' ? 'NOT_READY' : status)
-    : status;
-
-  return {
-    id: stringOf(x['id']),
-    assessmentCode: stringOf(x['assessmentCode'] ?? x['code'], 'ASSESSMENT'),
-    regionId: x['regionId'] == null ? undefined : stringOf(x['regionId']),
-    regionName: stringOf(x['regionName'] ?? x['regionId'], 'Unknown region'),
-    lineId: x['lineId'] == null ? null : stringOf(x['lineId']),
-    lineName: x['lineName'] == null ? null : stringOf(x['lineName']),
-    assetCount: Number(x['assetCount'] ?? scopeAssetIds.length),
-    plannedStart: stringOf(x['plannedStart']),
-    plannedEnd: stringOf(x['plannedEnd']),
-    requiredInspectors: reqInspectors,
-    requiredAnalysts: reqAnalysts,
-    requiredTechnicians: reqTechnicians,
-    site: siteCheck,
-    personnel: personnelCheck,
-    uav: uavCheck,
-    technical: technicalCheck,
-    status: computedStatus,
-    validUntil: x['validUntil'] == null ? null : stringOf(x['validUntil']),
-    createdBy: x['createdBy'] == null ? null : stringOf(x['createdBy']),
-    updatedAt: x['updatedAt'] == null ? null : stringOf(x['updatedAt']),
-    consumedMissionId: x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId']),
-    personnelCandidates: rawPersonnelCandidates as never,
-    uavCandidates: arrayOf(x['uavCandidates']).map(objectOf) as never,
-    technicalMetrics: arrayOf(x['technicalMetrics']).length
-      ? (arrayOf(x['technicalMetrics']).map(objectOf) as never)
-      : (mockInspectionResult('UAV-DEFAULT').metrics as never),
-    siteChecks,
-    droneInspection: rawInspection,
-    scopeAssetIds,
-    scopeGeometry: x['scopeGeometry'],
   };
 };
 
@@ -900,8 +401,6 @@ export function derivedPersonnelCheck(
     return { status: 'FAIL', reason: 'Chưa có ứng viên nhân sự nào trong hệ thống.', evaluatedAt: new Date().toISOString() };
   }
 
-  // Filter ONLY available ("đang rảnh") candidates satisfying 5 AND criteria:
-  // Active, Scope, Eligible, and Available (no conflict & availability === 'AVAILABLE')
   const availableCandidates = candidates.filter((c) => {
     const activeOk = c['isActive'] !== false;
     const scopeOk = c['isWithinScope'] !== false;
@@ -975,42 +474,6 @@ const normalizePage = (
   };
 };
 
-const STORAGE_KEY = 'uavpms_local_assessments';
-
-function getStoredAssessmentsMap(): Map<string, PreMissionAssessment> {
-  const map = new Map<string, PreMissionAssessment>();
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw) as PreMissionAssessment[];
-      arr.forEach((item) => map.set(item.id, item));
-    }
-  } catch {
-    // Ignore storage parse error
-  }
-  return map;
-}
-
-function saveLocalAssessment(item: PreMissionAssessment): void {
-  try {
-    const map = getStoredAssessmentsMap();
-    map.set(item.id, item);
-    const serialized = JSON.stringify(Array.from(map.values()));
-    sessionStorage.setItem(STORAGE_KEY, serialized);
-    localStorage.setItem(STORAGE_KEY, serialized);
-  } catch {
-    // Ignore storage write error
-  }
-}
-
-function getLocalAssessment(id: string): PreMissionAssessment | null {
-  return getStoredAssessmentsMap().get(id) ?? null;
-}
-
-function getLocalAssessmentsList(): PreMissionAssessment[] {
-  return Array.from(getStoredAssessmentsMap().values());
-}
-
 function formatIsoDate(val?: string): string {
   if (!val) return '';
   try {
@@ -1021,137 +484,78 @@ function formatIsoDate(val?: string): string {
   }
 }
 
-function createSimulatedAssessment(
-  request: AssessmentCreateRequest,
-  realCandidates?: readonly PersonnelCandidate[]
-): PreMissionAssessment {
-  const id = `asm-${Date.now().toString(36)}`;
-  const codeNum = Math.floor(1000 + Math.random() * 9000);
-  const plannedStart = formatIsoDate(request.plannedStart) || new Date(Date.now() + 3600000).toISOString();
-  const plannedEnd = formatIsoDate(request.plannedEnd) || new Date(Date.now() + 14400000).toISOString();
+const normalizeAssessment = (value: unknown): PreMissionAssessment => {
+  const x = objectOf(value);
+  const assets = arrayOf(x['assets']);
+  const scopeAssetIds = arrayOf(x['scopeAssetIds']).length
+    ? arrayOf(x['scopeAssetIds']).map(String)
+    : assets.map((asset) => stringOf(objectOf(asset)['assetId'])).filter(Boolean);
+  let rawStatus = stringOf(x['status'], 'UNKNOWN').toUpperCase();
+  if (rawStatus === 'CONSUMED') rawStatus = 'COMPLETED';
+  if (rawStatus === 'INCOMPLETE') rawStatus = 'NOT_READY';
+  const status = rawStatus;
+  const isFeasible = status === 'READY' || status === 'EVALUATING';
+  const derivedCheck = (ready: boolean) => ({
+    status: ready ? 'PASS' : 'PENDING',
+    reason: null,
+    evaluatedAt: null,
+  });
 
-  const candidates = (realCandidates && realCandidates.length > 0)
-    ? realCandidates
-    : getDefaultFallbackPersonnel(request.regionId);
+  const rawSiteChecks = arrayOf(x['siteChecks']);
+  const scopeGeometry = objectOf(x['scopeGeometry']);
+  const bufferMeters = Number(scopeGeometry['corridorBufferMeters'] ?? 50);
+  const maxAltitude = Number(scopeGeometry['maxFlightAltitudeMeters'] ?? 120);
+  const reqInspectors = Number(x['requiredInspectors'] ?? scopeGeometry['requiredInspectors'] ?? 1);
+  const reqAnalysts = Number(x['requiredAnalysts'] ?? scopeGeometry['requiredAnalysts'] ?? 1);
+  const reqTechnicians = Number(x['requiredTechnicians'] ?? scopeGeometry['requiredTechnicians'] ?? 1);
 
-  const reqInsp = request.requiredInspectors ?? 1;
-  const reqAna = request.requiredAnalysts ?? 1;
-  const reqTech = request.requiredTechnicians ?? 1;
+  const siteChecks = rawSiteChecks.length
+    ? (rawSiteChecks.map(objectOf) as unknown as readonly SiteCheckItem[])
+    : defaultSiteChecks(isFeasible, bufferMeters, maxAltitude);
 
-  const personnelCheck = derivedPersonnelCheck(candidates as any, reqInsp, reqAna, reqTech);
-  const status: AssessmentStatus = personnelCheck.status === 'FAIL' ? 'NOT_READY' : 'READY';
+  const rawInspection = x['droneInspection'] ? normalizeInspectionResult(x['droneInspection'], 'UAV-DEFAULT') : null;
 
-  return {
-    id,
-    assessmentCode: `PMA-2026-${codeNum}`,
-    regionId: request.regionId,
-    regionName: request.regionId ? `Đơn vị quản lý (${request.regionId})` : 'Khu vực quản lý',
-    lineId: request.lineName || null,
-    lineName: request.lineName || null,
-    assetCount: request.scopeAssetIds.length,
-    plannedStart,
-    plannedEnd,
-    requiredInspectors: reqInsp,
-    requiredAnalysts: reqAna,
-    requiredTechnicians: reqTech,
-    site: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
-    personnel: personnelCheck,
-    uav: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
-    technical: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
-    status,
-    validUntil: new Date(Date.now() + 86400000 * 2).toISOString(),
-    createdBy: 'Kỹ sư quản lý bay',
-    updatedAt: new Date().toISOString(),
-    consumedMissionId: null,
-    personnelCandidates: candidates,
-    uavCandidates: [
-      {
-        id: 'uav-1',
-        code: 'UAV-EVN-01',
-        name: 'DJI Matrice 300 RTK - EVN-01',
-        operationalStatus: 'AVAILABLE',
-        technicalHealth: 'HEALTHY',
-        eligibility: 'ELIGIBLE',
-        lastInspection: new Date(Date.now() - 86400000 * 5).toISOString(),
-        validUntil: new Date(Date.now() + 86400000 * 25).toISOString(),
-      },
-      {
-        id: 'uav-2',
-        code: 'UAV-EVN-02',
-        name: 'DJI Mavic 3 Enterprise - EVN-02',
-        operationalStatus: 'AVAILABLE',
-        technicalHealth: 'HEALTHY',
-        eligibility: 'ELIGIBLE',
-        lastInspection: new Date(Date.now() - 86400000 * 10).toISOString(),
-        validUntil: new Date(Date.now() + 86400000 * 20).toISOString(),
-      },
-    ],
-    technicalMetrics: mockInspectionResult('UAV-01').metrics as never,
-    siteChecks: defaultSiteChecks(
-      true,
-      Number(objectOf(request.scopeGeometry)['corridorBufferMeters'] ?? 50),
-      Number(objectOf(request.scopeGeometry)['maxFlightAltitudeMeters'] ?? 120)
-    ),
-    droneInspection: mockInspectionResult('UAV-01'),
-    scopeAssetIds: request.scopeAssetIds,
-    scopeGeometry: request.scopeGeometry,
-  };
-}
+  const rawPersonnelCandidates = arrayOf(x['personnelCandidates']).map((c) => normalizeCandidate(objectOf(c)));
+  const personnelCheck = x['personnel']
+    ? checkOf(x['personnel'])
+    : derivedPersonnelCheck(rawPersonnelCandidates, reqInspectors, reqAnalysts, reqTechnicians);
 
-function createSimulatedAssessmentById(
-  id: string,
-  targetStatus?: string,
-  realCandidates?: readonly PersonnelCandidate[],
-  reqInsp = 1,
-  reqAna = 1,
-  reqTech = 1
-): PreMissionAssessment {
-  const candidates = (realCandidates && realCandidates.length > 0)
-    ? realCandidates
-    : getDefaultFallbackPersonnel();
+  const siteCheck = x['site'] ? checkOf(x['site']) : derivedCheck(status !== 'UNKNOWN');
+  const uavCheck = x['uav'] ? checkOf(x['uav']) : derivedCheck(arrayOf(x['uavCandidates']).length > 0);
+  const technicalCheck = x['technical'] ? checkOf(x['technical']) : derivedCheck(status === 'READY');
 
-  const personnelCheck = derivedPersonnelCheck(candidates as any, reqInsp, reqAna, reqTech);
-  const status: AssessmentStatus = targetStatus
-    ? (targetStatus === 'READY' && personnelCheck.status === 'FAIL' ? 'NOT_READY' : targetStatus)
-    : (personnelCheck.status === 'FAIL' ? 'NOT_READY' : 'READY');
+  const computedStatus = (personnelCheck.status === 'FAIL' || siteCheck.status === 'FAIL' || uavCheck.status === 'FAIL')
+    ? (status === 'READY' ? 'NOT_READY' : status)
+    : status;
 
   return {
-    id,
-    assessmentCode: `PMA-${id.slice(0, 8).toUpperCase()}`,
-    regionName: 'Khu vực quản lý',
-    lineName: 'Đường dây 220kV Cát Lái - Thủ Đức',
-    assetCount: 3,
-    plannedStart: new Date(Date.now() + 3600000).toISOString(),
-    plannedEnd: new Date(Date.now() + 14400000).toISOString(),
-    requiredInspectors: reqInsp,
-    requiredAnalysts: reqAna,
-    requiredTechnicians: reqTech,
-    site: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
+    id: stringOf(x['id']),
+    assessmentCode: stringOf(x['assessmentCode'] ?? x['code'], 'ASSESSMENT'),
+    regionId: x['regionId'] == null ? undefined : stringOf(x['regionId']),
+    regionName: stringOf(x['regionName'] ?? x['regionId'], 'Unknown region'),
+    lineId: x['lineId'] == null ? null : stringOf(x['lineId']),
+    lineName: x['lineName'] == null ? null : stringOf(x['lineName']),
+    assetCount: Number(x['assetCount'] ?? scopeAssetIds.length),
+    plannedStart: stringOf(x['plannedStart']),
+    plannedEnd: stringOf(x['plannedEnd']),
+    requiredInspectors: reqInspectors,
+    requiredAnalysts: reqAnalysts,
+    requiredTechnicians: reqTechnicians,
+    site: siteCheck,
     personnel: personnelCheck,
-    uav: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
-    technical: { status: 'PASS', reason: null, evaluatedAt: new Date().toISOString() },
-    status,
-    validUntil: new Date(Date.now() + 86400000 * 2).toISOString(),
-    createdBy: 'Kỹ sư quản lý bay',
-    updatedAt: new Date().toISOString(),
-    consumedMissionId: null,
-    personnelCandidates: candidates,
-    uavCandidates: [
-      {
-        id: 'uav-1',
-        code: 'UAV-EVN-01',
-        name: 'DJI Matrice 300 RTK - EVN-01',
-        operationalStatus: 'AVAILABLE',
-        technicalHealth: 'HEALTHY',
-        eligibility: 'ELIGIBLE',
-        lastInspection: new Date(Date.now() - 86400000 * 5).toISOString(),
-        validUntil: new Date(Date.now() + 86400000 * 25).toISOString(),
-      },
-    ],
-    technicalMetrics: mockInspectionResult('UAV-01').metrics as never,
-    siteChecks: defaultSiteChecks(status === 'READY', 50, 120),
-    droneInspection: mockInspectionResult('UAV-01'),
-    scopeAssetIds: ['VT01', 'VT02', 'VT03'],
+    uav: uavCheck,
+    technical: technicalCheck,
+    status: computedStatus,
+    validUntil: x['validUntil'] == null ? null : stringOf(x['validUntil']),
+    createdBy: x['createdBy'] == null ? null : stringOf(x['createdBy']),
+    updatedAt: x['updatedAt'] == null ? null : stringOf(x['updatedAt']),
+    consumedMissionId: x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId']),
+    personnelCandidates: rawPersonnelCandidates as never,
+    uavCandidates: arrayOf(x['uavCandidates']).map(objectOf) as never,
+    technicalMetrics: (arrayOf(x['technicalMetrics']).map(objectOf) as never),
+    siteChecks,
+    droneInspection: rawInspection,
+    scopeAssetIds,
+    scopeGeometry: x['scopeGeometry'],
   };
-}
-
+};

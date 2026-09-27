@@ -83,7 +83,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
   protected readonly isReady = computed(() => {
     const a = this.item();
-    return a?.status === 'READY';
+    return a?.status?.toUpperCase() === 'READY';
   });
 
   protected readonly isExpired = computed(() => {
@@ -93,15 +93,15 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   });
 
   protected readonly isEvaluating = computed(() => {
-    return this.item()?.status === 'EVALUATING';
+    return this.item()?.status?.toUpperCase() === 'EVALUATING';
   });
 
   protected readonly isCancelled = computed(() => {
-    return this.item()?.status === 'CANCELLED';
+    return this.item()?.status?.toUpperCase() === 'CANCELLED';
   });
 
   protected readonly isCompleted = computed(() => {
-    const s = this.item()?.status;
+    const s = this.item()?.status?.toUpperCase();
     return s === 'COMPLETED' || s === 'CONSUMED';
   });
 
