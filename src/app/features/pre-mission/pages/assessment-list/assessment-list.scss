@@ -4,3 +4,175 @@
   margin-inline: auto;
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+
+/* EVN Classic Confirmation Modal (No radius, classic ERP enterprise style) */
+.evn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+
+  .evn-modal-dialog {
+    background: #ffffff;
+    width: 100%;
+    max-width: 490px;
+    border: 1px solid #8fb9df;
+    border-radius: 0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+
+    .evn-modal-header {
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #9fc3e4;
+      background: #e6f2fb;
+
+      .modal-title-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .modal-icon-danger {
+          color: #dc2626;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+        }
+
+        h3 {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 700;
+          color: #0f2952;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+      }
+
+      .btn-close-modal {
+        background: transparent;
+        border: 1px solid transparent;
+        font-size: 13px;
+        color: #526b82;
+        cursor: pointer;
+        padding: 1px 6px;
+        line-height: 1;
+        border-radius: 0;
+        transition: all 0.1s;
+
+        &:hover {
+          background: #d0e6f7;
+          border-color: #9fc3e4;
+          color: #0f2952;
+        }
+      }
+    }
+
+    .evn-modal-body {
+      padding: 14px 16px;
+
+      .modal-alert-box {
+        background: #fff5f5;
+        border: 1px solid #fecaca;
+        border-left: 3px solid #dc2626;
+        border-radius: 0;
+        padding: 8px 10px;
+        margin-bottom: 12px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #991b1b;
+
+        strong {
+          color: #7f1d1d;
+          font-weight: 700;
+        }
+      }
+
+      .modal-desc {
+        font-size: 11px;
+        color: #334155;
+        line-height: 1.5;
+        margin: 0 0 12px 0;
+        padding: 5px 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0;
+      }
+
+      .form-group-modal {
+        label {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          color: #1e3a8a;
+          margin-bottom: 4px;
+        }
+
+        textarea {
+          width: 100%;
+          font-family: inherit;
+          font-size: 11px;
+          padding: 6px 8px;
+          border: 1px solid #9fc3e4;
+          border-radius: 0;
+          outline: none;
+          box-sizing: border-box;
+          resize: vertical;
+          min-height: 56px;
+          color: #0b1c30;
+          background: #ffffff;
+
+          &:focus {
+            border-color: #1d4f91;
+            box-shadow: 0 0 0 1px #1d4f91;
+          }
+        }
+      }
+    }
+
+    .evn-modal-footer {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #f8fbfe;
+      border-top: 1px solid #9fc3e4;
+
+      .evn-btn {
+        border-radius: 0;
+        height: 26px;
+        min-height: 26px;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 600;
+
+        &.secondary {
+          background: #ffffff;
+          border: 1px solid #9fc3e4;
+          color: #174f83;
+
+          &:hover:not(:disabled) {
+            background: #f0f7fd;
+          }
+        }
+
+        &.danger {
+          background: #dc2626;
+          border: 1px solid #b91c1c;
+          color: #ffffff;
+
+          &:hover:not(:disabled) {
+            background: #b91c1c;
+          }
+        }
+      }
+    }
+  }
+}

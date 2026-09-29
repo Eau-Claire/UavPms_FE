@@ -213,6 +213,18 @@ export class AssessmentList {
   protected reevaluateItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
+    if (item.status === 'COMPLETED' || (item.status as string) === 'CONSUMED') {
+      this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
+      return;
+    }
+    if (item.status === 'EXPIRED') {
+      this.error.set('Bản đánh giá đã hết hạn hiệu lực / khung giờ bay đã qua, không thể đánh giá lại.');
+      return;
+    }
+    if (item.status === 'CANCELLED') {
+      this.error.set('Bản đánh giá đã bị hủy, không thể đánh giá lại.');
+      return;
+    }
     this.actionBusyId.set(item.id);
     this.error.set('');
     this.successMessage.set('');
@@ -221,15 +233,25 @@ export class AssessmentList {
       next: (updated) => {
         this.items.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
         this.successMessage.set(`Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`);
+        this.actionBusyId.set(null);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || `Không thể đánh giá lại mã ${item.assessmentCode}.`);
+        this.actionBusyId.set(null);
+        const msg = err?.error?.message;
+        if (msg === 'ASSESSMENT_ALREADY_COMPLETED' || msg === 'ASSESSMENT_ALREADY_CONSUMED') {
+          this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
+        } else {
+          this.error.set(msg || `Không thể đánh giá lại mã ${item.assessmentCode}.`);
+        }
       },
       complete: () => {
         this.actionBusyId.set(null);
       },
     });
   }
+
+  protected readonly itemToCancel = signal<PreMissionAssessment | null>(null);
+  protected readonly cancelReason = signal<string>('');
 
   protected cancelItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
@@ -238,21 +260,42 @@ export class AssessmentList {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }
+    if (item.status === 'EXPIRED') {
+      this.error.set('Bản đánh giá đã hết hạn, không thể thao tác.');
+      return;
+    }
+    if (item.status === 'CANCELLED') {
+      this.error.set('Bản đánh giá đã được hủy trước đó.');
+      return;
+    }
 
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn hủy bản đánh giá tiền nhiệm vụ ${item.assessmentCode}?`);
-    if (!confirmed) return;
+    this.cancelReason.set('');
+    this.itemToCancel.set(item);
+  }
+
+  protected closeCancelModal(): void {
+    if (this.actionBusyId()) return;
+    this.itemToCancel.set(null);
+  }
+
+  protected executeCancel(): void {
+    const item = this.itemToCancel();
+    if (!item) return;
 
     this.actionBusyId.set(item.id);
     this.error.set('');
     this.successMessage.set('');
+    const reason = this.cancelReason().trim() || 'Người dùng hủy từ danh sách';
 
-    this.api.cancel(item.id, 'Người dùng hủy từ danh sách').subscribe({
+    this.api.cancel(item.id, reason).subscribe({
       next: (cancelled) => {
         this.items.update((list) => list.map((x) => (x.id === cancelled.id ? cancelled : x)));
+        this.itemToCancel.set(null);
         this.successMessage.set(`Đã hủy bản đánh giá ${item.assessmentCode}.`);
       },
       error: (err) => {
         this.error.set(err?.error?.message || `Không thể hủy mã ${item.assessmentCode}.`);
+        this.actionBusyId.set(null);
       },
       complete: () => {
         this.actionBusyId.set(null);

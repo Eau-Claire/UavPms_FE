@@ -23,6 +23,7 @@ import {
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { defaultSiteChecks, PreMissionApi, RealtimeWeatherSnapshot } from '../../data-access/pre-mission-api';
+import { GisApi, GisTower } from '../../../gis/data-access/gis-api';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
 
@@ -39,6 +40,8 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly auth = inject(Auth);
   private readonly location = inject(Location);
+  private readonly gisApi = inject(GisApi);
+  protected readonly availableTowers = signal<readonly GisTower[]>([]);
 
   protected readonly scopeMapContainer = viewChild<ElementRef<HTMLDivElement>>('scopeMapContainer');
   protected readonly siteMapContainer = viewChild<ElementRef<HTMLDivElement>>('siteMapContainer');
@@ -368,6 +371,15 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           this.inspectionResult.set(res.droneInspection);
         }
         this.loadWeatherForAssessment(res);
+        if (res.regionId) {
+          this.gisApi.getAllGisData({ administrativeAreaId: res.regionId }).subscribe({
+            next: (snapshot) => {
+              this.availableTowers.set(snapshot.towers);
+              this.renderScopeOnMap();
+            },
+            error: () => {},
+          });
+        }
         setTimeout(() => this.initOrUpdateMap(), 200);
       },
       error: () => {
@@ -380,10 +392,14 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   }
 
   protected goBack(): void {
-    if (window.history.length > 1) {
+    const a = this.item();
+    const id = a?.id || this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.router.navigate(['/pre-mission/new'], { queryParams: { assessmentId: id } });
+    } else if (window.history.length > 1) {
       this.location.back();
     } else {
-      this.router.navigate(['/pre-mission']);
+      this.router.navigate(['/pre-mission/new']);
     }
   }
 
@@ -448,23 +464,38 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
   }
 
-  protected cancelAssessment(): void {
+  protected readonly showCancelModal = signal<boolean>(false);
+  protected readonly cancelReason = signal<string>('');
+
+  protected openCancelModal(): void {
     const a = this.item();
     if (!a || this.busy()) return;
     if (a.status === 'COMPLETED' || (a.status as string) === 'CONSUMED') {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }
+    this.cancelReason.set('');
+    this.showCancelModal.set(true);
+  }
 
-    const confirmed = window.confirm(`Bạn có chắc muốn hủy bản đánh giá tiền nhiệm vụ ${a.assessmentCode}? Thao tác này không thể đảo ngược.`);
-    if (!confirmed) return;
+  protected closeCancelModal(): void {
+    if (this.busy()) return;
+    this.showCancelModal.set(false);
+  }
+
+  protected executeCancel(): void {
+    const a = this.item();
+    if (!a || this.busy()) return;
 
     this.busy.set(true);
     this.error.set('');
     this.isStaleConflict.set(false);
-    this.api.cancel(a.id, 'Người dùng hủy tại trang chi tiết').subscribe({
+    const reason = this.cancelReason().trim() || 'Người dùng hủy tại trang chi tiết';
+
+    this.api.cancel(a.id, reason).subscribe({
       next: (updated) => {
         this.item.set(updated);
+        this.showCancelModal.set(false);
         this.actionMessage.set(`Đã hủy bản đánh giá ${a.assessmentCode}.`);
       },
       error: (err) => {
@@ -474,6 +505,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         } else {
           this.error.set(err?.error?.message || 'Không thể hủy bản đánh giá.');
         }
+        this.busy.set(false);
       },
       complete: () => {
         this.busy.set(false);
@@ -567,10 +599,10 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         attribution = '© Google Maps Địa Hình | UAV-PMS GIS';
         break;
       case 'carto':
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
+        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        subdomains = ['a', 'b', 'c'];
         maxZoom = 19;
-        attribution = '© CARTO · OpenStreetMap | EVN UAV-PMS';
+        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
         break;
       case 'google-streets':
       default:
@@ -593,7 +625,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     tileLayer.on('tileerror', () => {
       if (!hasFallenBack) {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
       }
     });
 
@@ -683,11 +715,27 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       baseLng = 108.2022;
     }
 
+    const allTowers = this.availableTowers();
     const latLngs: [number, number][] = [];
 
     a.scopeAssetIds.forEach((code, idx) => {
-      const lat = baseLat + idx * 0.0045;
-      const lng = baseLng + idx * 0.0065;
+      const matched = allTowers.find(
+        (t) =>
+          t.id.toLowerCase() === code.toLowerCase() ||
+          t.towerCode.toLowerCase() === code.toLowerCase()
+      );
+
+      const lat = matched?.latitude && Number.isFinite(matched.latitude) && Math.abs(matched.latitude) > 0.1
+        ? matched.latitude
+        : baseLat + idx * 0.0035;
+
+      const lng = matched?.longitude && Number.isFinite(matched.longitude) && Math.abs(matched.longitude) > 0.1
+        ? matched.longitude
+        : baseLng + idx * 0.0055;
+
+      const displayCode = matched?.towerCode || (code.length > 20 ? `Cột #${idx + 1}` : code);
+      const lineName = matched?.transmissionLineName || a.lineName || 'Theo danh mục khảo sát';
+
       latLngs.push([lat, lng]);
 
       // Safety buffer circle around tower
@@ -712,13 +760,13 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
       marker.bindPopup(`
         <div style="font-family: inherit; font-size: 11px; line-height: 1.4;">
-          <strong style="color: #003f99;">Vị trí cột: ${code}</strong><br/>
-          <span>Tuyến: ${a.lineName || 'Theo danh mục khảo sát'}</span><br/>
+          <strong style="color: #003f99;">Vị trí cột: ${displayCode}</strong><br/>
+          <span>Tuyến: ${lineName}</span><br/>
           <span>Tọa độ: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span><br/>
           <span>Hành lang an toàn: ${bufferMeters}m</span>
         </div>
       `);
-      marker.bindTooltip(code, { permanent: true, direction: 'top', className: 'evn-map-tooltip', offset: [0, -6] });
+      marker.bindTooltip(displayCode, { permanent: true, direction: 'top', className: 'evn-map-tooltip', offset: [0, -6] });
       this.markersLayer.addLayer(marker);
     });
 

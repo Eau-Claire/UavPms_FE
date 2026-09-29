@@ -363,28 +363,57 @@ const normalizeInspectionResult = (
 };
 
 function normalizeCandidate(c: Record<string, unknown>): Record<string, unknown> {
-  const roleRaw = stringOf(c['role'] || 'INSPECTOR').toUpperCase();
+  const userObj = objectOf(c['user']);
+  const actualUserId = stringOf(c['userId'] || userObj['id'] || c['id']);
+  const actualName = stringOf(userObj['fullName'] || c['fullName'] || c['name'] || userObj['username'] || 'Nhân sự');
+
+  let roleRaw = stringOf(c['role'] || '').toUpperCase();
+  if (c['findings']) {
+    try {
+      const f = typeof c['findings'] === 'string' ? JSON.parse(c['findings'] as string) : c['findings'];
+      if (f && f.role) {
+        const found = stringOf(f.role).toUpperCase();
+        if (found.includes('PILOT') || found.includes('INSPECT') || found.includes('ANALYST') || found.includes('TECH')) {
+          roleRaw = found;
+        }
+      }
+    } catch {}
+  }
+  if (!roleRaw || roleRaw === 'SYSTEMADMIN' || roleRaw === 'MANAGER') {
+    if (userObj['userRoles']) {
+      const roles = arrayOf(userObj['userRoles'])
+        .map((ur) => stringOf(objectOf(ur)['roleName'] || objectOf(objectOf(ur)['role'])['roleName']))
+        .join(' ')
+        .toUpperCase();
+      if (roles.includes('PILOT') || roles.includes('INSPECT') || roles.includes('ANALYST') || roles.includes('TECH')) {
+        roleRaw = roles;
+      }
+    }
+  }
+
   const role = roleRaw.includes('PILOT') || roleRaw.includes('INSPECT')
     ? 'INSPECTOR'
     : roleRaw.includes('ANALYST')
     ? 'ANALYST'
-    : roleRaw.includes('TECH')
+    : (roleRaw.includes('TECH') || roleRaw.includes('MAINTENANCE'))
     ? 'TECHNICIAN'
     : roleRaw;
 
   return {
     ...c,
-    id: stringOf(c['id']),
-    name: stringOf(c['name'] || c['fullName']),
+    id: actualUserId,
+    userId: actualUserId,
+    candidateRecordId: stringOf(c['id']),
+    name: actualName,
     role,
-    region: stringOf(c['region'] || c['regionName']),
-    availability: stringOf(c['availability'] || 'AVAILABLE'),
-    eligibility: stringOf(c['eligibility'] || c['overallEligibility'] || 'ELIGIBLE'),
+    region: stringOf(c['region'] || c['regionName'] || 'Khu vực quản lý'),
+    availability: stringOf(c['availabilityStatus'] || c['availability'] || 'AVAILABLE'),
+    eligibility: stringOf(c['eligibilityStatus'] || c['eligibility'] || c['overallEligibility'] || 'ELIGIBLE'),
     isActive: c['isActive'] !== undefined ? Boolean(c['isActive']) : true,
     isEligible: c['isEligible'] !== undefined ? Boolean(c['isEligible']) : true,
     isWithinScope: c['isWithinScope'] !== undefined ? Boolean(c['isWithinScope']) : true,
     isAvailable: c['isAvailable'] !== undefined ? Boolean(c['isAvailable']) : true,
-    overallEligibility: stringOf(c['overallEligibility'] || c['eligibility'] || 'ELIGIBLE'),
+    overallEligibility: stringOf(c['overallEligibility'] || c['eligibilityStatus'] || c['eligibility'] || 'ELIGIBLE'),
     qualificationDetails: stringOf(c['qualificationDetails'] || c['reason'] || 'Đủ chứng chỉ chuyên môn EVN'),
     conflict: c['conflict'] == null ? null : stringOf(c['conflict']),
     reason: stringOf(c['reason'] || 'Đủ 5 tiêu chuẩn sẵn sàng vận hành'),
@@ -515,14 +544,45 @@ const normalizeAssessment = (value: unknown): PreMissionAssessment => {
 
   const rawInspection = x['droneInspection'] ? normalizeInspectionResult(x['droneInspection'], 'UAV-DEFAULT') : null;
 
-  const rawPersonnelCandidates = arrayOf(x['personnelCandidates']).map((c) => normalizeCandidate(objectOf(c)));
+  const rawPersonnelCandidates = arrayOf(x['personnelCandidates'])
+    .map((c) => normalizeCandidate(objectOf(c)))
+    .filter((c) => {
+      const r = stringOf(c['role']).toUpperCase();
+      return r === 'INSPECTOR' || r === 'ANALYST' || r === 'TECHNICIAN';
+    });
+  const isAllPass = status === 'READY' || status === 'COMPLETED';
+
   const personnelCheck = x['personnel']
     ? checkOf(x['personnel'])
-    : derivedPersonnelCheck(rawPersonnelCandidates, reqInspectors, reqAnalysts, reqTechnicians);
+    : (isAllPass
+        ? { status: 'PASS', reason: null, evaluatedAt: null }
+        : derivedPersonnelCheck(rawPersonnelCandidates, reqInspectors, reqAnalysts, reqTechnicians));
 
-  const siteCheck = x['site'] ? checkOf(x['site']) : derivedCheck(status !== 'UNKNOWN');
-  const uavCheck = x['uav'] ? checkOf(x['uav']) : derivedCheck(arrayOf(x['uavCandidates']).length > 0);
-  const technicalCheck = x['technical'] ? checkOf(x['technical']) : derivedCheck(status === 'READY');
+  const rawDroneCandidates = arrayOf(x['droneCandidates'] ?? x['uavCandidates']).map((item) => {
+    const d = objectOf(item);
+    const droneObj = objectOf(d['drone']);
+    const actualDroneId = stringOf(d['droneId'] || droneObj['id'] || d['id']);
+    const actualCode = stringOf(droneObj['uavCode'] || d['uavCode'] || d['code'] || 'UAV-EVN');
+    const actualName = stringOf(droneObj['model'] || d['model'] || d['name'] || actualCode);
+    const health = stringOf(d['technicalHealth'] || droneObj['technicalHealth'] || 'HEALTHY');
+    const opStatus = stringOf(d['operationalAvailabilityStatus'] || d['operationalStatus'] || droneObj['operationalStatus'] || 'AVAILABLE');
+    const isEligible = d['isEligible'] !== false && (stringOf(d['technicalEligibilityStatus'] || d['eligibility']).toUpperCase() !== 'INELIGIBLE');
+    return {
+      ...d,
+      id: actualDroneId,
+      droneId: actualDroneId,
+      candidateRecordId: stringOf(d['id']),
+      code: actualCode,
+      name: actualName,
+      technicalHealth: health,
+      operationalStatus: opStatus,
+      eligibility: isEligible ? 'ELIGIBLE' : 'INELIGIBLE',
+    };
+  });
+
+  const siteCheck = x['site'] ? checkOf(x['site']) : derivedCheck(isAllPass || status !== 'UNKNOWN');
+  const uavCheck = x['uav'] ? checkOf(x['uav']) : derivedCheck(isAllPass || rawDroneCandidates.length > 0);
+  const technicalCheck = x['technical'] ? checkOf(x['technical']) : derivedCheck(isAllPass || status === 'READY');
 
   const computedStatus = (personnelCheck.status === 'FAIL' || siteCheck.status === 'FAIL' || uavCheck.status === 'FAIL')
     ? (status === 'READY' ? 'NOT_READY' : status)
@@ -551,7 +611,7 @@ const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     updatedAt: x['updatedAt'] == null ? null : stringOf(x['updatedAt']),
     consumedMissionId: x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId']),
     personnelCandidates: rawPersonnelCandidates as never,
-    uavCandidates: arrayOf(x['uavCandidates']).map(objectOf) as never,
+    uavCandidates: rawDroneCandidates as never,
     technicalMetrics: (arrayOf(x['technicalMetrics']).map(objectOf) as never),
     siteChecks,
     droneInspection: rawInspection,

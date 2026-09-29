@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { GisApi, GisTower, GisTransmissionLine } from '../../../gis/data-access/gis-api';
@@ -63,6 +63,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
   private readonly gisApi = inject(GisApi);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('createMapContainer');
 
@@ -154,6 +155,15 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.loadRegions();
+    this.route.queryParamMap.subscribe((params) => {
+      const assessmentId = params.get('assessmentId');
+      if (assessmentId) {
+        this.loadFromAssessment(assessmentId);
+      } else {
+        this.restoreDraft();
+      }
+    });
+    this.form.valueChanges.subscribe(() => this.saveDraft());
   }
 
   ngAfterViewInit(): void {
@@ -162,6 +172,195 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.cleanupMap();
+  }
+
+
+  protected resetForm(): void {
+    try {
+      sessionStorage.removeItem('uav_pms_assessment_create_draft');
+    } catch {}
+    this.router.navigate(['/pre-mission/new']).then(() => {
+      this.form.reset({
+        regionId: '',
+        lineName: '',
+        scopeAssetIds: '',
+        plannedStart: this.defaultStart,
+        plannedEnd: this.defaultEnd,
+        corridorBufferMeters: 50,
+        maxFlightAltitudeMeters: 120,
+        requiredInspectors: 1,
+        requiredAnalysts: 1,
+        requiredTechnicians: 1,
+      });
+      this.selectedBaseLine.set('');
+      this.selectedTowerCodes.set([]);
+      this.availableLines.set([]);
+      this.availableTowers.set([]);
+      this.lineTowerSelectionCache.clear();
+      this.renderMap();
+    });
+  }
+
+  protected saveDraft(): void {
+    try {
+      const raw = this.form.getRawValue();
+      const draft = {
+        regionId: raw.regionId,
+        selectedBaseLine: this.selectedBaseLine(),
+        lineName: raw.lineName,
+        scopeAssetIds: raw.scopeAssetIds,
+        selectedTowerCodes: this.selectedTowerCodes(),
+        plannedStart: raw.plannedStart,
+        plannedEnd: raw.plannedEnd,
+        corridorBufferMeters: raw.corridorBufferMeters,
+        maxFlightAltitudeMeters: raw.maxFlightAltitudeMeters,
+        requiredInspectors: raw.requiredInspectors,
+        requiredAnalysts: raw.requiredAnalysts,
+        requiredTechnicians: raw.requiredTechnicians,
+        lineTowerSelectionCache: Array.from(this.lineTowerSelectionCache.entries()),
+      };
+      sessionStorage.setItem('uav_pms_assessment_create_draft', JSON.stringify(draft));
+    } catch {}
+  }
+
+  private initDraftOrAssessment(): void {
+    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
+    if (assessmentId) {
+      this.loadFromAssessment(assessmentId);
+    } else {
+      this.restoreDraft();
+    }
+  }
+
+  private loadFromAssessment(assessmentId: string): void {
+    this.busy.set(true);
+    this.api.get(assessmentId).subscribe({
+      next: (a) => {
+        this.busy.set(false);
+        const regionId = a.regionId || '';
+        const lineName = a.lineName || '';
+        const plannedStart = a.plannedStart ? formatDatetimeLocal(new Date(a.plannedStart)) : this.defaultStart;
+        const plannedEnd = a.plannedEnd ? formatDatetimeLocal(new Date(a.plannedEnd)) : this.defaultEnd;
+        const geom = (a.scopeGeometry && typeof a.scopeGeometry === 'object' ? a.scopeGeometry : {}) as Record<string, unknown>;
+        const corridorBufferMeters = Number(geom['corridorBufferMeters'] ?? 50);
+        const maxFlightAltitudeMeters = Number(geom['maxFlightAltitudeMeters'] ?? 120);
+        const requiredInspectors = a.requiredInspectors ?? 1;
+        const requiredAnalysts = a.requiredAnalysts ?? 1;
+        const requiredTechnicians = a.requiredTechnicians ?? 1;
+
+        this.form.patchValue({
+          regionId,
+          lineName,
+          plannedStart,
+          plannedEnd,
+          corridorBufferMeters,
+          maxFlightAltitudeMeters,
+          requiredInspectors,
+          requiredAnalysts,
+          requiredTechnicians,
+        });
+
+        if (regionId) {
+          this.loadingGis.set(true);
+          this.gisApi.getAllGisData({ administrativeAreaId: regionId }).subscribe({
+            next: (snapshot) => {
+              this.availableLines.set(snapshot.lines);
+              this.availableTowers.set(snapshot.towers);
+              this.loadingGis.set(false);
+
+              // Map scopeAssetIds to actual tower codes
+              const selectedCodes: string[] = [];
+              for (const idOrCode of a.scopeAssetIds || []) {
+                const matched = snapshot.towers.find(
+                  (t) =>
+                    t.id.toLowerCase() === idOrCode.toLowerCase() ||
+                    t.towerCode.toLowerCase() === idOrCode.toLowerCase()
+                );
+                if (matched) {
+                  selectedCodes.push(matched.towerCode);
+                } else {
+                  selectedCodes.push(idOrCode);
+                }
+              }
+
+              this.selectedTowerCodes.set(selectedCodes);
+              this.form.controls.scopeAssetIds.setValue(selectedCodes.join(', '));
+
+              // Determine selected base line
+              let base = lineName;
+              if (base.includes('(')) {
+                base = base.split('(')[0].trim();
+              }
+              const matchedLine = snapshot.lines.find(
+                (l) => l.lineName === base || l.lineName === lineName || l.id === base
+              );
+              const resolvedBase = matchedLine ? matchedLine.lineName : (base || snapshot.lines[0]?.lineName || '');
+              this.selectedBaseLine.set(resolvedBase);
+              if (resolvedBase) {
+                this.lineTowerSelectionCache.set(resolvedBase, selectedCodes);
+              }
+
+              this.saveDraft();
+              setTimeout(() => this.renderMap(true), 200);
+            },
+            error: () => {
+              this.loadingGis.set(false);
+            },
+          });
+        }
+      },
+      error: () => {
+        this.busy.set(false);
+        this.restoreDraft();
+      },
+    });
+  }
+
+  private restoreDraft(): void {
+    try {
+      const raw = sessionStorage.getItem('uav_pms_assessment_create_draft');
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!draft || !draft.regionId) return;
+
+      this.form.patchValue({
+        regionId: draft.regionId,
+        lineName: draft.lineName || '',
+        scopeAssetIds: draft.scopeAssetIds || '',
+        plannedStart: draft.plannedStart || this.defaultStart,
+        plannedEnd: draft.plannedEnd || this.defaultEnd,
+        corridorBufferMeters: draft.corridorBufferMeters ?? 50,
+        maxFlightAltitudeMeters: draft.maxFlightAltitudeMeters ?? 120,
+        requiredInspectors: draft.requiredInspectors ?? 1,
+        requiredAnalysts: draft.requiredAnalysts ?? 1,
+        requiredTechnicians: draft.requiredTechnicians ?? 1,
+      });
+
+      this.selectedBaseLine.set(draft.selectedBaseLine || '');
+      this.selectedTowerCodes.set(draft.selectedTowerCodes || []);
+
+      if (Array.isArray(draft.lineTowerSelectionCache)) {
+        this.lineTowerSelectionCache.clear();
+        for (const [k, v] of draft.lineTowerSelectionCache) {
+          this.lineTowerSelectionCache.set(k, v);
+        }
+      }
+
+      this.loadingGis.set(true);
+      this.gisApi.getAllGisData({ administrativeAreaId: draft.regionId }).subscribe({
+        next: (snapshot) => {
+          this.availableLines.set(snapshot.lines);
+          this.availableTowers.set(snapshot.towers);
+          this.loadingGis.set(false);
+          setTimeout(() => this.renderMap(true), 200);
+        },
+        error: () => {
+          this.loadingGis.set(false);
+        },
+      });
+    } catch (e) {
+      console.warn('Failed to restore draft', e);
+    }
   }
 
   private loadRegions(): void {
@@ -357,10 +556,10 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
         attribution = '© Google Maps Địa Hình | UAV-PMS GIS';
         break;
       case 'carto':
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         subdomains = ['a', 'b', 'c', 'd'];
         maxZoom = 19;
-        attribution = '© CARTO · OpenStreetMap | EVN UAV-PMS';
+        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
         break;
       case 'google-streets':
       default:
@@ -382,7 +581,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     this.currentTileLayer.on('tileerror', () => {
       if (!hasFallenBack && this.currentTileLayer) {
         hasFallenBack = true;
-        this.currentTileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        this.currentTileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
       }
     });
 
@@ -652,6 +851,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }
 
     const uniqueAssetIds = Array.from(new Set(resolvedAssetGuids));
+    this.saveDraft();
 
     this.api
       .create({

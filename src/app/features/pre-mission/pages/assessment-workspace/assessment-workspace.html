@@ -49,7 +49,7 @@
             class="evn-btn secondary"
             style="color: #dc2626;"
             [disabled]="busy()"
-            (click)="cancelAssessment()"
+            (click)="openCancelModal()"
           >
             <span nz-icon nzType="close"></span> Hủy đánh giá
           </button>
@@ -176,7 +176,10 @@
           </span>
         </div>
         <p class="card-desc">
-          Pilot: <strong>{{ roleBreakdown().inspectors.length }}</strong> | AI: <strong>{{ roleBreakdown().analysts.length }}</strong> | Tech: <strong>{{ roleBreakdown().technicians.length }}</strong>
+          Yêu cầu: <strong>{{ roleBreakdown().reqInspectors }} Inspector</strong> | <strong>{{ roleBreakdown().reqAnalysts }} Analyst</strong> | <strong>{{ roleBreakdown().reqTechnicians }} Technician</strong>
+          <span style="color: #64748b; font-size: 10.5px; display: block; margin-top: 2px;">
+            (Khả dụng: {{ roleBreakdown().inspectors.length }} Inspector · {{ roleBreakdown().analysts.length }} Analyst · {{ roleBreakdown().technicians.length }} Technician)
+          </span>
         </p>
         @if (!roleBreakdown().hasAllThree) {
           <span style="font-size: 11px; color: #dc2626; font-weight: 500;">
@@ -356,12 +359,11 @@
                 </div>
                 <button
                   type="button"
-                  class="evn-btn secondary"
-                  style="height: 22px; font-size: 10px; padding: 0 6px;"
+                  class="map-action-btn"
                   (click)="refreshMap()"
                   title="Căn chỉnh lại khung nhìn bản đồ"
                 >
-                  <span nz-icon nzType="sync"></span> Căn chỉnh
+                  Căn chỉnh
                 </button>
                 <span style="font-size: 10px; color: #64748b;">{{ a.scopeAssetIds.length }} cột điện</span>
               </div>
@@ -512,12 +514,11 @@
                 </div>
                 <button
                   type="button"
-                  class="evn-btn secondary"
-                  style="height: 22px; font-size: 10px; padding: 0 6px;"
+                  class="map-action-btn"
                   (click)="refreshMap()"
                   title="Căn chỉnh lại khung nhìn bản đồ"
                 >
-                  <span nz-icon nzType="sync"></span> Căn chỉnh
+                  Căn chỉnh
                 </button>
                 <span style="font-size: 10px; color: #64748b;">{{ a.scopeAssetIds.length }} cột điện · Bán kính an toàn</span>
               </div>
@@ -1078,7 +1079,7 @@
             class="evn-btn secondary"
             style="color: #dc2626;"
             [disabled]="busy()"
-            (click)="cancelAssessment()"
+            (click)="openCancelModal()"
           >
             Hủy đánh giá
           </button>
@@ -1129,4 +1130,57 @@
       </header>
     </div>
   }
+
+  <!-- Cancel Assessment Confirmation Modal -->
+  @if (showCancelModal() && item(); as a) {
+    <div class="evn-modal-backdrop" (click)="closeCancelModal()" role="dialog" aria-modal="true" aria-labelledby="cancelModalTitle">
+      <div class="evn-modal-dialog" (click)="$event.stopPropagation()">
+        <div class="evn-modal-header">
+          <div class="modal-title-group">
+            <span nz-icon nzType="warning" class="modal-icon-danger"></span>
+            <h3 id="cancelModalTitle">Xác nhận hủy đánh giá tiền nhiệm vụ</h3>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeCancelModal()" [disabled]="busy()" aria-label="Đóng">✕</button>
+        </div>
+
+        <div class="evn-modal-body">
+          <div class="modal-alert-box">
+            Bản đánh giá <strong>{{ a.assessmentCode }}</strong> sẽ chuyển sang trạng thái <strong>CANCELLED</strong>. Thao tác này không thể hoàn tác và hồ sơ sẽ bị hủy bỏ.
+          </div>
+          <div class="modal-desc">
+            <span>Khu vực: <strong>{{ a.regionName }}</strong></span>
+            <span style="margin: 0 6px; color: #94a3b8;">|</span>
+            <span>Tuyến: <strong>{{ a.lineName || "Theo khảo sát" }}</strong> ({{ a.assetCount }} vị trí cột)</span>
+          </div>
+
+          <div class="form-group-modal">
+            <label for="cancelAssessmentReasonInput">Lý do hủy bản đánh giá (tùy chọn):</label>
+            <textarea
+              id="cancelAssessmentReasonInput"
+              placeholder="Ví dụ: Thay đổi kế hoạch bay, điều kiện thời tiết không đảm bảo, nhập sai thông số..."
+              [value]="cancelReason()"
+              (input)="cancelReason.set($any($event.target).value)"
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeCancelModal()" [disabled]="busy()">
+            Giữ lại bản đánh giá
+          </button>
+          <button
+            type="button"
+            class="evn-btn danger"
+            (click)="executeCancel()"
+            [disabled]="busy()"
+          >
+            <span nz-icon [nzType]="busy() ? 'loading' : 'delete'"></span>
+            Xác nhận hủy đánh giá
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
 </div>

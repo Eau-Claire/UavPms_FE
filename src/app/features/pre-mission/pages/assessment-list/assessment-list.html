@@ -209,21 +209,23 @@
                       >
                         Mở
                       </a>
-                      <button
-                        type="button"
-                        class="evn-btn secondary"
-                        style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
-                        [disabled]="actionBusyId() === item.id"
-                        (click)="reevaluateItem(item, $event)"
-                        title="Đánh giá lại sẵn sàng"
-                      >
-                        @if (actionBusyId() === item.id) {
-                          <span nz-icon nzType="loading"></span>
-                        } @else {
-                          <span nz-icon nzType="reload"></span>
-                        }
-                      </button>
-                      @if (item.status !== 'COMPLETED' && item.status !== 'CONSUMED' && item.status !== 'CANCELLED') {
+                      @if (item.status !== 'COMPLETED' && item.status !== 'CONSUMED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                        <button
+                          type="button"
+                          class="evn-btn secondary"
+                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
+                          [disabled]="actionBusyId() === item.id"
+                          (click)="reevaluateItem(item, $event)"
+                          title="Đánh giá lại sẵn sàng"
+                        >
+                          @if (actionBusyId() === item.id) {
+                            <span nz-icon nzType="loading"></span>
+                          } @else {
+                            <span nz-icon nzType="reload"></span>
+                          }
+                        </button>
+                      }
+                      @if (item.status !== 'COMPLETED' && item.status !== 'CONSUMED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"
@@ -278,4 +280,57 @@
         </div>
       </footer>
     </section>
-  </div>
+  
+  <!-- Cancel Assessment Confirmation Modal -->
+  @if (itemToCancel(); as targetItem) {
+    <div class="evn-modal-backdrop" (click)="closeCancelModal()" role="dialog" aria-modal="true" aria-labelledby="cancelListModalTitle">
+      <div class="evn-modal-dialog" (click)="$event.stopPropagation()">
+        <div class="evn-modal-header">
+          <div class="modal-title-group">
+            <span nz-icon nzType="warning" class="modal-icon-danger"></span>
+            <h3 id="cancelListModalTitle">Xác nhận hủy đánh giá tiền nhiệm vụ</h3>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeCancelModal()" [disabled]="actionBusyId() === targetItem.id" aria-label="Đóng">✕</button>
+        </div>
+
+        <div class="evn-modal-body">
+          <div class="modal-alert-box">
+            Bản đánh giá <strong>{{ targetItem.assessmentCode }}</strong> sẽ chuyển sang trạng thái <strong>CANCELLED</strong>. Thao tác này không thể hoàn tác và hồ sơ sẽ bị hủy bỏ.
+          </div>
+          <div class="modal-desc">
+            <span>Khu vực: <strong>{{ targetItem.regionName }}</strong></span>
+            <span style="margin: 0 6px; color: #94a3b8;">|</span>
+            <span>Tuyến: <strong>{{ targetItem.lineName || "Theo danh mục khảo sát" }}</strong> ({{ targetItem.assetCount }} vị trí cột)</span>
+          </div>
+
+          <div class="form-group-modal">
+            <label for="cancelListReasonInput">Lý do hủy bản đánh giá (tùy chọn):</label>
+            <textarea
+              id="cancelListReasonInput"
+              placeholder="Ví dụ: Thay đổi kế hoạch bay, điều kiện thời tiết xấu, nhập sai thông số..."
+              [value]="cancelReason()"
+              (input)="cancelReason.set($any($event.target).value)"
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeCancelModal()" [disabled]="actionBusyId() === targetItem.id">
+            Giữ lại bản đánh giá
+          </button>
+          <button
+            type="button"
+            class="evn-btn danger"
+            (click)="executeCancel()"
+            [disabled]="actionBusyId() === targetItem.id"
+          >
+            <span nz-icon [nzType]="actionBusyId() === targetItem.id ? 'loading' : 'delete'"></span>
+            Xác nhận hủy đánh giá
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>

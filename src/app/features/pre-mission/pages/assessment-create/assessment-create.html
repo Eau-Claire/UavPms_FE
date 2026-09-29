@@ -10,9 +10,12 @@
       <h1>Khởi tạo đánh giá tiền nhiệm vụ</h1>
       <p>Xác lập phạm vi và khung giờ dự kiến để hệ thống kiểm tra mặt bằng, nhân sự và thiết bị bay</p>
     </div>
-    <div class="head-actions">
+    <div class="head-actions" style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" class="evn-btn secondary" (click)="resetForm()" title="Xóa dữ liệu để tạo mới từ đầu">
+        <span nz-icon nzType="redo"></span> Làm mới biểu mẫu
+      </button>
       <a class="evn-btn secondary" routerLink="/pre-mission">
-        <span nz-icon nzType="arrow-left"></span>Quay lại danh sách
+        <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
       </a>
     </div>
   </header>
