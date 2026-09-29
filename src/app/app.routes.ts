@@ -36,6 +36,7 @@ export const routes: Routes = [
       { path: 'audit-logs', redirectTo: 'system/audit-logs' },
       { path: 'missions/create', pathMatch: 'full', redirectTo: 'missions/new' },
       { path: 'pre-mission', loadComponent: () => import('./features/pre-mission/pages/assessment-list/assessment-list').then((m) => m.AssessmentList), title: 'Đánh giá tiền bay | UAV-PMS' },
+      { path: 'pre-mission/create', pathMatch: 'full', redirectTo: 'pre-mission/new' },
       { path: 'pre-mission/new', canActivate: [roleGuard(['Admin', 'Manager'])], loadComponent: () => import('./features/pre-mission/pages/assessment-create/assessment-create').then((m) => m.AssessmentCreate), title: 'Tạo đánh giá | UAV-PMS' },
       { path: 'pre-mission/:id', loadComponent: () => import('./features/pre-mission/pages/assessment-workspace/assessment-workspace').then((m) => m.AssessmentWorkspace), title: 'Không gian đánh giá | UAV-PMS' },
       { path: 'missions/new', canActivate: [roleGuard(['Admin', 'Manager'])], loadComponent: () => import('./features/missions/pages/mission-create/mission-create').then((m) => m.MissionCreate), title: 'Tạo nhiệm vụ | UAV-PMS' },

@@ -680,7 +680,7 @@ export class MissionDetail {
     tileLayer.on('tileerror', () => {
       if (!hasFallenBack) {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
       }
     });
 

@@ -457,10 +457,10 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
         attribution = '© Google Maps Vệ Tinh | UAV-PMS MF02';
         break;
       case 'carto':
-        tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
         subdomains = ['a', 'b', 'c', 'd'];
         maxZoom = 19;
-        attribution = '© CARTO · OpenStreetMap | EVN UAV-PMS';
+        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
         break;
       case 'google-streets':
       default:
@@ -482,7 +482,7 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     tileLayer.on('tileerror', () => {
       if (!hasFallenBack) {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
       }
     });
 
