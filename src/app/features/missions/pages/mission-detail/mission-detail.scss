@@ -4629,3 +4629,96 @@
 }
 
 
+
+.emergency-live-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%);
+  color: #ffffff;
+  padding: 14px 20px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+  animation: banner-siren-pulse 2s infinite ease-in-out;
+  border: 1px solid #ef4444;
+
+  .emergency-banner-icon {
+    font-size: 26px;
+    line-height: 1;
+    animation: icon-shake 1s infinite alternate;
+  }
+
+  .emergency-banner-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .emergency-banner-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #fef2f2;
+    }
+
+    .emergency-banner-msg {
+      font-size: 13px;
+      color: #fecaca;
+    }
+  }
+
+  .emergency-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .emergency-btn-review {
+      background: #ffffff;
+      color: #991b1b;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+
+      &:hover {
+        background: #fef2f2;
+      }
+    }
+
+    .emergency-btn-dismiss {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    }
+  }
+}
+
+@keyframes banner-siren-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.5);
+  }
+}
+
+@keyframes icon-shake {
+  0% { transform: rotate(-8deg) scale(1); }
+  100% { transform: rotate(8deg) scale(1.15); }
+}

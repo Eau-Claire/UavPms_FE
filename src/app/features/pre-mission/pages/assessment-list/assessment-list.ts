@@ -1,5 +1,7 @@
+import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { Subscription } from 'rxjs';
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
@@ -14,9 +16,11 @@ import { PreMissionApi } from '../../data-access/pre-mission-api';
   styleUrl: './assessment-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AssessmentList {
+export class AssessmentList implements OnDestroy {
   private readonly api = inject(PreMissionApi);
   private readonly gisApi = inject(GisApi);
+  private readonly realtime = inject(NotificationsRealtime);
+  private realtimeSub: Subscription | null = null;
 
   protected readonly loading = signal(true);
   protected readonly actionBusyId = signal<string | null>(null);
@@ -122,7 +126,102 @@ export class AssessmentList {
   constructor() {
     this.loadRegions();
     this.loadLines('');
+    this.realtime.connect();
+    this.realtime.joinAssessmentsList();
+    this.initRealtimeSubscription();
     this.load();
+  }
+
+  ngOnDestroy(): void {
+    this.realtime.leaveAssessmentsList();
+    this.realtimeSub?.unsubscribe();
+  }
+
+  private initRealtimeSubscription(): void {
+    this.realtimeSub = this.realtime.assessmentEvents$.subscribe((evt) => {
+      switch (evt.type) {
+        case 'AssessmentStatusChanged': {
+          if (evt.assessmentId) {
+            this.items.update((list) =>
+              list.map((item) => {
+                if (item.id === evt.assessmentId) {
+                  return {
+                    ...item,
+                    status: (evt.status as any) || item.status,
+                    technical: evt.technicalHealth ? { ...item.technical, status: evt.technicalHealth } : item.technical,
+                  };
+                }
+                return item;
+              })
+            );
+          }
+          break;
+        }
+
+        case 'DroneInspectionCompleted': {
+          const isPass = (evt.status || '').toUpperCase() === 'PASS';
+          this.items.update((list) =>
+            list.map((item) => {
+              const matchesDrone = evt.droneId && item.uavCandidates?.some((u) => u.id === evt.droneId);
+              const matchesAssessment = evt.assessmentId && item.id === evt.assessmentId;
+              if (matchesDrone || matchesAssessment) {
+                return {
+                  ...item,
+                  technical: {
+                    ...item.technical,
+                    status: isPass ? 'PASS' : 'FAIL',
+                    reason: isPass ? 'Kiểm định kỹ thuật UAV đạt tiêu chuẩn.' : 'Kiểm định kỹ thuật UAV không đạt tiêu chuẩn.',
+                  },
+                };
+              }
+              return item;
+            })
+          );
+          break;
+        }
+
+        case 'AssessmentCompleted': {
+          if (evt.assessmentId) {
+            this.items.update((list) =>
+              list.map((item) => {
+                if (item.id === evt.assessmentId) {
+                  return {
+                    ...item,
+                    status: 'COMPLETED',
+                    consumedMissionId: evt.consumedMissionId || item.consumedMissionId,
+                    consumedMissionCode: evt.consumedMissionCode || item.consumedMissionCode,
+                  };
+                }
+                return item;
+              })
+            );
+          }
+          break;
+        }
+
+        case 'MeteoAlertTriggered': {
+          if (evt.assessmentId) {
+            this.items.update((list) =>
+              list.map((item) => {
+                if (item.id === evt.assessmentId) {
+                  return {
+                    ...item,
+                    status: 'NOT_READY',
+                    site: {
+                      ...item.site,
+                      status: 'FAIL',
+                      reason: evt.message || 'Cảnh báo khí tượng: Sức gió vượt ngưỡng an toàn.',
+                    },
+                  };
+                }
+                return item;
+              })
+            );
+          }
+          break;
+        }
+      }
+    });
   }
 
   private loadRegions(): void {
@@ -233,6 +332,14 @@ export class AssessmentList {
       next: (updated) => {
         this.items.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
         this.successMessage.set(`Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`);
+        this.realtime.broadcastAssessmentEvent({
+          assessmentId: updated.id,
+          type: 'AssessmentStatusChanged',
+          status: updated.status,
+          technicalHealth: updated.technical?.status,
+          message: `Đã đánh giá lại thành công cho mã ${item.assessmentCode}: ${updated.status}`,
+          timestamp: new Date().toISOString(),
+        });
         this.actionBusyId.set(null);
       },
       error: (err) => {

@@ -1,3 +1,5 @@
+import { NotificationsRealtime, AssessmentRealtimeEvent } from '../../../notifications/data-access/notifications-realtime';
+import { Subscription } from 'rxjs';
 import { DatePipe, Location } from '@angular/common';
 import {
   AfterViewInit,
@@ -41,6 +43,8 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly location = inject(Location);
   private readonly gisApi = inject(GisApi);
+  private readonly realtime = inject(NotificationsRealtime);
+  private realtimeSub: Subscription | null = null;
   protected readonly availableTowers = signal<readonly GisTower[]>([]);
 
   protected readonly scopeMapContainer = viewChild<ElementRef<HTMLDivElement>>('scopeMapContainer');
@@ -349,7 +353,114 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    const a = this.item();
+    if (a?.id) {
+      this.realtime.leaveAssessment(a.id);
+    }
+    this.realtimeSub?.unsubscribe();
     this.cleanupMap();
+  }
+
+  private initRealtimeSubscription(): void {
+    this.realtimeSub = this.realtime.assessmentEvents$.subscribe((evt) => {
+      const current = this.item();
+      if (!current) return;
+      if (evt.assessmentId && evt.assessmentId !== current.id) {
+        return;
+      }
+
+      switch (evt.type) {
+        case 'DroneInspectionCompleted': {
+          const isPass = (evt.status || '').toUpperCase() === 'PASS';
+          if (isPass) {
+            this.item.update((curr) => {
+              if (!curr) return curr;
+              return {
+                ...curr,
+                technical: {
+                  ...curr.technical,
+                  status: 'PASS',
+                  reason: 'Kiểm định kỹ thuật UAV đạt tiêu chuẩn (BIST/Telemetry Passed).',
+                },
+              };
+            });
+            const droneId = evt.droneId || this.selectedDroneId();
+            if (droneId) {
+              this.loadLatestInspection(droneId);
+            }
+            this.api.reEvaluate(current.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                this.actionMessage.set(
+                  `Kỹ thuật viên vừa hoàn tất chẩn đoán UAV ${evt.droneCode || ''}: ĐẠT. Trụ cột Kỹ thuật đã chuyển sang PASS, sẵn sàng tạo nhiệm vụ MF02.`
+                );
+              },
+            });
+          } else {
+            this.item.update((curr) => {
+              if (!curr) return curr;
+              return {
+                ...curr,
+                technical: {
+                  ...curr.technical,
+                  status: 'FAIL',
+                  reason: evt.message || 'Kiểm định kỹ thuật UAV không đạt tiêu chuẩn.',
+                },
+              };
+            });
+            this.error.set(`Cảnh báo: Kiểm định kỹ thuật UAV ${evt.droneCode || ''} KHÔNG ĐẠT. Trụ cột kỹ thuật đã bị khóa.`);
+          }
+          break;
+        }
+
+        case 'AssessmentStatusChanged': {
+          if (evt.status) {
+            this.api.get(current.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                this.actionMessage.set(evt.message || `Trạng thái thẩm định vừa cập nhật: ${evt.status}`);
+              },
+            });
+          }
+          break;
+        }
+
+        case 'AssessmentCompleted': {
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            return {
+              ...curr,
+              status: 'COMPLETED',
+              consumedMissionId: evt.consumedMissionId || curr.consumedMissionId,
+              consumedMissionCode: evt.consumedMissionCode || curr.consumedMissionCode,
+            };
+          });
+          const mCode = evt.consumedMissionCode || evt.consumedMissionId || '';
+          this.actionMessage.set(`Bản thẩm định đã được tạo nhiệm vụ thành công: #${mCode}.`);
+          break;
+        }
+
+        case 'MeteoAlertTriggered': {
+          const wind = evt.windSpeed ?? 10.5;
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            return {
+              ...curr,
+              status: 'NOT_READY',
+              site: {
+                ...curr.site,
+                status: 'FAIL',
+                reason: evt.message || `Cảnh báo khí tượng: Sức gió bề mặt ${wind} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+              },
+            };
+          });
+          this.error.set(
+            evt.message || `CẢNH BÁO KHÍ TƯỢNG: Sức gió bề mặt ${wind} m/s vượt ngưỡng an toàn (> 10.0 m/s). Nút Tạo nhiệm vụ đã tự động khóa lại.`
+          );
+          break;
+        }
+      }
+    });
   }
 
   protected load(): void {
@@ -364,6 +475,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.api.get(id).subscribe({
       next: (res) => {
         this.item.set(res);
+        this.realtime.joinAssessment(res.id);
         if (res.uavCandidates.length > 0 && !this.selectedDroneId()) {
           this.selectedDroneId.set(res.uavCandidates[0].id || res.uavCandidates[0].code);
         }
@@ -430,6 +542,32 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         const alt = Number(geom['maxFlightAltitudeMeters'] ?? 120);
         const updatedChecks = defaultSiteChecks(weather.isSafeToFly, buf, alt, weather);
         this.item.update((curr) => (curr ? { ...curr, siteChecks: updatedChecks } : curr));
+
+        if (weather.windSpeed > 10.0 || (weather.windGust && weather.windGust > 10.0)) {
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            return {
+              ...curr,
+              status: 'NOT_READY',
+              site: {
+                ...curr.site,
+                status: 'FAIL',
+                reason: `Cảnh báo khí tượng: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+              },
+            };
+          });
+          this.error.set(`CẢNH BÁO KHÍ TƯỢNG: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (> 10.0 m/s). Nút Tạo nhiệm vụ đã tự động khóa.`);
+          this.realtime.broadcastAssessmentEvent({
+            assessmentId: a.id,
+            type: 'MeteoAlertTriggered',
+            status: 'FAIL',
+            windSpeed: weather.windSpeed,
+            windGust: weather.windGust,
+            isMeteoSafe: false,
+            message: `Cảnh báo khí tượng: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+            timestamp: new Date().toISOString(),
+          });
+        }
       },
       error: () => {
         this.loadingWeather.set(false);
@@ -449,6 +587,14 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       next: (updated) => {
         this.item.set(updated);
         this.actionMessage.set('Đã hoàn tất đánh giá lại tính khả thi và tài nguyên.');
+        this.realtime.broadcastAssessmentEvent({
+          assessmentId: updated.id,
+          type: 'AssessmentStatusChanged',
+          status: updated.status,
+          technicalHealth: updated.technical?.status,
+          message: `Quản lý đã kích hoạt đánh giá lại: ${updated.status}`,
+          timestamp: new Date().toISOString(),
+        });
       },
       error: (err) => {
         if (err?.status === 409) {
@@ -562,7 +708,19 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
         // If inspection passes, trigger re-evaluation to update assessment overall status
         const a = this.item();
-        if (a && res.overallHealth === 'HEALTHY') {
+        const isPass = res.overallHealth === 'HEALTHY';
+        this.realtime.broadcastAssessmentEvent({
+          assessmentId: a?.id || '',
+          type: 'DroneInspectionCompleted',
+          status: isPass ? 'PASS' : 'FAIL',
+          droneId: res.droneId,
+          droneCode: res.droneCode,
+          technicalHealth: res.overallHealth,
+          technicalStatus: isPass ? 'Passed' : 'Failed',
+          message: `Kỹ thuật viên vừa hoàn tất chẩn đoán kỹ thuật UAV ${res.droneCode}: ${isPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}.`,
+          timestamp: new Date().toISOString(),
+        });
+        if (a && isPass) {
           this.api.reEvaluate(a.id).subscribe({
             next: (updated) => this.item.set(updated),
           });

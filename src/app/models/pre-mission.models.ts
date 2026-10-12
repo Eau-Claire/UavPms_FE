@@ -107,6 +107,7 @@ export interface PreMissionAssessment {
   readonly createdBy?: string | null;
   readonly updatedAt?: string | null;
   readonly consumedMissionId?: string | null;
+  readonly consumedMissionCode?: string | null;
   readonly personnelCandidates: readonly PersonnelCandidate[];
   readonly uavCandidates: readonly UavCandidate[];
   readonly technicalMetrics: readonly TechnicalMetric[];

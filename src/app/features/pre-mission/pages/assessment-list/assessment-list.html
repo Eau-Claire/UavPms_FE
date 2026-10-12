@@ -145,10 +145,11 @@
                     <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
                       {{ item.assessmentCode }}
                     </a>
-                    @if (item.consumedMissionId) {
+                    @if (item.consumedMissionId || item.consumedMissionCode) {
                       <div style="margin-top: 2px;">
-                        <a [routerLink]="['/missions', item.consumedMissionId]" style="font-size: 10px; font-weight: 600; color: #005bac; text-decoration: underline;" title="Xem nhiệm vụ bay đã tạo">
-                          #{{ item.consumedMissionId }}
+                        <a [routerLink]="['/missions', item.consumedMissionId || item.consumedMissionCode]" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; color: #1d4ed8; text-decoration: none;" title="Xem nhiệm vụ bay đã tạo">
+                          <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span>
+                          #{{ item.consumedMissionCode || item.consumedMissionId }}
                         </a>
                       </div>
                     }

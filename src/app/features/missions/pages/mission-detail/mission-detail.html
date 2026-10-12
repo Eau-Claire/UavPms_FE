@@ -6,6 +6,25 @@
   } @else if (error()) {
     <div class="mission-live-empty" role="alert">{{ error() }} <a routerLink="/missions">Quay lại danh sách</a></div>
   } @else if (mission(); as mission) {
+    @if (activeEmergency(); as em) {
+      <div class="emergency-live-banner" role="alert">
+        <div class="emergency-banner-icon">
+          <span class="emergency-siren-animation" aria-hidden="true">🚨</span>
+        </div>
+        <div class="emergency-banner-content">
+          <strong class="emergency-banner-title">CẢNH BÁO SỰ CỐ KHẨN CẤP: {{ em.title }}</strong>
+          <span class="emergency-banner-msg">{{ em.message }}</span>
+        </div>
+        <div class="emergency-banner-actions">
+          <a routerLink="/emergency-alerts" class="emergency-btn-review">
+            Trung tâm Sự cố &rarr;
+          </a>
+          <button type="button" class="emergency-btn-dismiss" (click)="dismissEmergency()">
+            Tắt còi & Đóng
+          </button>
+        </div>
+      </div>
+    }
     <header class="mission-live-header">
       <div class="header-main-info">
         <div class="header-title-row">

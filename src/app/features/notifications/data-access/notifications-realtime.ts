@@ -38,7 +38,12 @@ export type MissionLifecycleEventType =
   | 'COMMUNICATION'
   | 'STARTED'
   | 'COMPLETED'
-  | 'OVERDUE';
+  | 'OVERDUE'
+  | 'DETECTION_REVIEWED'
+  | 'MEDIA_UPLOADED'
+  | 'MAINTENANCE_TASK_CREATED'
+  | 'MAINTENANCE_TASK_STATUS_CHANGED'
+  | 'EMERGENCY_ALERT';
 
 export interface MissionLifecycleRealtimeEvent {
   readonly missionId: string;
@@ -58,9 +63,41 @@ export interface MissionLifecycleRealtimeEvent {
   readonly reason?: string;
   readonly message?: string;
   readonly log?: MissionCommunicationLog;
+  readonly detectionId?: string;
+  readonly newHealthScore?: number;
+  readonly taskId?: string;
   readonly timestamp: string;
 }
 
+
+export type AssessmentRealtimeEventType =
+  | 'AssessmentStatusChanged'
+  | 'DroneInspectionCompleted'
+  | 'AssessmentCompleted'
+  | 'MeteoAlertTriggered'
+  | string;
+
+export interface AssessmentRealtimeEvent {
+  readonly assessmentId: string;
+  readonly type: AssessmentRealtimeEventType;
+  readonly status?: string;
+  readonly droneId?: string;
+  readonly droneCode?: string;
+  readonly technicalHealth?: string;
+  readonly technicalStatus?: string;
+  readonly consumedMissionId?: string;
+  readonly consumedMissionCode?: string;
+  readonly windSpeed?: number;
+  readonly windGust?: number;
+  readonly isMeteoSafe?: boolean;
+  readonly message?: string;
+  readonly actorId?: string;
+  readonly actorName?: string;
+  readonly actorRole?: string;
+  readonly timestamp: string;
+}
+
+const MF01_ASSESSMENT_CHANNEL = 'uavpms_mf01_assessment_bus';
 const MF02_BROADCAST_CHANNEL = 'uavpms_mf02_realtime_bus';
 
 @Injectable({
@@ -72,16 +109,21 @@ export class NotificationsRealtime {
   private readonly notificationSubject = new Subject<AppNotification>();
   private readonly aiAnalysisStatusSubject = new Subject<AiAnalysisStatusChangedEvent>();
   private readonly missionEventsSubject = new Subject<MissionLifecycleRealtimeEvent>();
+  private readonly assessmentEventsSubject = new Subject<AssessmentRealtimeEvent>();
   private readonly statusSubject = new Subject<'connected' | 'disconnected' | 'reconnecting'>();
 
   private connection: HubConnection | null = null;
   private starting: Promise<void> | null = null;
   private broadcastChannel: BroadcastChannel | null = null;
+  private assessmentBroadcastChannel: BroadcastChannel | null = null;
   private readonly activeMissionGroups = new Set<string>();
+  private readonly activeAssessmentGroups = new Set<string>();
+  private isInAssessmentsListGroup = false;
 
   readonly notifications$ = this.notificationSubject.asObservable();
   readonly aiAnalysisStatus$ = this.aiAnalysisStatusSubject.asObservable();
   readonly missionEvents$ = this.missionEventsSubject.asObservable();
+  readonly assessmentEvents$ = this.assessmentEventsSubject.asObservable();
   readonly status$ = this.statusSubject.asObservable();
 
   constructor() {
@@ -95,6 +137,17 @@ export class NotificationsRealtime {
       this.broadcastChannel.onmessage = (event: MessageEvent<MissionLifecycleRealtimeEvent>) => {
         if (event.data && event.data.missionId && event.data.type) {
           this.zone.run(() => this.missionEventsSubject.next(event.data));
+        }
+      };
+    } catch {
+      // Ignore broadcast channel init failure
+    }
+
+    try {
+      this.assessmentBroadcastChannel = new BroadcastChannel(MF01_ASSESSMENT_CHANNEL);
+      this.assessmentBroadcastChannel.onmessage = (event: MessageEvent<AssessmentRealtimeEvent>) => {
+        if (event.data && event.data.type) {
+          this.zone.run(() => this.assessmentEventsSubject.next(event.data));
         }
       };
     } catch {
@@ -124,7 +177,60 @@ export class NotificationsRealtime {
     }
   }
 
-  broadcastMissionEvent(event: MissionLifecycleRealtimeEvent): void {
+
+  joinAssessment(assessmentId: string): void {
+    if (!assessmentId) return;
+    this.activeAssessmentGroups.add(assessmentId);
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+      this.connection.invoke('JoinAssessmentGroup', assessmentId).catch(() => {});
+      this.connection.invoke('JoinGroup', 'assessment_' + assessmentId).catch(() => {});
+    }
+  }
+
+  leaveAssessment(assessmentId: string): void {
+    if (!assessmentId) return;
+    this.activeAssessmentGroups.delete(assessmentId);
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+      this.connection.invoke('LeaveAssessmentGroup', assessmentId).catch(() => {});
+      this.connection.invoke('LeaveGroup', 'assessment_' + assessmentId).catch(() => {});
+    }
+  }
+
+  joinAssessmentsList(): void {
+    this.isInAssessmentsListGroup = true;
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+      this.connection.invoke('JoinAssessmentsListGroup').catch(() => {});
+      this.connection.invoke('JoinGroup', 'assessments').catch(() => {});
+    }
+  }
+
+  leaveAssessmentsList(): void {
+    this.isInAssessmentsListGroup = false;
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+      this.connection.invoke('LeaveAssessmentsListGroup').catch(() => {});
+      this.connection.invoke('LeaveGroup', 'assessments').catch(() => {});
+    }
+  }
+
+  broadcastAssessmentEvent(event: AssessmentRealtimeEvent): void {
+    // 1. Emit locally on current tab
+    this.zone.run(() => this.assessmentEventsSubject.next(event));
+
+    // 2. Broadcast cross-tab (instant sync)
+    try {
+      this.assessmentBroadcastChannel?.postMessage(event);
+    } catch {
+      // Ignore postMessage failure
+    }
+
+    // 3. Emit via SignalR Hub WebSocket
+    if (this.connection && this.connection.state === HubConnectionState.Connected) {
+      this.connection.send('SendAssessmentEvent', event).catch(() => {});
+      this.connection.send('BroadcastAssessmentEvent', event).catch(() => {});
+    }
+  }
+
+    broadcastMissionEvent(event: MissionLifecycleRealtimeEvent): void {
     // 1. Emit locally on current tab
     this.zone.run(() => this.missionEventsSubject.next(event));
 
@@ -155,6 +261,12 @@ export class NotificationsRealtime {
           for (const mId of this.activeMissionGroups) {
             this.joinMission(mId);
           }
+          for (const aId of this.activeAssessmentGroups) {
+            this.joinAssessment(aId);
+          }
+          if (this.isInAssessmentsListGroup) {
+            this.joinAssessmentsList();
+          }
         });
       })
       .catch(() => this.zone.run(() => this.statusSubject.next('disconnected')))
@@ -171,6 +283,10 @@ export class NotificationsRealtime {
     if (this.broadcastChannel) {
       this.broadcastChannel.close();
       this.broadcastChannel = null;
+    }
+    if (this.assessmentBroadcastChannel) {
+      this.assessmentBroadcastChannel.close();
+      this.assessmentBroadcastChannel = null;
     }
   }
 
@@ -255,6 +371,28 @@ export class NotificationsRealtime {
     connection.on('MissionConfirmationOverdue', (payload: unknown) => emitLifecycle('OVERDUE', payload));
     connection.on('MissionUpdated', (payload: unknown) => emitLifecycle('CONFIRMED', payload));
     connection.on('ReceiveMissionUpdated', (payload: unknown) => emitLifecycle('CONFIRMED', payload));
+    connection.on('DetectionReviewed', (payload: unknown) => emitLifecycle('DETECTION_REVIEWED', payload));
+    connection.on('MissionMediaUploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('MaintenanceTaskCreated', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_CREATED', payload));
+    connection.on('MaintenanceTaskStatusChanged', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_STATUS_CHANGED', payload));
+    connection.on('EmergencyAlert', (payload: unknown) => emitLifecycle('EMERGENCY_ALERT', payload));
+    connection.on('EmergencyAlertTriggered', (payload: unknown) => emitLifecycle('EMERGENCY_ALERT', payload));
+
+    // MF01 Pre-Mission Assessment Real-time handlers
+    const emitAssessment = (defaultType: AssessmentRealtimeEventType, payload: unknown) => {
+      const parsed = normalizeAssessmentRealtimeEvent(defaultType, payload);
+      this.zone.run(() => this.assessmentEventsSubject.next(parsed));
+    };
+
+    connection.on('AssessmentRealtimeEvent', (payload: unknown) => {
+      const data = record(payload);
+      const type = stringValue(pick(data, 'type', 'Type')) || 'AssessmentStatusChanged';
+      emitAssessment(type, payload);
+    });
+    connection.on('AssessmentStatusChanged', (payload: unknown) => emitAssessment('AssessmentStatusChanged', payload));
+    connection.on('DroneInspectionCompleted', (payload: unknown) => emitAssessment('DroneInspectionCompleted', payload));
+    connection.on('AssessmentCompleted', (payload: unknown) => emitAssessment('AssessmentCompleted', payload));
+    connection.on('MeteoAlertTriggered', (payload: unknown) => emitAssessment('MeteoAlertTriggered', payload));
 
     connection.onreconnecting(() => this.zone.run(() => this.statusSubject.next('reconnecting')));
     connection.onreconnected(() => {
@@ -348,6 +486,9 @@ function normalizeMissionLifecycleEvent(
   const totalRequiredCount = source['totalRequiredCount'] !== undefined ? Number(source['totalRequiredCount']) : (source['TotalRequiredCount'] !== undefined ? Number(source['TotalRequiredCount']) : undefined);
   const rawPending = pick(source, 'pendingRoles', 'PendingRoles');
   const pendingRoles = Array.isArray(rawPending) ? rawPending.map(String) : undefined;
+  const detectionId = stringValue(pick(source, 'detectionId', 'DetectionId', 'anomalyId', 'AnomalyId')) || undefined;
+  const newHealthScore = typeof source['newHealthScore'] === 'number' ? source['newHealthScore'] : (typeof source['NewAssetHealthScore'] === 'number' ? (source['NewAssetHealthScore'] as number) : undefined);
+  const taskId = stringValue(pick(source, 'taskId', 'TaskId', 'maintenanceTaskId', 'MaintenanceTaskId')) || undefined;
 
   return {
     missionId,
@@ -366,7 +507,39 @@ function normalizeMissionLifecycleEvent(
     reason,
     message,
     log,
+    detectionId,
+    newHealthScore,
+    taskId,
     timestamp,
     mission: source['mission'] && typeof source['mission'] === 'object' ? (source['mission'] as Partial<Mission>) : undefined,
+  };
+}
+
+function normalizeAssessmentRealtimeEvent(
+  defaultType: AssessmentRealtimeEventType,
+  payload: unknown
+): AssessmentRealtimeEvent {
+  const raw = record(payload);
+  const source = (raw['data'] && typeof raw['data'] === 'object') ? record(raw['data']) : raw;
+  const type = stringValue(pick(source, 'type', 'Type'), defaultType);
+  const assessmentId = stringValue(pick(source, 'assessmentId', 'AssessmentId', 'id', 'Id'));
+  return {
+    assessmentId,
+    type,
+    status: stringValue(pick(source, 'status', 'Status')) || undefined,
+    droneId: stringValue(pick(source, 'droneId', 'DroneId')) || undefined,
+    droneCode: stringValue(pick(source, 'droneCode', 'DroneCode')) || undefined,
+    technicalHealth: stringValue(pick(source, 'technicalHealth', 'TechnicalHealth')) || undefined,
+    technicalStatus: stringValue(pick(source, 'technicalStatus', 'TechnicalStatus')) || undefined,
+    consumedMissionId: stringValue(pick(source, 'consumedMissionId', 'ConsumedMissionId')) || undefined,
+    consumedMissionCode: stringValue(pick(source, 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
+    windSpeed: source['windSpeed'] !== undefined ? Number(source['windSpeed']) : (source['WindSpeed'] !== undefined ? Number(source['WindSpeed']) : undefined),
+    windGust: source['windGust'] !== undefined ? Number(source['windGust']) : (source['WindGust'] !== undefined ? Number(source['WindGust']) : undefined),
+    isMeteoSafe: source['isMeteoSafe'] !== undefined ? Boolean(source['isMeteoSafe']) : (source['IsMeteoSafe'] !== undefined ? Boolean(source['IsMeteoSafe']) : undefined),
+    message: stringValue(pick(source, 'message', 'Message')) || undefined,
+    actorId: stringValue(pick(source, 'actorId', 'ActorId')) || undefined,
+    actorName: stringValue(pick(source, 'actorName', 'ActorName')) || undefined,
+    actorRole: stringValue(pick(source, 'actorRole', 'ActorRole')) || undefined,
+    timestamp: stringValue(pick(source, 'timestamp', 'Timestamp'), new Date().toISOString()),
   };
 }

@@ -123,8 +123,8 @@
         <span nz-icon nzType="check-circle"></span>
         <span>
           Đánh giá này đã hoàn thành và được sử dụng để khởi tạo nhiệm vụ kiểm tra
-          @if (a.consumedMissionId) {
-            <a [routerLink]="['/missions', a.consumedMissionId]" style="font-weight: bold; text-decoration: underline; margin-left: 4px;">#{{ a.consumedMissionId }}</a>
+          @if (a.consumedMissionId || a.consumedMissionCode) {
+            <a [routerLink]="['/missions', a.consumedMissionId || a.consumedMissionCode]" style="font-weight: bold; text-decoration: underline; margin-left: 4px;">#{{ a.consumedMissionCode || a.consumedMissionId }}</a>
           }.
         </span>
       </div>
@@ -305,9 +305,9 @@
             <div class="prop-item">
               <span class="prop-label">Nhiệm vụ đã tiêu thụ (MF02):</span>
               <span class="prop-value">
-                @if (a.consumedMissionId) {
-                  <a [routerLink]="['/missions', a.consumedMissionId]" class="evn-code">
-                    #{{ a.consumedMissionId }} (Đã gán nhiệm vụ)
+                @if (a.consumedMissionId || a.consumedMissionCode) {
+                  <a [routerLink]="['/missions', a.consumedMissionId || a.consumedMissionCode]" class="evn-code">
+                    #{{ a.consumedMissionCode || a.consumedMissionId }} (Đã gán nhiệm vụ)
                   </a>
                 } @else {
                   <span style="color: #64748b;">Chưa tiêu thụ</span>
