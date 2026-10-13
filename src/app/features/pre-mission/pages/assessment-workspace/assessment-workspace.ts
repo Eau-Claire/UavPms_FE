@@ -25,6 +25,18 @@ import {
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { defaultSiteChecks, PreMissionApi, RealtimeWeatherSnapshot } from '../../data-access/pre-mission-api';
+import {
+  BetaflightSerialService,
+  SerialConnectionState,
+  SIMULATED_FC_PROFILES,
+  SimulatedFcProfile,
+} from '../../../../core/services/betaflight-serial.service';
+import { FlightControllerApi } from '../../data-access/flight-controller-api';
+import {
+  FlightControllerBinding,
+  FlightControllerMetadata,
+  FlightControllerResolveResult,
+} from '../../../../models/flight-controller.models';
 import { GisApi, GisTower } from '../../../gis/data-access/gis-api';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
@@ -44,6 +56,8 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly location = inject(Location);
   private readonly gisApi = inject(GisApi);
   private readonly realtime = inject(NotificationsRealtime);
+  private readonly fcSerial = inject(BetaflightSerialService);
+  private readonly fcApi = inject(FlightControllerApi);
   private realtimeSub: Subscription | null = null;
   protected readonly availableTowers = signal<readonly GisTower[]>([]);
 
@@ -74,6 +88,71 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly selectedDroneId = signal<string>('');
   protected readonly inspectionResult = signal<DroneTechnicalInspectionResult | null>(null);
   protected readonly inspecting = signal(false);
+
+  // Flight Controller (Betaflight MSP Hardware Identification & Pairing)
+  protected readonly fcMetadata = this.fcSerial.activeMetadata;
+  protected readonly fcConnectionState = this.fcSerial.connectionState;
+  protected readonly fcIsSimulated = this.fcSerial.isSimulated;
+  protected readonly fcError = this.fcSerial.errorMessage;
+  protected readonly simulatedProfiles = SIMULATED_FC_PROFILES;
+  protected readonly selectedSimProfile = signal<string>('f405-speedybee');
+  protected readonly customFcUidInput = signal<string>('');
+  protected readonly showCustomUidInput = signal<boolean>(false);
+  protected readonly resolvingFc = signal<boolean>(false);
+  protected readonly resolvedFcData = signal<FlightControllerResolveResult | null>(null);
+  protected readonly pairingFc = signal<boolean>(false);
+  protected readonly pairingError = signal<string>('');
+  protected readonly pairingSuccess = signal<string>('');
+  protected readonly pairTargetDroneId = signal<string>('');
+
+  protected readonly currentAssessmentDrone = computed(() => {
+    const a = this.item();
+    const selId = this.selectedDroneId();
+    if (!a || !a.uavCandidates?.length) return null;
+    return a.uavCandidates.find((d) => d.id === selId || d.code === selId) || a.uavCandidates[0];
+  });
+
+  protected readonly isFcConnected = computed(() => {
+    return this.fcConnectionState() === 'connected' && !!this.fcMetadata();
+  });
+
+  protected readonly isFcRegistered = computed(() => {
+    return this.isFcConnected() && this.resolvedFcData()?.registered === true;
+  });
+
+  protected readonly isFcUnregistered = computed(() => {
+    return this.isFcConnected() && this.resolvedFcData()?.registered === false;
+  });
+
+  protected readonly fcDrone = computed(() => {
+    return this.resolvedFcData()?.drone ?? null;
+  });
+
+  protected readonly isFcDroneMismatch = computed(() => {
+    if (!this.isFcConnected()) return false;
+    const res = this.resolvedFcData();
+    if (!res || !res.registered || !res.drone) return false;
+    const target = this.currentAssessmentDrone();
+    if (!target) return false;
+
+    const matched =
+      (res.drone.id && target.id && res.drone.id.toLowerCase() === target.id.toLowerCase()) ||
+      (res.drone.code && target.code && res.drone.code.toUpperCase() === target.code.toUpperCase());
+    return !matched;
+  });
+
+  protected readonly isFcMatchingAssessmentDrone = computed(() => {
+    if (!this.isFcConnected()) return false;
+    const res = this.resolvedFcData();
+    if (!res || !res.registered || !res.drone) return false;
+    const target = this.currentAssessmentDrone();
+    if (!target) return false;
+
+    return (
+      (res.drone.id && target.id && res.drone.id.toLowerCase() === target.id.toLowerCase()) ||
+      (res.drone.code && target.code && res.drone.code.toUpperCase() === target.code.toUpperCase())
+    );
+  });
 
   // Real-time weather observation
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
@@ -359,6 +438,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
     this.realtimeSub?.unsubscribe();
     this.cleanupMap();
+    this.fcSerial.disconnect().catch(() => {});
   }
 
   private initRealtimeSubscription(): void {
@@ -428,14 +508,18 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         case 'AssessmentCompleted': {
           this.item.update((curr) => {
             if (!curr) return curr;
+            const mid = evt.completedMissionId || evt.consumedMissionId || curr.completedMissionId || curr.consumedMissionId;
+            const mcode = evt.completedMissionCode || evt.consumedMissionCode || curr.completedMissionCode || curr.consumedMissionCode;
             return {
               ...curr,
               status: 'COMPLETED',
-              consumedMissionId: evt.consumedMissionId || curr.consumedMissionId,
-              consumedMissionCode: evt.consumedMissionCode || curr.consumedMissionCode,
+              consumedMissionId: mid,
+              consumedMissionCode: mcode,
+              completedMissionId: mid,
+              completedMissionCode: mcode,
             };
           });
-          const mCode = evt.consumedMissionCode || evt.consumedMissionId || '';
+          const mCode = evt.completedMissionCode || evt.consumedMissionCode || evt.completedMissionId || evt.consumedMissionId || '';
           this.actionMessage.set(`Bản thẩm định đã được tạo nhiệm vụ thành công: #${mCode}.`);
           break;
         }
@@ -694,43 +778,187 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
   }
 
+  protected async connectRealFc(): Promise<void> {
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+    this.resolvedFcData.set(null);
+    try {
+      const meta = await this.fcSerial.connectRealSerial();
+      this.resolveFc(meta.uid);
+    } catch {
+      // Error is set in serial service signal
+    }
+  }
+
+  protected async connectSimulatedFc(profileId?: string): Promise<void> {
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+    this.resolvedFcData.set(null);
+    try {
+      const target =
+        profileId ||
+        (this.showCustomUidInput() && this.customFcUidInput().trim()
+          ? this.customFcUidInput().trim()
+          : this.selectedSimProfile());
+      const meta = await this.fcSerial.connectSimulated(target);
+      this.resolveFc(meta.uid);
+    } catch {
+      // Error is set in serial service signal
+    }
+  }
+
+  protected async disconnectFc(): Promise<void> {
+    await this.fcSerial.disconnect();
+    this.resolvedFcData.set(null);
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+  }
+
+  protected resolveFc(uid: string): void {
+    if (!uid) return;
+    this.resolvingFc.set(true);
+    this.pairingError.set('');
+
+    this.fcApi.resolveDrone(uid).subscribe({
+      next: (res) => {
+        this.resolvedFcData.set(res);
+        this.resolvingFc.set(false);
+        const current = this.currentAssessmentDrone();
+        if (current) {
+          this.pairTargetDroneId.set(current.id || current.code);
+        }
+      },
+      error: (err) => {
+        this.resolvingFc.set(false);
+        if (err?.status === 404) {
+          this.resolvedFcData.set({
+            registered: false,
+            flightControllerUid: uid,
+            drone: null,
+            binding: null,
+          });
+        } else {
+          this.pairingError.set(
+            err?.error?.message || 'Không thể tra cứu thông tin Flight Controller từ máy chủ.'
+          );
+        }
+      },
+    });
+  }
+
+  protected pairFcToDrone(): void {
+    const meta = this.fcMetadata();
+    if (!meta || !meta.uid) {
+      this.pairingError.set('Chưa có thông tin Flight Controller kết nối.');
+      return;
+    }
+
+    const targetDroneId = this.pairTargetDroneId() || this.currentAssessmentDrone()?.id;
+    if (!targetDroneId) {
+      this.pairingError.set('Vui lòng chọn UAV để ghép nối.');
+      return;
+    }
+
+    this.pairingFc.set(true);
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+
+    this.fcApi
+      .pairFlightController(targetDroneId, {
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier,
+        firmwareName: meta.firmwareName,
+        firmwareVersion: meta.firmwareVersion,
+      })
+      .subscribe({
+        next: () => {
+          this.pairingFc.set(false);
+          this.pairingSuccess.set(`Đã ghép nối thành công Flight Controller [${meta.uid}] với Drone!`);
+          this.resolveFc(meta.uid);
+        },
+        error: (err) => {
+          this.pairingFc.set(false);
+          const msg =
+            err?.error?.message ||
+            err?.error?.detail ||
+            err?.message ||
+            'Lỗi khi thực hiện ghép nối Flight Controller.';
+          this.pairingError.set(msg);
+        },
+      });
+  }
+
   protected runInspectionNow(): void {
-    const droneId = this.selectedDroneId() || (this.item()?.uavCandidates[0]?.id ?? 'UAV-01');
+    const drone = this.currentAssessmentDrone();
+    const droneId = drone?.id || this.selectedDroneId() || (this.item()?.uavCandidates[0]?.id ?? 'UAV-01');
+
+    // BR-05 Check: If FC is connected, prevent submit if mismatched
+    if (this.isFcConnected()) {
+      if (this.isFcDroneMismatch()) {
+        const fcDroneCode = this.fcDrone()?.code || 'UAV-Khác';
+        const targetCode = drone?.code || droneId;
+        this.error.set(
+          `CẢNH BÁO LỆCH THIẾT BỊ (BR-05): Flight Controller kết nối thuộc về ${fcDroneCode}, nhưng đợt thẩm định yêu cầu ${targetCode}. Không được phép gửi kiểm định cho sai UAV.`
+        );
+        return;
+      }
+      if (this.isFcUnregistered()) {
+        this.error.set(
+          'Flight Controller chưa được đăng ký trong hệ thống. Vui lòng thực hiện ghép nối trước khi gửi biên bản kiểm định.'
+        );
+        return;
+      }
+    }
+
     this.inspecting.set(true);
     this.actionMessage.set('');
     this.error.set('');
 
-    this.api.runTechnicalInspection(droneId).subscribe({
-      next: (res) => {
-        this.inspectionResult.set(res);
-        this.inspecting.set(false);
-        this.actionMessage.set(`Đã hoàn tất kiểm định kỹ thuật cho thiết bị ${res.droneCode}. Kết quả: ${res.overallHealth}.`);
+    const fcUid = this.fcMetadata()?.uid;
+    const a = this.item();
 
-        // If inspection passes, trigger re-evaluation to update assessment overall status
-        const a = this.item();
-        const isPass = res.overallHealth === 'HEALTHY';
-        this.realtime.broadcastAssessmentEvent({
-          assessmentId: a?.id || '',
-          type: 'DroneInspectionCompleted',
-          status: isPass ? 'PASS' : 'FAIL',
-          droneId: res.droneId,
-          droneCode: res.droneCode,
-          technicalHealth: res.overallHealth,
-          technicalStatus: isPass ? 'Passed' : 'Failed',
-          message: `Kỹ thuật viên vừa hoàn tất chẩn đoán kỹ thuật UAV ${res.droneCode}: ${isPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}.`,
-          timestamp: new Date().toISOString(),
-        });
-        if (a && isPass) {
-          this.api.reEvaluate(a.id).subscribe({
-            next: (updated) => this.item.set(updated),
+    this.api
+      .runTechnicalInspection(droneId, {
+        flightControllerUid: fcUid,
+        preMissionAssessmentId: a?.id,
+      })
+      .subscribe({
+        next: (res) => {
+          this.inspectionResult.set(res);
+          this.inspecting.set(false);
+          this.actionMessage.set(
+            `Đã hoàn tất kiểm định kỹ thuật cho thiết bị ${res.droneCode}. Kết quả: ${res.overallHealth}.`
+          );
+
+          // If inspection passes, trigger re-evaluation to update assessment overall status
+          const isPass = res.overallHealth === 'HEALTHY';
+          this.realtime.broadcastAssessmentEvent({
+            assessmentId: a?.id || '',
+            type: 'DroneInspectionCompleted',
+            status: isPass ? 'PASS' : 'FAIL',
+            droneId: res.droneId,
+            droneCode: res.droneCode,
+            technicalHealth: res.overallHealth,
+            technicalStatus: isPass ? 'Passed' : 'Failed',
+            message: `Kỹ thuật viên vừa hoàn tất chẩn đoán kỹ thuật UAV ${res.droneCode}: ${isPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}.`,
+            timestamp: new Date().toISOString(),
           });
-        }
-      },
-      error: () => {
-        this.inspecting.set(false);
-        this.error.set('Lỗi kết nối khi gửi lệnh kiểm định UAV.');
-      },
-    });
+          if (a && isPass) {
+            this.api.reEvaluate(a.id).subscribe({
+              next: (updated) => this.item.set(updated),
+            });
+          }
+        },
+        error: (err) => {
+          this.inspecting.set(false);
+          const errDetail =
+            err?.error?.message ||
+            err?.error?.detail ||
+            err?.message ||
+            'Lỗi kết nối khi gửi lệnh kiểm định UAV.';
+          this.error.set(errDetail);
+        },
+      });
   }
 
   protected setMapType(type: 'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'): void {

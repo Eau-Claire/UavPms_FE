@@ -303,14 +303,14 @@
               <span class="prop-value">{{ a.createdBy || 'Quản lý vận hành (Manager)' }}</span>
             </div>
             <div class="prop-item">
-              <span class="prop-label">Nhiệm vụ đã tiêu thụ (MF02):</span>
+              <span class="prop-label">Nhiệm vụ bay đã tạo (MF02):</span>
               <span class="prop-value">
                 @if (a.consumedMissionId || a.consumedMissionCode) {
                   <a [routerLink]="['/missions', a.consumedMissionId || a.consumedMissionCode]" class="evn-code">
                     #{{ a.consumedMissionCode || a.consumedMissionId }} (Đã gán nhiệm vụ)
                   </a>
                 } @else {
-                  <span style="color: #64748b;">Chưa tiêu thụ</span>
+                  <span style="color: #64748b;">Chưa tạo nhiệm vụ</span>
                 }
               </span>
             </div>
@@ -833,6 +833,7 @@
                   <th style="width: 130px;">Trạng thái vận hành</th>
                   <th style="width: 130px;">Sức khỏe kỹ thuật</th>
                   <th style="width: 130px;">Kiểm định gần nhất</th>
+                  <th style="width: 140px;">Độ phù hợp GIS</th>
                   <th style="width: 130px;">Hạn kiểm định</th>
                   <th style="width: 110px;">Đủ điều kiện</th>
                   <th style="width: 120px;">Thao tác</th>
@@ -859,6 +860,23 @@
                         <span class="evn-status {{ statusTone(uav.technicalHealth) }}">
                           {{ uav.technicalHealth }}
                         </span>
+                      </td>
+                      <td class="text-center">
+                        @if (uav.suitability === 'SUITABLE') {
+                          <span class="evn-status pass" [title]="uav.suitabilityReason || 'Đủ điều kiện bay trọn vẹn 1 lượt'">
+                            <span nz-icon nzType="check"></span> PHÙ HỢP
+                          </span>
+                        } @else if (uav.suitability === 'SUITABLE_WITH_SPLIT') {
+                          <span class="evn-status warning" [title]="uav.suitabilityReason || 'Cần chia chặng'">
+                            <span nz-icon nzType="branches"></span> CHIA {{ uav.estimatedFlightsNeeded || 2 }} LƯỢT
+                          </span>
+                        } @else if (uav.suitability === 'UNSUITABLE') {
+                          <span class="evn-status fail" [title]="uav.suitabilityReason || 'Không đáp ứng tầm bay hoặc lỗi kỹ thuật'">
+                            <span nz-icon nzType="close"></span> KHÔNG PHÙ HỢP
+                          </span>
+                        } @else {
+                          <span class="evn-status pass">PHÙ HỢP</span>
+                        }
                       </td>
                       <td>{{ uav.lastInspection ? (uav.lastInspection | date:'dd/MM/yyyy') : '—' }}</td>
                       <td>{{ uav.validUntil ? (uav.validUntil | date:'dd/MM/yyyy') : '—' }}</td>
@@ -917,11 +935,16 @@
                 type="button"
                 class="evn-btn primary"
                 style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 11px;"
-                [disabled]="inspecting()"
+                [disabled]="inspecting() || isFcDroneMismatch() || isFcUnregistered()"
                 (click)="runInspectionNow()"
+                [title]="isFcDroneMismatch() ? 'Khóa an toàn BR-05: FC thuộc về drone khác' : (isFcUnregistered() ? 'Cần ghép nối FC trước' : 'Chạy kiểm định kỹ thuật')"
               >
                 @if (inspecting()) {
                   <span nz-icon nzType="loading"></span> Đang đo kiểm...
+                } @else if (isFcDroneMismatch()) {
+                  <span nz-icon nzType="stop"></span> Khóa kiểm định (Lệch Drone)
+                } @else if (isFcUnregistered()) {
+                  <span nz-icon nzType="warning"></span> Khóa kiểm định (FC chưa ghép nối)
                 } @else {
                   <span nz-icon nzType="play-circle"></span> Chạy kiểm định kỹ thuật
                 }
@@ -931,6 +954,228 @@
         </div>
 
         <div class="panel-body">
+          <!-- Betaflight Flight Controller Identification & Pairing Card -->
+          <div class="fc-card">
+            <div class="fc-header">
+              <div class="fc-title-group">
+                <span nz-icon nzType="thunderbolt" style="font-size: 16px; color: #174f83;"></span>
+                <div>
+                  <h4>Nhận diện & Ghép nối Flight Controller (Betaflight MSP_UID)</h4>
+                  <div style="font-size: 10px; color: #64748b;">
+                    Đọc phần cứng UID qua giao thức MSP để xác định UAV và đối soát với đợt thẩm định bay
+                  </div>
+                </div>
+              </div>
+
+              <!-- Connection Status & Controls -->
+              <div class="fc-actions">
+                @if (fcConnectionState() === 'connected') {
+                  <span class="evn-status success" style="font-size: 11px; padding: 2px 8px;">
+                    <span nz-icon nzType="check-circle"></span>
+                    {{ fcIsSimulated() ? 'Giả lập FC Đang kết nối' : 'USB Web Serial Đã kết nối' }}
+                  </span>
+                  <button
+                    type="button"
+                    class="evn-btn secondary"
+                    style="height: 26px; padding: 0 8px; font-size: 11px;"
+                    (click)="disconnectFc()"
+                  >
+                    <span nz-icon nzType="stop"></span> Ngắt kết nối
+                  </button>
+                } @else if (fcConnectionState() === 'connecting') {
+                  <span class="evn-status warning" style="font-size: 11px; padding: 2px 8px;">
+                    <span nz-icon nzType="loading"></span> Đang kết nối MSP...
+                  </span>
+                } @else {
+                  <span class="evn-status neutral" style="font-size: 11px; padding: 2px 8px;">
+                    Chưa kết nối FC
+                  </span>
+
+                  <!-- Real USB Web Serial Connect Button -->
+                  <button
+                    type="button"
+                    class="evn-btn primary"
+                    style="height: 26px; padding: 0 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;"
+                    (click)="connectRealFc()"
+                  >
+                    <span nz-icon nzType="thunderbolt"></span> [USB] Kết nối Betaflight FC
+                  </button>
+
+                  <!-- Simulation Profile Select & Connect -->
+                  <div style="display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 2px 4px; border-radius: 3px; border: 1px solid #cbd5e1;">
+                    <select
+                      [value]="selectedSimProfile()"
+                      (change)="selectedSimProfile.set($any($event.target).value); showCustomUidInput.set($any($event.target).value === 'custom')"
+                      style="height: 22px; font-size: 11px; border: 1px solid #94a3b8; border-radius: 2px; max-width: 220px;"
+                    >
+                      @for (p of simulatedProfiles; track p.id) {
+                        <option [value]="p.id">{{ p.name }}</option>
+                      }
+                      <option value="custom">Nhập UID FC tùy chỉnh...</option>
+                    </select>
+
+                    @if (showCustomUidInput()) {
+                      <input
+                        type="text"
+                        placeholder="VD: BF-CUSTOM-99"
+                        [value]="customFcUidInput()"
+                        (input)="customFcUidInput.set($any($event.target).value)"
+                        style="height: 22px; width: 130px; font-size: 11px; padding: 0 4px; border: 1px solid #94a3b8; border-radius: 2px; font-family: monospace;"
+                      />
+                    }
+
+                    <button
+                      type="button"
+                      class="evn-btn secondary"
+                      style="height: 22px; padding: 0 8px; font-size: 10px; font-weight: 600;"
+                      (click)="connectSimulatedFc()"
+                    >
+                      <span nz-icon nzType="play-circle"></span> Mô phỏng
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Connection / Serial Error Banner -->
+            @if (fcError(); as err) {
+              <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 3px solid #dc2626; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px; font-size: 11px; color: #991b1b; display: flex; align-items: center; justify-content: space-between;">
+                <span><strong>Lỗi kết nối FC:</strong> {{ err }}</span>
+                <button type="button" class="evn-btn secondary" style="height: 20px; font-size: 10px; padding: 0 6px;" (click)="disconnectFc()">Đóng</button>
+              </div>
+            }
+
+            <!-- Active Flight Controller Metadata Grid -->
+            @if (fcMetadata(); as meta) {
+              <div class="fc-meta-grid">
+                <div class="fc-meta-item">
+                  <span class="fc-label">Hardware UID (MSP_UID):</span>
+                  <span class="fc-val mono">{{ meta.uid }}</span>
+                </div>
+                <div class="fc-meta-item">
+                  <span class="fc-label">Bo mạch điều khiển:</span>
+                  <span class="fc-val">{{ meta.boardIdentifier || 'STM32F405' }}</span>
+                </div>
+                <div class="fc-meta-item">
+                  <span class="fc-label">Firmware:</span>
+                  <span class="fc-val">{{ meta.firmwareName }} v{{ meta.firmwareVersion }}</span>
+                </div>
+                <div class="fc-meta-item">
+                  <span class="fc-label">Tên thiết bị (FC Name):</span>
+                  <span class="fc-val">{{ meta.deviceName || 'UAV-Drone' }}</span>
+                </div>
+                <div class="fc-meta-item">
+                  <span class="fc-label">Phương thức đọc:</span>
+                  <span class="fc-val">
+                    {{ fcIsSimulated() ? 'Giả lập phần cứng (Virtual MSP)' : 'Web Serial API (USB-VCP)' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Identification / Resolution Status Banners -->
+              @if (resolvingFc()) {
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; font-size: 11px; color: #475569; display: flex; align-items: center; gap: 6px;">
+                  <span nz-icon nzType="loading"></span>
+                  Đang tra cứu danh tính UAV từ cơ sở dữ liệu UAV-PMS cho FC UID [{{ meta.uid }}]...
+                </div>
+              } @else {
+                <!-- Case A: Registered & Matched with Assessment Drone -->
+                @if (isFcMatchingAssessmentDrone()) {
+                  <div class="fc-status-banner matched">
+                    <span nz-icon nzType="check-circle" class="banner-icon"></span>
+                    <div class="banner-content">
+                      <div class="banner-title">
+                        XÁC THỰC THÀNH CÔNG: Flight Controller khớp với Drone thẩm định!
+                      </div>
+                      <div class="banner-desc">
+                        Phần cứng UID <strong>{{ meta.uid }}</strong> đã được liên kết với 
+                        <strong>{{ fcDrone()?.code }} ({{ fcDrone()?.name }})</strong>.
+                        Hệ thống đã cập nhật thời điểm nhận diện (LastSeenAt). Đủ điều kiện tiến hành đo kiểm kỹ thuật an toàn bay.
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                <!-- Case B: Registered but Mismatched with Assessment Drone (BR-05) -->
+                @if (isFcDroneMismatch()) {
+                  <div class="fc-status-banner mismatch">
+                    <span nz-icon nzType="warning" class="banner-icon"></span>
+                    <div class="banner-content">
+                      <div class="banner-title">
+                        CẢNH BÁO LỆCH THIẾT BỊ (BR-05 Violation): FC không khớp với Drone đợt thẩm định!
+                      </div>
+                      <div class="banner-desc">
+                        Connected Flight Controller belongs to <strong>{{ fcDrone()?.code }}</strong>, but this assessment requires <strong>{{ currentAssessmentDrone()?.code }}</strong>.
+                        <br/>
+                        <em>Quy tắc nghiệp vụ BR-05: Không được phép nộp biên bản kiểm định kỹ thuật khi thiết bị kết nối khác với Drone được giao trong hồ sơ thẩm định. Nút "Chạy kiểm định kỹ thuật" đã bị khóa an toàn.</em>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                <!-- Case C: Unregistered Flight Controller (BR-04) -->
+                @if (isFcUnregistered()) {
+                  <div class="fc-status-banner unregistered">
+                    <span nz-icon nzType="exclamation-circle" class="banner-icon"></span>
+                    <div class="banner-content">
+                      <div class="banner-title">
+                        Flight Controller chưa được đăng ký (Unregistered FC - BR-04)
+                      </div>
+                      <div class="banner-desc">
+                        Mã phần cứng UID <strong>{{ meta.uid }}</strong> chưa từng được gán cho bất kỳ Drone nào trong hệ thống.
+                        Theo quy tắc BR-04, thiết bị mới cần được người dùng có thẩm quyền ghép nối chủ động trước khi kiểm định.
+                      </div>
+
+                      <!-- Pairing Action Box -->
+                      <div class="fc-pairing-box">
+                        <div style="font-size: 11px; color: #78350f;">
+                          <strong>Ghép nối phần cứng với UAV:</strong> Chọn thiết bị và xác nhận gán FC UID vào Drone:
+                        </div>
+
+                        <div class="pairing-controls">
+                          <select
+                            [value]="pairTargetDroneId()"
+                            (change)="pairTargetDroneId.set($any($event.target).value)"
+                            style="height: 26px; font-size: 11px; border: 1px solid #d97706; border-radius: 3px; padding: 0 4px; background: #ffffff;"
+                          >
+                            @for (d of a.uavCandidates; track d.id) {
+                              <option [value]="d.id || d.code">{{ d.code }} - {{ d.name || 'UAV' }}</option>
+                            }
+                          </select>
+
+                          <button
+                            type="button"
+                            class="evn-btn primary"
+                            style="height: 26px; padding: 0 10px; font-size: 11px; background: #d97706; border-color: #b45309;"
+                            [disabled]="pairingFc()"
+                            (click)="pairFcToDrone()"
+                          >
+                            @if (pairingFc()) {
+                              <span nz-icon nzType="loading"></span> Đang ghép nối...
+                            } @else {
+                              <span nz-icon nzType="thunderbolt"></span> Ghép nối với UAV
+                            }
+                          </button>
+                        </div>
+                      </div>
+
+                      @if (pairingError()) {
+                        <div style="margin-top: 6px; font-size: 11px; color: #b91c1c;">
+                          <span nz-icon nzType="close"></span> {{ pairingError() }}
+                        </div>
+                      }
+                      @if (pairingSuccess()) {
+                        <div style="margin-top: 6px; font-size: 11px; color: #15803d; font-weight: 600;">
+                          <span nz-icon nzType="check"></span> {{ pairingSuccess() }}
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            }
+          </div>
+
           <!-- Telemetry System Banner -->
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 11px; color: #166534; display: flex; align-items: center; justify-content: space-between;">
             <div>
@@ -1066,7 +1311,7 @@
               @if (!roleBreakdown().hasAllThree) {
                 (Chưa đạt định mức: {{ roleBreakdown().missingDetails.join('; ') }})
               } @else {
-                (Cần đạt trạng thái READY, chưa tiêu thụ và còn hạn hiệu lực để tạo nhiệm vụ)
+                (Cần đạt trạng thái READY, chưa hoàn thành tạo nhiệm vụ và còn hạn hiệu lực)
               }
             </span>
           }
