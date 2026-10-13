@@ -24,6 +24,8 @@ export const routes: Routes = [
       { path: 'ai-review', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst'])], loadComponent: () => import('./features/analyst-review/pages/detection-list/detection-list').then((m) => m.DetectionList), title: 'Duyệt sự cố AI | UAV-PMS' },
       { path: 'ai-review/:id', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst'])], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
       { path: 'gis', canActivate: [roleGuard(['Admin', 'Manager', 'Analyst', 'Inspector'])], loadComponent: () => import('./features/gis/pages/gis-monitoring/gis-monitoring').then((m) => m.GisMonitoring), title: 'Bản đồ GIS Lưới điện | UAV-PMS' },
+      { path: 'drones', loadComponent: () => import('./features/drones/pages/drone-management/drone-management').then((m) => m.DroneManagement), title: 'Quản lý phương tiện UAV | UAV-PMS' },
+      { path: 'admin/drones', redirectTo: 'drones' },
       { path: 'admin/users', canActivate: [roleGuard(['Admin', 'SystemAdmin'])], loadComponent: () => import('./features/users/pages/user-management/user-management').then((m) => m.UserManagement), title: 'Quản lý người dùng | UAV-PMS' },
       { path: 'system/users', redirectTo: 'admin/users' },
       {

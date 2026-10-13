@@ -193,18 +193,25 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   protected readonly eligibleDrones = computed<readonly UavCandidate[]>(() => {
     const ass = this.assessmentData();
     if (ass && ass.uavCandidates && ass.uavCandidates.length > 0) {
-      return ass.uavCandidates.filter((d) => d.eligibility === 'ELIGIBLE' || d.technicalHealth !== 'CRITICAL');
+      return ass.uavCandidates.filter((d) =>
+        d.eligibility === 'ELIGIBLE' &&
+        d.technicalHealth !== 'CRITICAL' &&
+        (d.operationalStatus === 'AVAILABLE' || d.operationalStatus === 'Idle') &&
+        d.suitability !== 'UNSUITABLE'
+      );
     }
     // Fallback to active drones
-    return this.drones().map((d) => ({
-      id: d.id,
-      code: d.droneCode,
-      name: d.name,
-      operationalStatus: 'AVAILABLE' as const,
-      technicalHealth: 'HEALTHY' as const,
-      eligibility: 'ELIGIBLE' as const,
-      battery: d.battery,
-    }));
+    return this.drones()
+      .filter((d) => (d.operationalStatus === 'Idle' || d.operationalStatus === 'Available') && d.online)
+      .map((d) => ({
+        id: d.id,
+        code: d.droneCode,
+        name: d.name,
+        operationalStatus: 'AVAILABLE' as const,
+        technicalHealth: 'HEALTHY' as const,
+        eligibility: 'ELIGIBLE' as const,
+        battery: d.battery,
+      }));
   });
 
   protected readonly selectedInspector = computed(() => {
@@ -696,6 +703,18 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
+    }
+
+    const candidates = this.eligibleDrones();
+    if (candidates.length > 0) {
+      const selectedDrone = candidates.find((d) => d.id === f.droneId || d.code === f.droneId);
+      if (!selectedDrone) {
+        this.error.set('Phương tiện UAV đã chọn không đạt điều kiện an toàn kỹ thuật, không phù hợp phạm vi tuyến hoặc không còn khả dụng trong đội bay.');
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        return;
+      }
     }
 
     this.busy.set(true);

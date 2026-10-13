@@ -54,6 +54,10 @@ export interface UavCandidate {
   readonly validUntil?: string | null;
   readonly eligibility: string;
   readonly conflict?: string | null;
+  readonly suitability?: 'SUITABLE' | 'SUITABLE_WITH_SPLIT' | 'UNSUITABLE' | string | null;
+  readonly estimatedFlightsNeeded?: number | null;
+  readonly coverageDistanceKm?: number | null;
+  readonly suitabilityReason?: string | null;
 }
 
 export interface TechnicalMetric {
@@ -108,6 +112,8 @@ export interface PreMissionAssessment {
   readonly updatedAt?: string | null;
   readonly consumedMissionId?: string | null;
   readonly consumedMissionCode?: string | null;
+  readonly completedMissionId?: string | null;
+  readonly completedMissionCode?: string | null;
   readonly personnelCandidates: readonly PersonnelCandidate[];
   readonly uavCandidates: readonly UavCandidate[];
   readonly technicalMetrics: readonly TechnicalMetric[];

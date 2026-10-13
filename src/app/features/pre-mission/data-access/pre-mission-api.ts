@@ -218,8 +218,8 @@ export class PreMissionApi {
 
   markCompleted(id: string, missionId: string): Observable<PreMissionAssessment> {
     const body = { missionId };
-    return this.http.post<unknown>(`${this.url}/${id}/consume`, body).pipe(
-      catchError(() => this.http.post<unknown>(`${this.url}/${id}/mark-completed`, body)),
+    return this.http.post<unknown>(`${this.url}/${id}/mark-completed`, body).pipe(
+      catchError(() => this.http.post<unknown>(`${this.url}/${id}/consume`, body)),
       switchMap(() => this.get(id))
     );
   }
@@ -228,10 +228,15 @@ export class PreMissionApi {
     return this.markCompleted(id, missionId);
   }
 
-  runTechnicalInspection(droneId: string): Observable<DroneTechnicalInspectionResult> {
+  runTechnicalInspection(
+    droneId: string,
+    options?: { flightControllerUid?: string; preMissionAssessmentId?: string; notes?: string }
+  ): Observable<DroneTechnicalInspectionResult> {
     const payload = {
       droneId,
-      notes: 'Kiểm định kỹ thuật định kỳ hệ thống UAV',
+      flightControllerUid: options?.flightControllerUid,
+      preMissionAssessmentId: options?.preMissionAssessmentId,
+      notes: options?.notes || 'Kiểm định kỹ thuật định kỳ hệ thống UAV',
       policyVersion: 'v1.0',
     };
 
@@ -577,6 +582,10 @@ const normalizeAssessment = (value: unknown): PreMissionAssessment => {
       technicalHealth: health,
       operationalStatus: opStatus,
       eligibility: isEligible ? 'ELIGIBLE' : 'INELIGIBLE',
+      suitability: d['suitability'] ? stringOf(d['suitability']).toUpperCase() : null,
+      estimatedFlightsNeeded: d['estimatedFlightsNeeded'] != null ? Number(d['estimatedFlightsNeeded']) : null,
+      coverageDistanceKm: d['coverageDistanceKm'] != null ? Number(d['coverageDistanceKm']) : null,
+      suitabilityReason: d['suitabilityReason'] ? stringOf(d['suitabilityReason']) : null,
     };
   });
 
@@ -609,7 +618,10 @@ const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     validUntil: x['validUntil'] == null ? null : stringOf(x['validUntil']),
     createdBy: x['createdBy'] == null ? null : stringOf(x['createdBy']),
     updatedAt: x['updatedAt'] == null ? null : stringOf(x['updatedAt']),
-    consumedMissionId: x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId']),
+    consumedMissionId: x['consumedMissionId'] == null ? (x['completedMissionId'] == null ? null : stringOf(x['completedMissionId'])) : stringOf(x['consumedMissionId']),
+    consumedMissionCode: x['consumedMissionCode'] == null ? (x['completedMissionCode'] == null ? null : stringOf(x['completedMissionCode'])) : stringOf(x['completedMissionCode']),
+    completedMissionId: x['completedMissionId'] == null ? (x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId'])) : stringOf(x['completedMissionId']),
+    completedMissionCode: x['completedMissionCode'] == null ? (x['consumedMissionCode'] == null ? null : stringOf(x['consumedMissionCode'])) : stringOf(x['completedMissionCode']),
     personnelCandidates: rawPersonnelCandidates as never,
     uavCandidates: rawDroneCandidates as never,
     technicalMetrics: (arrayOf(x['technicalMetrics']).map(objectOf) as never),

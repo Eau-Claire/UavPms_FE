@@ -42,6 +42,7 @@ export class Sidebar {
         { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
         { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
         { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
+        { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
         { path: '/ai-review', icon: 'audit', label: 'Duyệt sự cố AI' },
         { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
@@ -57,6 +58,7 @@ export class Sidebar {
         { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
         { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
         { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
+        { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
         { path: '/ai-review', icon: 'audit', label: 'Duyệt sự cố AI' },
         { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
@@ -95,6 +97,7 @@ export class Sidebar {
         { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/assets', icon: 'safety-certificate', label: 'Thiết bị lưới điện' },
+        { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
         { path: '/inspections', icon: 'file-text', label: 'Công việc & Sự cố' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
       ];
