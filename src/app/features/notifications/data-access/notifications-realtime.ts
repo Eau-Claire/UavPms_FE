@@ -87,6 +87,8 @@ export interface AssessmentRealtimeEvent {
   readonly technicalStatus?: string;
   readonly consumedMissionId?: string;
   readonly consumedMissionCode?: string;
+  readonly completedMissionId?: string;
+  readonly completedMissionCode?: string;
   readonly windSpeed?: number;
   readonly windGust?: number;
   readonly isMeteoSafe?: boolean;
@@ -531,8 +533,10 @@ function normalizeAssessmentRealtimeEvent(
     droneCode: stringValue(pick(source, 'droneCode', 'DroneCode')) || undefined,
     technicalHealth: stringValue(pick(source, 'technicalHealth', 'TechnicalHealth')) || undefined,
     technicalStatus: stringValue(pick(source, 'technicalStatus', 'TechnicalStatus')) || undefined,
-    consumedMissionId: stringValue(pick(source, 'consumedMissionId', 'ConsumedMissionId')) || undefined,
-    consumedMissionCode: stringValue(pick(source, 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
+    consumedMissionId: stringValue(pick(source, 'completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId')) || undefined,
+    consumedMissionCode: stringValue(pick(source, 'completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
+    completedMissionId: stringValue(pick(source, 'completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId')) || undefined,
+    completedMissionCode: stringValue(pick(source, 'completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
     windSpeed: source['windSpeed'] !== undefined ? Number(source['windSpeed']) : (source['WindSpeed'] !== undefined ? Number(source['WindSpeed']) : undefined),
     windGust: source['windGust'] !== undefined ? Number(source['windGust']) : (source['WindGust'] !== undefined ? Number(source['WindGust']) : undefined),
     isMeteoSafe: source['isMeteoSafe'] !== undefined ? Boolean(source['isMeteoSafe']) : (source['IsMeteoSafe'] !== undefined ? Boolean(source['IsMeteoSafe']) : undefined),

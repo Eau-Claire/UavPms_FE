@@ -185,11 +185,15 @@ export class AssessmentList implements OnDestroy {
             this.items.update((list) =>
               list.map((item) => {
                 if (item.id === evt.assessmentId) {
+                  const mid = evt.completedMissionId || evt.consumedMissionId || item.completedMissionId || item.consumedMissionId;
+                  const mcode = evt.completedMissionCode || evt.consumedMissionCode || item.completedMissionCode || item.consumedMissionCode;
                   return {
                     ...item,
                     status: 'COMPLETED',
-                    consumedMissionId: evt.consumedMissionId || item.consumedMissionId,
-                    consumedMissionCode: evt.consumedMissionCode || item.consumedMissionCode,
+                    consumedMissionId: mid,
+                    consumedMissionCode: mcode,
+                    completedMissionId: mid,
+                    completedMissionCode: mcode,
                   };
                 }
                 return item;
