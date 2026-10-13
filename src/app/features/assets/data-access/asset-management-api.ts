@@ -125,13 +125,17 @@ export class AssetManagementApi {
 
   uploadAnalysisFile(request: UploadAnalysisFileRequest) {
     const form = new FormData();
-    request.files.forEach((file) => form.append('files', file, file.name));
+    if (request.files && request.files.length > 0) {
+      form.append('file', request.files[0], request.files[0].name);
+      request.files.forEach((file) => form.append('files', file, file.name));
+    }
+    form.append('capturedAt', new Date().toISOString());
     form.append('analysisType', request.analysisType ?? 'DefectDetection');
     if (request.preferredModel) form.append('preferredModel', request.preferredModel);
     if (request.notes) form.append('notes', request.notes);
     const url = request.missionId
-      ? `${this.apiBaseUrl}/missions/${request.missionId}/ai-analysis`
-      : `${this.apiBaseUrl}/ai-analysis/upload`;
+      ? `${this.apiBaseUrl}/missions/${request.missionId}/media`
+      : `${this.apiBaseUrl}/inspections/upload`;
     return this.http.post<unknown>(url, form, {
       observe: 'events',
       reportProgress: true,

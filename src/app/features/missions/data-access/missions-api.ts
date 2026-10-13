@@ -307,6 +307,77 @@ export class MissionsApi {
     return this.http.post<unknown>(`${this.url}/${id}/cancel`, {});
   }
 
+  confirmDroneHandover(
+    id: string,
+    payload: { droneId: string; receivedBy: string; condition: string; accepted?: boolean }
+  ): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/drone-handover`, {
+      droneId: payload.droneId,
+      receivedBy: payload.receivedBy,
+      condition: payload.condition,
+      accepted: payload.accepted ?? true,
+    });
+  }
+
+  returnDroneHandover(
+    id: string,
+    payload: { droneId: string; condition: string }
+  ): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/drone-handover/return`, payload);
+  }
+
+  uploadFlightLog(
+    id: string,
+    file: File,
+    payload?: { droneId?: string; flightDurationSeconds?: number; notes?: string }
+  ): Observable<unknown> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    if (payload?.droneId) form.append('droneId', payload.droneId);
+    if (payload?.flightDurationSeconds != null) form.append('flightDurationSeconds', String(payload.flightDurationSeconds));
+    if (payload?.notes) form.append('notes', payload.notes);
+    return this.http.post<unknown>(`${this.url}/${id}/flight-logs`, form);
+  }
+
+  getFlightLogs(id: string): Observable<unknown[]> {
+    return this.http.get<unknown>(`${this.url}/${id}/flight-logs`).pipe(
+      map((res) => {
+        const data = unwrapApiData<unknown>(res);
+        return Array.isArray(data) ? data : [];
+      })
+    );
+  }
+
+  submitIncidentReport(
+    id: string,
+    payload: { severity: string; description: string; droneId?: string; actionsTaken?: string }
+  ): Observable<unknown> {
+    return this.http.post<unknown>(`${this.url}/${id}/incidents`, payload);
+  }
+
+  getIncidentReports(id: string): Observable<unknown[]> {
+    return this.http.get<unknown>(`${this.url}/${id}/incidents`).pipe(
+      map((res) => {
+        const data = unwrapApiData<unknown>(res);
+        return Array.isArray(data) ? data : [];
+      })
+    );
+  }
+
+  uploadMedia(
+    id: string,
+    file: File,
+    meta?: { assetId?: string; capturedAt?: string; latitude?: number; longitude?: number }
+  ): Observable<unknown> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    if (meta?.assetId) form.append('assetId', meta.assetId);
+    form.append('capturedAt', meta?.capturedAt || new Date().toISOString());
+    if (meta?.latitude != null) form.append('latitude', String(meta.latitude));
+    if (meta?.longitude != null) form.append('longitude', String(meta.longitude));
+    return this.http.post<unknown>(`${this.url}/${id}/media`, form);
+  }
+
   update(id: string, request: MissionMutationRequest): Observable<Mission> {
     return this.http
       .put<unknown>(`${this.url}/${id}`, request)

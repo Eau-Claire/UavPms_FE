@@ -36,7 +36,7 @@ import { NotificationsStore } from '../../../notifications/data-access/notificat
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { DronesApi } from '../../data-access/drones-api';
-import { MissionsApi } from '../../data-access/missions-api';
+import { MissionsApi, isValidGuid } from '../../data-access/missions-api';
 
 export type DeadlinePreset = '2h' | '6h' | '12h' | '24h' | 'custom';
 
@@ -312,9 +312,11 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.loadUsersAndDrones();
 
-    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId') || 'asm-mu9bfu1a';
-    this.sourceAssessmentId.set(assessmentId);
-    this.loadAssessment(assessmentId);
+    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
+    if (assessmentId && isValidGuid(assessmentId)) {
+      this.sourceAssessmentId.set(assessmentId);
+      this.loadAssessment(assessmentId);
+    }
 
     // Synchronize deadline automatically if flight start time changes
     this.form.controls.scheduledAt.valueChanges
@@ -796,8 +798,8 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     this.busy.set(true);
     this.error.set('');
 
-    const targetAssetIds = ass ? ass.scopeAssetIds : ['VT-01', 'VT-02', 'VT-03'];
-    const regionId = ass?.regionId || 'reg-cpc';
+    const targetAssetIds = ass && ass.scopeAssetIds?.length ? ass.scopeAssetIds : [];
+    const regionId = ass?.regionId && isValidGuid(ass.regionId) ? ass.regionId : '00000000-0000-0000-0000-000000000001';
     const boundaryWkt = ass?.scopeGeometry ? JSON.stringify(ass.scopeGeometry) : '';
 
     const req: MissionCreateRequest = {
