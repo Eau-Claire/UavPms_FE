@@ -43,6 +43,9 @@ export class MissionList {
   protected readonly pageSize = signal(8);
   protected readonly search = signal('');
   protected readonly status = signal('');
+  protected readonly priority = signal<string>('');
+  protected readonly sortBy = signal<string>('priority');
+  protected readonly sortDescending = signal<boolean>(true);
   protected readonly scope = signal<'my' | 'all'>(this.isOperationalRole() ? 'my' : 'all');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
@@ -124,14 +127,39 @@ export class MissionList {
     this.loading.set(true);
     this.error.set('');
     this.response.set({ items: [], page: this.page(), pageSize: this.pageSize(), totalCount: 0, totalPages: 1 });
-    const filters = { page: this.page(), pageSize: this.pageSize(), search: this.search(), status: this.status() };
+    const filters = {
+      page: this.page(),
+      pageSize: this.pageSize(),
+      search: this.search(),
+      status: this.status(),
+      priority: this.priority(),
+      sortBy: this.sortBy(),
+      sortDescending: this.sortDescending(),
+    };
 
     if (this.scope() === 'my') {
       this.api.my().pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false))).subscribe({
         next: (missions) => {
           const query = filters.search.trim().toLowerCase();
-          const items = missions.filter((mission) => (!filters.status || mission.status === filters.status)
-            && (!query || `${mission.title} ${mission.missionCode} ${mission.description}`.toLowerCase().includes(query)));
+          let items = missions.filter((mission) => {
+            const matchesStatus = !filters.status || mission.status === filters.status;
+            const matchesPriority = !filters.priority || (mission.priority || 'NORMAL').toUpperCase() === filters.priority.toUpperCase();
+            const matchesSearch = !query || `${mission.title} ${mission.missionCode} ${mission.description}`.toLowerCase().includes(query);
+            return matchesStatus && matchesPriority && matchesSearch;
+          });
+
+          if (this.sortBy() === 'priority') {
+            const priorityWeight: Record<string, number> = { EMERGENCY: 3, HIGH: 2, NORMAL: 1 };
+            items.sort((a, b) => {
+              const pA = priorityWeight[(a.priority || 'NORMAL').toUpperCase()] || 1;
+              const pB = priorityWeight[(b.priority || 'NORMAL').toUpperCase()] || 1;
+              if (pA !== pB) return this.sortDescending() ? pB - pA : pA - pB;
+              const startA = a.plannedStart || a.scheduledStartAt || '';
+              const startB = b.plannedStart || b.scheduledStartAt || '';
+              if (startA && startB && startA !== startB) return startA.localeCompare(startB);
+              return (a.createdAt || '').localeCompare(b.createdAt || '');
+            });
+          }
           this.statsItems.set(items);
           this.statsTotalCount.set(items.length);
           const totalPages = Math.max(1, Math.ceil(items.length / filters.pageSize));
@@ -182,6 +210,30 @@ export class MissionList {
     if (nextPage === this.page()) return;
     this.page.set(nextPage);
     this.load();
+  }
+
+  protected priorityLabel(priority?: string): string {
+    const p = (priority || 'NORMAL').toUpperCase();
+    if (p === 'EMERGENCY') return '⚡ KHẨN CẤP';
+    if (p === 'HIGH') return '🔥 CAO';
+    return '○ BÌNH THƯỜNG';
+  }
+
+  protected priorityClass(priority?: string): string {
+    const p = (priority || 'NORMAL').toUpperCase();
+    if (p === 'EMERGENCY') return 'priority-emergency';
+    if (p === 'HIGH') return 'priority-high';
+    return 'priority-normal';
+  }
+
+  protected togglePrioritySort(): void {
+    if (this.sortBy() === 'priority') {
+      this.sortDescending.set(!this.sortDescending());
+    } else {
+      this.sortBy.set('priority');
+      this.sortDescending.set(true);
+    }
+    this.applyFilters();
   }
 
   protected statusLabel(status: string): string {

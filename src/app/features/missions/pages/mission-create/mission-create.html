@@ -191,6 +191,140 @@
             }
           </div>
 
+          <!-- KHỐI ĐỘ ƯU TIÊN & MỤC TIÊU KIỂM TRA (MF02 Mission Priority & Objective) -->
+          <div class="priority-scheduling-box" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <strong style="font-size: 12px; color: #1e3a8a;">
+                <span nz-icon nzType="tool" style="color: #0284c7; margin-right: 4px;"></span>
+                Độ ưu tiên &amp; Mục tiêu kiểm tra (MF02 Priority &amp; Objective):
+              </strong>
+              <span class="evn-status pass" style="font-size: 9.5px;">BR-01 / BR-06</span>
+            </div>
+
+            <!-- Radio Priority Options -->
+            <div class="form-field-row" style="margin-bottom: 10px;">
+              <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
+                Mức độ ưu tiên nhiệm vụ (Mission Priority) <span class="req">*</span>
+              </label>
+              <div style="display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                  <input type="radio" value="NORMAL" formControlName="priority" (change)="onPriorityChange()" />
+                  <span style="font-size: 11.5px; font-weight: 600; color: #1e293b;">○ Bình thường (Normal)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #fde047; background: #fffbeb;">
+                  <input type="radio" value="HIGH" formControlName="priority" (change)="onPriorityChange()" />
+                  <span style="font-size: 11.5px; font-weight: 700; color: #b45309;">🔥 Cao (High)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #fca5a5; background: #fef2f2;">
+                  <input type="radio" value="EMERGENCY" formControlName="priority" (change)="onPriorityChange()" />
+                  <span style="font-size: 11.5px; font-weight: 700; color: #b91c1c;">⚡ Khẩn cấp (Emergency)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Emergency Reason (Required when Priority is EMERGENCY) -->
+            @if (form.controls.priority.value === 'EMERGENCY') {
+              <div class="form-field-row" style="background: #fff; border: 1.5px solid #ef4444; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
+                <label class="field-label" style="color: #991b1b; font-weight: 700;">
+                  <span nz-icon nzType="warning"></span>
+                  Lý do khẩn cấp (Emergency Reason) <span class="req">*</span>
+                  <small style="color: #64748b; font-weight: normal; margin-left: 6px;">(Bắt buộc tối thiểu 10 ký tự theo BR-06)</small>
+                </label>
+                <textarea
+                  class="evn-textarea"
+                  rows="2"
+                  formControlName="emergencyReason"
+                  placeholder="Nhập chi tiết lý do khẩn cấp (VD: Báo cáo sự cố đường dây, đứt dây pha, sét đánh, khuyết tật nguy hiểm...)"
+                  style="border-color: #f87171;"
+                ></textarea>
+                @if (form.controls.emergencyReason.touched && form.controls.emergencyReason.invalid) {
+                  <span class="field-error" style="color: #b91c1c;">Lý do khẩn cấp bắt buộc nhập tối thiểu 10 ký tự khi chọn EMERGENCY.</span>
+                }
+              </div>
+            }
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <!-- Inspection Objective -->
+              <div class="form-field-row">
+                <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
+                  Mục tiêu kiểm tra (Inspection Objective)
+                </label>
+                <select class="evn-select" formControlName="objective">
+                  <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ (Periodic Inspection)</option>
+                  <option value="TARGETED_REINSPECTION">Tái kiểm tra mục tiêu (Targeted Re-inspection)</option>
+                  <option value="INCIDENT_FOLLOW_UP">Theo dõi sự cố (Incident Follow-up)</option>
+                  <option value="EMERGENCY_INSPECTION">Kiểm tra khẩn cấp (Emergency Inspection)</option>
+                </select>
+              </div>
+
+              <!-- Priority Defects Checkboxes -->
+              <div class="form-field-row">
+                <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
+                  Danh mục khuyết tật trọng tâm (Priority Defects)
+                </label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; font-size: 11px;">
+                  @for (defect of defectCategories; track defect.key) {
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #334155;">
+                      <input type="checkbox" [checked]="isDefectSelected(defect.key)" (change)="toggleDefect(defect.key)" />
+                      <span>{{ defect.label }}</span>
+                    </label>
+                  }
+                </div>
+                <small style="color: #64748b; font-size: 9.5px; display: block; margin-top: 3px;">
+                  * Định hướng trọng tâm cho Mission Manager, không hạn chế AI phát hiện lỗi khác.
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conflict Checking & Warning Banner (BR-04, BR-07) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <button
+              type="button"
+              class="evn-btn secondary"
+              style="height: 24px; font-size: 10.5px; padding: 0 10px;"
+              (click)="checkResourceConflicts()"
+              [disabled]="isCheckingConflicts()"
+            >
+              @if (isCheckingConflicts()) {
+                <span nz-icon nzType="loading"></span> Đang kiểm tra xung đột...
+              } @else {
+                <span nz-icon nzType="search"></span> Kiểm tra xung đột lịch trình (Conflict Check)
+              }
+            </button>
+            <span style="font-size: 10px; color: #64748b;">(BR-04: Không tự động hủy hoặc chiếm dụng tài nguyên)</span>
+          </div>
+
+          @if (resourceConflicts().length > 0) {
+            <div class="evn-alert warning" role="alert" style="margin-bottom: 10px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 4px; padding: 10px;">
+              <strong style="color: #92400e; font-size: 11.5px; display: flex; align-items: center; gap: 6px;">
+                <span nz-icon nzType="warning" style="color: #d97706;"></span>
+                Cảnh báo Xung đột Lịch trình Nguồn lực (Resource Conflict Detected)
+              </strong>
+              <p style="margin: 4px 0 6px; font-size: 10.5px; color: #78350f;">
+                Hệ thống phát hiện xung đột lịch bay. Bạn có thể chọn UAV khác, phi công khác, hoặc dời lịch nhiệm vụ:
+              </p>
+              <ul style="margin: 0; padding-left: 18px; font-size: 10.5px; color: #92400e;">
+                @for (c of resourceConflicts(); track c.conflictingMissionId + c.resourceId) {
+                  <li>
+                    <strong>[{{ c.resourceType }}]</strong> {{ c.resourceName || c.resourceId }} bị trùng với nhiệm vụ
+                    <strong>{{ c.conflictingMissionCode }}</strong> ({{ c.conflictingMissionTitle }}) từ {{ c.conflictStart | date:'HH:mm dd/MM' }} đến {{ c.conflictEnd | date:'HH:mm dd/MM' }}.
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (resourceWarnings().length > 0) {
+            <div class="evn-alert danger" role="alert" style="margin-bottom: 10px; background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 4px; padding: 10px;">
+              <ul style="margin: 0; padding-left: 18px; font-size: 10.5px; color: #991b1b;">
+                @for (w of resourceWarnings(); track w.resourceId + w.warningType) {
+                  <li>⚠️ {{ w.message }}</li>
+                }
+              </ul>
+            </div>
+          }
+
           <!-- Phân công 3 Vai trò (Inspector, Analyst, Technician) -->
           <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">

@@ -31,7 +31,7 @@
           <strong class="header-mission-code">Nhiệm vụ: {{ mission.missionCode }}</strong>
           <span class="mission-live-badge status-primary">{{ statusLabel(mission.status) }}</span>
           @if (mission.priority; as priority) {
-            <span class="priority-tag">{{ priority }}</span>
+            <span class="mission-priority-badge" [class]="priorityClass(priority)">{{ priorityLabel(priority) }}</span>
           }
         </div>
         <p class="header-sub-desc">{{ mission.title || mission.description }}</p>
@@ -285,6 +285,16 @@
                 </button>
               }
 
+              @if (isManager() && mission.status !== 'Cancelled' && mission.status !== 'Completed') {
+                <button
+                  type="button"
+                  class="btn-manager-priority"
+                  [disabled]="actionBusy()"
+                  (click)="openPriorityModal()">
+                  <span nz-icon nzType="setting"></span> Điều chỉnh mức độ ưu tiên
+                </button>
+              }
+
               @if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
                 <button
                   type="button"
@@ -376,6 +386,23 @@
       <aside class="mission-telemetry-panel">
         <h2>Dữ liệu nhiệm vụ</h2>
         <dl>
+          <div><dt>Độ ưu tiên</dt><dd><span class="mission-priority-badge" [class]="priorityClass(mission.priority)">{{ priorityLabel(mission.priority) }}</span></dd></div>
+          <div><dt>Mục tiêu khảo sát</dt><dd>{{ objectiveLabel(mission.objective) }}</dd></div>
+          @if (mission.emergencyReason) {
+            <div><dt>Lý do khẩn cấp</dt><dd class="emergency-reason-text">{{ mission.emergencyReason }}</dd></div>
+          }
+          @if (mission.priorityDefects && mission.priorityDefects.length > 0) {
+            <div>
+              <dt>Khiếm khuyết trọng tâm</dt>
+              <dd>
+                <div class="priority-defects-tags">
+                  @for (cat of mission.priorityDefects; track cat) {
+                    <span class="defect-focus-tag">{{ defectLabel(cat) }}</span>
+                  }
+                </div>
+              </dd>
+            </div>
+          }
           <div><dt>Tuyến đường dây</dt><dd>{{ displayValue(mission.routeData) }}</dd></div>
           <div><dt>Phương tiện UAV</dt><dd>{{ displayValue(mission.droneCode) }}</dd></div>
           <div><dt>Đội bay phụ trách</dt><dd>{{ displayValue(mission.assignedToUsername) }}</dd></div>
@@ -1328,6 +1355,125 @@
               [disabled]="actionBusy() || !reassignNewUserId()"
               (click)="submitReassign()">
               <span nz-icon nzType="check"></span> Xác nhận tái phân công
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- MODAL: ADJUST MISSION PRIORITY & SCHEDULING (Manager) -->
+    @if (showPriorityModal()) {
+      <div class="modal-overlay" (click)="closePriorityModal()">
+        <div class="modal-dialog modal-dialog-lg" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
+          <div class="modal-header">
+            <h3 id="priority-modal-title">
+              <span nz-icon nzType="setting"></span> Điều chỉnh Mức độ Ưu tiên (MF02)
+            </h3>
+            <button type="button" class="btn-modal-close" (click)="closePriorityModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-desc">
+              Điều chỉnh mức độ ưu tiên cho nhiệm vụ. Lưu ý: Độ ưu tiên <strong>EMERGENCY</strong> không được tự động chiếm đoạt tài nguyên của nhiệm vụ khác hoặc bỏ qua điều kiện an toàn (BR-04, BR-05).
+            </p>
+
+            <div class="form-field-group">
+              <label>Mức độ ưu tiên (Mission Priority) <span class="required">*</span></label>
+              <div class="priority-radio-group">
+                <label class="priority-option-card" [class.selected]="editPriority() === 'NORMAL'">
+                  <input
+                    type="radio"
+                    name="editMissionPriority"
+                    value="NORMAL"
+                    [checked]="editPriority() === 'NORMAL'"
+                    (change)="editPriority.set('NORMAL')" />
+                  <div class="priority-label-block">
+                    <strong>Bình thường (NORMAL)</strong>
+                    <small>Khảo sát định kỳ tuyến, kiểm tra định kỳ cột</small>
+                  </div>
+                </label>
+                <label class="priority-option-card high-card" [class.selected]="editPriority() === 'HIGH'">
+                  <input
+                    type="radio"
+                    name="editMissionPriority"
+                    value="HIGH"
+                    [checked]="editPriority() === 'HIGH'"
+                    (change)="editPriority.set('HIGH')" />
+                  <div class="priority-label-block">
+                    <strong>Ưu tiên cao (HIGH)</strong>
+                    <small>Theo dõi khuyết tật đã phát hiện, bất thường lặp lại</small>
+                  </div>
+                </label>
+                <label class="priority-option-card emergency-card" [class.selected]="editPriority() === 'EMERGENCY'">
+                  <input
+                    type="radio"
+                    name="editMissionPriority"
+                    value="EMERGENCY"
+                    [checked]="editPriority() === 'EMERGENCY'"
+                    (change)="editPriority.set('EMERGENCY')" />
+                  <div class="priority-label-block">
+                    <strong>Khẩn cấp (EMERGENCY)</strong>
+                    <small>Sự cố hạ tầng lưới điện, khuyết tật nguy hiểm</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            @if (editPriority() === 'EMERGENCY') {
+              <div class="form-field-group emergency-field-box">
+                <label for="editEmergencyReason">
+                  Lý do khẩn cấp (Emergency Reason) <span class="required">*</span>
+                  <small class="field-hint">(Bắt buộc theo BR-06, tối thiểu 10 ký tự)</small>
+                </label>
+                <textarea
+                  id="editEmergencyReason"
+                  rows="3"
+                  class="form-control-textarea"
+                  placeholder="Mô tả cụ thể sự cố hoặc lý do khẩn cấp yêu cầu bay ngay..."
+                  [value]="editEmergencyReason()"
+                  (input)="editEmergencyReason.set($any($event.target).value)"></textarea>
+                @if (editEmergencyReason().trim().length < 10) {
+                  <span class="field-validation-error">Vui lòng nhập tối thiểu 10 ký tự lý do khẩn cấp.</span>
+                }
+              </div>
+            }
+
+            <div class="form-field-group">
+              <label for="editInspectionObjective">Mục tiêu kiểm tra (Inspection Objective)</label>
+              <select
+                id="editInspectionObjective"
+                class="form-control-input"
+                [value]="editObjective()"
+                (change)="editObjective.set($any($event.target).value)">
+                <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ (PERIODIC_INSPECTION)</option>
+                <option value="TARGETED_REINSPECTION">Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)</option>
+                <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)</option>
+                <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp (EMERGENCY_INSPECTION)</option>
+              </select>
+            </div>
+
+            <div class="form-field-group">
+              <label>Danh mục khiếm khuyết trọng tâm (Priority Defects)</label>
+              <div class="defects-checklist">
+                @for (cat of priorityDefectCategories; track cat.key) {
+                  <label class="defect-checkbox-item">
+                    <input
+                      type="checkbox"
+                      [checked]="editPriorityDefects().includes(cat.key)"
+                      (change)="toggleEditDefect(cat.key)" />
+                    <span>{{ cat.label }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-modal-cancel" (click)="closePriorityModal()">Hủy bỏ</button>
+            <button
+              type="button"
+              class="btn-modal-submit"
+              [disabled]="actionBusy() || (editPriority() === 'EMERGENCY' && editEmergencyReason().trim().length < 10)"
+              (click)="submitPriorityUpdate()">
+              <span nz-icon nzType="check"></span> Lưu thay đổi độ ưu tiên
             </button>
           </div>
         </div>

@@ -20,6 +20,7 @@ import * as L from 'leaflet';
 import { catchError, finalize, of } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import {
+  InspectionObjective,
   Mission,
   MissionAssignment,
   MissionAssignmentsOverview,
@@ -28,7 +29,10 @@ import {
   MissionBackendMaintenanceTask,
   MissionCommunicationLog,
   MissionOperationalRole,
+  MissionPriority,
   MissionTarget,
+  PRIORITY_DEFECT_CATEGORIES,
+  UpdateMissionPriorityRequest,
 } from '../../../../models/missions.models';
 import { UserRecord } from '../../../../models/users.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
@@ -181,6 +185,18 @@ export class MissionDetail {
   protected readonly mission = signal<Mission | null>(null);
 
   // MF02 Communication & Lifecycle State
+  protected readonly isManager = computed(() => {
+    const role = (this.auth.user()?.role || '').toLowerCase();
+    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
+  });
+
+  protected readonly showPriorityModal = signal(false);
+  protected readonly editPriority = signal<MissionPriority>('NORMAL');
+  protected readonly editObjective = signal<InspectionObjective>('PERIODIC_INSPECTION');
+  protected readonly editEmergencyReason = signal('');
+  protected readonly editPriorityDefects = signal<string[]>([]);
+  protected readonly priorityDefectCategories = PRIORITY_DEFECT_CATEGORIES;
+
   protected readonly activeRole = signal<'MANAGER' | 'INSPECTOR'>('MANAGER');
   protected readonly actionBusy = signal(false);
   protected readonly actionMessage = signal('');
@@ -1729,6 +1745,126 @@ export class MissionDetail {
             actorRole: role,
             actorName: senderName,
             message: content,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected priorityLabel(priority?: MissionPriority): string {
+    switch ((priority || '').toUpperCase()) {
+      case 'EMERGENCY':
+        return 'Khẩn cấp (EMERGENCY)';
+      case 'HIGH':
+        return 'Ưu tiên cao (HIGH)';
+      default:
+        return 'Bình thường (NORMAL)';
+    }
+  }
+
+  protected priorityClass(priority?: MissionPriority): string {
+    switch ((priority || '').toUpperCase()) {
+      case 'EMERGENCY':
+        return 'priority-emergency';
+      case 'HIGH':
+        return 'priority-high';
+      default:
+        return 'priority-normal';
+    }
+  }
+
+  protected objectiveLabel(obj?: string): string {
+    switch (obj) {
+      case 'PERIODIC_INSPECTION':
+        return 'Kiểm tra định kỳ (PERIODIC_INSPECTION)';
+      case 'TARGETED_REINSPECTION':
+        return 'Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)';
+      case 'INCIDENT_FOLLOW_UP':
+        return 'Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)';
+      case 'EMERGENCY_INSPECTION':
+        return 'Khảo sát khẩn cấp (EMERGENCY_INSPECTION)';
+      default:
+        return obj || 'Kiểm tra định kỳ';
+    }
+  }
+
+  protected defectLabel(key: string): string {
+    const found = PRIORITY_DEFECT_CATEGORIES.find((c) => c.key === key);
+    return found ? found.label : key;
+  }
+
+  protected openPriorityModal(): void {
+    const m = this.mission();
+    if (!m) return;
+    this.editPriority.set(m.priority || 'NORMAL');
+    this.editObjective.set(m.objective || 'PERIODIC_INSPECTION');
+    this.editEmergencyReason.set(m.emergencyReason || '');
+    this.editPriorityDefects.set([...(m.priorityDefects || [])]);
+    this.showPriorityModal.set(true);
+  }
+
+  protected closePriorityModal(): void {
+    this.showPriorityModal.set(false);
+  }
+
+  protected toggleEditDefect(categoryKey: string): void {
+    const current = this.editPriorityDefects();
+    if (current.includes(categoryKey)) {
+      this.editPriorityDefects.set(current.filter((k) => k !== categoryKey));
+    } else {
+      this.editPriorityDefects.set([...current, categoryKey]);
+    }
+  }
+
+  protected submitPriorityUpdate(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    const p = this.editPriority();
+    const reason = this.editEmergencyReason().trim();
+
+    if (p === 'EMERGENCY' && reason.length < 10) {
+      this.actionMessage.set('Theo quy định an toàn BR-06, nhiệm vụ Khẩn cấp yêu cầu nhập lý do khẩn cấp tối thiểu 10 ký tự.');
+      return;
+    }
+
+    this.actionBusy.set(true);
+    const payload: UpdateMissionPriorityRequest = {
+      priority: p,
+      objective: this.editObjective(),
+      emergencyReason: p === 'EMERGENCY' ? reason : undefined,
+      priorityDefects: this.editPriorityDefects(),
+    };
+
+    this.api
+      .updatePriority(currentMission.id, payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updatedMission) => {
+          this.mission.set(updatedMission);
+          this.closePriorityModal();
+          this.actionMessage.set(`Đã cập nhật mức độ ưu tiên nhiệm vụ thành: ${this.priorityLabel(p)}.`);
+          this.notificationsStore.upsert({
+            id: `notif-prio-${Date.now()}`,
+            userId: this.auth.user()?.id,
+            title: `[MF02] Cập nhật mức độ ưu tiên: ${currentMission.missionCode}`,
+            body: `Nhiệm vụ ${currentMission.missionCode} đã được điều chỉnh mức độ ưu tiên sang [${this.priorityLabel(p)}]`,
+            type: 'MISSION_DISPATCH',
+            referenceType: 'MISSION',
+            referenceId: currentMission.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updatedMission.id,
+            type: 'PRIORITY_UPDATED',
+            status: updatedMission.status,
+            priority: p,
+            actorRole: 'MANAGER',
+            actorName: this.auth.user()?.fullName || 'Quản lý vận hành',
             timestamp: new Date().toISOString(),
           });
         },

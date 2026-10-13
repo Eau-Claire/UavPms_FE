@@ -21,7 +21,14 @@ import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { DroneDto } from '../../../../models/drones.models';
-import { MissionCreateRequest } from '../../../../models/missions.models';
+import {
+  MissionCreateRequest,
+  MissionPriority,
+  InspectionObjective,
+  PRIORITY_DEFECT_CATEGORIES,
+  ResourceConflictItem,
+  ResourceAvailabilityWarning,
+} from '../../../../models/missions.models';
 import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
 import { UserRecord } from '../../../../models/users.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
@@ -93,6 +100,9 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
   // Reactive Form
   protected readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(5)]],
+    priority: ['NORMAL'],
+    objective: ['PERIODIC_INSPECTION'],
+    emergencyReason: [''],
     scheduledAt: ['', Validators.required],
     plannedEnd: ['', Validators.required],
     inspectorId: ['', Validators.required],
@@ -106,6 +116,64 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     notifyEmail: [true],
     description: [''],
   });
+
+  protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
+  protected readonly selectedPriorityDefects = signal<string[]>([]);
+  protected readonly resourceConflicts = signal<readonly ResourceConflictItem[]>([]);
+  protected readonly resourceWarnings = signal<readonly ResourceAvailabilityWarning[]>([]);
+  protected readonly isCheckingConflicts = signal<boolean>(false);
+
+  protected toggleDefect(key: string): void {
+    const current = this.selectedPriorityDefects();
+    if (current.includes(key)) {
+      this.selectedPriorityDefects.set(current.filter((k) => k !== key));
+    } else {
+      this.selectedPriorityDefects.set([...current, key]);
+    }
+  }
+
+  protected isDefectSelected(key: string): boolean {
+    return this.selectedPriorityDefects().includes(key);
+  }
+
+  protected onPriorityChange(): void {
+    const p = this.form.controls.priority.value;
+    if (p === 'EMERGENCY') {
+      this.form.controls.emergencyReason.setValidators([Validators.required, Validators.minLength(10)]);
+    } else {
+      this.form.controls.emergencyReason.clearValidators();
+      this.form.controls.emergencyReason.setValue('');
+    }
+    this.form.controls.emergencyReason.updateValueAndValidity();
+  }
+
+  protected checkResourceConflicts(): void {
+    const f = this.form.getRawValue();
+    if (!f.scheduledAt || !f.plannedEnd) return;
+    const userIds = [f.inspectorId, f.analystId, f.technicianId].filter(Boolean);
+    const droneIds = [f.droneId].filter(Boolean);
+    if (userIds.length === 0 && droneIds.length === 0) return;
+
+    this.isCheckingConflicts.set(true);
+    this.api
+      .checkResourceConflicts({
+        startAt: f.scheduledAt,
+        endAt: f.plannedEnd,
+        userIds,
+        droneIds,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.isCheckingConflicts.set(false);
+          this.resourceConflicts.set(res?.conflicts || []);
+          this.resourceWarnings.set(res?.warnings || []);
+        },
+        error: () => {
+          this.isCheckingConflicts.set(false);
+        },
+      });
+  }
 
   // Base personnel list from real database users, falling back to assessment or defaults
   protected readonly allPersonnelCandidates = computed<readonly PersonnelCandidate[]>(() => {
@@ -697,6 +765,14 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    if (f.priority === 'EMERGENCY' && (!f.emergencyReason || f.emergencyReason.trim().length < 10)) {
+      this.error.set('Lý do khẩn cấp (Emergency Reason) bắt buộc nhập tối thiểu 10 ký tự khi chọn mức độ ưu tiên EMERGENCY (BR-06).');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
     if (deadlineTime >= startTime) {
       this.error.set('Hạn chót các thành viên xác nhận (Confirmation Deadline) phải diễn ra trước thời điểm bắt đầu bay.');
       if (typeof window !== 'undefined') {
@@ -731,6 +807,10 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       plannedEnd: f.plannedEnd,
       regionId,
       missionType: ass?.id ? 'SCHEDULED' : 'AD_HOC',
+      priority: f.priority,
+      objective: f.objective,
+      priorityDefects: this.selectedPriorityDefects(),
+      emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : undefined,
       inspectorId: f.inspectorId,
       droneId: f.droneId,
       targetAssetIds,

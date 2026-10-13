@@ -123,4 +123,51 @@ describe('MissionCreate', () => {
     component.dispatchMission();
     expect(component['error']()).toContain('Asset unavailable');
   });
+  it('blocks submission when priority is EMERGENCY and emergencyReason is missing or too short', () => {
+    component['form'].patchValue({
+      name: 'Emergency Conductor Check',
+      scheduledAt: '2026-09-03T08:00',
+      plannedEnd: '2026-09-03T10:00',
+      confirmationDeadline: '2026-09-03T06:00',
+      inspectorId: 'u1',
+      analystId: 'u2',
+      technicianId: 'u3',
+      droneId: 'd1',
+      priority: 'EMERGENCY',
+      emergencyReason: 'Short',
+    });
+    component.dispatchMission();
+    expect(create).not.toHaveBeenCalled();
+    expect(component['error']()).toContain('Lý do khẩn cấp');
+  });
+
+  it('submits priority, objective, defects, and emergencyReason when valid', () => {
+    vi.useFakeTimers();
+    component['form'].patchValue({
+      name: 'Emergency Conductor Check',
+      scheduledAt: '2026-09-03T08:00',
+      plannedEnd: '2026-09-03T10:00',
+      confirmationDeadline: '2026-09-03T06:00',
+      inspectorId: 'u1',
+      analystId: 'u2',
+      technicianId: 'u3',
+      droneId: 'd1',
+      priority: 'EMERGENCY',
+      objective: 'INCIDENT_FOLLOW_UP',
+      emergencyReason: 'Flashover reported by control center on line 220kV.',
+    });
+    component['toggleDefect']('Insulator');
+    component['toggleDefect']('Conductor');
+
+    component.dispatchMission();
+    expect(create).toHaveBeenCalledTimes(1);
+    const req = create.mock.calls[0][0];
+    expect(req.priority).toBe('EMERGENCY');
+    expect(req.objective).toBe('INCIDENT_FOLLOW_UP');
+    expect(req.priorityDefects).toContain('Insulator');
+    expect(req.priorityDefects).toContain('Conductor');
+    expect(req.emergencyReason).toBe('Flashover reported by control center on line 220kV.');
+    vi.advanceTimersByTime(1000);
+    vi.useRealTimers();
+  });
 });

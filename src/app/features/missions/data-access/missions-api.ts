@@ -16,6 +16,11 @@ import {
   MissionMutationRequest,
   MissionPage,
   MissionTarget,
+  MissionPriority,
+  InspectionObjective,
+  CheckResourceConflictsRequest,
+  CheckResourceConflictsResponse,
+  UpdateMissionPriorityRequest,
 } from '../../../models/missions.models';
 
 export interface MissionFilters {
@@ -23,6 +28,9 @@ export interface MissionFilters {
   readonly pageSize: number;
   readonly search?: string;
   readonly status?: string;
+  readonly priority?: string;
+  readonly sortBy?: string;
+  readonly sortDescending?: boolean;
 }
 
 export function isValidGuid(val?: string | null): boolean {
@@ -54,8 +62,23 @@ export class MissionsApi {
     let params = new HttpParams().set('page', filters.page).set('pageSize', filters.pageSize);
     if (filters.search?.trim()) params = params.set('search', filters.search.trim());
     if (filters.status) params = params.set('status', filters.status);
+    if (filters.priority) params = params.set('priority', filters.priority);
+    if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (typeof filters.sortDescending === 'boolean') params = params.set('sortDescending', filters.sortDescending);
     return this.http.get<unknown>(this.url, { params }).pipe(
       map((response) => normalizePage(unwrapApiData(response), filters))
+    );
+  }
+
+  checkResourceConflicts(request: CheckResourceConflictsRequest): Observable<CheckResourceConflictsResponse> {
+    return this.http.post<unknown>(`${this.url}/check-resource-conflicts`, request).pipe(
+      map((res) => unwrapApiData(res) as CheckResourceConflictsResponse)
+    );
+  }
+
+  updatePriority(missionId: string, request: UpdateMissionPriorityRequest): Observable<Mission> {
+    return this.http.patch<unknown>(`${this.url}/${missionId}/priority`, request).pipe(
+      map((res) => normalizeMission(unwrapApiData(res)))
     );
   }
 
@@ -94,6 +117,12 @@ export class MissionsApi {
       confirmationDeadline: request.confirmationDeadline,
       managerInstructions: request.managerInstructions,
     };
+
+    if (request.priority) createBody['priority'] = request.priority;
+    if (request.objective) createBody['objective'] = request.objective;
+    if (request.priorityDefects) createBody['priorityDefects'] = request.priorityDefects;
+    if (request.emergencyReason) createBody['emergencyReason'] = request.emergencyReason;
+    if (typeof request.isImmediate === 'boolean') createBody['isImmediate'] = request.isImmediate;
 
     if (assignments && assignments.length > 0) {
       createBody['assignments'] = assignments.map((a) => ({
@@ -515,6 +544,15 @@ export const normalizeMission = (source: unknown): Mission => {
     suspendedReason: pick(r, 'suspendedReason') ? String(pick(r, 'suspendedReason')) : undefined,
     cancellationReason: pick(r, 'cancellationReason', 'cancelReason') ? String(pick(r, 'cancellationReason', 'cancelReason')) : undefined,
     sourceAssessmentId: pick(r, 'sourceAssessmentId', 'assessmentId') ? String(pick(r, 'sourceAssessmentId', 'assessmentId')) : undefined,
+    priority: (stringValue(pick(r, 'priority', 'level'), 'NORMAL')).toUpperCase() as any,
+    objective: pick(r, 'objective') ? String(pick(r, 'objective')) : undefined,
+    priorityDefects: Array.isArray(r['priorityDefects'])
+      ? (r['priorityDefects'] as string[])
+      : typeof r['priorityDefectsJson'] === 'string'
+      ? JSON.parse(r['priorityDefectsJson'] || '[]')
+      : [],
+    emergencyReason: pick(r, 'emergencyReason') ? String(pick(r, 'emergencyReason')) : undefined,
+    isImmediate: Boolean(pick(r, 'isImmediate')),
     team,
     confirmedCount,
     totalRequiredCount,

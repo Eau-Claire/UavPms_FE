@@ -1,3 +1,21 @@
+export type MissionPriority = 'NORMAL' | 'HIGH' | 'EMERGENCY' | string;
+
+export type InspectionObjective =
+  | 'PERIODIC_INSPECTION'
+  | 'TARGETED_REINSPECTION'
+  | 'INCIDENT_FOLLOW_UP'
+  | 'EMERGENCY_INSPECTION'
+  | string;
+
+export const PRIORITY_DEFECT_CATEGORIES = [
+  { key: 'Insulator', label: 'Khuyết tật cách điện (Insulator defects)' },
+  { key: 'Conductor', label: 'Khuyết tật dây dẫn (Conductor defects)' },
+  { key: 'SurgeArrester', label: 'Chống sét van (Surge arrester defects)' },
+  { key: 'ForeignObject', label: 'Tổ chim / Dị vật (Foreign objects)' },
+  { key: 'TowerCorrosion', label: 'Ăn mòn cột (Tower corrosion)' },
+  { key: 'Other', label: 'Khác (Other)' },
+] as const;
+
 export type MissionStatus =
   | 'Draft'
   | 'PENDING_CONFIRMATION'
@@ -146,7 +164,11 @@ export interface Mission {
   readonly suspendedReason?: string | null;
   readonly cancellationReason?: string | null;
   readonly sourceAssessmentId?: string | null;
-  readonly priority?: 'Urgent' | 'High' | 'Medium' | 'Normal' | 'Low' | string;
+  readonly priority?: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string | null;
+  readonly isImmediate?: boolean;
   readonly communicationLogs?: readonly MissionCommunicationLog[];
   // Multi-role confirmation progress properties
   readonly confirmedAt?: string | null;
@@ -196,7 +218,11 @@ export interface MissionCreateRequest {
   readonly managerInstructions?: string;
   readonly sourceAssessmentId?: string;
   readonly assessmentId?: string;
-  readonly priority?: string;
+  readonly priority?: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string;
+  readonly isImmediate?: boolean;
   readonly assignments?: readonly MissionMemberAssignmentItem[];
   readonly personnel?: readonly MissionMemberAssignmentItem[];
   readonly idempotencyKey?: string;
@@ -217,4 +243,46 @@ export interface MissionTarget {
 export interface InspectionSettings {
   readonly inspectionTypes: readonly string[];
   readonly checklist: string;
+}
+
+
+export interface ResourceConflictItem {
+  readonly resourceType: 'Personnel' | 'Drone' | string;
+  readonly resourceId: string;
+  readonly resourceName?: string;
+  readonly conflictingMissionId: string;
+  readonly conflictingMissionCode: string;
+  readonly conflictingMissionTitle: string;
+  readonly conflictStart: string;
+  readonly conflictEnd: string;
+  readonly conflictingMissionPriority: MissionPriority;
+}
+
+export interface ResourceAvailabilityWarning {
+  readonly resourceId: string;
+  readonly resourceType: string;
+  readonly resourceName: string;
+  readonly warningType: string;
+  readonly message: string;
+}
+
+export interface CheckResourceConflictsRequest {
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly userIds?: readonly string[];
+  readonly droneIds?: readonly string[];
+  readonly excludeMissionId?: string;
+}
+
+export interface CheckResourceConflictsResponse {
+  readonly hasConflict: boolean;
+  readonly conflicts: readonly ResourceConflictItem[];
+  readonly warnings: readonly ResourceAvailabilityWarning[];
+}
+
+export interface UpdateMissionPriorityRequest {
+  readonly priority: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string;
 }

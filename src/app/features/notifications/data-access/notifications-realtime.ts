@@ -43,7 +43,8 @@ export type MissionLifecycleEventType =
   | 'MEDIA_UPLOADED'
   | 'MAINTENANCE_TASK_CREATED'
   | 'MAINTENANCE_TASK_STATUS_CHANGED'
-  | 'EMERGENCY_ALERT';
+  | 'EMERGENCY_ALERT'
+  | 'PRIORITY_UPDATED';
 
 export interface MissionLifecycleRealtimeEvent {
   readonly missionId: string;
@@ -51,6 +52,7 @@ export interface MissionLifecycleRealtimeEvent {
   readonly status?: string;
   readonly assignmentId?: string;
   readonly confirmationDeadline?: string;
+  readonly priority?: string;
   readonly managerInstructions?: string;
   readonly mission?: Partial<Mission>;
   readonly actorId?: string;
