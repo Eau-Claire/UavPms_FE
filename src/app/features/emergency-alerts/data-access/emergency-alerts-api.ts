@@ -1,11 +1,14 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { Auth } from '../../../core/auth/auth';
+import { unwrapApiData } from '../../../models/api.models';
 import {
   EmergencyAlertItem,
+  AlertSeverity,
+  AlertStatus,
   ReviewAlertPayload,
   EscalateAlertPayload,
   EscalationManagerOption,
@@ -14,17 +17,17 @@ import {
 const SEED_ACTIVE_ALERTS: EmergencyAlertItem[] = [
   {
     id: 'ea-001',
-    title: 'Ph�t hi?n d�m ch�y r?ng s�t h�nh lang an to�n c?t 042',
-    alertType: 'Ch�y r?ng / Nhi?t d? cao de d?a du?ng d�y',
+    title: 'Phát hiện đám cháy rừng sát hành lang an toàn cột 042',
+    alertType: 'Cháy rừng / Nhiệt độ cao đe dọa đường dây',
     categoryCode: 'EMERGENCY-FIRE-CORRIDOR',
     severity: 'Critical',
     status: 'Active',
     detectedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
     assetCode: 'TOW-220KV-042',
-    assetName: 'C?t n�o h�m d? s? 42 - 220kV',
-    towerCode: 'C?t 042 (TOW-220KV-042)',
-    lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
-    substationName: 'TBA 500kV T�y H� N?i',
+    assetName: 'Cột néo hãm đỡ số 42 - 220kV',
+    towerCode: 'Cột 042 (TOW-220KV-042)',
+    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
+    substationName: 'TBA 500kV Tây Hà Nội',
     latitude: 20.8924,
     longitude: 105.4182,
     imageUrl: '/images/defect-preview-frame.png',
@@ -33,21 +36,21 @@ const SEED_ACTIVE_ALERTS: EmergencyAlertItem[] = [
     aiModelName: 'EdgeYOLOv8-Thermal-UAV-v3.1',
     droneId: 'UAV-MATRICE-300-RTK-01',
     missionCode: 'MIS-20260904-EMG',
-    description: 'C?m bi?n h?ng ngo?i nhi?t d? ph�t hi?n v�ng nhi?t > 350�C c�ch d�y d?n pha C du?i 12 m�t. Kh�i d?m d?c de d?a s? c? ph�ng di?n ion h�a.',
+    description: 'Cảm biến hồng ngoại nhiệt độ phát hiện vùng nhiệt > 350°C cách dây dẫn pha C dưới 12 mét. Khói đậm đặc đe dọa sự cố phóng điện ion hóa.',
   },
   {
     id: 'ea-002',
-    title: 'Xo tua, d?t nhi?u tao d�y d?n pha B s?p d?t g�y',
-    alertType: 'T?n thuong co h?c d�y d?n c?p b�ch',
+    title: 'Xơ tưa, đứt nhiều tao dây dẫn pha B sắp đứt gãy',
+    alertType: 'Tổn thương cơ học dây dẫn cấp bách',
     categoryCode: 'EMERGENCY-COND-BREAK',
     severity: 'Critical',
     status: 'Active',
     detectedAt: new Date(Date.now() - 42 * 60 * 1000).toISOString(),
     assetCode: 'COND-220KV-HB-043',
-    assetName: 'D�y d?n nh�m l�i th�p ACSR 400mm2',
-    towerCode: 'Kho?ng c?t 042 - 043',
-    lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
-    substationName: 'TBA 220kV Xu�n Mai',
+    assetName: 'Dây dẫn nhôm lõi thép ACSR 400mm2',
+    towerCode: 'Khoảng cột 042 - 043',
+    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
+    substationName: 'TBA 220kV Xuân Mai',
     latitude: 20.8988,
     longitude: 105.4295,
     imageUrl: '/images/defect-conductor-damage.png',
@@ -56,21 +59,21 @@ const SEED_ACTIVE_ALERTS: EmergencyAlertItem[] = [
     aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
     droneId: 'UAV-MATRICE-350-RTK-02',
     missionCode: 'MIS-20260904-INSP',
-    description: 'Ph�t hi?n 6 tao nh�m ngo�i b? x� to?c, v?n xo?n nghi�m tr?ng do s�t d�nh ho?c rung l?c gi� l?n. Nguy co d?t r?i d�y d?n khi t?i cao.',
+    description: 'Phát hiện 6 tao nhôm ngoài bị xé toạc, vặn xoắn nghiêm trọng do sét đánh hoặc rung lắc gió lớn. Nguy cơ đứt rơi dây dẫn khi tải cao.',
   },
   {
     id: 'ea-003',
-    title: 'Ph�ng di?n b? m?t chu?i c�ch di?n composite (Flashover)',
-    alertType: 'Hu h?ng v?t li?u c�ch di?n cao �p',
+    title: 'Phóng điện bề mặt chuỗi cách điện composite (Flashover)',
+    alertType: 'Hư hỏng vật liệu cách điện cao áp',
     categoryCode: 'EMERGENCY-INS-FLASHOVER',
     severity: 'High',
     status: 'Active',
     detectedAt: new Date(Date.now() - 85 * 60 * 1000).toISOString(),
     assetCode: 'INS-COMP-TOW043-P1',
-    assetName: 'Chu?i c�ch di?n n�o polymer 220kV',
-    towerCode: 'C?t 043 (TOW-220KV-043)',
-    lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
-    substationName: 'TBA 500kV T�y H� N?i',
+    assetName: 'Chuỗi cách điện néo polymer 220kV',
+    towerCode: 'Cột 043 (TOW-220KV-043)',
+    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
+    substationName: 'TBA 500kV Tây Hà Nội',
     latitude: 20.9015,
     longitude: 105.4358,
     imageUrl: '/images/defect-insulator-flashover.png',
@@ -79,23 +82,23 @@ const SEED_ACTIVE_ALERTS: EmergencyAlertItem[] = [
     aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
     droneId: 'UAV-MATRICE-300-RTK-01',
     missionCode: 'MIS-20260904-EMG',
-    description: 'V?t ch�y den r�nh s�u do ph�ng di?n v?ng quang k�o d�i. B�t c�ch di?n b? n?t n?, c� nguy co d�nh th?ng c�ch di?n g�y s? c? r� lu?i.',
+    description: 'Vết cháy đen rãnh sâu do phóng điện vầng quang kéo dài. Bát cách điện bị nứt nẻ, có nguy cơ đánh thủng cách điện gây sự cố rã lưới.',
   },
 ];
 
 const SEED_HISTORY_ALERTS: EmergencyAlertItem[] = [
   {
     id: 'ea-hist-001',
-    title: 'C�y ng� d? d� d�y c�p quang ch?ng s�t OPGW',
-    alertType: 'Vi ph?m kho?ng c�ch an to�n h�nh lang',
+    title: 'Cây ngã đổ đè dây cáp quang chống sét OPGW',
+    alertType: 'Vi phạm khoảng cách an toàn hành lang',
     categoryCode: 'EMERGENCY-TREE-FALL',
     severity: 'Critical',
     status: 'Escalated',
     detectedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
     assetCode: 'OPGW-220KV-TOW039',
-    assetName: 'C�p quang k?t h?p ch?ng s�t OPGW 70',
-    towerCode: 'Kho?ng c?t 038 - 039',
-    lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
+    assetName: 'Cáp quang kết hợp chống sét OPGW 70',
+    towerCode: 'Khoảng cột 038 - 039',
+    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
     latitude: 20.8841,
     longitude: 105.4052,
     imageUrl: '/images/defect-preview-frame.png',
@@ -104,29 +107,29 @@ const SEED_HISTORY_ALERTS: EmergencyAlertItem[] = [
     aiModelName: 'EdgeYOLOv8-Thermal-UAV-v3.1',
     droneId: 'UAV-MATRICE-300-RTK-01',
     missionCode: 'MIS-20260903-STORM',
-    description: 'C�y keo lai cao 18m b? b?t g?c sau b�o, ng?n c�y v?t ngang c�p OPGW t?o l?c cang nguy hi?m.',
+    description: 'Cây keo lai cao 18m bị bật gốc sau bão, ngọn cây vắt ngang cáp OPGW tạo lực căng nguy hiểm.',
     reviewInfo: {
-      reviewedBy: 'Nguy?n Van Minh (Analyst)',
+      reviewedBy: 'Nguyễn Văn Minh (Analyst)',
       reviewerRole: 'Analyst',
       reviewedAt: new Date(Date.now() - 23 * 3600 * 1000).toISOString(),
       decision: 'Escalated',
       escalatedToUserId: 'mgr-001',
-      escalatedToUserName: 'Tr?n H?u Nam (Tru?ng Trung t�m �i?u d?)',
-      escalationReason: 'T�nh tr?ng kh?n c?p c?p d? 1: C?n di?u d?ng ngay �?i Truy?n t?i di?n khu v?c ch?t t?a kh?n c?p v� ng?t di?n t?m th?i do?n tuy?n.',
+      escalatedToUserName: 'Trần Hữu Nam (Trưởng Trung tâm Điều độ)',
+      escalationReason: 'Tình trạng khẩn cấp cấp độ 1: Cần điều động ngay Đội Truyền tải điện khu vực chặt tỉa khẩn cấp và ngắt điện tạm thời đoạn tuyến.',
     },
   },
   {
     id: 'ea-hist-002',
-    title: 'Bung bu l�ng thanh gi?ng ch�n c?t n�o g�c 044',
-    alertType: 'Hu h?ng k?t c?u co kh� c?t',
+    title: 'Bung bu lông thanh giằng chân cột néo góc 044',
+    alertType: 'Hư hỏng kết cấu cơ khí cột',
     categoryCode: 'EMERGENCY-BOLT-MISSING',
     severity: 'High',
     status: 'Confirmed',
     detectedAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
     assetCode: 'TWR-BOLT-TOW044',
-    assetName: 'Khung gi?ng ch?u l?c g�c du?i',
-    towerCode: 'C?t n�o 044 (TOW-220KV-044)',
-    lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
+    assetName: 'Khung giằng chịu lực góc dưới',
+    towerCode: 'Cột néo 044 (TOW-220KV-044)',
+    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
     latitude: 20.9122,
     longitude: 105.4491,
     imageUrl: '/images/defect-bolt-loose.png',
@@ -135,43 +138,99 @@ const SEED_HISTORY_ALERTS: EmergencyAlertItem[] = [
     aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
     droneId: 'UAV-MATRICE-350-RTK-02',
     missionCode: 'MIS-20260902-REG',
-    description: '2 bu l�ng M24 b? bung dai ?c ho�n to�n do rung d?ng co h?c.',
+    description: '2 bu lông M24 bị bung đai ốc hoàn toàn do rung động cơ học.',
     reviewInfo: {
-      reviewedBy: 'L� Thu Trang (Analyst)',
+      reviewedBy: 'Lê Thu Trang (Analyst)',
       reviewerRole: 'Analyst',
-      reviewedAt: new Date(Date.now() - 46 * 3600 * 1000).toISOString(),
+      reviewedAt: new Date(Date.now() - 47 * 3600 * 1000).toISOString(),
       decision: 'Confirmed',
-      notes: '�� th?m d?nh chu?n x�c. L?p phi?u c�ng t�c s?a ch?a b?o du?ng d?nh k? tu?n n�y.',
+      notes: 'Đã xác nhận hình ảnh độ phân giải cao 4K. Chuyển thông tin sang Đội Bảo dưỡng để thay thế bu lông và siết lại toàn bộ thanh giằng.',
     },
   },
 ];
 
-export const MOCK_MANAGERS: EscalationManagerOption[] = [
+const MOCK_MANAGERS: EscalationManagerOption[] = [
   {
-    id: 'c8f49e0b-5421-4f1b-8a71-365287b40001',
-    fullName: 'Tr?n H?u Nam',
+    id: 'mgr-001',
+    fullName: 'Trần Hữu Nam',
     email: 'nam.tran@evn-uavpms.vn',
     role: 'Manager',
-    department: 'Trung T�m �i?u �? H? Th?ng �i?n (A0/A1)',
+    department: 'Trung Tâm Điều Độ Hệ Thống Điện Miền Bắc',
     phone: '0912 345 678',
   },
   {
-    id: 'd9a51f1c-6532-4e2c-9b82-476398c50002',
-    fullName: 'Ph?m �?c Dung',
-    email: 'dung.pham@evn-uavpms.vn',
+    id: 'mgr-002',
+    fullName: 'Lê Đình Khoa',
+    email: 'khoa.le@evn-uavpms.vn',
     role: 'Manager',
-    department: 'Ban K? Thu?t & An To�n Lu?i �i?n Cao Th?',
-    phone: '0983 222 333',
+    department: 'Ban Kỹ Thuật An Toàn & Bảo Dưỡng Lưới Điện',
+    phone: '0987 654 321',
   },
   {
-    id: 'e0b62a2d-7643-4f3d-ac93-587409d60003',
-    fullName: 'Vu M?nh Cu?ng',
+    id: 'mgr-003',
+    fullName: 'Vũ Đức Cường',
     email: 'cuong.vu@evn-uavpms.vn',
     role: 'Supervisor',
-    department: '�?i Truy?n T?i �i?n Khu V?c T�y H� N?i',
+    department: 'Đội Truyền Tải Điện Khu Vực Tây Hà Nội',
     phone: '0904 888 999',
   },
 ];
+
+function mapBackendAlertItem(raw: any): EmergencyAlertItem {
+  const lat = raw.latitude ?? raw.location?.latitude ?? 20.8924;
+  const lng = raw.longitude ?? raw.location?.longitude ?? 105.4182;
+  const tower = raw.towerCode ?? raw.location?.towerCode ?? raw.assetCode ?? 'Cột điện';
+  const img = raw.imageUrl ?? raw.evidence?.mediaUrl ?? '/images/defect-preview-frame.png';
+
+  let bbox = raw.boundingBox;
+  if (!bbox && raw.evidence?.boundingBox) {
+    try {
+      bbox = typeof raw.evidence.boundingBox === 'string'
+        ? JSON.parse(raw.evidence.boundingBox)
+        : raw.evidence.boundingBox;
+    } catch {
+      bbox = { x: 35, y: 30, width: 30, height: 30, isNormalized: true };
+    }
+  }
+
+  const confidence = raw.confidenceScore ?? raw.evidence?.confidenceScore ?? 90;
+  const rawSev = raw.severity ?? raw.priority ?? 'Critical';
+  const severity: AlertSeverity = ['Critical', 'High', 'Medium', 'Low'].includes(rawSev) ? rawSev : 'Critical';
+  const rawStatus = raw.status ?? 'Active';
+  const status: AlertStatus = ['Active', 'Confirmed', 'Dismissed', 'Escalated'].includes(rawStatus) ? rawStatus : 'Active';
+  const detectedAt = raw.detectedAt ?? raw.triggeredAt ?? new Date().toISOString();
+
+  return {
+    id: String(raw.id ?? ''),
+    title: raw.title ?? `Cảnh báo sự cố: ${raw.alertType || 'Bất thường'} tại ${tower}`,
+    alertType: raw.alertType ?? 'Sự cố lưới điện khẩn cấp',
+    categoryCode: raw.categoryCode ?? raw.categoryName ?? 'EMERGENCY-GRID',
+    severity,
+    status,
+    detectedAt: String(detectedAt),
+    assetCode: raw.assetCode ?? 'ASSET-220KV',
+    assetName: raw.assetName ?? `Thiết bị tại ${tower}`,
+    towerCode: tower,
+    lineName: raw.lineName ?? 'Đường dây 220kV Hòa Bình - Hà Đông',
+    substationName: raw.substationName ?? 'TBA 500kV Tây Hà Nội',
+    latitude: Number(lat),
+    longitude: Number(lng),
+    imageUrl: img,
+    boundingBox: bbox,
+    confidenceScore: Number(confidence),
+    aiModelName: raw.aiModelName ?? 'EdgeYOLOv8-Emergency-Drone-v3.2',
+    droneId: raw.droneId ?? 'UAV-MATRICE-300-RTK-01',
+    missionCode: raw.missionCode ?? 'MIS-2026-REALTIME',
+    description: raw.description ?? raw.notes ?? 'Phát hiện sự cố bất thường từ hệ thống giám sát.',
+    reviewInfo: raw.reviewInfo ?? (raw.reviewedBy ? {
+      reviewedBy: raw.reviewedBy,
+      reviewerRole: 'Analyst',
+      reviewedAt: raw.resolvedAt ?? detectedAt,
+      decision: status === 'Active' ? 'Confirmed' : (status as any),
+      notes: raw.notes,
+    } : undefined),
+  };
+}
 
 @Injectable({
   providedIn: 'root',
@@ -194,8 +253,16 @@ export class EmergencyAlertsApi {
    * Fetch active alerts from backend or fallback to local signal
    */
   fetchActiveAlerts(): Observable<EmergencyAlertItem[]> {
-    return this.http.get<EmergencyAlertItem[]>(`${environment.apiBaseUrl}/alerts/active`).pipe(
-      map((res) => (Array.isArray(res) && res.length > 0 ? res : this.activeAlertsSignal())),
+    return this.http.get<unknown>(`${environment.apiBaseUrl}/alerts/active`).pipe(
+      map((res) => {
+        const data = unwrapApiData<any>(res);
+        const items = Array.isArray(data)
+          ? data
+          : data?.items && Array.isArray(data.items)
+            ? data.items
+            : [];
+        return items.length > 0 ? items.map(mapBackendAlertItem) : this.activeAlertsSignal();
+      }),
       tap((alerts) => this.activeAlertsSignal.set(alerts)),
       catchError((err: HttpErrorResponse) => {
         console.warn('[EmergencyAlertsApi] Backend /alerts/active not yet deployed or error, using local queue:', err.status);
@@ -208,9 +275,22 @@ export class EmergencyAlertsApi {
    * Fetch alert history
    */
   fetchAlertHistory(params?: { status?: string; page?: number; pageSize?: number }): Observable<EmergencyAlertItem[]> {
-    const statusParam = params?.status ? `?status=${params.status}` : '';
-    return this.http.get<EmergencyAlertItem[]>(`${environment.apiBaseUrl}/alerts${statusParam}`).pipe(
-      map((res) => (Array.isArray(res) && res.length > 0 ? res : this.historyAlertsSignal())),
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.set('status', params.status);
+    if (params?.page) queryParams.set('page', String(params.page));
+    if (params?.pageSize) queryParams.set('pageSize', String(params.pageSize));
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    return this.http.get<unknown>(`${environment.apiBaseUrl}/alerts${queryString}`).pipe(
+      map((res) => {
+        const data = unwrapApiData<any>(res);
+        const items = Array.isArray(data)
+          ? data
+          : data?.items && Array.isArray(data.items)
+            ? data.items
+            : [];
+        return items.length > 0 ? items.map(mapBackendAlertItem) : this.historyAlertsSignal();
+      }),
       tap((history) => this.historyAlertsSignal.set(history)),
       catchError((err: HttpErrorResponse) => {
         console.warn('[EmergencyAlertsApi] Backend /alerts history not yet deployed, using local queue:', err.status);
@@ -224,7 +304,7 @@ export class EmergencyAlertsApi {
    */
   reviewAlert(id: string, payload: ReviewAlertPayload): Observable<void> {
     const user = this.auth.user();
-    const reviewerName = user?.fullName || user?.email || 'Chuy�n vi�n Analyst';
+    const reviewerName = user?.fullName || user?.email || 'Chuyên viên Analyst';
     const reviewerRole = user?.role || 'Analyst';
 
     return this.http.put<void>(`${environment.apiBaseUrl}/alerts/${id}/review`, payload).pipe(
@@ -260,10 +340,10 @@ export class EmergencyAlertsApi {
    */
   escalateAlert(id: string, payload: EscalateAlertPayload): Observable<void> {
     const user = this.auth.user();
-    const reviewerName = user?.fullName || user?.email || 'Chuy�n vi�n Analyst';
+    const reviewerName = user?.fullName || user?.email || 'Chuyên viên Analyst';
     const reviewerRole = user?.role || 'Analyst';
     const manager = this.managersSignal().find((m) => m.id === payload.escalatedToUserId);
-    const targetManagerName = manager ? `${manager.fullName} (${manager.department})` : 'C?p Qu?n L� H? Th?ng';
+    const targetManagerName = manager ? `${manager.fullName} (${manager.department})` : 'Cấp Quản Lý Hệ Thống';
 
     return this.http.post<void>(`${environment.apiBaseUrl}/alerts/${id}/escalate`, payload).pipe(
       catchError((err: HttpErrorResponse) => {
@@ -311,25 +391,25 @@ export class EmergencyAlertsApi {
     const randomId = 'ea-' + Math.random().toString(36).substring(2, 7);
     const mockTypes = [
       {
-        title: 'Ph�t hi?n ph�ng di?n h? quang chu?i b�t c�ch di?n pha A',
-        type: 'H? quang di?n nguy hi?m',
+        title: 'Phát hiện phóng điện hồ quang chuỗi bát cách điện pha A',
+        type: 'Hồ quang điện nguy hiểm',
         code: 'EMG-ARC-FLASHOVER',
         image: '/images/defect-insulator-crack.png',
-        desc: 'Tia l?a h? quang s�ng ch�i k�m nhi?t d? > 400�C ph�t hi?n qua c?m bi?n quang ph? UV.',
+        desc: 'Tia lửa hồ quang sáng chói kèm nhiệt độ > 400°C phát hiện qua cảm biến quang phổ UV.',
       },
       {
-        title: 'V?t th? l? (B?t rom / Di?u kh?ng l?) vu?ng v�o du?ng d�y',
-        type: 'D? v?t vi ph?m kho?ng c�ch ph�ng di?n',
+        title: 'Vật thể lạ (Bạt rơm / Diều khổng lồ) vướng vào đường dây',
+        type: 'Dị vật vi phạm khoảng cách phóng điện',
         code: 'EMG-FOREIGN-OBJECT',
         image: '/images/defect-conductor-damage.png',
-        desc: 'M�ng b?t n�ng nghi?p d�i 4 m�t m?c tr�n d�y d?n dang ch�y x�m do ph�ng di?n v?ng quang.',
+        desc: 'Màng bạt nông nghiệp dài 4 mét mắc trên dây dẫn đang cháy xém do phóng điện vầng quang.',
       },
       {
-        title: 'S?t l? d?t de d?a s?p m�ng tr? n�o s? 045',
-        type: 'S?t l? d?a ch?t nguy co d? c?t',
+        title: 'Sạt lở đất đe dọa sập móng trụ néo số 045',
+        type: 'Sạt lở địa chất nguy cơ đổ cột',
         code: 'EMG-GEO-LANDSLIDE',
         image: '/images/defect-preview-frame.png',
-        desc: 'Mua l?n g�y s?t l? taluy �m c�ch m�ng tr? n�o 1.8 m�t. �?t d� dang s?t l�n nhanh.',
+        desc: 'Mưa lớn gây sạt lở taluy âm cách móng trụ néo 1.8 mét. Đất đá đang sụt lún nhanh.',
       },
     ];
 
@@ -343,10 +423,10 @@ export class EmergencyAlertsApi {
       status: 'Active',
       detectedAt: new Date().toISOString(),
       assetCode: `TOW-220KV-0${Math.floor(Math.random() * 20 + 35)}`,
-      assetName: 'C?t d? n�o du?ng d�y 220kV',
-      towerCode: `C?t 0${Math.floor(Math.random() * 20 + 35)}`,
-      lineName: '�u?ng d�y 220kV H�a B�nh - H� ��ng',
-      substationName: 'TBA 500kV T�y H� N?i',
+      assetName: 'Cột đỡ néo đường dây 220kV',
+      towerCode: `Cột 0${Math.floor(Math.random() * 20 + 35)}`,
+      lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
+      substationName: 'TBA 500kV Tây Hà Nội',
       latitude: 20.89 + Math.random() * 0.05,
       longitude: 105.41 + Math.random() * 0.05,
       imageUrl: pick.image,

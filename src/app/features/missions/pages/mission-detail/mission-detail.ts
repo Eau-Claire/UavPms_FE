@@ -1348,7 +1348,6 @@ export class MissionDetail {
       .start(currentMission.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => of(null)),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
@@ -1398,7 +1397,6 @@ export class MissionDetail {
       .complete(currentMission.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => of(null)),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
@@ -1844,7 +1842,18 @@ export class MissionDetail {
       )
       .subscribe({
         next: (updatedMission) => {
-          this.mission.set(updatedMission);
+          const merged: Mission = {
+            ...currentMission,
+            ...updatedMission,
+            team: updatedMission.team && updatedMission.team.length ? updatedMission.team : currentMission.team,
+            targets: updatedMission.targets && updatedMission.targets.length ? updatedMission.targets : currentMission.targets,
+            status: updatedMission.status && updatedMission.status !== 'Pending' ? updatedMission.status : currentMission.status,
+            priority: p,
+            objective: payload.objective ?? currentMission.objective,
+            emergencyReason: payload.emergencyReason ?? currentMission.emergencyReason,
+            priorityDefects: payload.priorityDefects ?? currentMission.priorityDefects,
+          };
+          this.mission.set(merged);
           this.closePriorityModal();
           this.actionMessage.set(`Đã cập nhật mức độ ưu tiên nhiệm vụ thành: ${this.priorityLabel(p)}.`);
           this.notificationsStore.upsert({

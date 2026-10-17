@@ -21,9 +21,13 @@ export class DroneManagementApi {
   private readonly baseUrl = environment.apiBaseUrl;
 
   getDrones(status?: string, regionId?: string): Observable<readonly UavRecord[]> {
-    let params = new HttpParams();
-    if (status) params = params.set('status', status);
-    if (regionId) params = params.set('regionId', regionId);
+    let params = new HttpParams().set('detailed', 'true');
+    if (status) {
+      params = params.set('status', status).set('operationalStatus', status);
+    }
+    if (regionId) {
+      params = params.set('regionId', regionId);
+    }
 
     return this.http.get<unknown>(`${this.baseUrl}/drones`, { params }).pipe(
       map((res) => {
