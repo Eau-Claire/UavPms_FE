@@ -3,9 +3,8 @@ export type AssessmentStatus =
   | 'EVALUATING'
   | 'READY'
   | 'NOT_READY'
-  | 'INCOMPLETE'
   | 'EXPIRED'
-  | 'CONSUMED'
+  | 'COMPLETED'
   | 'CANCELLED'
   | string;
 
@@ -18,19 +17,30 @@ export interface ReadinessCheck {
 export interface SiteCheckItem {
   readonly code: string;
   readonly name: string;
-  readonly status: 'PASS' | 'WARNING' | 'FAIL' | 'INCOMPLETE';
+  readonly status: 'PASS' | 'WARNING' | 'FAIL';
   readonly details: string;
   readonly severity?: 'low' | 'medium' | 'high';
 }
 
+export type OperationalRole = 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | string;
+
 export interface PersonnelCandidate {
   readonly id: string;
   readonly name: string;
-  readonly role: string;
+  readonly role: OperationalRole;
   readonly region?: string;
+  readonly regionId?: string;
+  readonly regionName?: string;
   readonly availability: string;
   readonly eligibility: string;
+  readonly isActive?: boolean;
+  readonly isEligible?: boolean;
+  readonly isWithinScope?: boolean;
+  readonly isAvailable?: boolean;
+  readonly overallEligibility?: boolean | 'ELIGIBLE' | 'INELIGIBLE' | string;
+  readonly qualificationDetails?: string;
   readonly conflict?: string | null;
+  readonly reasonCode?: string | null;
   readonly reason?: string | null;
 }
 
@@ -44,6 +54,10 @@ export interface UavCandidate {
   readonly validUntil?: string | null;
   readonly eligibility: string;
   readonly conflict?: string | null;
+  readonly suitability?: 'SUITABLE' | 'SUITABLE_WITH_SPLIT' | 'UNSUITABLE' | string | null;
+  readonly estimatedFlightsNeeded?: number | null;
+  readonly coverageDistanceKm?: number | null;
+  readonly suitabilityReason?: string | null;
 }
 
 export interface TechnicalMetric {
@@ -97,6 +111,9 @@ export interface PreMissionAssessment {
   readonly createdBy?: string | null;
   readonly updatedAt?: string | null;
   readonly consumedMissionId?: string | null;
+  readonly consumedMissionCode?: string | null;
+  readonly completedMissionId?: string | null;
+  readonly completedMissionCode?: string | null;
   readonly personnelCandidates: readonly PersonnelCandidate[];
   readonly uavCandidates: readonly UavCandidate[];
   readonly technicalMetrics: readonly TechnicalMetric[];
@@ -104,6 +121,9 @@ export interface PreMissionAssessment {
   readonly droneInspection?: DroneTechnicalInspectionResult | null;
   readonly scopeAssetIds: readonly string[];
   readonly scopeGeometry?: unknown;
+  readonly requiredInspectors?: number;
+  readonly requiredAnalysts?: number;
+  readonly requiredTechnicians?: number;
 }
 
 export interface AssessmentPage {
@@ -130,5 +150,10 @@ export interface AssessmentCreateRequest {
   readonly scopeAssetIds: readonly string[];
   readonly plannedStart: string;
   readonly plannedEnd: string;
+  readonly boundaryWkt?: string | null;
+  readonly idempotencyKey?: string | null;
   readonly scopeGeometry?: unknown;
+  readonly requiredInspectors?: number;
+  readonly requiredAnalysts?: number;
+  readonly requiredTechnicians?: number;
 }

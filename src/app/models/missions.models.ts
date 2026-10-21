@@ -1,4 +1,136 @@
-export type MissionStatus = 'Draft' | 'Assigned' | 'Preparing' | 'Ready' | 'InProgress' | 'Completed' | 'Cancelled' | string;
+export type MissionPriority = 'NORMAL' | 'HIGH' | 'EMERGENCY' | string;
+
+export type InspectionObjective =
+  | 'PERIODIC_INSPECTION'
+  | 'TARGETED_REINSPECTION'
+  | 'INCIDENT_FOLLOW_UP'
+  | 'EMERGENCY_INSPECTION'
+  | string;
+
+export const PRIORITY_DEFECT_CATEGORIES = [
+  { key: 'Insulator', label: 'Khuyết tật cách điện (Insulator defects)' },
+  { key: 'Conductor', label: 'Khuyết tật dây dẫn (Conductor defects)' },
+  { key: 'SurgeArrester', label: 'Chống sét van (Surge arrester defects)' },
+  { key: 'ForeignObject', label: 'Tổ chim / Dị vật (Foreign objects)' },
+  { key: 'TowerCorrosion', label: 'Ăn mòn cột (Tower corrosion)' },
+  { key: 'Other', label: 'Khác (Other)' },
+] as const;
+
+export type MissionStatus =
+  | 'Draft'
+  | 'PENDING_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'Assigned'
+  | 'Preparing'
+  | 'Ready'
+  | 'InProgress'
+  | 'POSTPONED'
+  | 'SUSPENDED'
+  | 'Completed'
+  | 'Cancelled'
+  | string;
+
+export interface MissionCommunicationLog {
+  readonly id: string;
+  readonly senderId: string;
+  readonly senderName: string;
+  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'SYSTEM';
+  readonly type: 'DISPATCH' | 'CONFIRM' | 'POSTPONE' | 'SUSPEND' | 'RESUME' | 'CANCEL' | 'REMINDER' | 'MESSAGE' | 'START' | 'COMPLETE';
+  readonly content: string;
+  readonly timestamp: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export type MissionOperationalRole = 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | string;
+
+export type AssignmentResponseStatus = 'PENDING' | 'ACCEPTED' | 'POSTPONED' | 'REPLACED' | 'CANCELLED' | string;
+
+export interface MissionMemberAssignmentItem {
+  readonly userId: string;
+  readonly role: MissionOperationalRole;
+  readonly isRequired?: boolean;
+}
+
+export interface MissionAssignmentsOverview {
+  readonly missionId: string;
+  readonly totalRequiredCount: number;
+  readonly confirmedCount: number;
+  readonly allConfirmed: boolean;
+  readonly confirmationDeadline?: string | null;
+  readonly assignments: readonly MissionAssignment[];
+}
+
+export interface MissionBackendDetection {
+  readonly id: string;
+  readonly missionId: string;
+  readonly mediaId?: string;
+  readonly title: string;
+  readonly confidence: number;
+  readonly categoryCode?: string;
+  readonly severityWeight?: number;
+  readonly isEmergency?: boolean;
+  readonly status: 'Pending' | 'Approved' | 'Rejected' | string;
+  readonly boundingBox?: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  };
+  readonly timestampSeconds?: number | null;
+  readonly timestampLabel?: string;
+  readonly frameIndex?: number | null;
+  readonly imageUrl?: string;
+  readonly sourceUrl?: string;
+  readonly assetId?: string;
+  readonly tower?: string;
+  readonly gps?: string;
+  readonly description?: string;
+  readonly detectedAt?: string;
+  readonly reviewedByUserId?: string | null;
+  readonly reviewedAt?: string | null;
+  readonly reviewNotes?: string | null;
+}
+
+export interface MissionBackendMaintenanceTask {
+  readonly id: string;
+  readonly missionId: string;
+  readonly detectionId?: string;
+  readonly title: string;
+  readonly priority: 'Urgent' | 'High' | 'Medium' | 'Low' | string;
+  readonly towerCode?: string;
+  readonly assetCode?: string;
+  readonly defectDescription?: string;
+  readonly suggestedAction?: string;
+  readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | string;
+  readonly assignedTeam?: string;
+  readonly createdAt?: string;
+}
+
+export interface MissionBackendActivity {
+  readonly id: string;
+  readonly missionId: string;
+  readonly senderUserId?: string;
+  readonly senderName: string;
+  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | 'SYSTEM' | string;
+  readonly content: string;
+  readonly timestamp: string;
+}
+
+export interface MissionAssignment {
+  readonly id: string;
+  readonly missionId?: string;
+  readonly userId: string;
+  readonly userName: string;
+  readonly userFullName?: string;
+  readonly assignmentRole: MissionOperationalRole;
+  readonly status: string; // 'Active' | 'Unavailable' | 'Revoked' | string
+  readonly responseStatus?: AssignmentResponseStatus;
+  readonly isRequired?: boolean;
+  readonly assignedAt?: string;
+  readonly respondedAt?: string | null;
+  readonly responseReason?: string | null;
+  readonly checkedInAt?: string | null;
+}
 
 export interface Mission {
   readonly id: string;
@@ -26,6 +158,26 @@ export interface Mission {
   readonly actualCompleted?: string | null;
   readonly boundaryWkt?: string | null;
   readonly team?: readonly MissionAssignment[];
+  readonly confirmationDeadline?: string | null;
+  readonly managerInstructions?: string | null;
+  readonly postponeReason?: string | null;
+  readonly suspendedReason?: string | null;
+  readonly cancellationReason?: string | null;
+  readonly sourceAssessmentId?: string | null;
+  readonly priority?: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string | null;
+  readonly isImmediate?: boolean;
+  readonly communicationLogs?: readonly MissionCommunicationLog[];
+  // Multi-role confirmation progress properties
+  readonly confirmedAt?: string | null;
+  readonly confirmedCount?: number;
+  readonly totalRequiredCount?: number;
+  readonly confirmationProgress?: number | string;
+  readonly allConfirmed?: boolean;
+  readonly pendingRoles?: readonly string[];
+  readonly requiresReassignment?: boolean;
 }
 
 export interface MissionPage {
@@ -46,28 +198,34 @@ export interface MissionMutationRequest {
 }
 
 export interface MissionCreateRequest {
-  readonly name: string;
+  readonly name?: string;
+  readonly title?: string;
   readonly description: string;
-  readonly scheduledAt: string;
+  readonly scheduledAt?: string;
+  readonly plannedStart?: string;
   readonly plannedEnd: string;
-  readonly regionId: string;
-  readonly missionType: 'AD_HOC' | 'SCHEDULED';
+  readonly regionId?: string;
+  readonly missionType?: 'AD_HOC' | 'SCHEDULED' | string;
   readonly triggerReason?: string;
   readonly scheduleId?: string;
-  readonly inspectorId: string;
-  readonly droneId: string;
-  readonly targetAssetIds: readonly string[];
-  readonly boundaryWkt: string;
+  readonly inspectorId?: string;
+  readonly droneId?: string;
+  readonly droneIds?: readonly string[];
+  readonly targetAssetIds?: readonly string[];
+  readonly boundaryWkt?: string;
   readonly routeData?: string;
-}
-
-export interface MissionAssignment {
-  readonly id: string;
-  readonly userId: string;
-  readonly userName: string;
-  readonly assignmentRole: string;
-  readonly status: string;
-  readonly checkedInAt?: string | null;
+  readonly confirmationDeadline?: string;
+  readonly managerInstructions?: string;
+  readonly sourceAssessmentId?: string;
+  readonly assessmentId?: string;
+  readonly priority?: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string;
+  readonly isImmediate?: boolean;
+  readonly assignments?: readonly MissionMemberAssignmentItem[];
+  readonly personnel?: readonly MissionMemberAssignmentItem[];
+  readonly idempotencyKey?: string;
 }
 
 export interface MissionTarget {
@@ -85,4 +243,46 @@ export interface MissionTarget {
 export interface InspectionSettings {
   readonly inspectionTypes: readonly string[];
   readonly checklist: string;
+}
+
+
+export interface ResourceConflictItem {
+  readonly resourceType: 'Personnel' | 'Drone' | string;
+  readonly resourceId: string;
+  readonly resourceName?: string;
+  readonly conflictingMissionId: string;
+  readonly conflictingMissionCode: string;
+  readonly conflictingMissionTitle: string;
+  readonly conflictStart: string;
+  readonly conflictEnd: string;
+  readonly conflictingMissionPriority: MissionPriority;
+}
+
+export interface ResourceAvailabilityWarning {
+  readonly resourceId: string;
+  readonly resourceType: string;
+  readonly resourceName: string;
+  readonly warningType: string;
+  readonly message: string;
+}
+
+export interface CheckResourceConflictsRequest {
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly userIds?: readonly string[];
+  readonly droneIds?: readonly string[];
+  readonly excludeMissionId?: string;
+}
+
+export interface CheckResourceConflictsResponse {
+  readonly hasConflict: boolean;
+  readonly conflicts: readonly ResourceConflictItem[];
+  readonly warnings: readonly ResourceAvailabilityWarning[];
+}
+
+export interface UpdateMissionPriorityRequest {
+  readonly priority: MissionPriority;
+  readonly objective?: InspectionObjective;
+  readonly priorityDefects?: readonly string[];
+  readonly emergencyReason?: string;
 }

@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map } from 'rxjs';
+import { catchError, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { AppNotification } from '../../../models/notification.models';
@@ -13,11 +13,14 @@ export class NotificationsApi {
   private readonly baseUrl = `${environment.apiBaseUrl}/notifications`;
 
   getHistory(userId?: string) {
-    let params = new HttpParams();
+    let params = new HttpParams().set('limit', '50');
     if (userId) params = params.set('userId', userId);
     return this.http
       .get<unknown>(`${this.baseUrl}/history`, { params })
-      .pipe(map((response) => normalizeArray(unwrapApiData(response)).map((item) => normalizeNotification(item))));
+      .pipe(
+        catchError(() => this.http.get<unknown>(this.baseUrl, { params })),
+        map((response) => normalizeArray(unwrapApiData(response)).map((item) => normalizeNotification(item)))
+      );
   }
 
   getById(id: string) {
@@ -51,27 +54,27 @@ const boolValue = (value: unknown) => value === true || value === 'true' || valu
 const normalizeArray = (value: unknown): readonly unknown[] => {
   if (Array.isArray(value)) return value;
   const source = record(value);
-  const list = pick(source, 'items', 'results', 'records', 'notifications', 'data');
+  const list = pick(source, 'items', 'results', 'records', 'notifications', 'data', 'Items', 'Results', 'Records', 'Notifications', 'Data');
   return Array.isArray(list) ? list : [];
 };
 
 export const normalizeNotification = (value: unknown, fallbackId = ''): AppNotification => {
   const source = record(value);
-  const id = stringValue(pick(source, 'id', 'notificationId'), fallbackId);
+  const id = stringValue(pick(source, 'id', 'notificationId', 'Id', 'NotificationId'), fallbackId);
   const createdAt = stringValue(
-    pick(source, 'createdAt', 'createdTime', 'createdDate', 'timestamp', 'sentAt'),
+    pick(source, 'createdAt', 'createdTime', 'createdDate', 'timestamp', 'sentAt', 'CreatedAt', 'Timestamp'),
     new Date(0).toISOString(),
   );
-  const readAt = pick(source, 'readAt', 'readTime');
+  const readAt = pick(source, 'readAt', 'readTime', 'ReadAt', 'ReadTime');
   return {
     id,
-    userId: stringValue(pick(source, 'userId', 'recipientId')) || undefined,
-    type: stringValue(pick(source, 'type', 'notificationType')) || undefined,
-    referenceType: stringValue(pick(source, 'referenceType', 'entityType')) || undefined,
-    referenceId: stringValue(pick(source, 'referenceId', 'entityId')) || undefined,
-    title: stringValue(pick(source, 'title', 'subject'), 'Notification'),
-    body: stringValue(pick(source, 'body', 'message', 'content', 'description')),
+    userId: stringValue(pick(source, 'userId', 'recipientId', 'UserId', 'RecipientId')) || undefined,
+    type: stringValue(pick(source, 'type', 'notificationType', 'Type', 'NotificationType')) || undefined,
+    referenceType: stringValue(pick(source, 'referenceType', 'entityType', 'ReferenceType', 'EntityType')) || undefined,
+    referenceId: stringValue(pick(source, 'referenceId', 'entityId', 'ReferenceId', 'EntityId')) || undefined,
+    title: stringValue(pick(source, 'title', 'subject', 'Title', 'Subject'), 'Notification'),
+    body: stringValue(pick(source, 'body', 'message', 'content', 'description', 'Body', 'Message', 'Content', 'Description')),
     createdAt,
-    isRead: boolValue(pick(source, 'isRead', 'read', 'seen')) || Boolean(readAt),
+    isRead: boolValue(pick(source, 'isRead', 'read', 'seen', 'IsRead', 'Read', 'Seen')) || Boolean(readAt),
   };
 };

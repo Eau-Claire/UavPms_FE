@@ -1,4 +1,6 @@
-import { DatePipe } from '@angular/common';
+import { NotificationsRealtime, AssessmentRealtimeEvent } from '../../../notifications/data-access/notifications-realtime';
+import { Subscription } from 'rxjs';
+import { DatePipe, Location } from '@angular/common';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -6,20 +8,36 @@ import {
   ElementRef,
   OnDestroy,
   computed,
+  effect,
   inject,
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { Auth } from '../../../../core/auth/auth';
 import {
   DroneTechnicalInspectionResult,
+  PersonnelCandidate,
   PreMissionAssessment,
   UavCandidate,
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { PreMissionApi } from '../../data-access/pre-mission-api';
+import { defaultSiteChecks, PreMissionApi, RealtimeWeatherSnapshot } from '../../data-access/pre-mission-api';
+import {
+  BetaflightSerialService,
+  SerialConnectionState,
+  SIMULATED_FC_PROFILES,
+  SimulatedFcProfile,
+} from '../../../../core/services/betaflight-serial.service';
+import { FlightControllerApi } from '../../data-access/flight-controller-api';
+import {
+  FlightControllerBinding,
+  FlightControllerMetadata,
+  FlightControllerResolveResult,
+} from '../../../../models/flight-controller.models';
+import { GisApi, GisTower } from '../../../gis/data-access/gis-api';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
 
@@ -33,12 +51,33 @@ export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technica
 export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly api = inject(PreMissionApi);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly auth = inject(Auth);
+  private readonly location = inject(Location);
+  private readonly gisApi = inject(GisApi);
+  private readonly realtime = inject(NotificationsRealtime);
+  private readonly fcSerial = inject(BetaflightSerialService);
+  private readonly fcApi = inject(FlightControllerApi);
+  private realtimeSub: Subscription | null = null;
+  protected readonly availableTowers = signal<readonly GisTower[]>([]);
 
-  protected readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('scopeMapContainer');
+  protected readonly scopeMapContainer = viewChild<ElementRef<HTMLDivElement>>('scopeMapContainer');
+  protected readonly siteMapContainer = viewChild<ElementRef<HTMLDivElement>>('siteMapContainer');
+
+  protected readonly currentUser = this.auth.user;
+  protected readonly canManage = computed(() => {
+    const role = this.currentUser()?.role;
+    return !role || role === 'SystemAdmin' || role === 'Manager';
+  });
+  protected readonly canInspectDrone = computed(() => {
+    const role = this.currentUser()?.role;
+    return !role || role === 'SystemAdmin' || role === 'Technician' || role === 'Inspector' || role === 'Manager';
+  });
 
   protected readonly item = signal<PreMissionAssessment | null>(null);
   protected readonly error = signal('');
   protected readonly actionMessage = signal('');
+  protected readonly isStaleConflict = signal(false);
   protected readonly busy = signal(false);
   protected readonly activeTab = signal<WorkspaceTab>('overview');
 
@@ -50,14 +89,87 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly inspectionResult = signal<DroneTechnicalInspectionResult | null>(null);
   protected readonly inspecting = signal(false);
 
+  // Flight Controller (Betaflight MSP Hardware Identification & Pairing)
+  protected readonly fcMetadata = this.fcSerial.activeMetadata;
+  protected readonly fcConnectionState = this.fcSerial.connectionState;
+  protected readonly fcIsSimulated = this.fcSerial.isSimulated;
+  protected readonly fcError = this.fcSerial.errorMessage;
+  protected readonly simulatedProfiles = SIMULATED_FC_PROFILES;
+  protected readonly selectedSimProfile = signal<string>('f405-speedybee');
+  protected readonly customFcUidInput = signal<string>('');
+  protected readonly showCustomUidInput = signal<boolean>(false);
+  protected readonly resolvingFc = signal<boolean>(false);
+  protected readonly resolvedFcData = signal<FlightControllerResolveResult | null>(null);
+  protected readonly pairingFc = signal<boolean>(false);
+  protected readonly pairingError = signal<string>('');
+  protected readonly pairingSuccess = signal<string>('');
+  protected readonly pairTargetDroneId = signal<string>('');
+
+  protected readonly currentAssessmentDrone = computed(() => {
+    const a = this.item();
+    const selId = this.selectedDroneId();
+    if (!a || !a.uavCandidates?.length) return null;
+    return a.uavCandidates.find((d) => d.id === selId || d.code === selId) || a.uavCandidates[0];
+  });
+
+  protected readonly isFcConnected = computed(() => {
+    return this.fcConnectionState() === 'connected' && !!this.fcMetadata();
+  });
+
+  protected readonly isFcRegistered = computed(() => {
+    return this.isFcConnected() && this.resolvedFcData()?.registered === true;
+  });
+
+  protected readonly isFcUnregistered = computed(() => {
+    return this.isFcConnected() && this.resolvedFcData()?.registered === false;
+  });
+
+  protected readonly fcDrone = computed(() => {
+    return this.resolvedFcData()?.drone ?? null;
+  });
+
+  protected readonly isFcDroneMismatch = computed(() => {
+    if (!this.isFcConnected()) return false;
+    const res = this.resolvedFcData();
+    if (!res || !res.registered || !res.drone) return false;
+    const target = this.currentAssessmentDrone();
+    if (!target) return false;
+
+    const matched =
+      (res.drone.id && target.id && res.drone.id.toLowerCase() === target.id.toLowerCase()) ||
+      (res.drone.code && target.code && res.drone.code.toUpperCase() === target.code.toUpperCase());
+    return !matched;
+  });
+
+  protected readonly isFcMatchingAssessmentDrone = computed(() => {
+    if (!this.isFcConnected()) return false;
+    const res = this.resolvedFcData();
+    if (!res || !res.registered || !res.drone) return false;
+    const target = this.currentAssessmentDrone();
+    if (!target) return false;
+
+    return (
+      (res.drone.id && target.id && res.drone.id.toLowerCase() === target.id.toLowerCase()) ||
+      (res.drone.code && target.code && res.drone.code.toUpperCase() === target.code.toUpperCase())
+    );
+  });
+
+  // Real-time weather observation
+  protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
+  protected readonly loadingWeather = signal(false);
+
   // Leaflet map
   private map: L.Map | null = null;
+  private currentTileLayer: L.TileLayer | null = null;
   private markersLayer = L.layerGroup();
   private polylineLayer = L.layerGroup();
+  private bufferLayer = L.layerGroup();
+  private resizeObserver: ResizeObserver | null = null;
+  protected readonly currentMapType = signal<'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'>('google-streets');
 
   protected readonly isReady = computed(() => {
     const a = this.item();
-    return a?.status === 'READY';
+    return a?.status?.toUpperCase() === 'READY';
   });
 
   protected readonly isExpired = computed(() => {
@@ -67,19 +179,118 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   });
 
   protected readonly isEvaluating = computed(() => {
-    return this.item()?.status === 'EVALUATING';
+    return this.item()?.status?.toUpperCase() === 'EVALUATING';
   });
 
   protected readonly isCancelled = computed(() => {
-    return this.item()?.status === 'CANCELLED';
+    return this.item()?.status?.toUpperCase() === 'CANCELLED';
   });
 
-  protected readonly isConsumed = computed(() => {
-    return this.item()?.status === 'CONSUMED';
+  protected readonly isCompleted = computed(() => {
+    const s = this.item()?.status?.toUpperCase();
+    return s === 'COMPLETED' || s === 'CONSUMED';
+  });
+
+  protected readonly isConsumed = this.isCompleted;
+
+  protected readonly selectedRoleFilter = signal<'ALL' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN'>('ALL');
+  protected readonly onlyAvailableFilter = signal<boolean>(true);
+  protected readonly editingQuotas = signal<boolean>(false);
+  protected readonly editReqInspectors = signal<number>(1);
+  protected readonly editReqAnalysts = signal<number>(1);
+  protected readonly editReqTechnicians = signal<number>(1);
+  protected readonly savingQuotas = signal<boolean>(false);
+
+  // Multi-role breakdown check (Inspector, Analyst, Technician against Manager quotas with 5 AND criteria)
+  protected readonly roleBreakdown = computed(() => {
+    const a = this.item();
+    const reqInspectors = a?.requiredInspectors ?? 1;
+    const reqAnalysts = a?.requiredAnalysts ?? 1;
+    const reqTechnicians = a?.requiredTechnicians ?? 1;
+
+    if (!a) {
+      return {
+        inspectors: [] as PersonnelCandidate[],
+        analysts: [] as PersonnelCandidate[],
+        technicians: [] as PersonnelCandidate[],
+        allAvailable: [] as PersonnelCandidate[],
+        reqInspectors,
+        reqAnalysts,
+        reqTechnicians,
+        hasAllThree: false,
+        missingDetails: ['Chưa tải được dữ liệu nhân sự'],
+        missingRoles: ['Chưa tải dữ liệu'],
+        totalEligible: 0,
+        totalRequired: reqInspectors + reqAnalysts + reqTechnicians,
+      };
+    }
+    const candidates = a.personnelCandidates || [];
+
+    // 5-point AND criteria check (Chỉ người đang rảnh, active, eligible, scope)
+    const isCandidateEligibleAndFree = (c: PersonnelCandidate) => {
+      const activeOk = c.isActive !== false;
+      const scopeOk = c.isWithinScope !== false;
+      const eligOk = c.isEligible !== false && (c.eligibility?.toUpperCase() === 'ELIGIBLE' || c.overallEligibility === 'ELIGIBLE' || c.overallEligibility === true);
+      const availOk = c.isAvailable !== false && c.availability?.toUpperCase() === 'AVAILABLE' && !c.conflict;
+      return activeOk && scopeOk && eligOk && availOk;
+    };
+
+    const allAvailable = candidates.filter(isCandidateEligibleAndFree);
+
+    const inspectors = candidates.filter((c) => {
+      const r = (c.role || '').toUpperCase();
+      return (r.includes('INSPECT') || r.includes('PILOT')) && isCandidateEligibleAndFree(c);
+    });
+
+    const analysts = candidates.filter((c) => {
+      const r = (c.role || '').toUpperCase();
+      return r.includes('ANALYST') && isCandidateEligibleAndFree(c);
+    });
+
+    const technicians = candidates.filter((c) => {
+      const r = (c.role || '').toUpperCase();
+      return (r.includes('TECH') || r.includes('MAINTENANCE')) && isCandidateEligibleAndFree(c);
+    });
+
+    const missingDetails: string[] = [];
+    const missingRoles: string[] = [];
+    if (inspectors.length < reqInspectors) {
+      missingDetails.push(`Inspector: thiếu ${reqInspectors - inspectors.length} người (${inspectors.length}/${reqInspectors} khả dụng)`);
+      missingRoles.push(`Inspector (${inspectors.length}/${reqInspectors})`);
+    }
+    if (analysts.length < reqAnalysts) {
+      missingDetails.push(`Analyst: thiếu ${reqAnalysts - analysts.length} người (${analysts.length}/${reqAnalysts} khả dụng)`);
+      missingRoles.push(`Analyst (${analysts.length}/${reqAnalysts})`);
+    }
+    if (technicians.length < reqTechnicians) {
+      missingDetails.push(`Technician: thiếu ${reqTechnicians - technicians.length} người (${technicians.length}/${reqTechnicians} khả dụng)`);
+      missingRoles.push(`Technician (${technicians.length}/${reqTechnicians})`);
+    }
+
+    return {
+      inspectors,
+      analysts,
+      technicians,
+      allAvailable,
+      reqInspectors,
+      reqAnalysts,
+      reqTechnicians,
+      hasAllThree: missingDetails.length === 0,
+      missingDetails,
+      missingRoles,
+      totalEligible: inspectors.length + analysts.length + technicians.length,
+      totalRequired: reqInspectors + reqAnalysts + reqTechnicians,
+    };
   });
 
   protected readonly canProceedToMf02 = computed(() => {
-    return this.isReady() && !this.isExpired() && !this.isConsumed() && !this.isCancelled();
+    return (
+      this.isReady() &&
+      !this.isExpired() &&
+      !this.isCompleted() &&
+      !this.isCancelled() &&
+      this.roleBreakdown().hasAllThree
+    );
   });
 
   protected readonly failedConditions = computed(() => {
@@ -89,19 +300,23 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
     if (a.site.status !== 'PASS' && a.site.status !== 'FEASIBLE') {
       list.push({
-        pillar: 'Mặt bằng khảo sát',
-        reason: a.site.reason || 'Chưa thỏa mãn tĩnh không hoặc điều kiện thời tiết gió vượt ngưỡng.',
+        pillar: 'Mặt bằng & Khí tượng',
+        reason: a.site.reason || 'Điều kiện sức gió vượt ngưỡng an toàn cho phép hoặc khoảng cách hành lang chưa đảm bảo.',
         actionTab: 'site',
-        actionLabel: 'Xem chi tiết mặt bằng',
+        actionLabel: 'Xem chi tiết mặt bằng & khí tượng',
       });
     }
 
-    if (a.personnel.status !== 'PASS' && a.personnel.status !== 'READY') {
+    const roles = this.roleBreakdown();
+    if ((a.personnel.status !== 'PASS' && a.personnel.status !== 'READY') || !roles.hasAllThree) {
+      const reasonMsg = roles.missingDetails.length > 0
+        ? `Không đạt định mức nhân sự đang rảnh: ${roles.missingDetails.join('; ')}.`
+        : (a.personnel.reason || 'Chưa đủ ứng viên đạt chuẩn.');
       list.push({
-        pillar: 'Nhân sự vận hành',
-        reason: a.personnel.reason || 'Chưa có đủ ứng viên phi công / cán bộ giám sát đạt chuẩn khả dụng.',
+        pillar: 'Nhân sự vận hành (Không đủ định mức)',
+        reason: `${reasonMsg} Hệ thống kiểm tra CSDL và chỉ tính nhân sự đang rảnh thỏa mãn đồng thời 5 tiêu chuẩn: Eligible AND Active AND Within Region/Scope AND Available during proposed time AND Has required role/qualification.`,
         actionTab: 'personnel',
-        actionLabel: 'Kiểm tra ứng viên nhân sự',
+        actionLabel: 'Kiểm tra & Điều chỉnh định mức',
       });
     }
 
@@ -129,15 +344,85 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly filteredPersonnel = computed(() => {
     const a = this.item();
     if (!a) return [];
+    let list = a.personnelCandidates || [];
+
+    // Filter "chỉ ra những người đang rảnh thôi"
+    if (this.onlyAvailableFilter()) {
+      list = list.filter((p) => p.isAvailable !== false && p.availability?.toUpperCase() === 'AVAILABLE' && !p.conflict);
+    }
+
+    const roleFilter = this.selectedRoleFilter();
+    if (roleFilter !== 'ALL') {
+      list = list.filter((p) => {
+        const r = (p.role || '').toUpperCase();
+        if (roleFilter === 'INSPECTOR') return r.includes('INSPECT') || r.includes('PILOT');
+        if (roleFilter === 'ANALYST') return r.includes('ANALYST');
+        if (roleFilter === 'TECHNICIAN') return r.includes('TECH') || r.includes('MAINTENANCE');
+        return true;
+      });
+    }
+
     const q = this.personnelSearch().trim().toLowerCase();
-    if (!q) return a.personnelCandidates;
-    return a.personnelCandidates.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.role.toLowerCase().includes(q) || (p.region && p.region.toLowerCase().includes(q))
+    if (!q) return list;
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.role.toLowerCase().includes(q) ||
+        (p.region && p.region.toLowerCase().includes(q)) ||
+        (p.qualificationDetails && p.qualificationDetails.toLowerCase().includes(q))
     );
   });
 
+  protected startEditingQuotas(): void {
+    const a = this.item();
+    if (!a) return;
+    this.editReqInspectors.set(a.requiredInspectors ?? 1);
+    this.editReqAnalysts.set(a.requiredAnalysts ?? 1);
+    this.editReqTechnicians.set(a.requiredTechnicians ?? 1);
+    this.editingQuotas.set(true);
+  }
+
+  protected cancelEditingQuotas(): void {
+    this.editingQuotas.set(false);
+  }
+
+  protected saveQuotas(): void {
+    const a = this.item();
+    if (!a || this.savingQuotas()) return;
+    this.savingQuotas.set(true);
+    const quotas = {
+      requiredInspectors: Math.max(1, this.editReqInspectors()),
+      requiredAnalysts: Math.max(1, this.editReqAnalysts()),
+      requiredTechnicians: Math.max(1, this.editReqTechnicians()),
+    };
+
+    this.api.updateQuotas(a.id, quotas).subscribe({
+      next: (updated) => {
+        this.savingQuotas.set(false);
+        this.editingQuotas.set(false);
+        this.item.set(updated);
+        this.actionMessage.set(`Đã cập nhật định mức: ${quotas.requiredInspectors} Inspector, ${quotas.requiredAnalysts} Analyst, ${quotas.requiredTechnicians} Technician.`);
+        setTimeout(() => this.actionMessage.set(''), 4000);
+      },
+      error: () => {
+        this.savingQuotas.set(false);
+      }
+    });
+  }
+
   constructor() {
     this.load();
+
+    // Reactive effect: mount or update map as soon as assessment data is loaded and DOM container is rendered
+    effect(() => {
+      const a = this.item();
+      const tab = this.activeTab();
+      const scopeEl = this.scopeMapContainer();
+      const siteEl = this.siteMapContainer();
+      if (a && (tab === 'overview' || tab === 'site') && (scopeEl || siteEl)) {
+        setTimeout(() => this.initOrUpdateMap(), 60);
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -147,7 +432,119 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    const a = this.item();
+    if (a?.id) {
+      this.realtime.leaveAssessment(a.id);
+    }
+    this.realtimeSub?.unsubscribe();
     this.cleanupMap();
+    this.fcSerial.disconnect().catch(() => {});
+  }
+
+  private initRealtimeSubscription(): void {
+    this.realtimeSub = this.realtime.assessmentEvents$.subscribe((evt) => {
+      const current = this.item();
+      if (!current) return;
+      if (evt.assessmentId && evt.assessmentId !== current.id) {
+        return;
+      }
+
+      switch (evt.type) {
+        case 'DroneInspectionCompleted': {
+          const isPass = (evt.status || '').toUpperCase() === 'PASS';
+          if (isPass) {
+            this.item.update((curr) => {
+              if (!curr) return curr;
+              return {
+                ...curr,
+                technical: {
+                  ...curr.technical,
+                  status: 'PASS',
+                  reason: 'Kiểm định kỹ thuật UAV đạt tiêu chuẩn (BIST/Telemetry Passed).',
+                },
+              };
+            });
+            const droneId = evt.droneId || this.selectedDroneId();
+            if (droneId) {
+              this.loadLatestInspection(droneId);
+            }
+            this.api.reEvaluate(current.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                this.actionMessage.set(
+                  `Kỹ thuật viên vừa hoàn tất chẩn đoán UAV ${evt.droneCode || ''}: ĐẠT. Trụ cột Kỹ thuật đã chuyển sang PASS, sẵn sàng tạo nhiệm vụ MF02.`
+                );
+              },
+            });
+          } else {
+            this.item.update((curr) => {
+              if (!curr) return curr;
+              return {
+                ...curr,
+                technical: {
+                  ...curr.technical,
+                  status: 'FAIL',
+                  reason: evt.message || 'Kiểm định kỹ thuật UAV không đạt tiêu chuẩn.',
+                },
+              };
+            });
+            this.error.set(`Cảnh báo: Kiểm định kỹ thuật UAV ${evt.droneCode || ''} KHÔNG ĐẠT. Trụ cột kỹ thuật đã bị khóa.`);
+          }
+          break;
+        }
+
+        case 'AssessmentStatusChanged': {
+          if (evt.status) {
+            this.api.get(current.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                this.actionMessage.set(evt.message || `Trạng thái thẩm định vừa cập nhật: ${evt.status}`);
+              },
+            });
+          }
+          break;
+        }
+
+        case 'AssessmentCompleted': {
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            const mid = evt.completedMissionId || evt.consumedMissionId || curr.completedMissionId || curr.consumedMissionId;
+            const mcode = evt.completedMissionCode || evt.consumedMissionCode || curr.completedMissionCode || curr.consumedMissionCode;
+            return {
+              ...curr,
+              status: 'COMPLETED',
+              consumedMissionId: mid,
+              consumedMissionCode: mcode,
+              completedMissionId: mid,
+              completedMissionCode: mcode,
+            };
+          });
+          const mCode = evt.completedMissionCode || evt.consumedMissionCode || evt.completedMissionId || evt.consumedMissionId || '';
+          this.actionMessage.set(`Bản thẩm định đã được tạo nhiệm vụ thành công: #${mCode}.`);
+          break;
+        }
+
+        case 'MeteoAlertTriggered': {
+          const wind = evt.windSpeed ?? 10.5;
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            return {
+              ...curr,
+              status: 'NOT_READY',
+              site: {
+                ...curr.site,
+                status: 'FAIL',
+                reason: evt.message || `Cảnh báo khí tượng: Sức gió bề mặt ${wind} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+              },
+            };
+          });
+          this.error.set(
+            evt.message || `CẢNH BÁO KHÍ TƯỢNG: Sức gió bề mặt ${wind} m/s vượt ngưỡng an toàn (> 10.0 m/s). Nút Tạo nhiệm vụ đã tự động khóa lại.`
+          );
+          break;
+        }
+      }
+    });
   }
 
   protected load(): void {
@@ -157,14 +554,27 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       return;
     }
     this.busy.set(true);
+    this.isStaleConflict.set(false);
+    this.error.set('');
     this.api.get(id).subscribe({
       next: (res) => {
         this.item.set(res);
+        this.realtime.joinAssessment(res.id);
         if (res.uavCandidates.length > 0 && !this.selectedDroneId()) {
           this.selectedDroneId.set(res.uavCandidates[0].id || res.uavCandidates[0].code);
         }
         if (res.droneInspection) {
           this.inspectionResult.set(res.droneInspection);
+        }
+        this.loadWeatherForAssessment(res);
+        if (res.regionId) {
+          this.gisApi.getAllGisData({ administrativeAreaId: res.regionId }).subscribe({
+            next: (snapshot) => {
+              this.availableTowers.set(snapshot.towers);
+              this.renderScopeOnMap();
+            },
+            error: () => {},
+          });
         }
         setTimeout(() => this.initOrUpdateMap(), 200);
       },
@@ -177,20 +587,106 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
   }
 
+  protected goBack(): void {
+    const a = this.item();
+    const id = a?.id || this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.router.navigate(['/pre-mission/new'], { queryParams: { assessmentId: id } });
+    } else if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.router.navigate(['/pre-mission/new']);
+    }
+  }
+
+  private loadWeatherForAssessment(a: PreMissionAssessment): void {
+    let lat = 16.0544;
+    let lng = 108.2022;
+    const reg = (a.regionName || a.regionId || '').toLowerCase();
+    if (reg.includes('bắc') || reg.includes('north') || reg.includes('hn') || reg.includes('npc')) {
+      lat = 21.0285;
+      lng = 105.8542;
+    } else if (reg.includes('nam') || reg.includes('south') || reg.includes('hcm') || reg.includes('spc')) {
+      lat = 10.8231;
+      lng = 106.6297;
+    } else if (reg.includes('trung') || reg.includes('central') || reg.includes('cpc') || reg.includes('dn')) {
+      lat = 16.0544;
+      lng = 108.2022;
+    }
+
+    this.loadingWeather.set(true);
+    this.api.getRealtimeWeather(lat, lng).subscribe({
+      next: (weather) => {
+        this.realtimeWeather.set(weather);
+        this.loadingWeather.set(false);
+
+        // Update site checks with live weather & configured corridor buffer
+        const geom = (a.scopeGeometry && typeof a.scopeGeometry === 'object' ? a.scopeGeometry : {}) as Record<string, unknown>;
+        const buf = Number(geom['corridorBufferMeters'] ?? 50);
+        const alt = Number(geom['maxFlightAltitudeMeters'] ?? 120);
+        const updatedChecks = defaultSiteChecks(weather.isSafeToFly, buf, alt, weather);
+        this.item.update((curr) => (curr ? { ...curr, siteChecks: updatedChecks } : curr));
+
+        if (weather.windSpeed > 10.0 || (weather.windGust && weather.windGust > 10.0)) {
+          this.item.update((curr) => {
+            if (!curr) return curr;
+            return {
+              ...curr,
+              status: 'NOT_READY',
+              site: {
+                ...curr.site,
+                status: 'FAIL',
+                reason: `Cảnh báo khí tượng: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+              },
+            };
+          });
+          this.error.set(`CẢNH BÁO KHÍ TƯỢNG: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (> 10.0 m/s). Nút Tạo nhiệm vụ đã tự động khóa.`);
+          this.realtime.broadcastAssessmentEvent({
+            assessmentId: a.id,
+            type: 'MeteoAlertTriggered',
+            status: 'FAIL',
+            windSpeed: weather.windSpeed,
+            windGust: weather.windGust,
+            isMeteoSafe: false,
+            message: `Cảnh báo khí tượng: Sức gió bề mặt ${weather.windSpeed} m/s vượt ngưỡng an toàn (10.0 m/s).`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      },
+      error: () => {
+        this.loadingWeather.set(false);
+      },
+    });
+  }
+
   protected reevaluate(): void {
     const a = this.item();
     if (!a || this.busy()) return;
     this.busy.set(true);
     this.actionMessage.set('');
     this.error.set('');
+    this.isStaleConflict.set(false);
 
     this.api.reEvaluate(a.id).subscribe({
       next: (updated) => {
         this.item.set(updated);
         this.actionMessage.set('Đã hoàn tất đánh giá lại tính khả thi và tài nguyên.');
+        this.realtime.broadcastAssessmentEvent({
+          assessmentId: updated.id,
+          type: 'AssessmentStatusChanged',
+          status: updated.status,
+          technicalHealth: updated.technical?.status,
+          message: `Quản lý đã kích hoạt đánh giá lại: ${updated.status}`,
+          timestamp: new Date().toISOString(),
+        });
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Không thể thực hiện đánh giá lại. Vui lòng thử lại sau.');
+        if (err?.status === 409) {
+          this.isStaleConflict.set(true);
+          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác (HTTP 409 Conflict). Vui lòng bấm "Làm mới dữ liệu" để tải thông tin mới nhất.');
+        } else {
+          this.error.set(err?.error?.message || 'Không thể thực hiện đánh giá lại. Vui lòng thử lại sau.');
+        }
       },
       complete: () => {
         this.busy.set(false);
@@ -198,26 +694,48 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
   }
 
-  protected cancelAssessment(): void {
+  protected readonly showCancelModal = signal<boolean>(false);
+  protected readonly cancelReason = signal<string>('');
+
+  protected openCancelModal(): void {
     const a = this.item();
     if (!a || this.busy()) return;
-    if (a.status === 'CONSUMED') {
-      this.error.set('Không thể hủy đánh giá đã được chuyển tiếp tạo nhiệm vụ.');
+    if (a.status === 'COMPLETED' || (a.status as string) === 'CONSUMED') {
+      this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }
+    this.cancelReason.set('');
+    this.showCancelModal.set(true);
+  }
 
-    const confirmed = window.confirm(`Bạn có chắc muốn hủy bản đánh giá tiền nhiệm vụ ${a.assessmentCode}? Thao tác này không thể đảo ngược.`);
-    if (!confirmed) return;
+  protected closeCancelModal(): void {
+    if (this.busy()) return;
+    this.showCancelModal.set(false);
+  }
+
+  protected executeCancel(): void {
+    const a = this.item();
+    if (!a || this.busy()) return;
 
     this.busy.set(true);
     this.error.set('');
-    this.api.cancel(a.id, 'Người dùng hủy tại trang chi tiết').subscribe({
+    this.isStaleConflict.set(false);
+    const reason = this.cancelReason().trim() || 'Người dùng hủy tại trang chi tiết';
+
+    this.api.cancel(a.id, reason).subscribe({
       next: (updated) => {
         this.item.set(updated);
+        this.showCancelModal.set(false);
         this.actionMessage.set(`Đã hủy bản đánh giá ${a.assessmentCode}.`);
       },
       error: (err) => {
-        this.error.set(err?.error?.message || 'Không thể hủy bản đánh giá.');
+        if (err?.status === 409) {
+          this.isStaleConflict.set(true);
+          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác (HTTP 409 Conflict). Vui lòng bấm "Làm mới dữ liệu".');
+        } else {
+          this.error.set(err?.error?.message || 'Không thể hủy bản đánh giá.');
+        }
+        this.busy.set(false);
       },
       complete: () => {
         this.busy.set(false);
@@ -229,10 +747,13 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.activeTab.set(tab);
     if (tab === 'overview' || tab === 'site') {
       setTimeout(() => this.initOrUpdateMap(), 150);
-    } else if (tab === 'technical') {
-      const droneId = this.selectedDroneId();
-      if (droneId && !this.inspectionResult()) {
-        this.loadLatestInspection(droneId);
+    } else {
+      this.cleanupMap();
+      if (tab === 'technical') {
+        const droneId = this.selectedDroneId();
+        if (droneId && !this.inspectionResult()) {
+          this.loadLatestInspection(droneId);
+        }
       }
     }
   }
@@ -257,91 +778,388 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
   }
 
-  protected runInspectionNow(): void {
-    const droneId = this.selectedDroneId() || (this.item()?.uavCandidates[0]?.id ?? 'UAV-01');
-    this.inspecting.set(true);
-    this.actionMessage.set('');
-    this.error.set('');
+  protected async connectRealFc(): Promise<void> {
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+    this.resolvedFcData.set(null);
+    try {
+      const meta = await this.fcSerial.connectRealSerial();
+      this.resolveFc(meta.uid);
+    } catch {
+      // Error is set in serial service signal
+    }
+  }
 
-    this.api.runTechnicalInspection(droneId).subscribe({
+  protected async connectSimulatedFc(profileId?: string): Promise<void> {
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+    this.resolvedFcData.set(null);
+    try {
+      const target =
+        profileId ||
+        (this.showCustomUidInput() && this.customFcUidInput().trim()
+          ? this.customFcUidInput().trim()
+          : this.selectedSimProfile());
+      const meta = await this.fcSerial.connectSimulated(target);
+      this.resolveFc(meta.uid);
+    } catch {
+      // Error is set in serial service signal
+    }
+  }
+
+  protected async disconnectFc(): Promise<void> {
+    await this.fcSerial.disconnect();
+    this.resolvedFcData.set(null);
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+  }
+
+  protected resolveFc(uid: string): void {
+    if (!uid) return;
+    this.resolvingFc.set(true);
+    this.pairingError.set('');
+
+    this.fcApi.resolveDrone(uid).subscribe({
       next: (res) => {
-        this.inspectionResult.set(res);
-        this.inspecting.set(false);
-        this.actionMessage.set(`Đã hoàn tất kiểm định kỹ thuật cho thiết bị ${res.droneCode}. Kết quả: ${res.overallHealth}.`);
-
-        // If inspection passes, trigger re-evaluation to update assessment overall status
-        const a = this.item();
-        if (a && res.overallHealth === 'HEALTHY') {
-          this.api.reEvaluate(a.id).subscribe({
-            next: (updated) => this.item.set(updated),
-          });
+        this.resolvedFcData.set(res);
+        this.resolvingFc.set(false);
+        const current = this.currentAssessmentDrone();
+        if (current) {
+          this.pairTargetDroneId.set(current.id || current.code);
         }
       },
-      error: () => {
-        this.inspecting.set(false);
-        this.error.set('Lỗi kết nối khi gửi lệnh kiểm định UAV.');
+      error: (err) => {
+        this.resolvingFc.set(false);
+        if (err?.status === 404) {
+          this.resolvedFcData.set({
+            registered: false,
+            flightControllerUid: uid,
+            drone: null,
+            binding: null,
+          });
+        } else {
+          this.pairingError.set(
+            err?.error?.message || 'Không thể tra cứu thông tin Flight Controller từ máy chủ.'
+          );
+        }
       },
     });
   }
 
+  protected pairFcToDrone(): void {
+    const meta = this.fcMetadata();
+    if (!meta || !meta.uid) {
+      this.pairingError.set('Chưa có thông tin Flight Controller kết nối.');
+      return;
+    }
+
+    const targetDroneId = this.pairTargetDroneId() || this.currentAssessmentDrone()?.id;
+    if (!targetDroneId) {
+      this.pairingError.set('Vui lòng chọn UAV để ghép nối.');
+      return;
+    }
+
+    this.pairingFc.set(true);
+    this.pairingError.set('');
+    this.pairingSuccess.set('');
+
+    this.fcApi
+      .pairFlightController(targetDroneId, {
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier,
+        firmwareName: meta.firmwareName,
+        firmwareVersion: meta.firmwareVersion,
+      })
+      .subscribe({
+        next: () => {
+          this.pairingFc.set(false);
+          this.pairingSuccess.set(`Đã ghép nối thành công Flight Controller [${meta.uid}] với Drone!`);
+          this.resolveFc(meta.uid);
+        },
+        error: (err) => {
+          this.pairingFc.set(false);
+          const msg =
+            err?.error?.message ||
+            err?.error?.detail ||
+            err?.message ||
+            'Lỗi khi thực hiện ghép nối Flight Controller.';
+          this.pairingError.set(msg);
+        },
+      });
+  }
+
+  protected runInspectionNow(): void {
+    const drone = this.currentAssessmentDrone();
+    const droneId = drone?.id || this.selectedDroneId() || (this.item()?.uavCandidates[0]?.id ?? 'UAV-01');
+
+    // BR-05 Check: If FC is connected, prevent submit if mismatched
+    if (this.isFcConnected()) {
+      if (this.isFcDroneMismatch()) {
+        const fcDroneCode = this.fcDrone()?.code || 'UAV-Khác';
+        const targetCode = drone?.code || droneId;
+        this.error.set(
+          `CẢNH BÁO LỆCH THIẾT BỊ (BR-05): Flight Controller kết nối thuộc về ${fcDroneCode}, nhưng đợt thẩm định yêu cầu ${targetCode}. Không được phép gửi kiểm định cho sai UAV.`
+        );
+        return;
+      }
+      if (this.isFcUnregistered()) {
+        this.error.set(
+          'Flight Controller chưa được đăng ký trong hệ thống. Vui lòng thực hiện ghép nối trước khi gửi biên bản kiểm định.'
+        );
+        return;
+      }
+    }
+
+    this.inspecting.set(true);
+    this.actionMessage.set('');
+    this.error.set('');
+
+    const fcUid = this.fcMetadata()?.uid;
+    const a = this.item();
+
+    this.api
+      .runTechnicalInspection(droneId, {
+        flightControllerUid: fcUid,
+        preMissionAssessmentId: a?.id,
+      })
+      .subscribe({
+        next: (res) => {
+          this.inspectionResult.set(res);
+          this.inspecting.set(false);
+          this.actionMessage.set(
+            `Đã hoàn tất kiểm định kỹ thuật cho thiết bị ${res.droneCode}. Kết quả: ${res.overallHealth}.`
+          );
+
+          // If inspection passes, trigger re-evaluation to update assessment overall status
+          const isPass = res.overallHealth === 'HEALTHY';
+          this.realtime.broadcastAssessmentEvent({
+            assessmentId: a?.id || '',
+            type: 'DroneInspectionCompleted',
+            status: isPass ? 'PASS' : 'FAIL',
+            droneId: res.droneId,
+            droneCode: res.droneCode,
+            technicalHealth: res.overallHealth,
+            technicalStatus: isPass ? 'Passed' : 'Failed',
+            message: `Kỹ thuật viên vừa hoàn tất chẩn đoán kỹ thuật UAV ${res.droneCode}: ${isPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}.`,
+            timestamp: new Date().toISOString(),
+          });
+          if (a && isPass) {
+            this.api.reEvaluate(a.id).subscribe({
+              next: (updated) => this.item.set(updated),
+            });
+          }
+        },
+        error: (err) => {
+          this.inspecting.set(false);
+          const errDetail =
+            err?.error?.message ||
+            err?.error?.detail ||
+            err?.message ||
+            'Lỗi kết nối khi gửi lệnh kiểm định UAV.';
+          this.error.set(errDetail);
+        },
+      });
+  }
+
+  protected setMapType(type: 'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'): void {
+    this.currentMapType.set(type);
+    if (!this.map) return;
+
+    if (this.currentTileLayer) {
+      this.map.removeLayer(this.currentTileLayer);
+      this.currentTileLayer = null;
+    }
+
+    let tileUrl: string;
+    let maxZoom = 20;
+    let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+    let attribution = '© Google Maps | UAV-PMS GIS';
+
+    switch (type) {
+      case 'google-hybrid':
+        tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+        attribution = '© Google Maps Vệ Tinh | UAV-PMS GIS';
+        break;
+      case 'google-terrain':
+        tileUrl = 'https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}';
+        attribution = '© Google Maps Địa Hình | UAV-PMS GIS';
+        break;
+      case 'carto':
+        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        subdomains = ['a', 'b', 'c'];
+        maxZoom = 19;
+        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
+        break;
+      case 'google-streets':
+      default:
+        tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+        attribution = '© Google Maps | UAV-PMS GIS';
+        break;
+    }
+
+    const tileLayer = L.tileLayer(tileUrl, {
+      maxZoom,
+      subdomains,
+      attribution,
+      updateWhenIdle: false,
+      updateWhenZooming: false,
+      keepBuffer: 6,
+    });
+
+    // Resilient fallback: If Google tile endpoint fails or is blocked, switch seamlessly to CartoDB Voyager
+    let hasFallenBack = false;
+    tileLayer.on('tileerror', () => {
+      if (!hasFallenBack) {
+        hasFallenBack = true;
+        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+      }
+    });
+
+    this.currentTileLayer = tileLayer;
+    this.currentTileLayer.addTo(this.map);
+  }
+
   private initOrUpdateMap(): void {
-    const container = this.mapContainer()?.nativeElement;
+    const container = (this.activeTab() === 'overview'
+      ? (this.scopeMapContainer()?.nativeElement ?? document.getElementById('workspaceScopeMapContainer'))
+      : (this.siteMapContainer()?.nativeElement ?? document.getElementById('workspaceSiteMapContainer'))) as HTMLDivElement | null;
     if (!container) return;
 
+    if (this.map) {
+      if (this.map.getContainer() !== container) {
+        this.cleanupMap();
+      }
+    }
+
     if (!this.map) {
+      if ((container as any)._leaflet_id) {
+        (container as any)._leaflet_id = null;
+      }
+
       this.map = L.map(container, {
-        center: [10.8231, 106.6297], // Default southern region
+        center: [16.0544, 108.2022],
         zoom: 13,
         zoomControl: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap EVN-UAV',
-      }).addTo(this.map);
+      this.bufferLayer = L.layerGroup().addTo(this.map);
+      this.polylineLayer = L.layerGroup().addTo(this.map);
+      this.markersLayer = L.layerGroup().addTo(this.map);
 
-      this.markersLayer.addTo(this.map);
-      this.polylineLayer.addTo(this.map);
+      this.setMapType(this.currentMapType());
+
+      if (typeof ResizeObserver !== 'undefined') {
+        if (this.resizeObserver) {
+          this.resizeObserver.disconnect();
+        }
+        this.resizeObserver = new ResizeObserver(() => {
+          this.map?.invalidateSize();
+        });
+        this.resizeObserver.observe(container);
+      }
     }
 
-    this.map.invalidateSize();
-    this.renderScopeOnMap();
+    this.map.whenReady(() => {
+      this.map?.invalidateSize();
+      this.renderScopeOnMap();
+    });
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+      this.renderScopeOnMap();
+    }, 80);
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 280);
   }
 
   private renderScopeOnMap(): void {
     if (!this.map) return;
     this.markersLayer.clearLayers();
     this.polylineLayer.clearLayers();
+    this.bufferLayer.clearLayers();
 
     const a = this.item();
     if (!a || !a.scopeAssetIds || a.scopeAssetIds.length === 0) return;
 
-    // Generate coordinated sample waypoints along line
-    const baseLat = 10.82;
-    const baseLng = 106.63;
-    const latLngs: L.LatLngExpression[] = [];
+    const geom = (a.scopeGeometry && typeof a.scopeGeometry === 'object' ? a.scopeGeometry : {}) as Record<string, unknown>;
+    const bufferMeters = Number(geom['corridorBufferMeters'] ?? 50);
+
+    // Determine region anchor coordinates
+    let baseLat = 16.0544;
+    let baseLng = 108.2022;
+    const reg = (a.regionName || a.regionId || '').toLowerCase();
+    if (reg.includes('bắc') || reg.includes('north') || reg.includes('hn') || reg.includes('npc')) {
+      baseLat = 21.0285;
+      baseLng = 105.8542;
+    } else if (reg.includes('nam') || reg.includes('south') || reg.includes('hcm') || reg.includes('spc')) {
+      baseLat = 10.8231;
+      baseLng = 106.6297;
+    } else if (reg.includes('trung') || reg.includes('central') || reg.includes('cpc') || reg.includes('dn')) {
+      baseLat = 16.0544;
+      baseLng = 108.2022;
+    }
+
+    const allTowers = this.availableTowers();
+    const latLngs: [number, number][] = [];
 
     a.scopeAssetIds.forEach((code, idx) => {
-      const lat = baseLat + idx * 0.005;
-      const lng = baseLng + idx * 0.007;
+      const matched = allTowers.find(
+        (t) =>
+          t.id.toLowerCase() === code.toLowerCase() ||
+          t.towerCode.toLowerCase() === code.toLowerCase()
+      );
+
+      const lat = matched?.latitude && Number.isFinite(matched.latitude) && Math.abs(matched.latitude) > 0.1
+        ? matched.latitude
+        : baseLat + idx * 0.0035;
+
+      const lng = matched?.longitude && Number.isFinite(matched.longitude) && Math.abs(matched.longitude) > 0.1
+        ? matched.longitude
+        : baseLng + idx * 0.0055;
+
+      const displayCode = matched?.towerCode || (code.length > 20 ? `Cột #${idx + 1}` : code);
+      const lineName = matched?.transmissionLineName || a.lineName || 'Theo danh mục khảo sát';
+
       latLngs.push([lat, lng]);
 
+      // Safety buffer circle around tower
+      const circle = L.circle([lat, lng], {
+        radius: bufferMeters,
+        color: '#0284c7',
+        fillColor: '#38bdf8',
+        fillOpacity: 0.18,
+        weight: 1.5,
+        dashArray: '4, 4',
+      });
+      this.bufferLayer.addLayer(circle);
+
+      // Circle marker for tower
       const marker = L.circleMarker([lat, lng], {
         radius: 7,
-        fillColor: '#1d4f91',
+        fillColor: '#0052cc',
         color: '#ffffff',
         weight: 2,
-        fillOpacity: 0.9,
+        fillOpacity: 1,
       });
-      marker.bindPopup(`<strong>Vị trí cột:</strong> ${code}<br/><strong>Tuyến:</strong> ${a.lineName || 'N/A'}`);
-      marker.bindTooltip(code, { permanent: true, direction: 'top', className: 'evn-map-tooltip' });
+
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 11px; line-height: 1.4;">
+          <strong style="color: #003f99;">Vị trí cột: ${displayCode}</strong><br/>
+          <span>Tuyến: ${lineName}</span><br/>
+          <span>Tọa độ: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span><br/>
+          <span>Hành lang an toàn: ${bufferMeters}m</span>
+        </div>
+      `);
+      marker.bindTooltip(displayCode, { permanent: true, direction: 'top', className: 'evn-map-tooltip', offset: [0, -6] });
       this.markersLayer.addLayer(marker);
     });
 
     if (latLngs.length > 1) {
       const poly = L.polyline(latLngs, {
-        color: '#0284c7',
-        weight: 3,
+        color: '#0052cc',
+        weight: 3.5,
         dashArray: '6, 6',
       });
       this.polylineLayer.addLayer(poly);
@@ -349,14 +1167,30 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
     if (latLngs.length > 0) {
       const bounds = L.latLngBounds(latLngs);
-      this.map.fitBounds(bounds, { padding: [30, 30] });
+      this.map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
+    }
+  }
+
+  protected refreshMap(): void {
+    if (this.map) {
+      this.map.invalidateSize();
+      this.renderScopeOnMap();
+    } else {
+      this.initOrUpdateMap();
     }
   }
 
   private cleanupMap(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     if (this.map) {
-      this.map.remove();
+      try {
+        this.map.remove();
+      } catch {}
       this.map = null;
+      this.currentTileLayer = null;
     }
   }
 

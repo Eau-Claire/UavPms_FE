@@ -1,6 +1,6 @@
 ﻿import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { forkJoin, map } from 'rxjs';
+import { catchError, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../models/monitor.models';
@@ -14,11 +14,11 @@ export class MonitorApi {
 
   getDashboard(page = 1, pageSize = 5) {
     return forkJoin({
-      summary: this.get<unknown>('summary'),
-      recentDefects: this.get<unknown>('recent-defects', { page, pageSize }),
-      defectStatistics: this.get<unknown>('defects-statistics'),
-      missionStatus: this.get<unknown>('mission-status'),
-      alerts: this.get<unknown>('alerts'),
+      summary: this.get<unknown>('summary').pipe(catchError(() => of({}))),
+      recentDefects: this.get<unknown>('recent-defects', { page, pageSize }).pipe(catchError(() => of([]))),
+      defectStatistics: this.get<unknown>('defects-statistics').pipe(catchError(() => of([]))),
+      missionStatus: this.get<unknown>('mission-status').pipe(catchError(() => of([]))),
+      alerts: this.get<unknown>('alerts').pipe(catchError(() => of([]))),
     }).pipe(map((value): DashboardSnapshot => ({
       summary: normalizeSummary(value.summary),
       recentDefects: normalizePage(value.recentDefects, page, pageSize, normalizeDefect),

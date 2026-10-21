@@ -13,9 +13,19 @@
   @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
 
   <section class="mission-filters" aria-label="Bo loc nhiem vu">
+    <div class="mission-scope-tabs" role="tablist" aria-label="Phạm vi nhiệm vụ">
+      <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" (click)="setScope('my')">
+        <span nz-icon nzType="user"></span> Được giao cho tôi
+      </button>
+      <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" (click)="setScope('all')">
+        <span nz-icon nzType="appstore"></span> Tất cả nhiệm vụ
+      </button>
+    </div>
     <label class="mission-search"><span nz-icon nzType="search"></span><input type="search" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" /></label>
     <label><span>Trạng thái</span><select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()"><option value="">Tất cả</option>@for (item of statuses; track item) { <option [value]="item">{{ statusLabel(item) }}</option> }</select></label>
+    <label><span>Độ ưu tiên</span><select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()"><option value="">Tất cả</option><option value="EMERGENCY">⚡ Khẩn cấp</option><option value="HIGH">🔥 Cao</option><option value="NORMAL">○ Bình thường</option></select></label>
     <button type="button" class="mission-filter-btn" (click)="applyFilters()"><span nz-icon nzType="filter"></span>Lọc</button>
+    <button type="button" class="mission-filter-btn" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên"><span nz-icon nzType="thunderbolt"></span>Xếp theo ưu tiên</button>
     <button type="button" class="mission-filter-btn mission-refresh-btn" [disabled]="loading()" (click)="refreshList()"><span nz-icon nzType="reload"></span>Refresh</button>
   </section>
 
@@ -26,18 +36,26 @@
   <section class="mission-table-card" [class.is-loading]="loading()" aria-busy="{{ loading() }}">
     <div class="mission-table-scroll">
       <table>
-        <thead><tr><th>Mã nhiệm vụ</th><th>Tên nhiệm vụ</th><th>Ngày tạo</th><th>Khu vực / Tuyến</th><th>Thanh tra viên / UAV</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <thead><tr><th>Mã nhiệm vụ</th><th>Độ ưu tiên</th><th>Tên nhiệm vụ</th><th>Ngày tạo</th><th>Khu vực / Tuyến</th><th>Thanh tra viên / UAV</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
         <tbody>
           @if (loading()) {
             @for (row of [1,2,3,4,5,6]; track row) {
-              <tr class="mission-skeleton-row"><td colspan="7"><span></span></td></tr>
+              <tr class="mission-skeleton-row"><td colspan="8"><span></span></td></tr>
             }
           } @else if (!response().items.length) {
-            <tr><td colspan="7">Không có nhiệm vụ phù hợp.</td></tr>
+            <tr><td colspan="8">Không có nhiệm vụ phù hợp.</td></tr>
           }
           @for (mission of response().items; track mission.id) {
             <tr>
-              <td><a [routerLink]="['/missions', mission.id]" class="mission-code">{{ mission.missionCode }}</a></td>
+              <td><a [routerLink]="isOperationalRole() ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id]" class="mission-code">{{ mission.missionCode }}</a></td>
+              <td>
+                <span class="mission-priority-badge {{ priorityClass(mission.priority) }}">
+                  {{ priorityLabel(mission.priority) }}
+                </span>
+                @if (mission.objective) {
+                  <small style="display: block; font-size: 9.5px; color: #64748b; margin-top: 1px;">{{ mission.objective }}</small>
+                }
+              </td>
               <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
               <td>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</td>
               <td>{{ routeLabel(mission) }}</td>
@@ -45,7 +63,7 @@
               <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
               <td>
                 <div class="mission-row-actions">
-                  <a class="mission-row-action" [routerLink]="['/missions', mission.id]">Xem</a>
+                  <a class="mission-row-action" [routerLink]="isOperationalRole() ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id]">Xem</a>
                 </div>
               </td>
             </tr>

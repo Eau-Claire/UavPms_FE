@@ -10,6 +10,7 @@ describe('NotificationsApi', () => {
   let api: NotificationsApi;
   let http: HttpTestingController;
   const baseUrl = `${environment.apiBaseUrl}/notifications`;
+  const matchHistory = (req: { url: string }) => req.url.startsWith(`${baseUrl}/history`);
 
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
@@ -17,13 +18,19 @@ describe('NotificationsApi', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    try {
+      http.verify();
+    } finally {
+      TestBed.resetTestingModule();
+    }
+  });
 
   it('loads notification history with userId filter', () => {
     let result: unknown;
     api.getHistory('user-1').subscribe((value) => result = value);
 
-    const request = http.expectOne((item) => item.url === `${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('userId')).toBe('user-1');
     request.flush({ data: [{ id: 'n1', title: 'Mission updated', body: 'Review flight plan', type: 'Mission', isRead: false, createdAt: '2026-06-26T01:00:00Z' }] });
@@ -35,7 +42,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     expect(request.request.method).toBe('GET');
     expect(request.request.params.has('userId')).toBe(false);
     request.flush({ data: [] });
@@ -47,7 +54,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush([{ id: 'n1', title: 'Raw item', body: 'Body', createdAt: '2026-06-26T01:00:00Z' }]);
 
     expect(result).toEqual([expect.objectContaining({ id: 'n1', title: 'Raw item', body: 'Body' })]);
@@ -57,7 +64,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({ data: { [key]: [{ id: key, title: key, body: 'Body' }] } });
 
     expect(result).toEqual([expect.objectContaining({ id: key, title: key, body: 'Body' })]);
@@ -67,7 +74,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({
       data: [{
         notificationId: 'n-alt',
@@ -103,7 +110,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((next) => result = next);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({ data: [{ id: field, title: field, [field]: value }] });
 
     expect(result).toEqual([expect.objectContaining({ id: field, createdAt: value })]);
@@ -119,7 +126,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({ data: [{ id: 'n-read', title: 'Read', ...patch }] });
 
     expect(result).toEqual([expect.objectContaining({ id: 'n-read', isRead: true })]);
@@ -129,7 +136,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({ data: [{}] });
 
     expect(result).toEqual([{
@@ -149,7 +156,7 @@ describe('NotificationsApi', () => {
     let result: unknown;
     api.getHistory().subscribe((value) => result = value);
 
-    const request = http.expectOne(`${baseUrl}/history`);
+    const request = http.expectOne(matchHistory);
     request.flush({ data: { items: null } });
 
     expect(result).toEqual([]);

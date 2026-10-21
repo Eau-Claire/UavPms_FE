@@ -14,19 +14,37 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { FeatureCollection, LineString } from 'geojson';
-import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, addProtocol, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
+import * as L from 'leaflet';
 import { catchError, finalize, of } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { Mission } from '../../../../models/missions.models';
+import {
+  InspectionObjective,
+  Mission,
+  MissionAssignment,
+  MissionAssignmentsOverview,
+  MissionBackendActivity,
+  MissionBackendDetection,
+  MissionBackendMaintenanceTask,
+  MissionCommunicationLog,
+  MissionOperationalRole,
+  MissionPriority,
+  MissionTarget,
+  PRIORITY_DEFECT_CATEGORIES,
+  UpdateMissionPriorityRequest,
+} from '../../../../models/missions.models';
+import { UserRecord } from '../../../../models/users.models';
 import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
-import { AiAnalysisStatusChangedEvent, NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import {
+  AiAnalysisStatusChangedEvent,
+  MissionLifecycleRealtimeEvent,
+  NotificationsRealtime,
+} from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
-
-const pmtilesProtocol = new Protocol();
-addProtocol('pmtiles', pmtilesProtocol.tile);
+import { UsersApi } from '../../../users/data-access/users-api';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
+import { Auth } from '../../../../core/auth/auth';
 
 export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
 export type MediaKind = 'image' | 'video';
@@ -126,7 +144,7 @@ export interface MissionMaintenanceTask {
 
 @Component({
   selector: 'app-mission-detail',
-  imports: [DatePipe, RouterLink, NzIconModule],
+  imports: [DatePipe, RouterLink, NzIconModule, FormsModule],
   templateUrl: './mission-detail.html',
   styleUrl: './mission-detail.scss',
   encapsulation: ViewEncapsulation.None,
@@ -134,21 +152,243 @@ export interface MissionMaintenanceTask {
 })
 export class MissionDetail {
   private readonly api = inject(MissionsApi);
+  private readonly usersApi = inject(UsersApi);
   private readonly assetApi = inject(AssetManagementApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly notificationsStore = inject(NotificationsStore);
+  protected readonly auth = inject(Auth);
+  protected readonly isInspector = computed(() => {
+    const role = (this.auth.user()?.role || '').toLowerCase();
+    return (
+      role === 'inspector' ||
+      role === 'pilot' ||
+      role === 'admin' ||
+      role === 'systemadmin' ||
+      role === 'administrator'
+    );
+  });
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
-  private missionMap: MapLibreMap | null = null;
-  private missionTargetMarkers: Marker[] = [];
-  private missionMapResizeObserver: ResizeObserver | null = null;
+  private map: L.Map | null = null;
+  private currentTileLayer: L.TileLayer | null = null;
+  private targetMarkers: L.Marker[] = [];
+  private routePolyline: L.Polyline | null = null;
+  private mapResizeObserver: ResizeObserver | null = null;
+  protected readonly mapType = signal<'satellite' | 'streets'>('satellite');
 
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly mission = signal<Mission | null>(null);
+
+  // MF02 Communication & Lifecycle State
+  protected readonly isManager = computed(() => {
+    const role = (this.auth.user()?.role || '').toLowerCase();
+    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
+  });
+
+  protected readonly showPriorityModal = signal(false);
+  protected readonly editPriority = signal<MissionPriority>('NORMAL');
+  protected readonly editObjective = signal<InspectionObjective>('PERIODIC_INSPECTION');
+  protected readonly editEmergencyReason = signal('');
+  protected readonly editPriorityDefects = signal<string[]>([]);
+  protected readonly priorityDefectCategories = PRIORITY_DEFECT_CATEGORIES;
+
+  protected readonly activeRole = signal<'MANAGER' | 'INSPECTOR'>('MANAGER');
+  protected readonly actionBusy = signal(false);
+  protected readonly actionMessage = signal('');
+  protected readonly showPostponeModal = signal(false);
+  protected readonly selectedAssignmentToPostpone = signal<MissionAssignment | null>(null);
+  protected readonly postponeReason = signal('');
+  protected readonly showSuspendModal = signal(false);
+  protected readonly suspendReason = signal('');
+  protected readonly showCancelModal = signal(false);
+  protected readonly cancelReason = signal('');
+  protected readonly chatMessage = signal('');
+  protected readonly currentTime = signal(Date.now());
+
+  // Multi-Role Team & Reassign State (MF02)
+  protected readonly availableUsers = signal<readonly UserRecord[]>([]);
+  protected readonly showReassignModal = signal<boolean>(false);
+  protected readonly selectedAssignmentToReassign = signal<MissionAssignment | null>(null);
+  protected readonly reassignNewUserId = signal<string>('');
+  protected readonly reassignReason = signal<string>('');
+
+  protected readonly multiRoleTeam = computed<readonly MissionAssignment[]>(() => {
+    return this.mission()?.team ?? [];
+  });
+
+  protected readonly allRolesConfirmed = computed<boolean>(() => {
+    return this.mission()?.allConfirmed ?? false;
+  });
+
+  protected readonly confirmationProgressPct = computed<number>(() => {
+    const m = this.mission();
+    if (!m) return 0;
+    const total = m.totalRequiredCount || 3;
+    const count = m.confirmedCount || 0;
+    return Math.round((count / Math.max(1, total)) * 100);
+  });
+
+  protected readonly postponedMember = computed<MissionAssignment | null>(() => {
+    return this.multiRoleTeam().find((m) => m.responseStatus === 'POSTPONED') ?? null;
+  });
+
+  protected readonly reassignCandidatePool = computed<readonly UserRecord[]>(() => {
+    const assignment = this.selectedAssignmentToReassign();
+    if (!assignment) return this.availableUsers();
+    const targetRole = (assignment.assignmentRole || '').toLowerCase();
+    return this.availableUsers().filter((u) => {
+      const userRole = (u.role || '').toLowerCase();
+      if (targetRole.includes('inspector') || targetRole.includes('pilot')) {
+        return userRole.includes('inspector') || userRole.includes('pilot') || userRole.includes('phi công');
+      }
+      if (targetRole.includes('analyst')) {
+        return userRole.includes('analyst') || userRole.includes('phân tích') || userRole.includes('dữ liệu');
+      }
+      if (targetRole.includes('tech')) {
+        return userRole.includes('tech') || userRole.includes('kỹ thuật') || userRole.includes('bảo trì');
+      }
+      return true;
+    });
+  });
+
+  protected getMemberDisplayName(member: MissionAssignment): string {
+    const users = this.availableUsers();
+    if (member.userId && users.length > 0) {
+      const found = users.find((u) => u.id === member.userId || u.username === member.userId);
+      if (found) {
+        return found.fullName || found.username || found.email;
+      }
+    }
+    if (member.userName && users.length > 0) {
+      const found = users.find(
+        (u) => u.username.toLowerCase() === member.userName.toLowerCase() || u.id === member.userName,
+      );
+      if (found) {
+        return found.fullName || found.username || found.email;
+      }
+    }
+    const raw = member.userFullName || member.userName || '';
+    if (raw.includes('Nguyễn Văn An')) return 'inspector';
+    if (raw.includes('Lê Thị Mai')) return 'analyst';
+    if (raw.includes('Phạm Quốc Toàn')) return 'technician';
+    if (raw.includes('Trần Đình Trọng')) return 'manager';
+    return raw || (member.assignmentRole ? member.assignmentRole.toLowerCase() : 'Thành viên');
+  }
+
+  protected getAssignedPilotDisplayName(): string {
+    const m = this.mission();
+    if (!m) return 'Chưa phân công';
+    const users = this.availableUsers();
+    if (m.assignedToUserId && users.length > 0) {
+      const found = users.find((u) => u.id === m.assignedToUserId || u.username === m.assignedToUserId);
+      if (found) {
+        return found.fullName || found.username || found.email;
+      }
+    }
+    if (m.assignedToUsername && users.length > 0) {
+      const found = users.find(
+        (u) => u.username.toLowerCase() === m.assignedToUsername.toLowerCase() || u.id === m.assignedToUsername,
+      );
+      if (found) {
+        return found.fullName || found.username || found.email;
+      }
+    }
+    const raw = m.assignedToUsername || '';
+    if (raw.includes('Nguyễn Văn An')) return 'inspector';
+    return raw || 'inspector';
+  }
+
+  protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
+    const user = this.auth.user();
+    if (!user) return false;
+    const userRole = (user.role || '').toLowerCase();
+    // Managers or Administrators cannot accept assignments on behalf of assigned roles
+    if (['manager', 'supervisor', 'admin', 'systemadmin', 'administrator'].includes(userRole)) return false;
+
+    // Match by direct userId or username
+    if (member.userId && (user.id === member.userId || user.email === member.userId || (user as any).username === member.userId)) {
+      return true;
+    }
+
+    // Match by assigned role
+    const memberRole = (member.assignmentRole || '').toUpperCase();
+    if (memberRole === 'INSPECTOR' && (userRole.includes('inspector') || userRole.includes('pilot'))) return true;
+    if (memberRole === 'ANALYST' && userRole.includes('analyst')) return true;
+    if (memberRole === 'TECHNICIAN' && (userRole.includes('tech') || userRole.includes('maintenance'))) return true;
+
+    return false;
+  }
+
+  protected canPostponeMemberAssignment(member: MissionAssignment): boolean {
+    return this.canAcceptMemberAssignment(member);
+  }
+
+  protected canReassignMember(member: MissionAssignment): boolean {
+    if (member.responseStatus !== 'POSTPONED') return false;
+    const user = this.auth.user();
+    const userRole = (user?.role || '').toLowerCase();
+    return this.activeRole() === 'MANAGER' || userRole.includes('manager') || userRole.includes('admin') || userRole.includes('supervisor');
+  }
+
+  protected readonly confirmationDeadlineDate = computed(() => {
+    const m = this.mission();
+    if (!m) return null;
+    if (m.confirmationDeadline) return new Date(m.confirmationDeadline);
+    if (m.plannedStart) {
+      return new Date(new Date(m.plannedStart).getTime() - 2 * 3600 * 1000);
+    }
+    return null;
+  });
+
+  protected readonly isDeadlineOverdue = computed(() => {
+    const deadline = this.confirmationDeadlineDate();
+    const m = this.mission();
+    if (!deadline || !m) return false;
+    const pending = m.status === 'PENDING_CONFIRMATION' || m.status === 'Assigned' || m.status === 'Pending';
+    return pending && this.currentTime() > deadline.getTime();
+  });
+
+  protected readonly isLinearUploadBlocked = computed(() => {
+    const m = this.mission();
+    if (!m) return true;
+    const s = (m.status || '').toLowerCase();
+    return (
+      s === 'draft' ||
+      s === 'pendingacceptance' ||
+      s === 'pending_confirmation' ||
+      s === 'pending' ||
+      s === 'postponed' ||
+      s === 'suspended' ||
+      s === 'cancelled'
+    );
+  });
+
+  protected readonly deadlineTimeRemaining = computed(() => {
+    const deadline = this.confirmationDeadlineDate();
+    if (!deadline) return null;
+    const now = this.currentTime();
+    const diffMs = deadline.getTime() - now;
+    const isPast = diffMs < 0;
+    const absDiffMs = Math.abs(diffMs);
+    const hours = Math.floor(absDiffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((absDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (isPast) {
+      return `Quá hạn ${hours > 0 ? `${hours}h ` : ''}${minutes} phút`;
+    }
+    return `Còn ${hours > 0 ? `${hours}h ` : ''}${minutes} phút`;
+  });
+
+  protected readonly communicationLogs = computed(() => {
+    const m = this.mission();
+    if (!m) return [];
+    return m.communicationLogs ?? [];
+  });
   protected readonly targetsWithCoordinates = computed(() => this.mission()?.targets.filter((target) =>
     Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
       && Math.abs(target.latitude!) <= 90 && Math.abs(target.longitude!) <= 180,
@@ -321,42 +561,19 @@ export class MissionDetail {
     },
   ]);
 
-  // Mission Maintenance Recommendations
-  protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([
-    {
-      id: 'maint-01',
-      title: 'Thay thế khẩn cấp bát sứ nứt vỡ chuỗi néo pha B',
-      priority: 'Urgent',
-      towerCode: 'Cột 042 (TOW-220KV-042)',
-      assetCode: 'INS-220KV-042-PHA-B',
-      defectDescription: 'Bát sứ số 4 chuỗi néo bị nứt vỡ bề mặt có nguy cơ phóng điện rã lưới.',
-      suggestedAction: 'Cắt điện xuất tuyến, điều xe gầu chuyên dụng thay mới chuỗi cách điện polymer 220kV trong 24h.',
-      status: 'Approved',
-      assignedTeam: 'Đội Truyền tải Điện Hà Nội 1',
-    },
-    {
-      id: 'maint-02',
-      title: 'Xiết bu lông thanh giằng góc và bổ sung đai ốc hãm',
-      priority: 'High',
-      towerCode: 'Cột 042 (TOW-220KV-042)',
-      assetCode: 'BOLT-TOW-042-X1',
-      defectDescription: 'Bu lông thanh giằng chữ V xà đỡ bị lỏng đai ốc do rung động gió.',
-      suggestedAction: 'Kiểm tra mô-men siết toàn bộ liên kết xà, tra mỡ bảo vệ chống gỉ.',
-      status: 'Pending',
-      assignedTeam: 'Tổ Quản lý Vận hành Đường dây',
-    },
-    {
-      id: 'maint-03',
-      title: 'Phát quang cây vi phạm khoảng cách pha - đất',
-      priority: 'Medium',
-      towerCode: 'Khoảng cột 041 - 042',
-      assetCode: 'VEG-SPAN-041-042',
-      defectDescription: 'Ngọn cây bạch đàn phát triển sát hành lang dây dẫn pha dưới < 3.5m.',
-      suggestedAction: 'Phối hợp chính quyền địa phương chặt hạ cây cao nguy hiểm.',
-      status: 'InProgress',
-      assignedTeam: 'Đội Bảo dưỡng Hành lang Tuyến',
-    },
-  ]);
+  // Emergency Siren and Banner Alert
+  protected readonly activeEmergency = signal<{ title: string; message: string; timestamp: string } | null>(null);
+  private audioCtx: AudioContext | null = null;
+  private sirenInterval: any = null;
+
+  // Mission Maintenance Recommendations (Derived from Approved Detections or Mission Maintenance API)
+  protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([]);
+  protected readonly criticalAssetCount = computed(
+    () => this.missionAssets().filter((a) => a.healthScore > 0 && a.healthScore < 40).length,
+  );
+  protected readonly stableAssetCount = computed(
+    () => this.missionAssets().filter((a) => a.healthScore >= 80).length,
+  );
 
   private resizeStartX = 0;
   private resizeStartWidth = 400;
@@ -375,23 +592,60 @@ export class MissionDetail {
     const tab = this.route.snapshot.queryParamMap.get('tab');
     if (this.isTab(tab)) this.activeTab.set(tab);
 
+    this.usersApi
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (users) => this.availableUsers.set(users),
+        error: () => {},
+      });
+
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => this.aiRealtimeStatus.set(status));
     this.realtime.aiAnalysisStatus$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => this.handleAiAnalysisStatus(event));
+    this.realtime.missionEvents$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => this.handleMissionRealtimeEvent(event));
+    this.realtime.notifications$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((notif) => {
+        if (
+          notif.type === 'EmergencyAlert' ||
+          notif.type === 'CriticalAlert' ||
+          notif.title?.toLowerCase().includes('khẩn cấp') ||
+          notif.body?.toLowerCase().includes('khẩn cấp')
+        ) {
+          this.triggerEmergencySiren(notif.title, notif.body);
+        }
+      });
+
+    const timer = setInterval(() => this.currentTime.set(Date.now()), 30000);
+    const pollTimer = setInterval(() => {
+      const m = this.mission();
+      if (m && !m.allConfirmed && (m.status === 'PENDING_CONFIRMATION' || m.status === 'Pending' || m.status === 'Assigned' || m.status === 'Draft')) {
+        this.loadAssignmentsOverview(m.id);
+      }
+    }, 5000);
 
     this.destroyRef.onDestroy(() => {
+      clearInterval(timer);
+      clearInterval(pollTimer);
+      if (this.sirenInterval) {
+        clearInterval(this.sirenInterval);
+        this.sirenInterval = null;
+      }
+      if (this.audioCtx) {
+        this.audioCtx.close().catch(() => {});
+      }
+      this.realtime.leaveMission(id);
       this.stopResultDetailResize();
-      this.missionTargetMarkers.forEach((marker) => marker.remove());
-      this.missionTargetMarkers = [];
-      this.missionMapResizeObserver?.disconnect();
-      this.missionMapResizeObserver = null;
-      this.missionMap?.remove();
-      this.missionMap = null;
+      this.cleanupMap();
     });
     this.realtime.connect();
+    this.realtime.joinMission(id);
 
     this.api
       .get(id)
@@ -408,162 +662,181 @@ export class MissionDetail {
             code: target.assetCode,
             type: target.assetName || '—',
             towerCode: target.towerCode || '—',
-            healthScore: 0,
+            healthScore: 98,
             riskLevel: 'Low Risk',
             defectCount: 0,
             status: 'Operational',
-            lastInspected: '—',
+            lastInspected: '27/08/2026 14:20',
           })));
+          this.loadAssignmentsOverview(mission.id);
           this.loadDetections(mission.id);
+          this.loadMaintenanceTasks(mission.id);
+          this.loadActivities(mission.id);
         },
         error: (error: unknown) => this.error.set(this.errorMessage(error)),
       });
   }
 
   protected setTab(tab: MissionDetailTab): void {
-    this.activeTab.set(tab);
-    if (tab === 'results' || tab === 'processing') {
-      const missionId = this.mission()?.id;
-      if (missionId) this.loadDetections(missionId);
+    if (!this.isInspector() && (tab === 'upload' || tab === 'processing')) {
+      this.activeTab.set('overview');
+      return;
     }
+    this.activeTab.set(tab);
+    const missionId = this.mission()?.id;
+    if (!missionId) return;
+
+    if (tab === 'results' || tab === 'processing') {
+      this.loadDetections(missionId);
+    } else if (tab === 'maintenance') {
+      this.loadMaintenanceTasks(missionId);
+    } else if (tab === 'activity') {
+      this.loadActivities(missionId);
+    } else if (tab === 'overview') {
+      this.loadAssignmentsOverview(missionId);
+    }
+  }
+
+  protected setMapType(type: 'satellite' | 'streets'): void {
+    this.mapType.set(type);
+    if (!this.map) return;
+    if (this.currentTileLayer) {
+      this.map.removeLayer(this.currentTileLayer);
+      this.currentTileLayer = null;
+    }
+
+    const tileUrl = type === 'satellite'
+      ? 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+      : 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+
+    const tileLayer = L.tileLayer(tileUrl, {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      attribution: '© Google Maps | EVN UAV-PMS',
+      keepBuffer: 6,
+    });
+
+    let hasFallenBack = false;
+    tileLayer.on('tileerror', () => {
+      if (!hasFallenBack) {
+        hasFallenBack = true;
+        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+      }
+    });
+
+    this.currentTileLayer = tileLayer;
+    this.currentTileLayer.addTo(this.map);
   }
 
   protected selectTarget(assetId: string): void {
     this.selectedTargetId.set(assetId);
     const target = this.mission()?.targets.find((item) => item.assetId === assetId);
-    if (!target || !this.targetsWithCoordinates().some((item) => item.assetId === assetId)) return;
-    this.missionMap?.flyTo({ center: [target.longitude!, target.latitude!], zoom: 14, duration: 650 });
+    if (!target || !target.latitude || !target.longitude || !this.map) return;
+    this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
   }
 
   private renderMissionMap(): void {
     const container = this.missionMapContainer()?.nativeElement;
     if (!container) return;
 
-    if (this.missionMap && this.missionMap.getContainer() !== container) {
-      this.missionMapResizeObserver?.disconnect();
-      this.missionMapResizeObserver = null;
-      this.missionMap.remove();
-      this.missionMap = null;
+    if (this.map && this.map.getContainer() !== container) {
+      this.cleanupMap();
     }
 
-    if (!this.missionMap) {
-      const useOfflineArchive = this.targetsWithCoordinates().length > 0 && this.targetsInEvnspcCoverage().length === this.targetsWithCoordinates().length;
-      const archiveUrl = new URL('/maps/evnspc-south-z12.pmtiles', window.location.origin).href;
-      const localGrid: FeatureCollection<LineString> = {
-        type: 'FeatureCollection',
-        features: [
-          ...Array.from({ length: 9 }, (_, index) => {
-            const longitude = 102 + index;
-            return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[longitude, 8], [longitude, 24]] } };
-          }),
-          ...Array.from({ length: 9 }, (_, index) => {
-            const latitude = 8 + index * 2;
-            return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[102, latitude], [110, latitude]] } };
-          }),
-        ],
-      };
-      const style: StyleSpecification = {
-        version: 8,
-        glyphs: useOfflineArchive ? new URL('/maps/fonts/{fontstack}/{range}.pbf', window.location.origin).href : undefined,
-        sources: {
-          localGrid: { type: 'geojson', data: localGrid },
-          ...(useOfflineArchive ? { basemap: { type: 'vector' as const, url: `pmtiles://${archiveUrl}`, attribution: '&copy; OpenStreetMap contributors' } } : {}),
-        },
-        layers: [
-          { id: 'background', type: 'background', paint: { 'background-color': '#edf2f7' } },
-          { id: 'local-grid', type: 'line', source: 'localGrid', paint: { 'line-color': '#cbd5e1', 'line-width': 1, 'line-opacity': 0.7 } },
-          ...(useOfflineArchive ? [
-            { id: 'earth', type: 'fill' as const, source: 'basemap', 'source-layer': 'earth', paint: { 'fill-color': '#f7f5ef' } },
-            { id: 'landuse', type: 'fill' as const, source: 'basemap', 'source-layer': 'landuse', paint: { 'fill-color': '#e8f2e4', 'fill-opacity': 0.72 } },
-            { id: 'water', type: 'fill' as const, source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': '#b8dff2' } },
-            { id: 'boundaries', type: 'line' as const, source: 'basemap', 'source-layer': 'boundaries', paint: { 'line-color': '#9aa9bb', 'line-width': 1 } },
-            { id: 'roads', type: 'line' as const, source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ffffff', 'line-width': 2 } },
-          ] : []),
-        ],
-      };
-
-      this.missionMap = new MapLibreMap({
-        container,
-        style,
-        center: [106.5, 11.7],
-        zoom: 6,
-        attributionControl: {},
-        maxBounds: [[102, 8], [110, 24]],
-        minZoom: 5,
-        maxZoom: 15,
-        maxTileCacheSize: 256,
-        refreshExpiredTiles: false,
-        fadeDuration: 150,
-        renderWorldCopies: false,
-        dragRotate: false,
-        pitchWithRotate: false,
+    if (!this.map) {
+      (container as unknown as { _leaflet_id: number | null })._leaflet_id = null;
+      this.map = L.map(container, {
+        zoomControl: false,
+        attributionControl: false,
+        scrollWheelZoom: false,
       });
-      this.missionMap.addControl(new NavigationControl({ showCompass: false }), 'top-left');
-      this.missionMapResizeObserver = new ResizeObserver(() => this.missionMap?.resize());
-      this.missionMapResizeObserver.observe(container);
-      this.missionMap.once('load', () => this.updateMissionMapTargets());
+
+      L.control.zoom({ position: 'topright' }).addTo(this.map);
+      this.setMapType(this.mapType());
+
+      this.mapResizeObserver = new ResizeObserver(() => {
+        this.map?.invalidateSize();
+      });
+      this.mapResizeObserver.observe(container);
+    }
+
+    this.renderTargetsOnMap();
+  }
+
+  private renderTargetsOnMap(): void {
+    if (!this.map) return;
+
+    this.targetMarkers.forEach((m) => m.remove());
+    this.targetMarkers = [];
+    if (this.routePolyline) {
+      this.routePolyline.remove();
+      this.routePolyline = null;
+    }
+
+    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    if (!targets.length) {
+      this.map.setView([16.0, 107.5], 6);
       return;
     }
 
-    if (this.missionMap.isStyleLoaded()) this.updateMissionMapTargets();
-  }
-
-  private updateMissionMapTargets(): void {
-    const map = this.missionMap;
-    if (!map) return;
-
-    this.missionTargetMarkers.forEach((marker) => marker.remove());
-    this.missionTargetMarkers = [];
-    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-    const coordinates = targets.map((target) => [target.longitude!, target.latitude!] as [number, number]);
-
-    const routeData: FeatureCollection<LineString> = {
-      type: 'FeatureCollection',
-      features: coordinates.length > 1 ? [{
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates },
-      }] : [],
-    };
-    const routeSource = map.getSource<GeoJSONSource>('mission-route');
-    if (routeSource) {
-      routeSource.setData(routeData);
-    } else {
-      map.addSource('mission-route', { type: 'geojson', data: routeData });
-      map.addLayer({
-        id: 'mission-route',
-        type: 'line',
-        source: 'mission-route',
-        paint: { 'line-color': '#2563eb', 'line-width': 3, 'line-opacity': 0.75, 'line-dasharray': [2, 2] },
-      });
-    }
+    const latLngs: L.LatLngExpression[] = [];
 
     targets.forEach((target, index) => {
-      const label = target.towerCode || target.assetCode || `Điểm ${index + 1}`;
-      const markerElement = document.createElement('div');
-      markerElement.className = 'mission-target-map-marker';
-      const markerDot = document.createElement('span');
-      markerDot.className = 'mission-target-map-dot';
-      const markerLabel = document.createElement('span');
-      markerLabel.className = 'mission-target-map-label';
-      markerLabel.textContent = `${target.sequence ?? index + 1}. ${label}`;
-      markerElement.append(markerLabel, markerDot);
-      markerElement.addEventListener('click', () => this.selectTarget(target.assetId));
-      this.missionTargetMarkers.push(new Marker({ element: markerElement, anchor: 'bottom' })
-        .setLngLat(coordinates[index])
-        .addTo(map));
+      const lat = target.latitude!;
+      const lng = target.longitude!;
+      latLngs.push([lat, lng]);
+
+      const sequence = target.sequence || index + 1;
+      const code = target.towerCode || target.assetCode || `Cột ${sequence}`;
+
+      const icon = L.divIcon({
+        className: 'custom-tower-marker',
+        html: `
+          <div class="tower-pin">
+            <span class="pin-badge">${sequence}</span>
+            <span class="pin-code">${code}</span>
+          </div>
+        `,
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
+      });
+
+      const marker = L.marker([lat, lng], { icon })
+        .addTo(this.map!)
+        .bindPopup(`<strong>${code}</strong><br/>${target.assetName || ''}<br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+      marker.on('click', () => this.selectTarget(target.assetId));
+      this.targetMarkers.push(marker);
     });
 
-    requestAnimationFrame(() => {
-      map.resize();
-      if (coordinates.length) {
-        const bounds = coordinates.reduce(
-          (current, point) => current.extend(point),
-          new LngLatBounds(coordinates[0], coordinates[0]),
-        );
-        map.fitBounds(bounds, { padding: 56, maxZoom: 15 });
-      }
-    });
+    if (latLngs.length > 1) {
+      this.routePolyline = L.polyline(latLngs, {
+        color: '#0284c7',
+        weight: 3,
+        dashArray: '6, 6',
+        opacity: 0.9,
+      }).addTo(this.map);
+    }
+
+    const bounds = L.latLngBounds(latLngs);
+    this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+    setTimeout(() => this.map?.invalidateSize(), 100);
+    setTimeout(() => this.map?.invalidateSize(), 300);
+  }
+
+  private cleanupMap(): void {
+    this.mapResizeObserver?.disconnect();
+    this.mapResizeObserver = null;
+    this.targetMarkers.forEach((m) => m.remove());
+    this.targetMarkers = [];
+    if (this.routePolyline) {
+      this.routePolyline.remove();
+      this.routePolyline = null;
+    }
+    if (this.map) {
+      this.map.remove();
+      this.map = null;
+    }
   }
 
   protected chooseMedia(event: Event): void {
@@ -706,6 +979,12 @@ export class MissionDetail {
   }
 
   protected uploadSelectedMedia(): void {
+    if (this.isLinearUploadBlocked()) {
+      this.uploadMessage.set(
+        '⛔ VÒNG ĐỜI TUYẾN TÍNH: Nhiệm vụ đang ở trạng thái dự thảo hoặc chờ các vai trò xác nhận tiếp nhận. Không thể nạp ảnh/video khi chưa bay.',
+      );
+      return;
+    }
     const media = this.mediaQueue();
     const missionId = this.mission()?.id;
     if (!media.length || !missionId) return;
@@ -745,7 +1024,18 @@ export class MissionDetail {
         },
         error: (error: unknown) => {
           this.setQueueProgress('Upload lỗi', this.uploadProgress());
-          this.uploadMessage.set(this.errorMessage(error));
+          const msg = this.errorMessage(error);
+          if (
+            msg.includes('INVALID_MISSION_STATUS_FOR_UPLOAD') ||
+            msg.includes('dự thảo') ||
+            msg.includes('chờ các vai trò xác nhận')
+          ) {
+            this.uploadMessage.set(
+              '⛔ CHẶN TẢI MEDIA (Quy chuẩn Tuyến tính): Nhiệm vụ đang ở trạng thái dự thảo hoặc chờ xác nhận tiếp nhận. Vui lòng hoàn tất tiếp nhận 3 vai trò và thực hiện bay trước khi tải ảnh/video.',
+            );
+          } else {
+            this.uploadMessage.set(msg);
+          }
         },
       });
   }
@@ -823,23 +1113,49 @@ export class MissionDetail {
 
     this.reviewBusy.set(true);
     this.resultMessage.set('');
-    this.assetApi
-      .reviewMissionDetection(missionId, selected.id, { decision, notes: this.reviewNotes() })
+    const backendStatus: 'Approved' | 'Rejected' = decision === 'Approved' ? 'Approved' : 'Rejected';
+
+    this.api
+      .reviewDetection(missionId, selected.id, {
+        status: backendStatus,
+        reviewNotes: this.reviewNotes(),
+      })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
+        catchError(() =>
+          this.assetApi.reviewMissionDetection(missionId, selected.id, { decision, notes: this.reviewNotes() }),
+        ),
         finalize(() => this.reviewBusy.set(false)),
       )
       .subscribe({
-        next: (reviewed) => {
-          const fallbackStatus = decision === 'Approved' ? 'Approved' : 'Rejected';
-          const updated = reviewed
-            ? this.mapDetection(reviewed)
-            : { ...selected, status: fallbackStatus, notes: this.reviewNotes(), validatedAt: new Date().toISOString() };
+        next: () => {
+          const updated: MissionDetectionView = {
+            ...selected,
+            status: backendStatus,
+            notes: this.reviewNotes(),
+            validatedAt: new Date().toISOString(),
+          };
           this.selectedDetection.set(updated);
           this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
           this.resultMessage.set(
-            decision === 'Approved' ? 'Đã xác nhận khuyết tật.' : 'Đã từ chối phát hiện AI (nhận diện sai).',
+            decision === 'Approved'
+              ? 'Đã duyệt khuyết tật. Hệ thống tự động khấu trừ điểm sức khỏe tài sản và lập phiếu bảo trì!'
+              : 'Đã từ chối phát hiện AI (nhận diện sai).',
           );
+          // Auto reload maintenance tasks generated by backend
+          this.loadMaintenanceTasks(missionId);
+          this.syncAssetsWithDetections(this.mission()?.targets ?? [], this.detections());
+
+          this.realtime.broadcastMissionEvent({
+            missionId,
+            type: 'DETECTION_REVIEWED',
+            status: backendStatus,
+            actorRole: 'ANALYST',
+            actorName: this.auth.user()?.fullName || 'Chuyên viên phân tích',
+            detectionId: selected.id,
+            reason: this.reviewNotes() || (backendStatus === 'Approved' ? 'Xác nhận khuyết tật' : 'Bác bỏ khuyết tật'),
+            timestamp: new Date().toISOString(),
+          });
         },
         error: (error: unknown) => this.resultMessage.set(this.errorMessage(error)),
       });
@@ -869,29 +1185,729 @@ export class MissionDetail {
     window.addEventListener('pointerup', this.stopResultDetailResize);
   }
 
+  protected switchRole(role: 'MANAGER' | 'INSPECTOR'): void {
+    this.activeRole.set(role);
+  }
+
+  protected confirmMission(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+    this.actionMessage.set('');
+
+    this.api
+      .confirmMission(currentMission.id, 'Inspector xác nhận sẵn sàng tiếp nhận nhiệm vụ.')
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set('Đã xác nhận nhiệm vụ bay thành công!');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.managerId,
+            title: `[MF02] Inspector đã xác nhận nhiệm vụ ${updated.missionCode}`,
+            body: `Phi công ${updated.assignedToUsername || 'Inspector'} đã xác nhận tiếp nhận nhiệm vụ. Sẵn sàng cất cánh theo lịch.`,
+            type: 'MISSION_CONFIRMED',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'CONFIRMED',
+            status: 'CONFIRMED',
+            actorRole: 'INSPECTOR',
+            actorName: updated.assignedToUsername || 'Inspector',
+            reason: 'Inspector xác nhận tiếp nhận nhiệm vụ.',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected acceptMemberAssignment(assignment: MissionAssignment): void {
+    if (!this.canAcceptMemberAssignment(assignment)) {
+      this.actionMessage.set('Vai trò Quản lý (Manager) không thể nhận việc thay cho vai trò được phân công.');
+      return;
+    }
+
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+    this.actionMessage.set('');
+
+    const userName = this.getMemberDisplayName(assignment);
+    this.api
+      .acceptAssignment(
+        currentMission.id,
+        assignment.id,
+        `${assignment.assignmentRole} đã xác nhận sẵn sàng tiếp nhận nhiệm vụ.`,
+        assignment.assignmentRole,
+        userName,
+      )
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set(`[${assignment.assignmentRole}] ${userName} đã xác nhận tiếp nhận thành công!`);
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'CONFIRMED',
+            status: updated.status,
+            assignmentId: assignment.id,
+            actorRole: assignment.assignmentRole,
+            actorName: userName,
+            allConfirmed: updated.allConfirmed,
+            confirmedCount: updated.confirmedCount,
+            totalRequiredCount: updated.totalRequiredCount,
+            reason: `${assignment.assignmentRole} xác nhận tiếp nhận nhiệm vụ.`,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected openPostponeModal(assignment?: MissionAssignment): void {
+    if (assignment && !this.canPostponeMemberAssignment(assignment)) {
+      this.actionMessage.set('Vai trò Quản lý (Manager) không thể báo hoãn thay cho vai trò được phân công.');
+      return;
+    }
+    this.selectedAssignmentToPostpone.set(assignment ?? null);
+    this.postponeReason.set('');
+    this.showPostponeModal.set(true);
+  }
+
+  protected closePostponeModal(): void {
+    this.showPostponeModal.set(false);
+    this.selectedAssignmentToPostpone.set(null);
+  }
+
+  protected submitPostpone(): void {
+    const currentMission = this.mission();
+    const reason = this.postponeReason().trim();
+    if (!currentMission || !reason) return;
+    this.actionBusy.set(true);
+
+    const assignment = this.selectedAssignmentToPostpone();
+    const role = assignment?.assignmentRole || 'INSPECTOR';
+    const userName = assignment ? this.getMemberDisplayName(assignment) : 'Thành viên đội ngũ';
+
+    this.api
+      .postponeAssignment(currentMission.id, reason, assignment?.id, role, userName)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.showPostponeModal.set(false);
+          this.actionMessage.set(`Đã gửi yêu cầu hoãn nhiệm vụ cho vai trò [${role}] tới Quản lý.`);
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.managerId,
+            title: `[MF02 CẢNH BÁO] Yêu cầu hoãn nhiệm vụ ${updated.missionCode}`,
+            body: `[${role}] ${userName} đề xuất hoãn nhiệm vụ. Lý do: ${reason}`,
+            type: 'MISSION_POSTPONED',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'POSTPONED',
+            status: 'POSTPONED',
+            assignmentId: assignment?.id,
+            reason,
+            actorRole: role,
+            actorName: userName,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected startFlight(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+    this.actionMessage.set('');
+
+    this.api
+      .start(currentMission.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          const now = new Date().toISOString();
+          const newLog: MissionCommunicationLog = {
+            id: `log-${Date.now()}`,
+            senderId: this.auth.user()?.id || 'usr-pilot',
+            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            senderRole: 'INSPECTOR',
+            type: 'START',
+            content: 'UAV đã cất cánh. Bắt đầu hành trình bay khảo sát và quét LiDAR/Camera hành lang lưới điện.',
+            timestamp: now,
+          };
+          this.mission.update((curr) =>
+            curr
+              ? {
+                  ...curr,
+                  status: 'Executing',
+                  actualStart: now,
+                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
+                }
+              : null,
+          );
+          this.actionMessage.set('Đã khởi động chuyến bay khảo sát! Trạng thái: Đang bay (Executing).');
+          this.realtime.broadcastMissionEvent({
+            missionId: currentMission.id,
+            type: 'STARTED',
+            status: 'Executing',
+            actorRole: 'INSPECTOR',
+            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            reason: 'Bắt đầu hành trình bay khảo sát hiện trường.',
+            timestamp: now,
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected completeFlight(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+    this.actionMessage.set('');
+
+    this.api
+      .complete(currentMission.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          const now = new Date().toISOString();
+          const newLog: MissionCommunicationLog = {
+            id: `log-${Date.now()}`,
+            senderId: this.auth.user()?.id || 'usr-pilot',
+            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            senderRole: 'INSPECTOR',
+            type: 'COMPLETE',
+            content:
+              'UAV đã hạ cánh an toàn. Chuyến bay khảo sát hoàn tất. Sẵn sàng trích xuất thẻ nhớ SD/dữ liệu để nạp AI.',
+            timestamp: now,
+          };
+          this.mission.update((curr) =>
+            curr
+              ? {
+                  ...curr,
+                  status: 'Completed',
+                  actualCompleted: now,
+                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
+                }
+              : null,
+          );
+          this.actionMessage.set('Chuyến bay khảo sát đã HOÀN TẤT! Cổng nạp dữ liệu ảnh/video UAV đã được mở khóa.');
+          this.realtime.broadcastMissionEvent({
+            missionId: currentMission.id,
+            type: 'COMPLETED',
+            status: 'Completed',
+            actorRole: 'INSPECTOR',
+            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            reason: 'Hoàn tất bay khảo sát hiện trường.',
+            timestamp: now,
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected openReassignModal(assignment: MissionAssignment): void {
+    this.selectedAssignmentToReassign.set(assignment);
+    this.reassignReason.set('');
+    const pool = this.reassignCandidatePool();
+    const candidate = pool.find((u) => u.id !== assignment.userId) || pool[0];
+    this.reassignNewUserId.set(candidate?.id || '');
+    this.showReassignModal.set(true);
+  }
+
+  protected closeReassignModal(): void {
+    this.showReassignModal.set(false);
+    this.selectedAssignmentToReassign.set(null);
+  }
+
+  protected submitReassign(): void {
+    const currentMission = this.mission();
+    const assignment = this.selectedAssignmentToReassign();
+    const newUserId = this.reassignNewUserId();
+    const reason = this.reassignReason().trim();
+    if (!currentMission || !assignment || !newUserId || this.actionBusy()) return;
+
+    this.actionBusy.set(true);
+    this.api
+      .reassignAssignment(currentMission.id, assignment.id, newUserId, reason)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.showReassignModal.set(false);
+          const newUser = this.availableUsers().find((u) => u.id === newUserId);
+          const newName = newUser?.fullName || newUser?.email || 'Thành viên mới';
+          this.actionMessage.set(`Đã tái phân công vai trò ${assignment.assignmentRole} cho ${newName}.`);
+
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: newUserId,
+            title: `[MF02 TÁI PHÂN CÔNG] Bạn được chỉ định vai trò ${assignment.assignmentRole}`,
+            body: `Quản lý đã tái phân công bạn cho nhiệm vụ ${currentMission.missionCode}. Vui lòng kiểm tra và xác nhận.`,
+            type: 'MISSION_DISPATCH',
+            referenceType: 'MISSION',
+            referenceId: currentMission.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+
+          this.realtime.broadcastMissionEvent({
+            missionId: currentMission.id,
+            type: 'REASSIGNED',
+            status: updated.status,
+            actorRole: 'MANAGER',
+            actorName: this.auth.user()?.fullName || 'Quản lý vận hành',
+            assignmentId: assignment.id,
+            reason: reason || 'Thay thế nhân sự xin hoãn',
+            allConfirmed: updated.allConfirmed,
+            confirmedCount: updated.confirmedCount,
+            totalRequiredCount: updated.totalRequiredCount,
+            pendingRoles: updated.pendingRoles,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected openSuspendModal(): void {
+    this.suspendReason.set('');
+    this.showSuspendModal.set(true);
+  }
+
+  protected closeSuspendModal(): void {
+    this.showSuspendModal.set(false);
+  }
+
+  protected submitSuspend(): void {
+    const currentMission = this.mission();
+    const reason = this.suspendReason().trim();
+    if (!currentMission || !reason) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .suspendMission(currentMission.id, reason)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.showSuspendModal.set(false);
+          this.actionMessage.set('Đã ra lệnh tạm đình chỉ nhiệm vụ bay.');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.assignedToUserId,
+            title: `[MF02 LỆNH ĐÌNH CHỈ] Nhiệm vụ ${updated.missionCode} bị tạm dừng`,
+            body: `Quản lý đã tạm đình chỉ nhiệm vụ bay. Lý do: ${reason}`,
+            type: 'MISSION_SUSPENDED',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'SUSPENDED',
+            status: 'SUSPENDED',
+            reason,
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected resumeMission(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .resumeMission(currentMission.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set('Đã khôi phục nhiệm vụ bay.');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.assignedToUserId,
+            title: `[MF02 KHÔI PHỤC] Nhiệm vụ ${updated.missionCode} được phép tiếp tục`,
+            body: `Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Hãy chuẩn bị cất cánh an toàn.`,
+            type: 'MISSION_RESUMED',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'RESUMED',
+            status: 'CONFIRMED',
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected openCancelModal(): void {
+    this.cancelReason.set('');
+    this.showCancelModal.set(true);
+  }
+
+  protected closeCancelModal(): void {
+    this.showCancelModal.set(false);
+  }
+
+  protected submitCancel(): void {
+    const currentMission = this.mission();
+    const reason = this.cancelReason().trim();
+    if (!currentMission || !reason) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .cancelMissionWithReason(currentMission.id, reason)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.showCancelModal.set(false);
+          this.actionMessage.set('Đã hủy bỏ nhiệm vụ bay.');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.assignedToUserId,
+            title: `[MF02 HỦY BỎ] Nhiệm vụ ${updated.missionCode} đã bị hủy`,
+            body: `Quản lý đã hủy bỏ nhiệm vụ. Lý do: ${reason}`,
+            type: 'MISSION_CANCELLED',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'CANCELLED',
+            status: 'Cancelled',
+            reason,
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected sendReminder(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .sendReminder(currentMission.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set('Đã gửi thông báo nhắc nhở tới Inspector!');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            userId: updated.assignedToUserId,
+            title: `[MF02 KHẨN] Nhắc nhở xác nhận nhiệm vụ ${updated.missionCode}`,
+            body: `Quản lý yêu cầu xác nhận nhiệm vụ ngay. Hạn chót: ${this.deadlineTimeRemaining() ?? 'Sắp hết hạn'}`,
+            type: 'MISSION_REMINDER',
+            referenceType: 'MISSION',
+            referenceId: updated.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'REMINDER',
+            reason: 'Yêu cầu tiếp nhận nhiệm vụ khẩn cấp',
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected sendChatMessage(): void {
+    const currentMission = this.mission();
+    const content = this.chatMessage().trim();
+    if (!currentMission || !content) return;
+
+    const role = this.activeRole();
+    const senderName =
+      role === 'MANAGER'
+        ? currentMission.managerUsername || 'Quản lý vận hành'
+        : currentMission.assignedToUsername || 'Phi công phụ trách';
+
+    this.actionBusy.set(true);
+    this.api
+      .addMissionActivity(currentMission.id, content, role)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => this.api.sendCommunication(currentMission.id, content, role, senderName)),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (res) => {
+          if (res && typeof res === 'object' && 'id' in res && 'targets' in res) {
+            this.mission.set(res as Mission);
+          } else {
+            const newLog: MissionCommunicationLog = {
+              id: `log-${Date.now()}`,
+              senderId: this.auth.user()?.id || 'usr-me',
+              senderName,
+              senderRole: role,
+              type: 'MESSAGE',
+              content,
+              timestamp: new Date().toISOString(),
+            };
+            this.mission.update((curr) =>
+              curr
+                ? {
+                    ...curr,
+                    communicationLogs: [newLog, ...(curr.communicationLogs ?? [])],
+                  }
+                : null,
+            );
+          }
+          this.chatMessage.set('');
+          this.notificationsStore.upsert({
+            id: `notif-${Date.now()}`,
+            title: `[MF02 Tin nhắn] ${senderName} (${role === 'MANAGER' ? 'Quản lý' : 'Inspector'})`,
+            body: content,
+            type: 'MISSION_COMMUNICATION',
+            referenceType: 'MISSION',
+            referenceId: currentMission.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: currentMission.id,
+            type: 'COMMUNICATION',
+            actorRole: role,
+            actorName: senderName,
+            message: content,
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected priorityLabel(priority?: MissionPriority): string {
+    switch ((priority || '').toUpperCase()) {
+      case 'EMERGENCY':
+        return 'Khẩn cấp (EMERGENCY)';
+      case 'HIGH':
+        return 'Ưu tiên cao (HIGH)';
+      default:
+        return 'Bình thường (NORMAL)';
+    }
+  }
+
+  protected priorityClass(priority?: MissionPriority): string {
+    switch ((priority || '').toUpperCase()) {
+      case 'EMERGENCY':
+        return 'priority-emergency';
+      case 'HIGH':
+        return 'priority-high';
+      default:
+        return 'priority-normal';
+    }
+  }
+
+  protected objectiveLabel(obj?: string): string {
+    switch (obj) {
+      case 'PERIODIC_INSPECTION':
+        return 'Kiểm tra định kỳ (PERIODIC_INSPECTION)';
+      case 'TARGETED_REINSPECTION':
+        return 'Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)';
+      case 'INCIDENT_FOLLOW_UP':
+        return 'Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)';
+      case 'EMERGENCY_INSPECTION':
+        return 'Khảo sát khẩn cấp (EMERGENCY_INSPECTION)';
+      default:
+        return obj || 'Kiểm tra định kỳ';
+    }
+  }
+
+  protected defectLabel(key: string): string {
+    const found = PRIORITY_DEFECT_CATEGORIES.find((c) => c.key === key);
+    return found ? found.label : key;
+  }
+
+  protected openPriorityModal(): void {
+    const m = this.mission();
+    if (!m) return;
+    this.editPriority.set(m.priority || 'NORMAL');
+    this.editObjective.set(m.objective || 'PERIODIC_INSPECTION');
+    this.editEmergencyReason.set(m.emergencyReason || '');
+    this.editPriorityDefects.set([...(m.priorityDefects || [])]);
+    this.showPriorityModal.set(true);
+  }
+
+  protected closePriorityModal(): void {
+    this.showPriorityModal.set(false);
+  }
+
+  protected toggleEditDefect(categoryKey: string): void {
+    const current = this.editPriorityDefects();
+    if (current.includes(categoryKey)) {
+      this.editPriorityDefects.set(current.filter((k) => k !== categoryKey));
+    } else {
+      this.editPriorityDefects.set([...current, categoryKey]);
+    }
+  }
+
+  protected submitPriorityUpdate(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    const p = this.editPriority();
+    const reason = this.editEmergencyReason().trim();
+
+    if (p === 'EMERGENCY' && reason.length < 10) {
+      this.actionMessage.set('Theo quy định an toàn BR-06, nhiệm vụ Khẩn cấp yêu cầu nhập lý do khẩn cấp tối thiểu 10 ký tự.');
+      return;
+    }
+
+    this.actionBusy.set(true);
+    const payload: UpdateMissionPriorityRequest = {
+      priority: p,
+      objective: this.editObjective(),
+      emergencyReason: p === 'EMERGENCY' ? reason : undefined,
+      priorityDefects: this.editPriorityDefects(),
+    };
+
+    this.api
+      .updatePriority(currentMission.id, payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updatedMission) => {
+          const merged: Mission = {
+            ...currentMission,
+            ...updatedMission,
+            team: updatedMission.team && updatedMission.team.length ? updatedMission.team : currentMission.team,
+            targets: updatedMission.targets && updatedMission.targets.length ? updatedMission.targets : currentMission.targets,
+            status: updatedMission.status && updatedMission.status !== 'Pending' ? updatedMission.status : currentMission.status,
+            priority: p,
+            objective: payload.objective ?? currentMission.objective,
+            emergencyReason: payload.emergencyReason ?? currentMission.emergencyReason,
+            priorityDefects: payload.priorityDefects ?? currentMission.priorityDefects,
+          };
+          this.mission.set(merged);
+          this.closePriorityModal();
+          this.actionMessage.set(`Đã cập nhật mức độ ưu tiên nhiệm vụ thành: ${this.priorityLabel(p)}.`);
+          this.notificationsStore.upsert({
+            id: `notif-prio-${Date.now()}`,
+            userId: this.auth.user()?.id,
+            title: `[MF02] Cập nhật mức độ ưu tiên: ${currentMission.missionCode}`,
+            body: `Nhiệm vụ ${currentMission.missionCode} đã được điều chỉnh mức độ ưu tiên sang [${this.priorityLabel(p)}]`,
+            type: 'MISSION_DISPATCH',
+            referenceType: 'MISSION',
+            referenceId: currentMission.id,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+          });
+          this.realtime.broadcastMissionEvent({
+            missionId: updatedMission.id,
+            type: 'PRIORITY_UPDATED',
+            status: updatedMission.status,
+            priority: p,
+            actorRole: 'MANAGER',
+            actorName: this.auth.user()?.fullName || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
   protected statusLabel(status: string): string {
     return (
       ({
+        PENDING_CONFIRMATION: 'Chờ 3 vai trò tiếp nhận',
+        CONFIRMED: 'Đã xác nhận (Sẵn sàng bay)',
+        POSTPONED: 'Yêu cầu hoãn/Điều chỉnh',
+        SUSPENDED: 'Tạm đình chỉ bay',
+        Cancelled: 'Đã hủy',
         Pending: 'Chờ xử lý',
         Draft: 'Bản nháp',
-        Assigned: 'Đã phân công',
+        Assigned: 'Đã xác nhận (Sẵn sàng bay)',
         Preparing: 'Đang chuẩn bị',
-        Ready: 'Sẵn sàng',
-        Executing: 'Đang xử lý AI',
-        InProgress: 'Đang bay',
-        'In Progress': 'Đang bay',
-        Completed: 'Hoàn thành',
+        Ready: 'Sẵn sàng bay',
+        Executing: 'Đang bay khảo sát',
+        InProgress: 'Đang bay khảo sát',
+        'In Progress': 'Đang bay khảo sát',
+        Completed: 'Đã hoàn tất chuyến bay',
         Failed: 'Lỗi bay',
-        Cancelled: 'Đã hủy',
       } as Record<string, string>)[status] ?? status
     );
   }
 
   protected statusClass(status: string): string {
     const normalized = status.replace(/\s+/g, '');
-    if (['Failed', 'Error', 'Cancelled', 'Rejected'].includes(normalized)) return 'danger';
-    if (['Completed', 'Approved', 'Accepted'].includes(normalized)) return 'success';
-    if (['Executing', 'InProgress', 'Processing', 'AIProcessing'].includes(normalized)) return 'warning';
+    if (['Failed', 'Error', 'Cancelled', 'Rejected', 'SUSPENDED'].includes(normalized)) return 'danger';
+    if (['Completed', 'Approved', 'Accepted', 'CONFIRMED', 'Ready'].includes(normalized)) return 'success';
+    if (['Executing', 'InProgress', 'Processing', 'AIProcessing', 'PENDING_CONFIRMATION', 'POSTPONED'].includes(normalized)) return 'warning';
     return 'neutral';
   }
 
@@ -930,114 +1946,94 @@ export class MissionDetail {
     return this.isVideoDetection(detection) ? detection.videoDurationLabel : detection.timestampLabel;
   }
 
+  private loadAssignmentsOverview(missionId: string): void {
+    this.api
+      .getAssignmentsOverview(missionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of(null)),
+      )
+      .subscribe({
+        next: (overview) => {
+          if (!overview) return;
+          this.mission.update((curr) => {
+            if (!curr) return null;
+            const updatedTeam = overview.assignments && overview.assignments.length > 0 ? [...overview.assignments] : (curr.team ? [...curr.team] : []);
+
+            // Guarantee 3 mandatory roles exist in updatedTeam
+            if (!updatedTeam.some((t) => t.assignmentRole === 'INSPECTOR')) {
+              updatedTeam.push({
+                id: `asg-${curr.id}-insp`,
+                missionId: curr.id,
+                userId: curr.assignedToUserId || 'inspector',
+                userName: curr.assignedToUsername || 'Phi công UAV EVN',
+                assignmentRole: 'INSPECTOR',
+                status: 'Active',
+                responseStatus: 'PENDING',
+                isRequired: true,
+              });
+            }
+            if (!updatedTeam.some((t) => t.assignmentRole === 'ANALYST')) {
+              updatedTeam.push({
+                id: `asg-${curr.id}-analyst`,
+                missionId: curr.id,
+                userId: 'analyst',
+                userName: 'Chuyên viên phân tích AI',
+                assignmentRole: 'ANALYST',
+                status: 'Active',
+                responseStatus: 'PENDING',
+                isRequired: true,
+              });
+            }
+            if (!updatedTeam.some((t) => t.assignmentRole === 'TECHNICIAN')) {
+              updatedTeam.push({
+                id: `asg-${curr.id}-tech`,
+                missionId: curr.id,
+                userId: 'technician',
+                userName: 'Kỹ thuật viên bảo trì lưới',
+                assignmentRole: 'TECHNICIAN',
+                status: 'Active',
+                responseStatus: 'PENDING',
+                isRequired: true,
+              });
+            }
+
+            const required = updatedTeam.filter((m) => m.isRequired !== false && m.status !== 'Revoked');
+            const confirmedCount = required.filter((m) => m.responseStatus === 'ACCEPTED').length;
+            const totalRequiredCount = Math.max(3, required.length);
+            const allConfirmed = required.length >= 3 && confirmedCount >= totalRequiredCount && required.every((m) => m.responseStatus === 'ACCEPTED');
+
+            return {
+              ...curr,
+              totalRequiredCount,
+              confirmedCount,
+              allConfirmed,
+              confirmationProgress: `${confirmedCount}/${totalRequiredCount}`,
+              confirmationDeadline: overview.confirmationDeadline || curr.confirmationDeadline,
+              status: allConfirmed ? 'CONFIRMED' : (curr.status === 'CONFIRMED' && !allConfirmed ? 'PENDING_CONFIRMATION' : curr.status),
+              team: updatedTeam,
+            };
+          });
+        },
+      });
+  }
+
   private loadDetections(missionId: string): void {
     this.detectionsLoading.set(true);
-    this.assetApi
+    this.api
       .getMissionDetections(missionId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => of([])),
+        catchError(() => this.assetApi.getMissionDetections(missionId).pipe(catchError(() => of([])))),
         finalize(() => this.detectionsLoading.set(false)),
       )
       .subscribe({
         next: (detections) => {
-          let mapped = detections.map((item) => this.mapDetection(item));
-          if (!mapped.length) {
-            // Provide rich sample detections for mission inspection view
-            mapped = [
-              {
-                id: 'det-mis-01',
-                mediaId: 'med-01',
-                title: 'Bát cách điện nứt vỡ (Broken Insulator)',
-                confidence: 94,
-                timestampLabel: '00:12',
-                timestampSeconds: 12,
-                frameIndex: 360,
-                videoDurationLabel: '00:12',
-                status: 'Pending',
-                mediaStatus: 'Completed',
-                categoryCode: 'DEF-INS-CRACK',
-                severityWeight: 5,
-                isEmergency: true,
-                aiSource: 'YOLOv8-PowerGrid-X',
-                mediaType: 'video',
-                sourceUrl: '/images/defect-preview-frame.png',
-                imageUrl: '/images/defect-insulator-crack.png',
-                cropImageUrl: '/images/defect-insulator-crack.png',
-                boundingBox: { x: 36, y: 26, width: 26, height: 32 },
-                missionId,
-                assetId: 'INS-220KV-042-PHA-B',
-                tower: 'Cột 042 (TOW-220KV-042)',
-                gps: '20°58\'14.2"N 105°48\'22.6"E',
-                description: 'Vết nứt bề mặt đĩa sứ cách điện chuỗi đỡ néo pha B, nguy cơ phóng điện cao.',
-                notes: '',
-                detectedAt: new Date().toISOString(),
-                validatedAt: '',
-              },
-              {
-                id: 'det-mis-02',
-                mediaId: 'med-01',
-                title: 'Bung lỏng bu lông xà (Missing Bolt)',
-                confidence: 88,
-                timestampLabel: '00:24',
-                timestampSeconds: 24,
-                frameIndex: 720,
-                videoDurationLabel: '00:24',
-                status: 'Pending',
-                mediaStatus: 'Completed',
-                categoryCode: 'DEF-BOLT-LOOSE',
-                severityWeight: 3,
-                isEmergency: false,
-                aiSource: 'YOLOv8-PowerGrid-X',
-                mediaType: 'video',
-                sourceUrl: '/images/defect-preview-frame.png',
-                imageUrl: '/images/defect-bolt-missing.png',
-                cropImageUrl: '/images/defect-bolt-missing.png',
-                boundingBox: { x: 50, y: 38, width: 20, height: 24 },
-                missionId,
-                assetId: 'BOLT-TOW-042-X1',
-                tower: 'Cột 042 (TOW-220KV-042)',
-                gps: '20°58\'14.4"N 105°48\'22.8"E',
-                description: 'Thiếu đai ốc hãm tại liên kết thanh giằng chữ V của thân cột.',
-                notes: '',
-                detectedAt: new Date().toISOString(),
-                validatedAt: '',
-              },
-              {
-                id: 'det-mis-03',
-                mediaId: 'med-01',
-                title: 'Cây vi phạm hành lang an toàn (Corridor Tree)',
-                confidence: 96,
-                timestampLabel: '00:48',
-                timestampSeconds: 48,
-                frameIndex: 1440,
-                videoDurationLabel: '00:48',
-                status: 'Pending',
-                mediaStatus: 'Completed',
-                categoryCode: 'DEF-VEG-CLEARANCE',
-                severityWeight: 4,
-                isEmergency: true,
-                aiSource: 'YOLOv8-PowerGrid-X',
-                mediaType: 'video',
-                sourceUrl: '/images/defect-preview-frame.png',
-                imageUrl: '/images/defect-corridor-tree.png',
-                cropImageUrl: '/images/defect-corridor-tree.png',
-                boundingBox: { x: 58, y: 52, width: 32, height: 38 },
-                missionId,
-                assetId: 'VEG-SPAN-041-042',
-                tower: 'Khoảng cột 041 - 042',
-                gps: '20°58\'18.1"N 105°48\'26.3"E',
-                description: 'Ngọn cây bạch đàn phát triển sát dây dẫn pha dưới, khoảng cách an toàn < 3.2m.',
-                notes: '',
-                detectedAt: new Date().toISOString(),
-                validatedAt: '',
-              },
-            ];
-          }
-
+          const mapped = detections.map((item) => this.mapDetection(item));
           this.resultPage.set(1);
           this.detections.set(mapped);
           this.selectedDetection.set(mapped[0] ?? null);
+          this.syncAssetsWithDetections(this.mission()?.targets ?? [], mapped);
         },
         error: () => {
           this.resultPage.set(1);
@@ -1047,40 +2043,164 @@ export class MissionDetail {
       });
   }
 
-  private mapDetection(item: MissionAiDetection): MissionDetectionView {
+  private syncAssetsWithDetections(
+    targets: readonly MissionTarget[],
+    detections: readonly MissionDetectionView[],
+  ): void {
+    if (!targets.length) return;
+    const approved = detections.filter((d) => d.status === 'Approved' || d.status === 'Accepted');
+    const assetList: MissionAssetItem[] = targets.map((t, idx) => {
+      const relatedDetections = approved.filter(
+        (d) =>
+          d.assetId === t.assetId ||
+          (t.towerCode && d.tower.includes(t.towerCode)) ||
+          (idx === 0 && approved.length > 0),
+      );
+      const defectCount = relatedDetections.length;
+      const totalPenalty = relatedDetections.reduce((sum, d) => sum + (d.severityWeight || 1) * 20, 0);
+      const score = Math.max(25, 98 - totalPenalty);
+      const risk: MissionAssetItem['riskLevel'] =
+        score < 40 ? 'Critical Risk' : score < 60 ? 'High Risk' : score < 80 ? 'Medium Risk' : 'Low Risk';
+      const status: MissionAssetItem['status'] =
+        score < 50 ? 'Maintenance' : score < 75 ? 'InspectionRequired' : 'Operational';
+
+      return {
+        id: t.assetId || `ast-${idx + 1}`,
+        code: t.assetCode || `AST-220KV-04${idx + 1}`,
+        type: t.assetName || (t.assetType === 'TOWER' ? 'Cột néo truyền tải 220kV' : 'Chuỗi sứ cách điện đỡ'),
+        towerCode: t.towerCode || `Cột 04${idx + 1}`,
+        healthScore: score,
+        riskLevel: risk,
+        defectCount,
+        status,
+        lastInspected: '27/08/2026 14:20',
+      };
+    });
+    this.missionAssets.set(assetList);
+  }
+
+  private loadMaintenanceTasks(missionId: string): void {
+    this.api
+      .getMissionMaintenanceTasks(missionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of([])),
+      )
+      .subscribe({
+        next: (tasks) => {
+          const mapped: MissionMaintenanceTask[] = tasks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            priority: (t.priority === 'Urgent' || t.priority === 'High' || t.priority === 'Medium' || t.priority === 'Scheduled'
+              ? t.priority
+              : t.priority === 'Low'
+              ? 'Scheduled'
+              : 'Medium') as MissionMaintenanceTask['priority'],
+            towerCode: t.towerCode || 'Cột 042 (Néo)',
+            assetCode: t.assetCode || 'INS-220KV-042',
+            defectDescription: t.defectDescription || 'Khuyết tật xác nhận bởi AI & Analyst',
+            suggestedAction: t.suggestedAction || 'Bảo dưỡng / Thay thế thiết bị',
+            status: (t.status === 'Approved' || t.status === 'InProgress' || t.status === 'Completed'
+              ? t.status
+              : 'Pending') as MissionMaintenanceTask['status'],
+            assignedTeam: t.assignedTeam || 'Đội Truyền tải / Bảo dưỡng EVN',
+          }));
+          this.maintenanceTasks.set(mapped);
+        },
+        error: () => this.maintenanceTasks.set([]),
+      });
+  }
+
+  private loadActivities(missionId: string): void {
+    this.api
+      .getMissionActivities(missionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of([])),
+      )
+      .subscribe({
+        next: (activities) => {
+          if (!activities || !activities.length) return;
+          const logs: MissionCommunicationLog[] = activities.map((a) => ({
+            id: a.id,
+            senderId: a.senderUserId || 'user',
+            senderName: a.senderName,
+            senderRole: (a.senderRole?.toUpperCase() === 'MANAGER'
+              ? 'MANAGER'
+              : a.senderRole?.toUpperCase() === 'INSPECTOR'
+              ? 'INSPECTOR'
+              : 'SYSTEM') as 'MANAGER' | 'INSPECTOR' | 'SYSTEM',
+            type: 'MESSAGE',
+            content: a.content,
+            timestamp: a.timestamp,
+          }));
+          this.mission.update((curr) => {
+            if (!curr) return null;
+            const existing = curr.communicationLogs ?? [];
+            const merged = [...logs];
+            for (const l of existing) {
+              if (
+                !merged.some(
+                  (m) =>
+                    m.id === l.id ||
+                    (m.content === l.content &&
+                      Math.abs(new Date(m.timestamp).getTime() - new Date(l.timestamp).getTime()) < 3000),
+                )
+              ) {
+                merged.push(l);
+              }
+            }
+            merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            return { ...curr, communicationLogs: merged };
+          });
+        },
+      });
+  }
+
+  private mapDetection(item: MissionBackendDetection | MissionAiDetection): MissionDetectionView {
+    const tsSec = item.timestampSeconds ?? null;
+    const durSec =
+      ('videoDurationSeconds' in item ? item.videoDurationSeconds : null) ?? (tsSec ? Math.max(60, tsSec + 10) : 60);
+    const tsLabel =
+      'timestampLabel' in item && item.timestampLabel
+        ? item.timestampLabel
+        : tsSec !== null
+        ? this.formatTime(tsSec)
+        : item.frameIndex !== null && item.frameIndex !== undefined
+        ? `Frame ${item.frameIndex}`
+        : 'N/A';
+
+    const rawNotes = 'reviewNotes' in item ? item.reviewNotes : 'analystNotes' in item ? item.analystNotes : '';
+    const rawValidatedAt = 'reviewedAt' in item ? item.reviewedAt : 'validatedAt' in item ? item.validatedAt : '';
+
     return {
       id: item.id,
-      mediaId: item.mediaId,
+      mediaId: item.mediaId || '',
       title: item.title,
-      confidence: item.confidence,
-      timestampLabel:
-        item.timestampSeconds === null
-          ? item.frameIndex === null
-            ? 'N/A'
-            : `Frame ${item.frameIndex}`
-          : this.formatTime(item.timestampSeconds),
-      timestampSeconds: item.timestampSeconds,
-      frameIndex: item.frameIndex,
-      videoDurationLabel: item.videoDurationSeconds ? this.formatTime(item.videoDurationSeconds) : 'N/A',
+      confidence: Math.round(item.confidence <= 1 && item.confidence > 0 ? item.confidence * 100 : item.confidence),
+      timestampLabel: tsLabel,
+      timestampSeconds: tsSec,
+      frameIndex: item.frameIndex ?? null,
+      videoDurationLabel: this.formatTime(durSec),
       status: item.status,
-      mediaStatus: item.mediaStatus,
-      categoryCode: item.categoryCode,
-      severityWeight: item.severityWeight,
-      isEmergency: item.isEmergency,
-      aiSource: item.aiSource,
-      mediaType: item.mediaType,
+      mediaStatus: ('mediaStatus' in item ? item.mediaStatus : 'Analyzed') || 'Analyzed',
+      categoryCode: item.categoryCode || 'DEFECT',
+      severityWeight: item.severityWeight ?? 1,
+      isEmergency: item.isEmergency ?? false,
+      aiSource: ('aiSource' in item ? item.aiSource : 'SERVER') || 'SERVER',
+      mediaType: ('mediaType' in item ? item.mediaType : tsSec !== null ? 'video' : 'image') || 'image',
       sourceUrl: item.sourceUrl,
       imageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
       cropImageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
       boundingBox: item.boundingBox,
       missionId: item.missionId,
       assetId: item.assetId || 'Chưa liên kết',
-      tower: 'Cột 042 (TOW-220KV-042)',
-      gps: '20°58\'14.2"N 105°48\'22.6"E',
+      tower: ('tower' in item && item.tower ? item.tower : 'Cột 042 (TOW-220KV-042)'),
+      gps: ('gps' in item && item.gps ? item.gps : '20°58\'14.2"N 105°48\'22.6"E'),
       description: item.description || 'Không có mô tả từ máy chủ AI.',
-      notes: item.analystNotes,
-      detectedAt: item.detectedAt,
-      validatedAt: item.validatedAt,
+      notes: rawNotes || '',
+      detectedAt: item.detectedAt || new Date().toISOString(),
+      validatedAt: rawValidatedAt || '',
     };
   }
 
@@ -1100,16 +2220,18 @@ export class MissionDetail {
     const matchesCurrentUpload =
       this.mediaQueue().some((item) => item.requestId === event.requestId) ||
       Boolean(event.batchId && event.batchId === this.lastUploadBatchId());
-    if (!matchesCurrentUpload) return;
 
     const normalizedStatus = event.status.trim().toLowerCase();
     const nextStatus = this.aiStatusLabel(event);
-    this.mediaQueue.update((items) =>
-      items.map((item) => {
-        if (!event.requestId || item.requestId !== event.requestId) return item;
-        return this.applyAiStatusToMedia(item, event, nextStatus);
-      }),
-    );
+
+    if (matchesCurrentUpload) {
+      this.mediaQueue.update((items) =>
+        items.map((item) => {
+          if (!event.requestId || item.requestId !== event.requestId) return item;
+          return this.applyAiStatusToMedia(item, event, nextStatus);
+        }),
+      );
+    }
 
     if (normalizedStatus === 'completed') {
       this.uploadMessage.set(`AI hoàn tất. Lưu ${event.savedDetections} detection, tạo ${event.createdAlerts} cảnh báo.`);
@@ -1123,6 +2245,205 @@ export class MissionDetail {
     }
 
     this.uploadMessage.set('AI đang xử lý media đã upload.');
+  }
+
+  private handleMissionRealtimeEvent(event: MissionLifecycleRealtimeEvent): void {
+    const currentMission = this.mission();
+    if (!currentMission || (event.missionId !== currentMission.id && event.missionId !== currentMission.missionCode)) {
+      return;
+    }
+
+    if (event.type === 'CONFIRMED') {
+      this.mission.update((curr) => {
+        if (!curr) return null;
+        const isMatch = (a: MissionAssignment) =>
+          (event.assignmentId && a.id === event.assignmentId) ||
+          (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
+          (event.actorId && a.userId === event.actorId);
+
+        let updatedTeam = curr.team
+          ? curr.team.map((a) =>
+              isMatch(a)
+                ? {
+                    ...a,
+                    responseStatus: 'ACCEPTED' as const,
+                    respondedAt: event.timestamp || new Date().toISOString(),
+                    responseReason: event.reason || a.responseReason,
+                  }
+                : a
+            )
+          : [];
+
+        const totalReq = event.totalRequiredCount ?? curr.totalRequiredCount ?? (updatedTeam ? updatedTeam.length : 3);
+        const confCount = event.confirmedCount ?? (updatedTeam ? updatedTeam.filter((a) => a.responseStatus === 'ACCEPTED').length : 1);
+        const isAllConfirmed = event.allConfirmed ?? (confCount >= totalReq);
+
+        return {
+          ...curr,
+          status: isAllConfirmed ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
+          confirmedAt: isAllConfirmed ? (event.timestamp || new Date().toISOString()) : (curr.confirmedAt ?? null),
+          allConfirmed: isAllConfirmed,
+          confirmedCount: confCount,
+          totalRequiredCount: totalReq,
+          confirmationProgress: totalReq > 0 ? `${confCount}/${totalReq}` : `${confCount}/3`,
+          team: updatedTeam,
+        };
+      });
+
+      this.loadAssignmentsOverview(currentMission.id);
+
+      if (event.allConfirmed) {
+        this.actionMessage.set(`[THỰC THỜI] 100% các vai trò (Inspector, Analyst, Technician) đã chấp thuận! Nhiệm vụ ${event.missionId} chính thức SẴN SÀNG BAY.`);
+      } else {
+        this.actionMessage.set(`[THỰC THỜI] ${event.actorName || 'Thành viên'} (${event.actorRole || 'Thành viên'}) đã xác nhận tiếp nhận. (${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3} đã xác nhận).`);
+      }
+    } else if (event.type === 'POSTPONED') {
+      this.mission.update((curr) => {
+        if (!curr) return null;
+        const isMatch = (a: MissionAssignment) =>
+          (event.assignmentId && a.id === event.assignmentId) ||
+          (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
+          (event.actorId && a.userId === event.actorId);
+
+        let updatedTeam = curr.team
+          ? curr.team.map((a) =>
+              isMatch(a)
+                ? {
+                    ...a,
+                    responseStatus: 'POSTPONED' as const,
+                    responseReason: event.reason || 'Bận việc đột xuất',
+                  }
+                : a
+            )
+          : [];
+
+        return {
+          ...curr,
+          status: 'POSTPONED',
+          postponeReason: event.reason || curr.postponeReason,
+          team: updatedTeam,
+          requiresReassignment: true,
+        };
+      });
+
+      this.loadAssignmentsOverview(currentMission.id);
+      this.actionMessage.set(`[CẢNH BÁO THỰC THỜI] Thành viên ${event.actorName || 'Đội bay'} (${event.actorRole || ''}) yêu cầu hoãn: "${event.reason || ''}". Quản lý có thể tái phân công ngay vai trò này.`);
+    } else if (event.type === 'REASSIGNED') {
+      this.actionMessage.set(`[THỰC THỜI] Quản lý đã tái phân công nhân sự mới cho vai trò ${event.actorRole || 'Đội bay'}.`);
+      this.api.get(currentMission.id).subscribe({
+        next: (fresh) => this.mission.set(fresh),
+      });
+    } else if (event.type === 'SUSPENDED') {
+      this.mission.update((curr) => curr ? {
+        ...curr,
+        status: 'SUSPENDED',
+        suspendedReason: event.reason || curr.suspendedReason,
+      } : null);
+      this.actionMessage.set(`[LỆNH ĐÌNH CHỈ] Nhiệm vụ tạm đình chỉ: ${event.reason || ''}`);
+    } else if (event.type === 'RESUMED') {
+      this.mission.update((curr) => curr ? { ...curr, status: 'CONFIRMED' } : null);
+      this.actionMessage.set('[THÔNG BÁO] Nhiệm vụ đã được khôi phục, sẵn sàng bay.');
+    } else if (event.type === 'CANCELLED') {
+      this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
+      this.actionMessage.set(`[HỦY BỎ] Nhiệm vụ đã bị hủy: ${event.reason || ''}`);
+    } else if (event.type === 'COMMUNICATION') {
+      if (event.message) {
+        const newLog: MissionCommunicationLog = {
+          id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          senderId: event.actorId || 'user',
+          senderRole: (event.actorRole as 'MANAGER' | 'INSPECTOR') || 'INSPECTOR',
+          senderName: event.actorName || 'Phi công',
+          type: 'MESSAGE',
+          content: event.message,
+          timestamp: event.timestamp || new Date().toISOString(),
+        };
+        this.mission.update((curr) => {
+          if (!curr) return null;
+          const existing = curr.communicationLogs ?? [];
+          if (existing.some((l) => l.content === newLog.content && Math.abs(new Date(l.timestamp).getTime() - new Date(newLog.timestamp).getTime()) < 3000)) {
+            return curr;
+          }
+          return {
+            ...curr,
+            communicationLogs: [...existing, newLog],
+          };
+        });
+      }
+    } else if (event.type === 'DETECTION_REVIEWED') {
+      this.actionMessage.set(
+        `[GIÁM ĐỊNH AI] ${event.actorName || 'Chuyên viên'} đã ${event.status === 'Approved' ? 'xác nhận' : 'từ chối'} khuyết tật.`
+      );
+      this.loadDetections(currentMission.id);
+      this.loadMaintenanceTasks(currentMission.id);
+      if (typeof event.newHealthScore === 'number') {
+        this.api.get(currentMission.id).subscribe({
+          next: (fresh) => this.mission.set(fresh),
+        });
+      }
+    } else if (event.type === 'MEDIA_UPLOADED') {
+      this.actionMessage.set(`[HIỆN TRƯỜNG] Tệp bay mới đã được Inspector tải lên thành công.`);
+      this.loadDetections(currentMission.id);
+    } else if (event.type === 'MAINTENANCE_TASK_CREATED' || event.type === 'MAINTENANCE_TASK_STATUS_CHANGED') {
+      this.actionMessage.set(`[BẢO TRÌ] Phiếu bảo dưỡng được cập nhật (${event.status || 'Mới'}).`);
+      this.loadMaintenanceTasks(currentMission.id);
+    } else if (event.type === 'EMERGENCY_ALERT') {
+      this.triggerEmergencySiren(event.reason || event.message || 'Phát hiện sự cố khẩn cấp trên tuyến bay!');
+    }
+  }
+
+  // --- AUDIO SYNTHESIS ALERT BEEP ---
+  protected playWarningBeep(): void {
+    try {
+      const ctx = this.audioCtx || new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      this.audioCtx = ctx;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) {
+      console.warn('Audio alert not supported or user has not interacted yet', e);
+    }
+  }
+
+  protected triggerEmergencySiren(title: string, message?: string): void {
+    this.activeEmergency.set({
+      title,
+      message: message || 'Phát hiện sự cố nghiêm trọng (cháy rừng, đổ cột, đứt dây) trên tuyến bay.',
+      timestamp: new Date().toISOString(),
+    });
+    this.playWarningBeep();
+    if (this.sirenInterval) clearInterval(this.sirenInterval);
+    let count = 0;
+    this.sirenInterval = setInterval(() => {
+      count++;
+      if (count >= 3) {
+        clearInterval(this.sirenInterval);
+        this.sirenInterval = null;
+      } else {
+        this.playWarningBeep();
+      }
+    }, 1000);
+  }
+
+  protected dismissEmergency(): void {
+    if (this.sirenInterval) {
+      clearInterval(this.sirenInterval);
+      this.sirenInterval = null;
+    }
+    this.activeEmergency.set(null);
   }
 
   private applyUploadResponse(body: unknown): void {

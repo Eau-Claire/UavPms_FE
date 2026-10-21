@@ -1,5 +1,3 @@
-@use '../pre-mission-page';
-
 :host {
   display: block;
   width: 100%;
@@ -61,11 +59,48 @@
   }
 }
 
-.panel-subinfo {
-  font-size: 10px;
-  font-weight: 500;
-  color: #64748b;
+.evn-panel {
+  .panel-header {
+    min-height: 40px;
+    height: auto;
+    padding: 6px 12px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .header-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    h2, h3 {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #174f83;
+      text-transform: uppercase;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .panel-subinfo {
+      font-size: 10.5px;
+      font-weight: 500;
+      color: #475569;
+      line-height: 1.35;
+      display: block;
+      margin: 0;
+      word-break: break-word;
+    }
+  }
 }
+
 
 .detail-props-grid {
   display: grid;
@@ -163,6 +198,159 @@
   }
 }
 
+.map-type-group {
+  display: inline-flex;
+  align-items: stretch;
+  height: 24px;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid #94a3b8;
+  box-sizing: border-box;
+  vertical-align: middle;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  .map-type-btn {
+    height: 100%;
+    border: none;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 22px;
+    padding: 0 8px;
+    cursor: pointer;
+    border-right: 1px solid #cbd5e1;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+
+    &:last-child {
+      border-right: none;
+    }
+
+    &:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    &.active {
+      background: #174f83;
+      color: #ffffff;
+      font-weight: 700;
+    }
+  }
+}
+
+.map-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  line-height: 22px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border: 1px solid #94a3b8;
+  background: #ffffff;
+  color: #174f83;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  vertical-align: middle;
+  margin: 0;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f0f7fd;
+    border-color: #174f83;
+    color: #0f2952;
+  }
+}
+
+.operational-assumption-banner {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid #0284c7;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.live-weather-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #0284c7;
+  border-radius: 2px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+
+  .weather-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 11px;
+    color: #0f172a;
+
+    .weather-time {
+      font-size: 10px;
+      color: #64748b;
+    }
+  }
+
+  .weather-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+
+    @media (max-width: 800px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+
+    .w-metric-item {
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 2px;
+
+      .w-label {
+        font-size: 10px;
+        color: #64748b;
+        font-weight: 500;
+      }
+
+      .w-val {
+        font-size: 13px;
+        font-weight: 700;
+        margin: 2px 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .w-sub {
+        font-size: 9px;
+        color: #94a3b8;
+      }
+    }
+  }
+}
+
 :host ::ng-deep .evn-map-tooltip {
   font-size: 9px;
   font-weight: 700;
@@ -172,4 +360,332 @@
   border: none;
   border-radius: 2px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+
+/* EVN Classic Confirmation Modal (No radius, classic ERP enterprise style) */
+.evn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+
+  .evn-modal-dialog {
+    background: #ffffff;
+    width: 100%;
+    max-width: 490px;
+    border: 1px solid #8fb9df;
+    border-radius: 0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+
+    .evn-modal-header {
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #9fc3e4;
+      background: #e6f2fb;
+
+      .modal-title-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .modal-icon-danger {
+          color: #dc2626;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+        }
+
+        h3 {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 700;
+          color: #0f2952;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+      }
+
+      .btn-close-modal {
+        background: transparent;
+        border: 1px solid transparent;
+        font-size: 13px;
+        color: #526b82;
+        cursor: pointer;
+        padding: 1px 6px;
+        line-height: 1;
+        border-radius: 0;
+        transition: all 0.1s;
+
+        &:hover {
+          background: #d0e6f7;
+          border-color: #9fc3e4;
+          color: #0f2952;
+        }
+      }
+    }
+
+    .evn-modal-body {
+      padding: 14px 16px;
+
+      .modal-alert-box {
+        background: #fff5f5;
+        border: 1px solid #fecaca;
+        border-left: 3px solid #dc2626;
+        border-radius: 0;
+        padding: 8px 10px;
+        margin-bottom: 12px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #991b1b;
+
+        strong {
+          color: #7f1d1d;
+          font-weight: 700;
+        }
+      }
+
+      .modal-desc {
+        font-size: 11px;
+        color: #334155;
+        line-height: 1.5;
+        margin: 0 0 12px 0;
+        padding: 5px 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0;
+      }
+
+      .form-group-modal {
+        label {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          color: #1e3a8a;
+          margin-bottom: 4px;
+        }
+
+        textarea {
+          width: 100%;
+          font-family: inherit;
+          font-size: 11px;
+          padding: 6px 8px;
+          border: 1px solid #9fc3e4;
+          border-radius: 0;
+          outline: none;
+          box-sizing: border-box;
+          resize: vertical;
+          min-height: 56px;
+          color: #0b1c30;
+          background: #ffffff;
+
+          &:focus {
+            border-color: #1d4f91;
+            box-shadow: 0 0 0 1px #1d4f91;
+          }
+        }
+      }
+    }
+
+    .evn-modal-footer {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #f8fbfe;
+      border-top: 1px solid #9fc3e4;
+
+      .evn-btn {
+        border-radius: 0;
+        height: 26px;
+        min-height: 26px;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 600;
+
+        &.secondary {
+          background: #ffffff;
+          border: 1px solid #9fc3e4;
+          color: #174f83;
+
+          &:hover:not(:disabled) {
+            background: #f0f7fd;
+          }
+        }
+
+        &.danger {
+          background: #dc2626;
+          border: 1px solid #b91c1c;
+          color: #ffffff;
+
+          &:hover:not(:disabled) {
+            background: #b91c1c;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Flight Controller Hardware Identification & Pairing Styles */
+.fc-card {
+  background: #ffffff;
+  border: 1px solid #9fc3e4;
+  border-left: 3px solid #174f83;
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  .fc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+
+    .fc-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      h4 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #174f83;
+      }
+    }
+  }
+
+  .fc-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .fc-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 12px;
+    font-size: 11px;
+
+    .fc-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .fc-label {
+        font-size: 10px;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      .fc-val {
+        color: #0f172a;
+        font-weight: 600;
+
+        &.mono {
+          font-family: monospace;
+          background: #e2e8f0;
+          padding: 2px 6px;
+          border-radius: 3px;
+          display: inline-block;
+          font-size: 11px;
+          color: #1e293b;
+          letter-spacing: 0.5px;
+        }
+      }
+    }
+  }
+
+  .fc-status-banner {
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+
+    &.matched {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+      color: #166534;
+    }
+
+    &.mismatch {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-left: 4px solid #dc2626;
+      color: #991b1b;
+    }
+
+    &.unregistered {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 4px solid #d97706;
+      color: #92400e;
+    }
+
+    .banner-icon {
+      font-size: 18px;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .banner-content {
+      flex: 1;
+
+      .banner-title {
+        font-weight: 700;
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+
+      .banner-desc {
+        font-size: 11px;
+        line-height: 1.4;
+      }
+    }
+  }
+
+  .fc-pairing-box {
+    background: #fdf6ec;
+    border: 1px dashed #f59e0b;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .pairing-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+  }
 }
