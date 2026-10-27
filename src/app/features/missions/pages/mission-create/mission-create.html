@@ -454,6 +454,9 @@
                 </option>
               }
             </select>
+            @if (eligibleDrones().length === 0) {
+              <span class="field-error" style="color: #d97706;">Không tìm thấy thiết bị UAV khả dụng trong hệ thống.</span>
+            }
             @if (form.controls.droneId.touched && form.controls.droneId.invalid) {
               <span class="field-error">Vui lòng chọn phương tiện bay.</span>
             }

@@ -104,13 +104,16 @@ export class MissionsApi {
       request.personnel ||
       (request.inspectorId ? [{ userId: request.inspectorId, role: 'INSPECTOR', isRequired: true }] : []);
 
+    const defaultRegion = '10000000-0000-0000-0000-000000000001';
+    const regionId = request.regionId && isValidGuid(request.regionId) ? request.regionId : defaultRegion;
+
     const createBody: Record<string, unknown> = {
       title: request.name || request.title || 'Nhiệm vụ kiểm tra hành lang đường dây',
       name: request.name || request.title || 'Nhiệm vụ kiểm tra hành lang đường dây',
       description: request.description || '',
-      regionId: request.regionId || 'reg-cpc',
+      regionId,
       missionType: request.missionType || (request.scheduleId ? 'SCHEDULED' : 'AD_HOC'),
-      scheduleId: request.scheduleId || null,
+      scheduleId: request.scheduleId && isValidGuid(request.scheduleId) ? request.scheduleId : null,
       triggerReason: request.triggerReason || null,
       plannedStart: request.scheduledAt || request.plannedStart,
       plannedEnd: request.plannedEnd,
@@ -118,28 +121,51 @@ export class MissionsApi {
       managerInstructions: request.managerInstructions,
     };
 
-    if (request.priority) createBody['priority'] = request.priority;
-    if (request.objective) createBody['objective'] = request.objective;
+    const mapPriority = (p?: string): string => {
+      const up = (p || '').toUpperCase();
+      if (up === 'HIGH') return 'High';
+      if (up === 'EMERGENCY') return 'Emergency';
+      return 'Normal';
+    };
+
+    const mapObjective = (obj?: string): string => {
+      const up = (obj || '').toUpperCase();
+      if (up.includes('TARGETED') || up.includes('REINSPECTION')) return 'TargetedReinspection';
+      if (up.includes('INCIDENT') || up.includes('FOLLOW')) return 'IncidentFollowUp';
+      if (up.includes('EMERGENCY')) return 'EmergencyInspection';
+      return 'PeriodicInspection';
+    };
+
+    createBody['priority'] = mapPriority(request.priority);
+    createBody['objective'] = mapObjective(request.objective);
     if (request.priorityDefects) createBody['priorityDefects'] = request.priorityDefects;
     if (request.emergencyReason) createBody['emergencyReason'] = request.emergencyReason;
     if (typeof request.isImmediate === 'boolean') createBody['isImmediate'] = request.isImmediate;
 
     if (assignments && assignments.length > 0) {
-      createBody['assignments'] = assignments.map((a) => ({
-        userId: a.userId,
-        role: a.role,
-        isRequired: a.isRequired ?? true,
-      }));
+      const validAssignments = assignments
+        .filter((a) => isValidGuid(a.userId))
+        .map((a) => ({
+          userId: a.userId,
+          role: a.role,
+          isRequired: a.isRequired ?? true,
+        }));
+      if (validAssignments.length > 0) {
+        createBody['assignments'] = validAssignments;
+      }
     }
-    if (request.inspectorId) {
+    if (request.inspectorId && isValidGuid(request.inspectorId)) {
       createBody['inspectorId'] = request.inspectorId;
       createBody['assignedToUserId'] = request.inspectorId;
     }
-    if (request.droneId) {
+    if (request.droneId && isValidGuid(request.droneId)) {
       createBody['droneId'] = request.droneId;
+      createBody['uavId'] = request.droneId;
+    } else if (request.droneId && typeof request.droneId === 'string' && request.droneId.trim()) {
+      createBody['droneCode'] = request.droneId.trim();
     }
     if (request.idempotencyKey) createBody['idempotencyKey'] = request.idempotencyKey;
-    if (assessmentId) {
+    if (assessmentId && isValidGuid(assessmentId)) {
       createBody['assessmentId'] = assessmentId;
       createBody['sourceAssessmentId'] = assessmentId;
     }

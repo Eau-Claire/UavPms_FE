@@ -569,8 +569,9 @@ const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     const actualDroneId = stringOf(d['droneId'] || droneObj['id'] || d['id']);
     const actualCode = stringOf(droneObj['uavCode'] || d['uavCode'] || d['code'] || 'UAV-EVN');
     const actualName = stringOf(droneObj['model'] || d['model'] || d['name'] || actualCode);
-    const health = stringOf(d['technicalHealth'] || droneObj['technicalHealth'] || 'HEALTHY');
-    const opStatus = stringOf(d['operationalAvailabilityStatus'] || d['operationalStatus'] || droneObj['operationalStatus'] || 'AVAILABLE');
+    const health = stringOf(d['technicalHealth'] || droneObj['technicalHealth'] || 'HEALTHY').toUpperCase();
+    const rawOp = stringOf(d['operationalAvailabilityStatus'] || d['operationalStatus'] || droneObj['operationalStatus'] || 'AVAILABLE').toUpperCase();
+    const opStatus = rawOp === 'IDLE' ? 'IDLE' : 'AVAILABLE';
     const isEligible = d['isEligible'] !== false && (stringOf(d['technicalEligibilityStatus'] || d['eligibility']).toUpperCase() !== 'INELIGIBLE');
     return {
       ...d,

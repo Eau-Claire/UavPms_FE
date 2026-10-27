@@ -95,6 +95,18 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(() => this.initMapPreview(), 60);
       }
     });
+
+    effect(() => {
+      const drones = this.eligibleDrones();
+      const currentVal = this.form.controls.droneId.value;
+      if (drones.length > 0) {
+        const found = drones.find((d) => d.id === currentVal || d.code === currentVal);
+        if (!found || !currentVal) {
+          const chosen = drones[0].id || drones[0].code;
+          this.form.controls.droneId.setValue(chosen);
+        }
+      }
+    });
   }
 
   // Reactive Form
@@ -260,25 +272,39 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
 
   protected readonly eligibleDrones = computed<readonly UavCandidate[]>(() => {
     const ass = this.assessmentData();
+    let candidates: UavCandidate[] = [];
+
     if (ass && ass.uavCandidates && ass.uavCandidates.length > 0) {
-      return ass.uavCandidates.filter((d) =>
-        d.eligibility === 'ELIGIBLE' &&
-        d.technicalHealth !== 'CRITICAL' &&
-        (d.operationalStatus === 'AVAILABLE' || d.operationalStatus === 'Idle') &&
-        d.suitability !== 'UNSUITABLE'
-      );
+      candidates = ass.uavCandidates.filter((d) => {
+        const isEligible = d.eligibility === 'ELIGIBLE' || d.eligibility === 'Eligible' || (d as any).isEligible !== false;
+        const notCritical = (d.technicalHealth || '').toUpperCase() !== 'CRITICAL';
+        const op = (d.operationalStatus || '').toUpperCase();
+        const isAvail = op === 'AVAILABLE' || op === 'IDLE' || op === '' || !d.operationalStatus;
+        const isSuitable = (d.suitability || '').toUpperCase() !== 'UNSUITABLE';
+        return isEligible && notCritical && isAvail && isSuitable;
+      });
     }
-    // Fallback to active drones
+
+    if (candidates.length > 0) {
+      return candidates;
+    }
+
+    // Fallback to active/idle drones from all drones
     return this.drones()
-      .filter((d) => (d.operationalStatus === 'Idle' || d.operationalStatus === 'Available') && d.online)
+      .filter((d) => {
+        const op = (d.operationalStatus || '').toUpperCase();
+        const notDamaged = op !== 'MAINTENANCE' && op !== 'DAMAGED' && op !== 'RETIRED';
+        const notCritical = ((d as any).technicalHealth || '').toUpperCase() !== 'CRITICAL';
+        return notDamaged && notCritical;
+      })
       .map((d) => ({
         id: d.id,
-        code: d.droneCode,
-        name: d.name,
-        operationalStatus: 'AVAILABLE' as const,
-        technicalHealth: 'HEALTHY' as const,
+        code: d.droneCode || d.name || 'UAV-EVN',
+        name: d.name || d.droneCode,
+        operationalStatus: (d.operationalStatus || 'AVAILABLE').toUpperCase(),
+        technicalHealth: ((d as any).technicalHealth || 'HEALTHY').toUpperCase(),
         eligibility: 'ELIGIBLE' as const,
-        battery: d.battery,
+        battery: d.battery ?? 100,
       }));
   });
 
@@ -378,6 +404,10 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     if (isMock(c.technicianId.value)) {
       const tec = this.eligibleTechnicians()[0]?.id || this.users().find((u) => (u.role || '').toLowerCase().includes('tech') || (u.email || '').toLowerCase().includes('technician'))?.id;
       if (tec) c.technicianId.setValue(tec);
+    }
+    if (!c.droneId.value) {
+      const drone = this.eligibleDrones()[0]?.id || this.drones()[0]?.id;
+      if (drone) c.droneId.setValue(drone);
     }
   }
 
@@ -784,22 +814,37 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const candidates = this.eligibleDrones();
-    if (candidates.length > 0) {
-      const selectedDrone = candidates.find((d) => d.id === f.droneId || d.code === f.droneId);
-      if (!selectedDrone) {
-        this.error.set('Phương tiện UAV đã chọn không đạt điều kiện an toàn kỹ thuật, không phù hợp phạm vi tuyến hoặc không còn khả dụng trong đội bay.');
-        if (typeof window !== 'undefined') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        return;
+    if (candidates.length === 0) {
+      this.error.set('Không tìm thấy phương tiện UAV nào khả dụng trong hệ thống.');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+      return;
+    }
+
+    const selectedDrone = candidates.find((d) => d.id === f.droneId || d.code === f.droneId);
+    if (!selectedDrone && f.droneId) {
+      this.error.set('Phương tiện UAV đã chọn không đạt điều kiện an toàn kỹ thuật, không phù hợp phạm vi tuyến hoặc không còn khả dụng trong đội bay.');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
+    const effectiveDroneId = selectedDrone?.id || f.droneId || candidates[0]?.id;
+    if (!effectiveDroneId) {
+      this.error.set('Vui lòng chọn phương tiện bay UAV trước khi ban hành.');
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
     }
 
     this.busy.set(true);
     this.error.set('');
 
     const targetAssetIds = ass && ass.scopeAssetIds?.length ? ass.scopeAssetIds : [];
-    const regionId = ass?.regionId && isValidGuid(ass.regionId) ? ass.regionId : '00000000-0000-0000-0000-000000000001';
+    const regionId = ass?.regionId && isValidGuid(ass.regionId) ? ass.regionId : '10000000-0000-0000-0000-000000000001';
     const boundaryWkt = ass?.scopeGeometry ? JSON.stringify(ass.scopeGeometry) : '';
 
     const req: MissionCreateRequest = {
@@ -814,7 +859,7 @@ export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
       priorityDefects: this.selectedPriorityDefects(),
       emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : undefined,
       inspectorId: f.inspectorId,
-      droneId: f.droneId,
+      droneId: effectiveDroneId,
       targetAssetIds,
       boundaryWkt,
       confirmationDeadline: f.confirmationDeadline,
