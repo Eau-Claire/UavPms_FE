@@ -22,6 +22,14 @@ export class Shell {
   private readonly path = signal(this.router.url);
   protected readonly sidebarOpen = signal(false);
   protected readonly isAssetRoute = computed(() => false);
+  protected readonly isDashboardRoute = computed(() => {
+    const p = this.path();
+    return p === '/' || p === '/dashboard' || p.startsWith('/dashboard?') || p.startsWith('/?');
+  });
+  protected readonly isGisRoute = computed(() => {
+    const p = this.path();
+    return p === '/gis' || p.startsWith('/gis?') || p.startsWith('/gis/');
+  });
   constructor() {
     this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef)).subscribe((event) => this.path.set(event.urlAfterRedirects));
     effect(() => {

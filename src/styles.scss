@@ -1,5 +1,5 @@
-@import './styles/operations';
-@import './app/features/pre-mission/pages/pre-mission-page';
+@use './styles/operations';
+@use './app/features/pre-mission/pages/pre-mission-page';
 
 
 html, body, button, input, select, textarea {
@@ -67,7 +67,7 @@ html, body, button, input, select, textarea {
   align-items: flex-end !important;
   justify-content: space-between !important;
   gap: 16px !important;
-  margin-bottom: 24px !important;
+  margin-bottom: 10px !important;
   padding: 0 !important;
   border: none !important;
   border-bottom: none !important;

@@ -1,7 +1,8 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { catchError, of } from 'rxjs';
-import { GisApi } from '../../features/gis/data-access/gis-api';
+import { RegionsApi } from '../../features/towers/data-access/regions-api';
 
+/** A selectable working area in the header. After ERD v2.2 these are the regions from GET /regions. */
 export interface FacilityItem {
   readonly id: string;
   readonly name: string;
@@ -10,64 +11,36 @@ export interface FacilityItem {
 
 const STORAGE_KEY = 'uavpms.selectedFacilityId';
 
-const DEFAULT_FACILITIES: readonly FacilityItem[] = [
-  { id: 'evn-pha-lai', name: 'CÔNG TY CỔ PHẦN NHIỆT ĐIỆN PHẢ LẠI', code: 'PPC' },
-  { id: 'evn-hai-phong', name: 'CÔNG TY CỔ PHẦN NHIỆT ĐIỆN HẢI PHÒNG', code: 'HND' },
-  { id: 'evn-can-tho', name: 'CÔNG TY NHIỆT ĐIỆN CẦN THƠ', code: 'CT' },
-  { id: 'evn-spc-hcm', name: 'TỔNG CÔNG TY ĐIỆN LỰC MIỀN NAM (EVNSPC)', code: 'SPC' },
-  { id: 'evn-npt-1', name: 'CÔNG TY TRUYỀN TẢI ĐIỆN 1 (EVNNPT)', code: 'PTC1' },
-  { id: 'evn-dong-nai', name: 'CÔNG TY TNHH MTV ĐIỆN LỰC ĐỒNG NAI', code: 'PC-DNAI' },
-  { id: 'evn-binh-duong', name: 'CÔNG TY ĐIỆN LỰC BÌNH DƯƠNG', code: 'PC-BDUONG' },
-];
+/** Always-present first entry so the header never renders an empty selection. */
+export const ALL_REGIONS: FacilityItem = { id: 'all', name: 'TẤT CẢ KHU VỰC' };
 
 @Injectable({
   providedIn: 'root',
 })
 export class FacilityStore {
-  private readonly gisApi = inject(GisApi);
+  private readonly regionsApi = inject(RegionsApi);
 
-  readonly facilities = signal<readonly FacilityItem[]>(DEFAULT_FACILITIES);
-  readonly selectedFacilityId = signal<string>(this.getInitialFacilityId());
+  readonly facilities = signal<readonly FacilityItem[]>([ALL_REGIONS]);
+  readonly selectedFacilityId = signal<string>(readStoredId());
 
   readonly selectedFacility = computed(() => {
     const list = this.facilities();
     const id = this.selectedFacilityId();
-    return list.find((f) => f.id === id) ?? list[0] ?? null;
+    return list.find((f) => f.id === id) ?? list[0] ?? ALL_REGIONS;
   });
 
-  readonly currentFacilityName = computed(() => {
-    return this.selectedFacility()?.name ?? 'CÔNG TY CỔ PHẦN NHIỆT ĐIỆN PHẢ LẠI';
-  });
+  readonly currentFacilityName = computed(() => this.selectedFacility().name);
 
   constructor() {
     this.loadFacilities();
   }
 
   loadFacilities(): void {
-    this.gisApi.getRegions().pipe(
-      catchError(() => of([]))
-    ).subscribe((regions) => {
-      if (regions && regions.length > 0) {
-        const mapped = regions.map((r) => ({
-          id: r.id,
-          name: r.name.toUpperCase().startsWith('CÔNG TY') || r.name.toUpperCase().startsWith('TỔNG CÔNG TY')
-            ? r.name.toUpperCase()
-            : `CÔNG TY ĐIỆN LỰC ${r.name.toUpperCase()}`,
-          code: r.id,
-        }));
-
-        const combined = [
-          DEFAULT_FACILITIES[0],
-          ...mapped.filter((m) => m.id !== DEFAULT_FACILITIES[0].id),
-        ];
-        this.facilities.set(combined);
-
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        if (savedId && combined.some((f) => f.id === savedId)) {
-          this.selectedFacilityId.set(savedId);
-        } else {
-          this.selectedFacilityId.set(combined[0].id);
-        }
+    this.regionsApi.getAll().pipe(catchError(() => of([]))).subscribe((regions) => {
+      const items = regions.map((region): FacilityItem => ({ id: region.id, name: region.name.toUpperCase() }));
+      this.facilities.set([ALL_REGIONS, ...items]);
+      if (!this.facilities().some((item) => item.id === this.selectedFacilityId())) {
+        this.selectedFacilityId.set(ALL_REGIONS.id);
       }
     });
   }
@@ -80,12 +53,12 @@ export class FacilityStore {
       // ignore storage access restrictions if any
     }
   }
-
-  private getInitialFacilityId(): string {
-    try {
-      return localStorage.getItem(STORAGE_KEY) || DEFAULT_FACILITIES[0].id;
-    } catch {
-      return DEFAULT_FACILITIES[0].id;
-    }
-  }
 }
+
+const readStoredId = (): string => {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || ALL_REGIONS.id;
+  } catch {
+    return ALL_REGIONS.id;
+  }
+};

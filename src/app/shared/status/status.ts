@@ -2,10 +2,10 @@ export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 export const statusTone = (status: string): StatusTone => {
   const value = (status || '').toUpperCase();
-  if (['READY', 'HEALTHY', 'AVAILABLE', 'ACCEPTED', 'COMPLETED', 'CONSUMED', 'FEASIBLE', 'PASSED', 'ELIGIBLE'].includes(value)) return 'success';
-  if (['WARNING', 'POSTPONED', 'RESERVED'].includes(value)) return 'warning';
-  if (['CRITICAL', 'NOT_READY', 'INCOMPLETE', 'FAILED', 'UNAVAILABLE', 'EMERGENCY', 'EXPIRED', 'NOT_ELIGIBLE'].includes(value)) return 'danger';
-  if (['IN_PROGRESS', 'EVALUATING', 'PENDING', 'DRAFT'].includes(value)) return 'info';
+  if (['READY', 'HEALTHY', 'AVAILABLE', 'ACCEPTED', 'COMPLETED', 'CONSUMED', 'FEASIBLE', 'PASSED', 'ELIGIBLE', 'ASSIGNED'].includes(value)) return 'success';
+  if (['WARNING', 'POSTPONED', 'RESERVED', 'PENDINGACCEPTANCE', 'PENDING_ACCEPTANCE'].includes(value)) return 'warning';
+  if (['CRITICAL', 'NOT_READY', 'INCOMPLETE', 'FAILED', 'UNAVAILABLE', 'EMERGENCY', 'EXPIRED', 'NOT_ELIGIBLE', 'SUSPENDED'].includes(value)) return 'danger';
+  if (['IN_PROGRESS', 'INPROGRESS', 'PREPARING', 'EVALUATING', 'PENDING', 'DRAFT'].includes(value)) return 'info';
   return 'neutral';
 };
 
@@ -33,6 +33,15 @@ const STATUS_VI_LABELS: Record<string, string> = {
   UNAVAILABLE: 'Không khả dụng',
   ELIGIBLE: 'Đủ điều kiện',
   NOT_ELIGIBLE: 'Không đủ điều kiện',
+  // Mission statuses (the backend sends PascalCase, e.g. PendingAcceptance)
+  PENDINGACCEPTANCE: 'Chờ xác nhận',
+  PENDING_ACCEPTANCE: 'Chờ xác nhận',
+  ASSIGNED: 'Đã phân công',
+  PREPARING: 'Đang chuẩn bị',
+  INPROGRESS: 'Đang thực hiện',
+  IN_PROGRESS: 'Đang thực hiện',
+  SUSPENDED: 'Tạm dừng',
+  POSTPONED: 'Tạm hoãn',
 };
 
 export const statusLabel = (status: string): string => {
