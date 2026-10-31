@@ -15,22 +15,22 @@ describe('DroneManagement Component', () => {
   const mockDrones: UavRecord[] = [
     {
       id: 'd-001',
-      uavCode: 'UAV-001',
+      code: 'UAV-001',
       name: 'Surveyor Hexa',
       model: 'M350 RTK',
       category: 'Hexacopter',
       serialNumber: 'SN-001',
       assignedRegionId: 'reg-cpc',
       assignedRegionName: 'EVN CPC',
-      operationalStatus: 'AVAILABLE',
-      technicalHealth: 'HEALTHY',
+      operationalStatus: 'Available',
+      technicalHealth: 'Healthy',
       flightEnduranceMinutes: 45,
       operationalRangeKm: 20,
       cameraPayloadInfo: 'Zenmuse H20T',
       batteryLevel: 98,
-      isOnline: true,
       activeFlightController: {
         id: 'fc-1',
+        droneId: 'd-001',
         flightControllerUid: 'BF-F405-A1B2C3D4',
         boardIdentifier: 'SPEEDYBEEF405V3',
         firmwareName: 'Betaflight',
@@ -42,18 +42,17 @@ describe('DroneManagement Component', () => {
     },
     {
       id: 'd-002',
-      uavCode: 'UAV-002',
+      code: 'UAV-002',
       name: 'Line Inspector',
       model: 'M300 RTK',
       category: 'Quadcopter',
       serialNumber: 'SN-002',
-      operationalStatus: 'MAINTENANCE',
-      technicalHealth: 'CRITICAL',
+      operationalStatus: 'Maintenance',
+      technicalHealth: 'Critical',
       flightEnduranceMinutes: 30,
       operationalRangeKm: 12,
       cameraPayloadInfo: 'H20 Optical',
       batteryLevel: 25,
-      isOnline: false,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -68,8 +67,10 @@ describe('DroneManagement Component', () => {
       estimateGisScope: vi.fn().mockReturnValue(of({
         corridorLengthKm: 5,
         assetCount: 10,
-        totalEstimatedMissionMinutes: 28,
-        recommendedMinEnduranceMinutes: 35,
+        estimatedMissionDurationMinutes: 28,
+        averageSpeedKmh: 36,
+        reserveBatteryPercent: 20,
+        inspectionMinutesPerAsset: 3,
         drones: [],
       })),
     };
@@ -106,18 +107,18 @@ describe('DroneManagement Component', () => {
   it('should filter drones by search keyword', () => {
     (component as any).search.set('UAV-001');
     expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].uavCode).toBe('UAV-001');
+    expect((component as any).filteredDrones()[0].code).toBe('UAV-001');
   });
 
   it('should filter drones by operational status', () => {
-    (component as any).statusFilter.set('MAINTENANCE');
+    (component as any).statusFilter.set('Maintenance');
     expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].uavCode).toBe('UAV-002');
+    expect((component as any).filteredDrones()[0].code).toBe('UAV-002');
   });
 
   it('should filter drones by technical health', () => {
-    (component as any).healthFilter.set('CRITICAL');
+    (component as any).healthFilter.set('Critical');
     expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].technicalHealth).toBe('CRITICAL');
+    expect((component as any).filteredDrones()[0].technicalHealth).toBe('Critical');
   });
 });
