@@ -1,6 +1,6 @@
 <div class="pre-mission-page">
   @if (item(); as a) {
-    <!-- EVN Header Bar -->
+    <!-- Header Bar -->
     <header class="pre-mission-head">
       <div>
         <div class="pre-mission-breadcrumb">
@@ -30,10 +30,7 @@
         </div>
         <p>
           {{ a.regionName }}
-          @if (a.lineName) {
-            <span> / {{ a.lineName }}</span>
-          }
-          · {{ a.assetCount }} vị trí cột · Khung giờ: {{ a.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date:'dd/MM/yyyy HH:mm' }}
+          · {{ a.towers.length }} vị trí cột · Khung giờ: {{ a.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date:'dd/MM/yyyy HH:mm' }}
         </p>
       </div>
       <div class="head-actions">
@@ -42,7 +39,7 @@
         </button>
         <a class="evn-btn secondary" routerLink="/pre-mission" title="Về danh sách đánh giá">
           <span nz-icon nzType="unordered-list"></span> Danh sách
-        </a>
+        </a >
         @if (!isCancelled() && !isCompleted() && canManage()) {
           <button
             type="button"
@@ -123,8 +120,8 @@
         <span nz-icon nzType="check-circle"></span>
         <span>
           Đánh giá này đã hoàn thành và được sử dụng để khởi tạo nhiệm vụ kiểm tra
-          @if (a.consumedMissionId || a.consumedMissionCode) {
-            <a [routerLink]="['/missions', a.consumedMissionId || a.consumedMissionCode]" style="font-weight: bold; text-decoration: underline; margin-left: 4px;">#{{ a.consumedMissionCode || a.consumedMissionId }}</a>
+          @if (a.completedMissionId) {
+            <a [routerLink]="['/missions', a.completedMissionId]" style="font-weight: bold; text-decoration: underline; margin-left: 4px; color: #0f172a;">#{{ a.completedMissionId }}</a>
           }.
         </span>
       </div>
@@ -141,7 +138,7 @@
                 <strong>{{ fail.pillar }}:</strong> {{ fail.reason }}
                 <button
                   type="button"
-                  style="background: transparent; border: 0; color: #0284c7; text-decoration: underline; cursor: pointer; padding: 0; margin-left: 6px;"
+                  style="background: transparent; border: 0; color: #0f172a; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 0; margin-left: 6px;"
                   (click)="setTab(fail.actionTab)"
                 >
                   [{{ fail.actionLabel }}]
@@ -153,7 +150,7 @@
       </div>
     }
 
-    <!-- 4 Core Readiness Status Strip (Dense EVN Cards) -->
+    <!-- 4 Core Readiness Status Strip -->
     <section class="readiness-grid" aria-label="Kết quả 4 trụ cột đánh giá">
       <!-- Site -->
       <div class="readiness-card" [class.is-pass]="a.site.status === 'PASS' || a.site.status === 'FEASIBLE'">
@@ -277,12 +274,12 @@
               <span class="prop-value"><strong>{{ a.regionName }}</strong></span>
             </div>
             <div class="prop-item">
-              <span class="prop-label">Tuyến đường dây:</span>
-              <span class="prop-value">{{ a.lineName || 'Theo danh mục vị trí cột đề xuất' }}</span>
+              <span class="prop-label">Phạm vi khảo sát:</span>
+              <span class="prop-value">Theo danh mục vị trí cột đề xuất</span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Số vị trí cột kiểm tra:</span>
-              <span class="prop-value">{{ a.assetCount }} vị trí</span>
+              <span class="prop-value">{{ a.towers.length }} vị trí</span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Khung giờ bắt đầu:</span>
@@ -300,14 +297,14 @@
             </div>
             <div class="prop-item">
               <span class="prop-label">Người khởi tạo:</span>
-              <span class="prop-value">{{ a.createdBy || 'Quản lý vận hành (Manager)' }}</span>
+              <span class="prop-value">{{ a.managerId || 'Quản lý vận hành (Manager)' }}</span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Nhiệm vụ bay đã tạo (MF02):</span>
               <span class="prop-value">
-                @if (a.consumedMissionId || a.consumedMissionCode) {
-                  <a [routerLink]="['/missions', a.consumedMissionId || a.consumedMissionCode]" class="evn-code">
-                    #{{ a.consumedMissionCode || a.consumedMissionId }} (Đã gán nhiệm vụ)
+                @if (a.completedMissionId) {
+                  <a [routerLink]="['/missions', a.completedMissionId]" class="evn-code">
+                    #{{ a.completedMissionId }} (Đã gán nhiệm vụ)
                   </a>
                 } @else {
                   <span style="color: #64748b;">Chưa tạo nhiệm vụ</span>
@@ -365,20 +362,20 @@
                 >
                   Căn chỉnh
                 </button>
-                <span style="font-size: 10px; color: #64748b;">{{ a.scopeAssetIds.length }} cột điện</span>
+                <span style="font-size: 10px; color: #64748b;">{{ scopeTowers().length }} cột điện</span>
               </div>
             </div>
             <div #scopeMapContainer id="workspaceScopeMapContainer" style="height: 250px; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; background: #e2e8f0; position: relative;"></div>
           </div>
 
-          @if (a.scopeAssetIds.length > 0) {
+          @if (scopeTowers().length > 0) {
             <div style="margin-top: 14px;">
               <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 6px;">
                 Danh sách mã cột:
               </h4>
               <div class="asset-chips-wrap">
-                @for (assetId of a.scopeAssetIds; track assetId) {
-                  <span class="asset-chip">{{ assetId }}</span>
+                @for (t of scopeTowers(); track t.towerId) {
+                  <span class="asset-chip">{{ t.towerCode }}</span>
                 }
               </div>
             </div>
@@ -434,7 +431,7 @@
               <div class="weather-metrics-grid">
                 <div class="w-metric-item">
                   <span class="w-label">Tốc độ gió 10m:</span>
-                  <strong class="w-val" [style.color]="w.windSpeed > 10 ? '#dc2626' : (w.windSpeed > 8 ? '#d97706' : '#059669')">
+                  <strong class="w-val" [style.color]="w.windSpeed > 10 ? '#7f1d1d' : '#0f172a'">
                     {{ w.windSpeed.toFixed(1) }} m/s
                   </strong>
                   <span class="w-sub">Ngưỡng cho phép: &le; 10.0 m/s</span>
@@ -520,7 +517,7 @@
                 >
                   Căn chỉnh
                 </button>
-                <span style="font-size: 10px; color: #64748b;">{{ a.scopeAssetIds.length }} cột điện · Bán kính an toàn</span>
+                <span style="font-size: 10px; color: #64748b;">{{ scopeTowers().length }} cột điện · Bán kính an toàn</span>
               </div>
             </div>
             <div #siteMapContainer id="workspaceSiteMapContainer" style="height: 240px; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; background: #e2e8f0; position: relative;"></div>
@@ -539,7 +536,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  @for (check of a.siteChecks; track check.code) {
+                  @for (check of siteChecks(); track check.code) {
                     <tr>
                       <td><strong>{{ check.name }}</strong></td>
                       <td class="text-center">
@@ -635,48 +632,21 @@
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <span nz-icon nzType="team" style="color: #0369a1; font-size: 15px;"></span>
-              <strong style="color: #1e3a8a; font-size: 12px;">Định mức Manager yêu cầu:</strong>
+              <strong style="color: #1e3a8a; font-size: 12px;">Định mức tối thiểu (quy tắc hệ thống):</strong>
             </div>
 
-            @if (!editingQuotas()) {
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 4px; color: #1e40af;">
-                  <strong>{{ roleBreakdown().reqInspectors }}</strong> Inspector
-                </span>
-                <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #c4b5fd; padding: 2px 8px; border-radius: 4px; color: #5b21b6;">
-                  <strong>{{ roleBreakdown().reqAnalysts }}</strong> Analyst
-                </span>
-                <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; color: #15803d;">
-                  <strong>{{ roleBreakdown().reqTechnicians }}</strong> Technician
-                </span>
-                <span style="font-size: 11px; color: #475569;">(Tổng yêu cầu: <strong>{{ roleBreakdown().totalRequired }}</strong> người)</span>
-
-                @if (canManage()) {
-                  <button type="button" class="evn-btn secondary mini" (click)="startEditingQuotas()" title="Thay đổi định mức yêu cầu">
-                    <span nz-icon nzType="edit"></span> Điều chỉnh định mức
-                  </button>
-                }
-              </div>
-            } @else {
-              <!-- Edit mode -->
-              <div style="display: flex; align-items: center; gap: 8px; background: #ffffff; padding: 3px 8px; border-radius: 4px; border: 1px solid #93c5fd;">
-                <label style="font-size: 11px; margin: 0; color: #1e40af;">Inspector:
-                  <input type="number" min="1" max="20" [value]="editReqInspectors()" (input)="editReqInspectors.set(+$any($event.target).value)" style="width: 44px; height: 22px; text-align: center; font-size: 11px; font-weight: 700; border: 1px solid #93c5fd; border-radius: 3px;" />
-                </label>
-                <label style="font-size: 11px; margin: 0; color: #5b21b6;">Analyst:
-                  <input type="number" min="1" max="20" [value]="editReqAnalysts()" (input)="editReqAnalysts.set(+$any($event.target).value)" style="width: 44px; height: 22px; text-align: center; font-size: 11px; font-weight: 700; border: 1px solid #c4b5fd; border-radius: 3px;" />
-                </label>
-                <label style="font-size: 11px; margin: 0; color: #15803d;">Technician:
-                  <input type="number" min="1" max="20" [value]="editReqTechnicians()" (input)="editReqTechnicians.set(+$any($event.target).value)" style="width: 44px; height: 22px; text-align: center; font-size: 11px; font-weight: 700; border: 1px solid #bbf7d0; border-radius: 3px;" />
-                </label>
-                <button type="button" class="evn-btn primary mini" (click)="saveQuotas()" [disabled]="savingQuotas()">
-                  <span nz-icon [nzType]="savingQuotas() ? 'loading' : 'check'"></span> Lưu
-                </button>
-                <button type="button" class="evn-btn secondary mini" (click)="cancelEditingQuotas()">
-                  Hủy
-                </button>
-              </div>
-            }
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 4px; color: #1e40af;">
+                <strong>{{ roleBreakdown().reqInspectors }}</strong> Inspector
+              </span>
+              <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #c4b5fd; padding: 2px 8px; border-radius: 4px; color: #5b21b6;">
+                <strong>{{ roleBreakdown().reqAnalysts }}</strong> Analyst
+              </span>
+              <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; color: #15803d;">
+                <strong>{{ roleBreakdown().reqTechnicians }}</strong> Technician
+              </span>
+              <span style="font-size: 11px; color: #475569;">(Tổng yêu cầu: <strong>{{ roleBreakdown().totalRequired }}</strong> người)</span>
+            </div>
           </div>
 
           <!-- Availability filter toggle -->
@@ -717,7 +687,7 @@
             </span>
           </div>
 
-          <div style="font-size: 10.5px; color: #64748b;">
+          <div style="font-size: 10.5px; color: #78350f;">
             Tiêu chí lọc AND: <strong>Eligible</strong> &bull; <strong>Active</strong> &bull; <strong>Scope</strong> &bull; <strong>Available (Rảnh)</strong> &bull; <strong>Role/Qual</strong>
           </div>
         </div>
@@ -762,46 +732,42 @@
                     <tr>
                       <td>
                         <strong>{{ person.name }}</strong>
-                        @if (person.qualificationDetails) {
-                          <div style="font-size: 10px; color: #64748b;">{{ person.qualificationDetails }}</div>
-                        }
+                        <div style="font-size: 10px; color: #64748b;">{{ person.rawRole }}</div>
                       </td>
                       <td>
                         <span
-                          class="evn-status"
-                          [style.background]="person.role.includes('INSPECT') ? '#eff6ff' : person.role.includes('ANALYST') ? '#f5f3ff' : '#ecfdf5'"
-                          [style.color]="person.role.includes('INSPECT') ? '#1d4ed8' : person.role.includes('ANALYST') ? '#6d28d9' : '#047857'"
+                          class="evn-status neutral"
                           style="font-weight: 600;"
                         >
                           {{ person.role }}
                         </span>
                       </td>
-                      <td>{{ person.region || a.regionName }}</td>
+                      <td>{{ a.regionName }}</td>
                       <td class="text-center">
-                        <span class="evn-status {{ person.isActive !== false ? 'status-pass' : 'status-fail' }}">
-                          {{ person.isActive !== false ? 'Đang trực' : 'Nghỉ ca' }}
+                        <span class="evn-status {{ person.isEligible ? 'status-pass' : 'status-fail' }}">
+                          {{ person.isEligible ? 'Đang trực' : 'Nghỉ ca' }}
                         </span>
                       </td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(person.availability) }}">
-                          {{ person.availability }}
+                        <span class="evn-status {{ statusTone(person.availabilityStatus) }}">
+                          {{ person.availabilityStatus }}
                         </span>
                       </td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(person.eligibility) }}">
-                          {{ person.eligibility }}
+                        <span class="evn-status {{ statusTone(person.eligibilityStatus) }}">
+                          {{ person.eligibilityStatus }}
                         </span>
                       </td>
                       <td>
-                        @if (person.conflict) {
-                          <span style="color: #dc2626;"><span nz-icon nzType="warning"></span> {{ person.conflict }}</span>
+                        @if (person.availabilityStatus === 'Conflict') {
+                          <span style="color: #7f1d1d;"><span nz-icon nzType="warning"></span> {{ person.reasonCode || 'Trùng lịch' }}</span>
                         } @else {
                           <span style="color: #15803d;"><span nz-icon nzType="check"></span> Không có xung đột</span>
                         }
                       </td>
                       <td>
-                        <span style="font-size: 11px; color: #334155;">
-                          {{ person.reason || 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành' }}
+                        <span style="font-size: 11px; color: #174f83;">
+                          {{ person.findings || 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành' }}
                         </span>
                       </td>
                     </tr>
@@ -842,7 +808,7 @@
               <tbody>
                 @if (!a.uavCandidates.length) {
                   <tr>
-                    <td colspan="8" class="text-center" style="padding: 16px; color: #64748b;">
+                    <td colspan="9" class="text-center" style="padding: 16px; color: #64748b;">
                       Chưa tìm thấy UAV nào sẵn sàng trong khu vực.
                     </td>
                   </tr>
@@ -850,7 +816,7 @@
                   @for (uav of a.uavCandidates; track uav.id) {
                     <tr>
                       <td><span class="evn-code">{{ uav.code }}</span></td>
-                      <td><strong>{{ uav.name || uav.code }}</strong></td>
+                      <td><strong>{{ uav.model || uav.code }}</strong></td>
                       <td class="text-center">
                         <span class="evn-status {{ statusTone(uav.operationalStatus) }}">
                           {{ uav.operationalStatus }}
@@ -878,11 +844,11 @@
                           <span class="evn-status pass">PHÙ HỢP</span>
                         }
                       </td>
-                      <td>{{ uav.lastInspection ? (uav.lastInspection | date:'dd/MM/yyyy') : '—' }}</td>
-                      <td>{{ uav.validUntil ? (uav.validUntil | date:'dd/MM/yyyy') : '—' }}</td>
+                      <td>{{ uav.batteryLevel }}%</td>
+                      <td>{{ uav.reasonCode || '—' }}</td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(uav.eligibility) }}">
-                          {{ uav.eligibility }}
+                        <span class="evn-status {{ statusTone(uav.isEligible ? 'ELIGIBLE' : 'NOT_ELIGIBLE') }}">
+                          {{ uav.isEligible ? 'ELIGIBLE' : 'NOT_ELIGIBLE' }}
                         </span>
                       </td>
                       <td class="text-center">
@@ -911,7 +877,7 @@
       <div class="evn-panel">
         <div class="panel-header">
           <div class="header-title-group">
-            <h3>Drone Technical Inspection Dashboard</h3>
+            <h3>Bảng kiểm định kỹ thuật UAV (Drone Technical Inspection)</h3>
             <span class="panel-subinfo">Kiểm định chuyên sâu 6 hệ thống con, vi điều khiển, nguồn pin và an toàn bay</span>
           </div>
 
@@ -925,7 +891,7 @@
                 style="height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px;"
               >
                 @for (d of a.uavCandidates; track d.id) {
-                  <option [value]="d.id || d.code">{{ d.code }} - {{ d.name || 'UAV' }}</option>
+                  <option [value]="d.id || d.code">{{ d.code }} - {{ d.model || 'UAV' }}</option>
                 }
               </select>
             </label>
@@ -1128,7 +1094,7 @@
 
                       <!-- Pairing Action Box -->
                       <div class="fc-pairing-box">
-                        <div style="font-size: 11px; color: #78350f;">
+                        <div style="font-size: 11px; color: #334155;">
                           <strong>Ghép nối phần cứng với UAV:</strong> Chọn thiết bị và xác nhận gán FC UID vào Drone:
                         </div>
 
@@ -1139,14 +1105,14 @@
                             style="height: 26px; font-size: 11px; border: 1px solid #d97706; border-radius: 3px; padding: 0 4px; background: #ffffff;"
                           >
                             @for (d of a.uavCandidates; track d.id) {
-                              <option [value]="d.id || d.code">{{ d.code }} - {{ d.name || 'UAV' }}</option>
+                              <option [value]="d.id || d.code">{{ d.code }} - {{ d.model || 'UAV' }}</option>
                             }
                           </select>
 
                           <button
                             type="button"
                             class="evn-btn primary"
-                            style="height: 26px; padding: 0 10px; font-size: 11px; background: #d97706; border-color: #b45309;"
+                            style="height: 26px; padding: 0 10px; font-size: 11px;"
                             [disabled]="pairingFc()"
                             (click)="pairFcToDrone()"
                           >
@@ -1188,19 +1154,19 @@
             <!-- Hardware Connection & Firmware Metadata Strip -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin-bottom: 14px; font-size: 11px;">
               <div>
-                <span style="color: #64748b;">Kết nối thiết bị:</span><br/>
+                <span style="color: #64748b;">Trạng thái biên bản:</span><br/>
                 <span style="color: #166534; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
                   <span style="width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block;"></span>
-                  {{ insp.connectionStatus }}
+                  {{ insp.status }}
                 </span>
               </div>
               <div>
-                <span style="color: #64748b;">Bo mạch (FC Target):</span><br/>
-                <strong>{{ insp.fcTarget || 'MATEK-H743' }}</strong>
+                <span style="color: #64748b;">Phiên bản nguồn:</span><br/>
+                <strong>{{ insp.sourceVersion || 'MATEK-H743' }}</strong>
               </div>
               <div>
-                <span style="color: #64748b;">Firmware:</span><br/>
-                <strong>{{ insp.firmwareVersion || 'ArduCopter v4.5.2-EVN' }}</strong>
+                <span style="color: #64748b;">Chính sách kiểm định:</span><br/>
+                <strong>{{ insp.policyVersion || 'ArduCopter v4.5.2-EVN' }}</strong>
               </div>
               <div>
                 <span style="color: #64748b;">Nguồn dữ liệu:</span><br/>
@@ -1303,7 +1269,7 @@
     <!-- Bottom Actions Toolbar -->
     <footer class="workspace-footer">
       <div class="footer-left">
-        <span style="font-size: 11px; color: #174f83;">
+        <span style="font-size: 11px; color: #334155;">
           Trạng thái tổng hợp:
           <strong style="color: #003f99; text-transform: uppercase;">{{ statusLabel(a.status) }}</strong>
           @if (!canProceedToMf02()) {
@@ -1395,7 +1361,7 @@
           <div class="modal-desc">
             <span>Khu vực: <strong>{{ a.regionName }}</strong></span>
             <span style="margin: 0 6px; color: #94a3b8;">|</span>
-            <span>Tuyến: <strong>{{ a.lineName || "Theo khảo sát" }}</strong> ({{ a.assetCount }} vị trí cột)</span>
+            <span>Số lượng: <strong>{{ a.towers.length }} vị trí cột</strong></span>
           </div>
 
           <div class="form-group-modal">

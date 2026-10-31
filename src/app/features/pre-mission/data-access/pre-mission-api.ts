@@ -1,20 +1,24 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
-import { UserRecord } from '../../../models/users.models';
-import { UsersApi } from '../../users/data-access/users-api';
+import { CreateMissionFromAssessmentRequest, CreatedMission } from '../../../models/missions.models';
 import {
   AssessmentCreateRequest,
   AssessmentFilterOptions,
   AssessmentPage,
-  AssessmentStatus,
+  AssessmentTower,
+  AssessmentTowerOption,
   DroneTechnicalInspectionResult,
   PersonnelCandidate,
   PreMissionAssessment,
   ReadinessCheck,
+  RegionOption,
+  ResourceReadiness,
   SiteCheckItem,
+  SubsystemHealth,
+  TechnicalMetric,
   UavCandidate,
 } from '../../../models/pre-mission.models';
 
@@ -58,238 +62,213 @@ export function getWeatherDescription(code: number): string {
   return 'Thời tiết ổn định';
 }
 
+/** Số trang tối đa khi tải toàn bộ cột của một khu vực (100 cột/trang theo giới hạn backend). */
+const MAX_TOWER_PAGES = 20;
+const TOWER_PAGE_SIZE = 100;
+
+/**
+ * API đánh giá tiền khả thi (MF01). Endpoint `pre-mission-assessments` trả DTO trực tiếp (không bọc `ApiResponse`).
+ */
 @Injectable({ providedIn: 'root' })
 export class PreMissionApi {
   private readonly http = inject(HttpClient);
-  private readonly usersApi = inject(UsersApi);
-  private readonly url = environment.apiBaseUrl.includes('/v1')
-    ? `${environment.apiBaseUrl.replace('/api/v1', '/api/v2')}/pre-mission-assessments`
-    : `${environment.apiBaseUrl}/pre-mission-assessments`;
+  private readonly baseUrl = environment.apiBaseUrl;
+  private readonly url = `${environment.apiBaseUrl}/pre-mission-assessments`;
 
-  list(
-    filterOrPage: AssessmentFilterOptions | number = 1,
-    pageSize = 10,
-    status = ''
-  ): Observable<AssessmentPage> {
-    let params = new HttpParams();
-    let page = 1;
-    let size = pageSize;
+  list(filters: AssessmentFilterOptions = {}): Observable<AssessmentPage> {
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 20;
+    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    if (filters.status) params = params.set('status', filters.status);
+    if (filters.search?.trim()) params = params.set('search', filters.search.trim());
 
-    if (typeof filterOrPage === 'object') {
-      page = filterOrPage.page ?? 1;
-      size = filterOrPage.pageSize ?? 10;
-      params = params.set('page', page).set('pageSize', size);
-      if (filterOrPage.status) params = params.set('status', filterOrPage.status);
-      if (filterOrPage.regionId) params = params.set('regionId', filterOrPage.regionId);
-      if (filterOrPage.lineName) params = params.set('lineName', filterOrPage.lineName);
-      if (filterOrPage.plannedDate) params = params.set('plannedDate', filterOrPage.plannedDate);
-      if (filterOrPage.search) params = params.set('search', filterOrPage.search);
-    } else {
-      page = filterOrPage;
-      params = params.set('page', page).set('pageSize', size);
-      if (status) params = params.set('status', status);
-    }
-
-    return this.http.get<unknown>(this.url, { params }).pipe(
-      map((response) => normalizePage(unwrapApiData(response), page, size))
-    );
+    return this.http
+      .get<unknown>(this.url, { params })
+      .pipe(map((response) => normalizePage(unwrapApiData(response), page, pageSize)));
   }
 
   get(id: string): Observable<PreMissionAssessment> {
-    return this.http.get<unknown>(`${this.url}/${id}`).pipe(
-      map((response) => normalizeAssessment(unwrapApiData(response)))
-    );
+    return this.http.get<unknown>(`${this.url}/${id}`).pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
   create(request: AssessmentCreateRequest): Observable<PreMissionAssessment> {
-    const plannedStart = formatIsoDate(request.plannedStart);
-    const plannedEnd = formatIsoDate(request.plannedEnd);
-
-    const assetIds = (request.scopeAssetIds || [])
-      .map((id) => id.trim())
-      .filter((id) => Boolean(id) && isValidGuid(id));
-
-    const payload: Record<string, unknown> = {
+    const payload = {
       regionId: request.regionId,
-      plannedStart,
-      plannedEnd,
-      assetIds: assetIds.length > 0 ? assetIds : request.scopeAssetIds,
+      plannedStart: toIsoString(request.plannedStart),
+      plannedEnd: toIsoString(request.plannedEnd),
+      towerIds: request.towerIds,
+      boundaryWkt: request.boundaryWkt || null,
+      idempotencyKey: request.idempotencyKey || null,
     };
-
-    if (request.boundaryWkt) {
-      payload['boundaryWkt'] = request.boundaryWkt;
-    }
-    if (request.idempotencyKey) {
-      payload['idempotencyKey'] = request.idempotencyKey;
-    }
-
-    return this.http
-      .post<unknown>(this.url, payload)
-      .pipe(
-        map((response) => normalizeAssessment(unwrapApiData(response)))
-      );
-  }
-
-  updateQuotas(
-    id: string,
-    quotas: { requiredInspectors?: number; requiredAnalysts?: number; requiredTechnicians?: number }
-  ): Observable<PreMissionAssessment> {
-    return this.http
-      .put<unknown>(`${this.url}/${id}`, quotas)
-      .pipe(
-        catchError(() => this.http.post<unknown>(`${this.url}/${id}/re-evaluate`, quotas)),
-        switchMap(() => this.get(id))
-      );
+    return this.http.post<unknown>(this.url, payload).pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
   evaluate(id: string): Observable<PreMissionAssessment> {
     return this.http
       .post<unknown>(`${this.url}/${id}/evaluate`, {})
-      .pipe(
-        map((response) => normalizeAssessment(unwrapApiData(response)))
-      );
+      .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
   reEvaluate(id: string): Observable<PreMissionAssessment> {
     return this.http
       .post<unknown>(`${this.url}/${id}/re-evaluate`, {})
-      .pipe(
-        map((response) => normalizeAssessment(unwrapApiData(response)))
-      );
+      .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
+  }
+
+  /** Quản lý xác nhận hồ sơ đạt (`POST /{id}/confirm`), sau đó tải lại hồ sơ. */
+  confirm(id: string): Observable<PreMissionAssessment> {
+    return this.http.post<unknown>(`${this.url}/${id}/confirm`, {}).pipe(switchMap(() => this.get(id)));
   }
 
   cancel(id: string, reason = ''): Observable<PreMissionAssessment> {
     return this.http
-      .post<unknown>(`${this.url}/${id}/cancel`, { reason })
-      .pipe(
-        map((response) => normalizeAssessment(unwrapApiData(response)))
-      );
+      .post<unknown>(`${this.url}/${id}/cancel`, { reason: reason || null })
+      .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
-  getPersonnelCandidates(_id?: string): Observable<readonly PersonnelCandidate[]> {
+  markCompleted(id: string, missionId?: string): Observable<PreMissionAssessment> {
     return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/users/assignable`)
+      .post<unknown>(`${this.url}/${id}/mark-completed`, { missionId: missionId || null })
+      .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
+  }
+
+  getResourceReadiness(id: string): Observable<ResourceReadiness> {
+    return this.http
+      .get<unknown>(`${this.url}/${id}/resource-readiness`)
+      .pipe(map((response) => normalizeResourceReadiness(unwrapApiData(response), id)));
+  }
+
+  /**
+   * Tạo nhiệm vụ chính thức từ hồ sơ `READY` (`POST /pre-mission-assessments/{id}/create-mission`).
+   * Backend tự đánh dấu hồ sơ `COMPLETED` và giữ chỗ nhân sự, drone.
+   */
+  createMission(request: CreateMissionFromAssessmentRequest): Observable<CreatedMission> {
+    return this.http
+      .post<unknown>(`${this.url}/${request.assessmentId}/create-mission`, request)
       .pipe(
         map((response) => {
-          const data = unwrapApiData<unknown>(response);
-          const list = Array.isArray(data) ? data : [];
-          return list.map((u: any) => ({
-            id: String(u.id || u.userId),
-            name: String(u.fullName || u.username || u.name || 'Nhân sự'),
-            role: (String(u.role || u.roleName || 'INSPECTOR').toUpperCase().includes('ANALYST')
-              ? 'ANALYST'
-              : (String(u.role || u.roleName || '').toUpperCase().includes('TECH') ? 'TECHNICIAN' : 'INSPECTOR')) as any,
-            region: 'Khu vực quản lý',
-            availability: 'AVAILABLE' as const,
-            eligibility: 'ELIGIBLE' as const,
-            overallEligibility: true,
-            isActive: true,
-            isEligible: true,
-            isWithinScope: true,
-            isAvailable: true,
-            qualificationDetails: 'Đủ chứng chỉ chuyên môn EVN',
-            conflict: null,
-            reason: 'Đủ 5 tiêu chuẩn sẵn sàng vận hành',
-          }));
-        })
+          const x = objectOf(unwrapApiData(response));
+          return {
+            id: stringOf(x['id']),
+            missionCode: stringOf(x['missionCode']),
+            title: stringOf(x['title']),
+            status: stringOf(x['status']),
+          };
+        }),
       );
   }
 
-  getDroneCandidates(_id?: string): Observable<readonly UavCandidate[]> {
-    return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/drones/available`)
-      .pipe(
-        map((response) => {
-          const data = unwrapApiData<unknown>(response);
-          const list = Array.isArray(data) ? data : [];
-          return list.map((d: any) => ({
-            id: String(d.id || d.droneId),
-            code: String(d.droneCode || d.code || 'UAV-EVN'),
-            name: String(d.name || d.model || 'Thiết bị UAV'),
-            operationalStatus: 'AVAILABLE' as const,
-            technicalHealth: 'HEALTHY' as const,
-            eligibility: 'ELIGIBLE' as const,
-            lastInspection: new Date().toISOString(),
-            validUntil: new Date(Date.now() + 86400000 * 30).toISOString(),
-          }));
-        })
-      );
-  }
+  // --- Danh mục phục vụ lập hồ sơ ---
 
-  markCompleted(id: string, missionId: string): Observable<PreMissionAssessment> {
-    const body = { missionId };
-    return this.http.post<unknown>(`${this.url}/${id}/mark-completed`, body).pipe(
-      catchError(() => this.http.post<unknown>(`${this.url}/${id}/consume`, body)),
-      switchMap(() => this.get(id))
+  getRegions(): Observable<readonly RegionOption[]> {
+    const params = new HttpParams().set('page', 1).set('pageSize', 100);
+    return this.http.get<unknown>(`${this.baseUrl}/regions`, { params }).pipe(
+      map((response) =>
+        itemsOf(unwrapApiData(response)).map((item) => {
+          const r = objectOf(item);
+          return { id: stringOf(r['id']), name: stringOf(r['regionName'] ?? r['name']) };
+        }),
+      ),
     );
   }
 
-  markConsumed(id: string, missionId: string): Observable<PreMissionAssessment> {
-    return this.markCompleted(id, missionId);
+  /** Tải toàn bộ cột của một khu vực (`GET /towers?regionId=`), gộp các trang. */
+  getRegionTowers(regionId: string): Observable<readonly AssessmentTowerOption[]> {
+    return this.fetchTowerPage(regionId, 1).pipe(
+      switchMap((first) => {
+        const totalPages = Math.min(first.totalPages, MAX_TOWER_PAGES);
+        if (totalPages <= 1) return of(first.items);
+        const rest = Array.from({ length: totalPages - 1 }, (_, index) => this.fetchTowerPage(regionId, index + 2));
+        return forkJoin(rest).pipe(map((pages) => [...first.items, ...pages.flatMap((p) => p.items)]));
+      }),
+    );
   }
+
+  private fetchTowerPage(
+    regionId: string,
+    page: number,
+  ): Observable<{ items: readonly AssessmentTowerOption[]; totalPages: number }> {
+    const params = new HttpParams().set('page', page).set('pageSize', TOWER_PAGE_SIZE).set('regionId', regionId);
+    return this.http.get<unknown>(`${this.baseUrl}/towers`, { params }).pipe(
+      map((response) => {
+        const data = unwrapApiData(response);
+        const pagination = objectOf(objectOf(data)['pagination']);
+        return {
+          items: itemsOf(data).map(normalizeTowerOption),
+          totalPages: Number(pagination['totalPages'] ?? 1),
+        };
+      }),
+    );
+  }
+
+  // --- Kiểm định kỹ thuật drone ---
 
   runTechnicalInspection(
     droneId: string,
-    options?: { flightControllerUid?: string; preMissionAssessmentId?: string; notes?: string }
+    options?: {
+      flightControllerUid?: string;
+      preMissionAssessmentId?: string;
+      notes?: string;
+      policyVersion?: string;
+      metrics?: readonly {
+        metricCode: string;
+        subsystem: string;
+        numericValue?: number | null;
+        boolValue?: boolean | null;
+        valueText?: string | null;
+        unit?: string | null;
+        passed?: boolean | null;
+        isRequired?: boolean;
+        critical?: boolean;
+        severity?: string;
+      }[];
+    },
   ): Observable<DroneTechnicalInspectionResult> {
     const payload = {
       droneId,
-      flightControllerUid: options?.flightControllerUid,
-      preMissionAssessmentId: options?.preMissionAssessmentId,
-      notes: options?.notes || 'Kiểm định kỹ thuật định kỳ hệ thống UAV',
-      policyVersion: 'v1.0',
+      flightControllerUid: options?.flightControllerUid || null,
+      preMissionAssessmentId: options?.preMissionAssessmentId || null,
+      notes: options?.notes || 'Kiểm định kỹ thuật trước nhiệm vụ',
+      policyVersion: options?.policyVersion || 'v2.0',
+      metrics: options?.metrics ?? null,
     };
-
     return this.http
-      .post<unknown>(`${environment.apiBaseUrl}/drone-technical-inspections`, payload)
-      .pipe(
-        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId))
-      );
+      .post<unknown>(`${this.baseUrl}/drone-technical-inspections`, payload)
+      .pipe(map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)));
   }
 
   getLatestTechnicalInspection(droneId: string): Observable<DroneTechnicalInspectionResult> {
     return this.http
-      .get<unknown>(`${environment.apiBaseUrl}/drone-technical-inspections/drone/${droneId}/latest`)
-      .pipe(
-        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId))
-      );
+      .get<unknown>(`${this.baseUrl}/drone-technical-inspections/drone/${droneId}/latest`)
+      .pipe(map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)));
   }
 
+  /** Khí tượng thời gian thực (Open-Meteo) tại tọa độ cột đầu tiên của hồ sơ. Chỉ mang tính tham khảo. */
   getRealtimeWeather(lat: number, lng: number): Observable<RealtimeWeatherSnapshot> {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=ms&timezone=Asia%2FBangkok`;
     return this.http.get<unknown>(url).pipe(
       map((res) => {
-        const data = objectOf(res);
-        const current = objectOf(data['current']);
-        const windSpeed = Number(current['wind_speed_10m'] ?? 3.8);
-        const windGust = Number(current['wind_gusts_10m'] ?? 6.2);
-        const windDirection = Number(current['wind_direction_10m'] ?? 75);
-        const temperature = Number(current['temperature_2m'] ?? 28.5);
-        const humidity = Number(current['relative_humidity_2m'] ?? 78);
-        const weatherCode = Number(current['weather_code'] ?? 1);
-        const weatherDescription = getWeatherDescription(weatherCode);
-
+        const current = objectOf(objectOf(res)['current']);
+        const windSpeed = Number(current['wind_speed_10m'] ?? 0);
+        const windGust = Number(current['wind_gusts_10m'] ?? 0);
+        const weatherCode = Number(current['weather_code'] ?? 0);
         const isSafeToFly = windSpeed <= 10.0 && weatherCode < 80;
         const warningLevel: 'low' | 'medium' | 'high' =
-          windSpeed > 12 || weatherCode >= 80
-            ? 'high'
-            : windSpeed > 8 || weatherCode >= 51
-            ? 'medium'
-            : 'low';
+          windSpeed > 12 || weatherCode >= 80 ? 'high' : windSpeed > 8 || weatherCode >= 51 ? 'medium' : 'low';
 
         return {
-          temperature,
-          humidity,
+          temperature: Number(current['temperature_2m'] ?? 0),
+          humidity: Number(current['relative_humidity_2m'] ?? 0),
           windSpeed,
           windGust,
-          windDirection,
+          windDirection: Number(current['wind_direction_10m'] ?? 0),
           weatherCode,
-          weatherDescription,
+          weatherDescription: getWeatherDescription(weatherCode),
           isSafeToFly,
           warningLevel,
-          time: stringOf(current['time'], new Date().toISOString()),
+          time: stringOf(current['time']),
         };
-      })
+      }),
     );
   }
 }
@@ -297,338 +276,240 @@ export class PreMissionApi {
 const objectOf = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
-const arrayOf = (value: unknown): readonly unknown[] =>
-  Array.isArray(value) ? value : [];
+const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
 
-const stringOf = (value: unknown, fallback = '') =>
-  value == null ? fallback : String(value);
+const itemsOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : arrayOf(objectOf(value)['items']));
 
-const checkOf = (value: unknown) => {
-  const x = objectOf(value);
-  let rawStatus = stringOf(x['status'], 'UNKNOWN').toUpperCase();
-  if (rawStatus === 'INCOMPLETE') rawStatus = 'NOT_READY';
-  return {
-    status: rawStatus,
-    reason: x['reason'] == null ? null : stringOf(x['reason']),
-    evaluatedAt: x['evaluatedAt'] == null ? null : stringOf(x['evaluatedAt']),
-  };
+const stringOf = (value: unknown, fallback = '') => (value == null ? fallback : String(value));
+
+const optionalStringOf = (value: unknown): string | null => (value == null || value === '' ? null : String(value));
+
+const optionalNumberOf = (value: unknown): number | null => {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 };
 
-export const defaultSiteChecks = (
-  feasible = true,
-  corridorBufferMeters = 50,
-  maxFlightAltitudeMeters = 120,
-  weather?: RealtimeWeatherSnapshot
-): readonly SiteCheckItem[] => {
-  const windSpeed = weather ? weather.windSpeed : 3.8;
-  const windGust = weather ? weather.windGust : 6.2;
-  const temp = weather ? weather.temperature : 28.5;
-  const hum = weather ? weather.humidity : 78;
-  const weatherDesc = weather ? weather.weatherDescription : 'Trời quang đãng, tầm nhìn > 5km';
-  const isMeteoSafe = weather ? weather.isSafeToFly : feasible;
-  const meteoSeverity = weather ? weather.warningLevel : (feasible ? 'low' : 'medium');
-
-  return [
-    {
-      code: 'POWERLINE_CLEARANCE',
-      name: 'Khoảng cách an toàn hành lang lưới điện',
-      status: 'PASS',
-      details: `Hành lang an toàn thiết lập theo cấu hình: Bán kính an toàn ${corridorBufferMeters}m quanh dây dẫn và mốc chân cột; trần bay tối đa ${maxFlightAltitudeMeters}m AGL. Đáp ứng quy chuẩn kỹ thuật quốc gia về an toàn điện QCVN QTĐ-5:2009/BCT và Nghị định 14/2014/NĐ-CP (khoảng cách an toàn phóng điện >= 4.0m đối với ĐZ 220kV và >= 6.0m đối với ĐZ 500kV).`,
-      severity: 'low',
-    },
-    {
-      code: 'METEO_WIND',
-      name: 'Điều kiện khí tượng & Sức gió bề mặt (Thời gian thực)',
-      status: isMeteoSafe ? 'PASS' : (meteoSeverity === 'high' ? 'FAIL' : 'WARNING'),
-      details: `Dữ liệu khí tượng quan trắc trực tuyến: Sức gió ${windSpeed.toFixed(1)} m/s (gió giật ${windGust.toFixed(1)} m/s), nhiệt độ ${temp.toFixed(1)}°C, độ ẩm ${hum}%, tình trạng: ${weatherDesc}. Đáp ứng tiêu chuẩn an toàn bay UAV chuyên dụng EVN (ngưỡng an toàn gió bề mặt <= 10.0 m/s, không mưa dông).`,
-      severity: meteoSeverity,
-    },
-  ];
-};
-
-const normalizeInspectionResult = (
-  value: unknown,
-  droneId: string
-): DroneTechnicalInspectionResult => {
-  const x = objectOf(value);
-  return {
-    droneId: stringOf(x['droneId'], droneId),
-    droneCode: stringOf(x['droneCode'] || x['code'], droneId),
-    connectionStatus: (stringOf(x['connectionStatus'], 'CONNECTED') as never),
-    fcTarget: x['fcTarget'] == null ? undefined : stringOf(x['fcTarget']),
-    firmwareVersion: x['firmwareVersion'] == null ? undefined : stringOf(x['firmwareVersion']),
-    inspectionSource: (stringOf(x['inspectionSource'], 'TELEMETRY') as never),
-    inspectedAt: stringOf(x['inspectedAt'], new Date().toISOString()),
-    validUntil: x['validUntil'] == null ? null : stringOf(x['validUntil']),
-    overallHealth: (stringOf(x['overallHealth'], 'HEALTHY') as never),
-    eligibility: (stringOf(x['eligibility'], 'ELIGIBLE') as never),
-    subsystems: (arrayOf(x['subsystems']).map(objectOf) as never),
-    metrics: (arrayOf(x['metrics']).map(objectOf) as never),
-  };
-};
-
-function normalizeCandidate(c: Record<string, unknown>): Record<string, unknown> {
-  const userObj = objectOf(c['user']);
-  const actualUserId = stringOf(c['userId'] || userObj['id'] || c['id']);
-  const actualName = stringOf(userObj['fullName'] || c['fullName'] || c['name'] || userObj['username'] || 'Nhân sự');
-
-  let roleRaw = stringOf(c['role'] || '').toUpperCase();
-  if (c['findings']) {
-    try {
-      const f = typeof c['findings'] === 'string' ? JSON.parse(c['findings'] as string) : c['findings'];
-      if (f && f.role) {
-        const found = stringOf(f.role).toUpperCase();
-        if (found.includes('PILOT') || found.includes('INSPECT') || found.includes('ANALYST') || found.includes('TECH')) {
-          roleRaw = found;
-        }
-      }
-    } catch {}
-  }
-  if (!roleRaw || roleRaw === 'SYSTEMADMIN' || roleRaw === 'MANAGER') {
-    if (userObj['userRoles']) {
-      const roles = arrayOf(userObj['userRoles'])
-        .map((ur) => stringOf(objectOf(ur)['roleName'] || objectOf(objectOf(ur)['role'])['roleName']))
-        .join(' ')
-        .toUpperCase();
-      if (roles.includes('PILOT') || roles.includes('INSPECT') || roles.includes('ANALYST') || roles.includes('TECH')) {
-        roleRaw = roles;
-      }
-    }
-  }
-
-  const role = roleRaw.includes('PILOT') || roleRaw.includes('INSPECT')
-    ? 'INSPECTOR'
-    : roleRaw.includes('ANALYST')
-    ? 'ANALYST'
-    : (roleRaw.includes('TECH') || roleRaw.includes('MAINTENANCE'))
-    ? 'TECHNICIAN'
-    : roleRaw;
-
-  return {
-    ...c,
-    id: actualUserId,
-    userId: actualUserId,
-    candidateRecordId: stringOf(c['id']),
-    name: actualName,
-    role,
-    region: stringOf(c['region'] || c['regionName'] || 'Khu vực quản lý'),
-    availability: stringOf(c['availabilityStatus'] || c['availability'] || 'AVAILABLE'),
-    eligibility: stringOf(c['eligibilityStatus'] || c['eligibility'] || c['overallEligibility'] || 'ELIGIBLE'),
-    isActive: c['isActive'] !== undefined ? Boolean(c['isActive']) : true,
-    isEligible: c['isEligible'] !== undefined ? Boolean(c['isEligible']) : true,
-    isWithinScope: c['isWithinScope'] !== undefined ? Boolean(c['isWithinScope']) : true,
-    isAvailable: c['isAvailable'] !== undefined ? Boolean(c['isAvailable']) : true,
-    overallEligibility: stringOf(c['overallEligibility'] || c['eligibilityStatus'] || c['eligibility'] || 'ELIGIBLE'),
-    qualificationDetails: stringOf(c['qualificationDetails'] || c['reason'] || 'Đủ chứng chỉ chuyên môn EVN'),
-    conflict: c['conflict'] == null ? null : stringOf(c['conflict']),
-    reason: stringOf(c['reason'] || 'Đủ 5 tiêu chuẩn sẵn sàng vận hành'),
-  };
+function toIsoString(value: string): string {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toISOString();
 }
 
-export function derivedPersonnelCheck(
-  candidates: readonly Record<string, unknown>[],
-  reqInspectors = 1,
-  reqAnalysts = 1,
-  reqTechnicians = 1
-): ReadinessCheck {
-  if (!candidates || candidates.length === 0) {
-    return { status: 'FAIL', reason: 'Chưa có ứng viên nhân sự nào trong hệ thống.', evaluatedAt: new Date().toISOString() };
-  }
+/** Thông tin khí tượng (tham khảo) hiển thị ở tab Mặt bằng. Không thay thế kết quả đánh giá của backend. */
+export const weatherSiteChecks = (weather: RealtimeWeatherSnapshot): readonly SiteCheckItem[] => [
+  {
+    code: 'METEO_WIND',
+    name: 'Điều kiện khí tượng & sức gió bề mặt (thời gian thực)',
+    status: weather.isSafeToFly ? 'PASS' : weather.warningLevel === 'high' ? 'FAIL' : 'WARNING',
+    details: `Sức gió ${weather.windSpeed.toFixed(1)} m/s (gió giật ${weather.windGust.toFixed(1)} m/s), nhiệt độ ${weather.temperature.toFixed(1)}°C, độ ẩm ${weather.humidity}%, ${weather.weatherDescription}. Ngưỡng an toàn bay: gió bề mặt <= 10 m/s, không mưa dông.`,
+    severity: weather.warningLevel,
+  },
+];
 
-  const availableCandidates = candidates.filter((c) => {
-    const activeOk = c['isActive'] !== false;
-    const scopeOk = c['isWithinScope'] !== false;
-    const eligOk = c['isEligible'] !== false && stringOf(c['eligibility'] || c['overallEligibility']).toUpperCase() === 'ELIGIBLE';
-    const availOk = c['isAvailable'] !== false && stringOf(c['availability']).toUpperCase() === 'AVAILABLE' && !c['conflict'];
-    return activeOk && scopeOk && eligOk && availOk;
-  });
+/** Chuẩn hóa vai trò ứng viên từ backend (`Inspector`, `Analyst`, `Technician`, `MaintenanceTechnician`...). */
+export function normalizeOperationalRole(role: string): string {
+  const r = role.toUpperCase();
+  if (r.includes('INSPECT') || r.includes('PILOT')) return 'INSPECTOR';
+  if (r.includes('ANALYST')) return 'ANALYST';
+  if (r.includes('TECH') || r.includes('MAINTENANCE')) return 'TECHNICIAN';
+  return r;
+}
 
-  const availableInspectors = availableCandidates.filter((c) => {
-    const r = stringOf(c['role']).toUpperCase();
-    return r.includes('INSPECT') || r.includes('PILOT');
-  });
+const normalizePersonnel = (value: unknown): PersonnelCandidate => {
+  const c = objectOf(value);
+  const rawRole = stringOf(c['role']);
+  return {
+    id: stringOf(c['userId']),
+    candidateId: stringOf(c['id']),
+    name: stringOf(c['fullName']) || stringOf(c['userId']),
+    role: normalizeOperationalRole(rawRole),
+    rawRole,
+    isEligible: c['isEligible'] === true,
+    eligibilityStatus: stringOf(c['eligibilityStatus'], 'Unknown'),
+    availabilityStatus: stringOf(c['availabilityStatus'], 'Unknown'),
+    reasonCode: optionalStringOf(c['reasonCode']),
+    findings: stringOf(c['findings']),
+  };
+};
 
-  const availableAnalysts = availableCandidates.filter((c) => {
-    const r = stringOf(c['role']).toUpperCase();
-    return r.includes('ANALYST');
-  });
+const normalizeSuitability = (value: unknown): string | null => {
+  const s = stringOf(value).replace(/[\s_-]/g, '').toUpperCase();
+  if (!s) return null;
+  if (s === 'SUITABLEWITHSPLIT') return 'SUITABLE_WITH_SPLIT';
+  return s;
+};
 
-  const availableTechnicians = availableCandidates.filter((c) => {
-    const r = stringOf(c['role']).toUpperCase();
-    return r.includes('TECH') || r.includes('MAINTENANCE');
-  });
+const normalizeDrone = (value: unknown): UavCandidate => {
+  const d = objectOf(value);
+  return {
+    id: stringOf(d['droneId']),
+    candidateId: stringOf(d['id']),
+    code: stringOf(d['uavCode']),
+    model: stringOf(d['model']),
+    isEligible: d['isEligible'] === true,
+    operationalStatus: stringOf(d['operationalStatus'], 'Unknown'),
+    technicalHealth: stringOf(d['technicalHealth'], 'Unknown'),
+    technicalInspectionId: optionalStringOf(d['technicalInspectionId']),
+    reasonCode: optionalStringOf(d['reasonCode']),
+    batteryLevel: Number(d['batteryLevel'] ?? 0),
+    suitability: normalizeSuitability(d['suitability']),
+    estimatedFlightsNeeded: optionalNumberOf(d['estimatedFlightsNeeded']),
+    coverageDistanceKm: optionalNumberOf(d['coverageDistanceKm']),
+    suitabilityReason: optionalStringOf(d['suitabilityReason']),
+  };
+};
 
-  const missingList: string[] = [];
-  if (availableInspectors.length < reqInspectors) {
-    missingList.push(
-      `Thiếu ${reqInspectors - availableInspectors.length} Inspector (khả dụng ${availableInspectors.length}/${reqInspectors})`
-    );
-  }
-  if (availableAnalysts.length < reqAnalysts) {
-    missingList.push(
-      `Thiếu ${reqAnalysts - availableAnalysts.length} Analyst (khả dụng ${availableAnalysts.length}/${reqAnalysts})`
-    );
-  }
-  if (availableTechnicians.length < reqTechnicians) {
-    missingList.push(
-      `Thiếu ${reqTechnicians - availableTechnicians.length} Technician (khả dụng ${availableTechnicians.length}/${reqTechnicians})`
-    );
-  }
+const normalizeTower = (value: unknown): AssessmentTower => {
+  const t = objectOf(value);
+  return {
+    id: stringOf(t['id']),
+    towerId: stringOf(t['towerId']),
+    sequence: Number(t['sequence'] ?? 0),
+    towerCode: optionalStringOf(t['towerCode']),
+    poleType: optionalStringOf(t['poleType']),
+  };
+};
 
-  if (missingList.length === 0) {
+const normalizeTowerOption = (value: unknown): AssessmentTowerOption => {
+  const t = objectOf(value);
+  return {
+    id: stringOf(t['id']),
+    regionId: stringOf(t['regionId']),
+    regionName: optionalStringOf(t['regionName']),
+    towerCode: stringOf(t['towerCode']),
+    poleType: optionalStringOf(t['poleType']),
+    address: optionalStringOf(t['address']),
+    latitude: Number(t['latitude'] ?? 0),
+    longitude: Number(t['longitude'] ?? 0),
+  };
+};
+
+const checkOf = (value: unknown): ReadinessCheck => {
+  const x = objectOf(value);
+  return {
+    status: stringOf(x['status'], 'FAIL').toUpperCase(),
+    reason: optionalStringOf(x['reason']),
+    evaluatedAt: optionalStringOf(x['evaluatedAt']),
+  };
+};
+
+/** Chuẩn hóa trạng thái hồ sơ; chấp nhận cả giá trị cũ `CONSUMED`, `INCOMPLETE`. */
+export function normalizeAssessmentStatus(value: unknown): string {
+  const s = stringOf(value).replace(/[\s-]/g, '_').toUpperCase();
+  if (s === 'CONSUMED') return 'COMPLETED';
+  if (s === 'INCOMPLETE' || s === 'NOTREADY') return 'NOT_READY';
+  return s;
+}
+
+export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
+  const x = objectOf(value);
+  const drones = arrayOf(x['droneCandidates']).length ? arrayOf(x['droneCandidates']) : arrayOf(x['uavCandidates']);
+  return {
+    id: stringOf(x['id']),
+    assessmentCode: stringOf(x['assessmentCode']),
+    managerId: stringOf(x['managerId']),
+    regionId: stringOf(x['regionId']),
+    regionName: stringOf(x['regionName']),
+    plannedStart: stringOf(x['plannedStart']),
+    plannedEnd: stringOf(x['plannedEnd']),
+    status: normalizeAssessmentStatus(x['status']),
+    overallTechnicalHealth: stringOf(x['overallTechnicalHealth'], 'Unknown'),
+    siteFeasibilityStatus: stringOf(x['siteFeasibilityStatus'], 'Pending'),
+    validUntil: optionalStringOf(x['validUntil']),
+    version: Number(x['version'] ?? 0),
+    findings: stringOf(x['findings']),
+    evaluationPolicyVersion: optionalStringOf(x['evaluationPolicyVersion']),
+    completedMissionId: optionalStringOf(x['completedMissionId'] ?? x['consumedByMissionId']),
+    towers: arrayOf(x['towers']).map(normalizeTower).sort((a, b) => a.sequence - b.sequence),
+    personnelCandidates: arrayOf(x['personnelCandidates']).map(normalizePersonnel),
+    uavCandidates: drones.map(normalizeDrone),
+    site: checkOf(x['site']),
+    personnel: checkOf(x['personnel']),
+    uav: checkOf(x['uav']),
+    technical: checkOf(x['technical']),
+    createdAt: stringOf(x['createdAt']),
+    updatedAt: optionalStringOf(x['updatedAt']),
+  };
+};
+
+const normalizeResourceReadiness = (value: unknown, assessmentId: string): ResourceReadiness => {
+  const x = objectOf(value);
+  return {
+    assessmentId: stringOf(x['assessmentId'] ?? x['id'], assessmentId),
+    status: normalizeAssessmentStatus(x['status']),
+    siteFeasibilityStatus: stringOf(x['siteFeasibilityStatus']),
+    overallTechnicalHealth: stringOf(x['overallTechnicalHealth']),
+    isReady: x['isReady'] === true || normalizeAssessmentStatus(x['status']) === 'READY',
+    personnelCandidates: arrayOf(x['personnelCandidates']).map(normalizePersonnel),
+    uavCandidates: arrayOf(x['droneCandidates']).map(normalizeDrone),
+    evaluatedAt: stringOf(x['evaluatedAt'] ?? x['updatedAt']),
+  };
+};
+
+const healthOf = (value: unknown): SubsystemHealth['status'] => {
+  const h = stringOf(value).toUpperCase();
+  return h === 'HEALTHY' || h === 'WARNING' || h === 'CRITICAL' ? h : 'UNKNOWN';
+};
+
+/** Chuẩn hóa `DroneTechnicalInspectionDto` (hoặc `DroneTechnicalInspectionSummaryDto`). */
+export const normalizeInspectionResult = (value: unknown, droneId: string): DroneTechnicalInspectionResult => {
+  const x = objectOf(value);
+  const metrics: TechnicalMetric[] = arrayOf(x['metrics']).map((item) => {
+    const m = objectOf(item);
+    const raw = m['numericValue'] ?? m['boolValue'] ?? m['valueText'];
     return {
-      status: 'PASS',
-      reason: `Đạt đủ định mức nhân sự đang rảnh (${availableInspectors.length} Inspector, ${availableAnalysts.length} Analyst, ${availableTechnicians.length} Technician).`,
-      evaluatedAt: new Date().toISOString(),
+      subsystem: stringOf(m['subsystem']),
+      metric: stringOf(m['metricCode']),
+      value: typeof raw === 'number' ? raw : stringOf(raw, '-'),
+      unit: optionalStringOf(m['unit']),
+      required: m['isRequired'] === true,
+      severity: optionalStringOf(m['severity']),
+      passed: typeof m['passed'] === 'boolean' ? m['passed'] : null,
     };
-  }
+  });
 
+  const subsystemNames = Array.from(new Set(metrics.map((m) => m.subsystem).filter(Boolean)));
+  const subsystems: SubsystemHealth[] = subsystemNames.map((name) => {
+    const items = metrics.filter((m) => m.subsystem === name);
+    const failed = items.filter((m) => m.passed === false);
+    const criticalFail = failed.some((m) => (m.severity || '').toUpperCase() === 'CRITICAL');
+    const status: SubsystemHealth['status'] = criticalFail ? 'CRITICAL' : failed.length ? 'WARNING' : 'HEALTHY';
+    return {
+      id: name,
+      name,
+      status,
+      description: failed.length ? `${failed.length}/${items.length} chỉ số không đạt` : `${items.length} chỉ số đạt`,
+    };
+  });
+
+  const status = stringOf(x['status']);
   return {
-    status: 'FAIL',
-    reason: `Không đạt định mức nhân sự: ${missingList.join('; ')}. Hệ thống chỉ tính nhân sự đang rảnh trong CSDL.`,
-    evaluatedAt: new Date().toISOString(),
+    id: stringOf(x['id']),
+    droneId: stringOf(x['droneId'], droneId),
+    status,
+    overallHealth: healthOf(x['health']),
+    eligibility: status.toUpperCase() === 'PASSED' ? 'ELIGIBLE' : 'NOT_ELIGIBLE',
+    technicianName: optionalStringOf(x['technicianName']),
+    policyVersion: optionalStringOf(x['policyVersion']),
+    notes: optionalStringOf(x['notes']),
+    inspectionSource: optionalStringOf(x['sourceType']),
+    sourceVersion: optionalStringOf(x['sourceVersion']),
+    inspectedAt: stringOf(x['completedAt'] ?? x['startedAt']),
+    validUntil: optionalStringOf(x['validUntil']),
+    subsystems,
+    metrics,
   };
-}
+};
 
-const normalizePage = (
-  value: unknown,
-  page: number,
-  pageSize: number
-): AssessmentPage => {
+const normalizePage = (value: unknown, page: number, pageSize: number): AssessmentPage => {
   const x = objectOf(value);
-  const rawItems = Array.isArray(value) ? value : (x['items'] ?? x['records']);
-  const items = arrayOf(rawItems).map(normalizeAssessment);
+  const items = itemsOf(value).map(normalizeAssessment);
   const totalCount = Number(x['totalCount'] ?? items.length);
   return {
     items,
-    page: Number(x['page'] ?? page),
-    pageSize: Number(x['pageSize'] ?? pageSize),
+    page,
+    pageSize,
     totalCount,
-    totalPages: Number(x['totalPages'] ?? Math.max(1, Math.ceil(totalCount / pageSize))),
-  };
-};
-
-function formatIsoDate(val?: string): string {
-  if (!val) return '';
-  try {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? val : d.toISOString();
-  } catch {
-    return val;
-  }
-}
-
-const normalizeAssessment = (value: unknown): PreMissionAssessment => {
-  const x = objectOf(value);
-  const assets = arrayOf(x['assets']);
-  const scopeAssetIds = arrayOf(x['scopeAssetIds']).length
-    ? arrayOf(x['scopeAssetIds']).map(String)
-    : assets.map((asset) => stringOf(objectOf(asset)['assetId'])).filter(Boolean);
-  let rawStatus = stringOf(x['status'], 'UNKNOWN').toUpperCase();
-  if (rawStatus === 'CONSUMED') rawStatus = 'COMPLETED';
-  if (rawStatus === 'INCOMPLETE') rawStatus = 'NOT_READY';
-  const status = rawStatus;
-  const isFeasible = status === 'READY' || status === 'EVALUATING';
-  const derivedCheck = (ready: boolean) => ({
-    status: ready ? 'PASS' : 'PENDING',
-    reason: null,
-    evaluatedAt: null,
-  });
-
-  const rawSiteChecks = arrayOf(x['siteChecks']);
-  const scopeGeometry = objectOf(x['scopeGeometry']);
-  const bufferMeters = Number(scopeGeometry['corridorBufferMeters'] ?? 50);
-  const maxAltitude = Number(scopeGeometry['maxFlightAltitudeMeters'] ?? 120);
-  const reqInspectors = Number(x['requiredInspectors'] ?? scopeGeometry['requiredInspectors'] ?? 1);
-  const reqAnalysts = Number(x['requiredAnalysts'] ?? scopeGeometry['requiredAnalysts'] ?? 1);
-  const reqTechnicians = Number(x['requiredTechnicians'] ?? scopeGeometry['requiredTechnicians'] ?? 1);
-
-  const siteChecks = rawSiteChecks.length
-    ? (rawSiteChecks.map(objectOf) as unknown as readonly SiteCheckItem[])
-    : defaultSiteChecks(isFeasible, bufferMeters, maxAltitude);
-
-  const rawInspection = x['droneInspection'] ? normalizeInspectionResult(x['droneInspection'], 'UAV-DEFAULT') : null;
-
-  const rawPersonnelCandidates = arrayOf(x['personnelCandidates'])
-    .map((c) => normalizeCandidate(objectOf(c)))
-    .filter((c) => {
-      const r = stringOf(c['role']).toUpperCase();
-      return r === 'INSPECTOR' || r === 'ANALYST' || r === 'TECHNICIAN';
-    });
-  const isAllPass = status === 'READY' || status === 'COMPLETED';
-
-  const personnelCheck = x['personnel']
-    ? checkOf(x['personnel'])
-    : (isAllPass
-        ? { status: 'PASS', reason: null, evaluatedAt: null }
-        : derivedPersonnelCheck(rawPersonnelCandidates, reqInspectors, reqAnalysts, reqTechnicians));
-
-  const rawDroneCandidates = arrayOf(x['droneCandidates'] ?? x['uavCandidates']).map((item) => {
-    const d = objectOf(item);
-    const droneObj = objectOf(d['drone']);
-    const actualDroneId = stringOf(d['droneId'] || droneObj['id'] || d['id']);
-    const actualCode = stringOf(droneObj['uavCode'] || d['uavCode'] || d['code'] || 'UAV-EVN');
-    const actualName = stringOf(droneObj['model'] || d['model'] || d['name'] || actualCode);
-    const health = stringOf(d['technicalHealth'] || droneObj['technicalHealth'] || 'HEALTHY').toUpperCase();
-    const rawOp = stringOf(d['operationalAvailabilityStatus'] || d['operationalStatus'] || droneObj['operationalStatus'] || 'AVAILABLE').toUpperCase();
-    const opStatus = rawOp === 'IDLE' ? 'IDLE' : 'AVAILABLE';
-    const isEligible = d['isEligible'] !== false && (stringOf(d['technicalEligibilityStatus'] || d['eligibility']).toUpperCase() !== 'INELIGIBLE');
-    return {
-      ...d,
-      id: actualDroneId,
-      droneId: actualDroneId,
-      candidateRecordId: stringOf(d['id']),
-      code: actualCode,
-      name: actualName,
-      technicalHealth: health,
-      operationalStatus: opStatus,
-      eligibility: isEligible ? 'ELIGIBLE' : 'INELIGIBLE',
-      suitability: d['suitability'] ? stringOf(d['suitability']).toUpperCase() : null,
-      estimatedFlightsNeeded: d['estimatedFlightsNeeded'] != null ? Number(d['estimatedFlightsNeeded']) : null,
-      coverageDistanceKm: d['coverageDistanceKm'] != null ? Number(d['coverageDistanceKm']) : null,
-      suitabilityReason: d['suitabilityReason'] ? stringOf(d['suitabilityReason']) : null,
-    };
-  });
-
-  const siteCheck = x['site'] ? checkOf(x['site']) : derivedCheck(isAllPass || status !== 'UNKNOWN');
-  const uavCheck = x['uav'] ? checkOf(x['uav']) : derivedCheck(isAllPass || rawDroneCandidates.length > 0);
-  const technicalCheck = x['technical'] ? checkOf(x['technical']) : derivedCheck(isAllPass || status === 'READY');
-
-  const computedStatus = (personnelCheck.status === 'FAIL' || siteCheck.status === 'FAIL' || uavCheck.status === 'FAIL')
-    ? (status === 'READY' ? 'NOT_READY' : status)
-    : status;
-
-  return {
-    id: stringOf(x['id']),
-    assessmentCode: stringOf(x['assessmentCode'] ?? x['code'], 'ASSESSMENT'),
-    regionId: x['regionId'] == null ? undefined : stringOf(x['regionId']),
-    regionName: stringOf(x['regionName'] ?? x['regionId'], 'Unknown region'),
-    lineId: x['lineId'] == null ? null : stringOf(x['lineId']),
-    lineName: x['lineName'] == null ? null : stringOf(x['lineName']),
-    assetCount: Number(x['assetCount'] ?? scopeAssetIds.length),
-    plannedStart: stringOf(x['plannedStart']),
-    plannedEnd: stringOf(x['plannedEnd']),
-    requiredInspectors: reqInspectors,
-    requiredAnalysts: reqAnalysts,
-    requiredTechnicians: reqTechnicians,
-    site: siteCheck,
-    personnel: personnelCheck,
-    uav: uavCheck,
-    technical: technicalCheck,
-    status: computedStatus,
-    validUntil: x['validUntil'] == null ? null : stringOf(x['validUntil']),
-    createdBy: x['createdBy'] == null ? null : stringOf(x['createdBy']),
-    updatedAt: x['updatedAt'] == null ? null : stringOf(x['updatedAt']),
-    consumedMissionId: x['consumedMissionId'] == null ? (x['completedMissionId'] == null ? null : stringOf(x['completedMissionId'])) : stringOf(x['consumedMissionId']),
-    consumedMissionCode: x['consumedMissionCode'] == null ? (x['completedMissionCode'] == null ? null : stringOf(x['completedMissionCode'])) : stringOf(x['completedMissionCode']),
-    completedMissionId: x['completedMissionId'] == null ? (x['consumedMissionId'] == null ? null : stringOf(x['consumedMissionId'])) : stringOf(x['completedMissionId']),
-    completedMissionCode: x['completedMissionCode'] == null ? (x['consumedMissionCode'] == null ? null : stringOf(x['consumedMissionCode'])) : stringOf(x['completedMissionCode']),
-    personnelCandidates: rawPersonnelCandidates as never,
-    uavCandidates: rawDroneCandidates as never,
-    technicalMetrics: (arrayOf(x['technicalMetrics']).map(objectOf) as never),
-    siteChecks,
-    droneInspection: rawInspection,
-    scopeAssetIds,
-    scopeGeometry: x['scopeGeometry'],
+    totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
   };
 };

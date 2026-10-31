@@ -6,7 +6,6 @@ import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { GisApi } from '../../../gis/data-access/gis-api';
 import { PreMissionApi } from '../../data-access/pre-mission-api';
 
 @Component({
@@ -18,7 +17,6 @@ import { PreMissionApi } from '../../data-access/pre-mission-api';
 })
 export class AssessmentList implements OnDestroy {
   private readonly api = inject(PreMissionApi);
-  private readonly gisApi = inject(GisApi);
   private readonly realtime = inject(NotificationsRealtime);
   private realtimeSub: Subscription | null = null;
 
@@ -35,12 +33,10 @@ export class AssessmentList implements OnDestroy {
   // Filters
   protected readonly statusFilter = signal('');
   protected readonly regionFilter = signal('');
-  protected readonly lineFilter = signal('');
   protected readonly dateFilter = signal('');
   protected readonly searchQuery = signal('');
 
   protected readonly regions = signal<readonly { id: string; name: string }[]>([]);
-  protected readonly availableLines = signal<readonly { id: string; lineName: string }[]>([]);
 
   protected readonly statuses = [
     { value: '', label: 'Tất cả trạng thái' },
@@ -56,19 +52,12 @@ export class AssessmentList implements OnDestroy {
   protected readonly filteredItems = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
     const region = this.regionFilter();
-    const line = this.lineFilter();
     const date = this.dateFilter();
     let list = this.items();
 
     if (region) {
       list = list.filter(
         (item) => item.regionId === region || item.regionName.toLowerCase() === region.toLowerCase()
-      );
-    }
-
-    if (line) {
-      list = list.filter(
-        (item) => item.lineName?.toLowerCase() === line.toLowerCase() || item.lineId === line
       );
     }
 
@@ -81,8 +70,7 @@ export class AssessmentList implements OnDestroy {
         (item) =>
           item.assessmentCode.toLowerCase().includes(q) ||
           item.regionName.toLowerCase().includes(q) ||
-          (item.lineName && item.lineName.toLowerCase().includes(q)) ||
-          (item.createdBy && item.createdBy.toLowerCase().includes(q))
+          item.towers.some((t) => (t.towerCode ?? '').toLowerCase().includes(q)),
       );
     }
 
@@ -97,7 +85,7 @@ export class AssessmentList implements OnDestroy {
       { label: 'Chưa sẵn sàng (NOT_READY)', value: list.filter((x) => x.status === 'NOT_READY').length },
       {
         label: 'Hết hạn / Hoàn thành / Hủy',
-        value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || (x.status as string) === 'CONSUMED' || x.status === 'CANCELLED').length,
+        value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || x.status === 'CANCELLED').length,
       },
     ];
   });
@@ -125,7 +113,6 @@ export class AssessmentList implements OnDestroy {
 
   constructor() {
     this.loadRegions();
-    this.loadLines('');
     this.realtime.connect();
     this.realtime.joinAssessmentsList();
     this.initRealtimeSubscription();
@@ -185,16 +172,8 @@ export class AssessmentList implements OnDestroy {
             this.items.update((list) =>
               list.map((item) => {
                 if (item.id === evt.assessmentId) {
-                  const mid = evt.completedMissionId || evt.consumedMissionId || item.completedMissionId || item.consumedMissionId;
-                  const mcode = evt.completedMissionCode || evt.consumedMissionCode || item.completedMissionCode || item.consumedMissionCode;
-                  return {
-                    ...item,
-                    status: 'COMPLETED',
-                    consumedMissionId: mid,
-                    consumedMissionCode: mcode,
-                    completedMissionId: mid,
-                    completedMissionCode: mcode,
-                  };
+                  const mid = evt.completedMissionId || evt.consumedMissionId || item.completedMissionId;
+                  return { ...item, status: 'COMPLETED', completedMissionId: mid };
                 }
                 return item;
               })
@@ -203,43 +182,14 @@ export class AssessmentList implements OnDestroy {
           break;
         }
 
-        case 'MeteoAlertTriggered': {
-          if (evt.assessmentId) {
-            this.items.update((list) =>
-              list.map((item) => {
-                if (item.id === evt.assessmentId) {
-                  return {
-                    ...item,
-                    status: 'NOT_READY',
-                    site: {
-                      ...item.site,
-                      status: 'FAIL',
-                      reason: evt.message || 'Cảnh báo khí tượng: Sức gió vượt ngưỡng an toàn.',
-                    },
-                  };
-                }
-                return item;
-              })
-            );
-          }
-          break;
-        }
       }
     });
   }
 
   private loadRegions(): void {
-    this.gisApi.getRegions().subscribe({
+    this.api.getRegions().subscribe({
       next: (data) => this.regions.set(data),
       error: (err) => console.warn('Failed to load regions', err),
-    });
-  }
-
-  private loadLines(regionId: string): void {
-    const filter = regionId ? { administrativeAreaId: regionId } : undefined;
-    this.gisApi.getAllGisData(filter).subscribe({
-      next: (data) => this.availableLines.set(data.lines),
-      error: (err: unknown) => console.warn('Failed to load lines', err),
     });
   }
 
@@ -251,9 +201,6 @@ export class AssessmentList implements OnDestroy {
         page: this.page(),
         pageSize: this.pageSize(),
         status: this.statusFilter(),
-        regionId: this.regionFilter(),
-        lineName: this.lineFilter(),
-        plannedDate: this.dateFilter(),
         search: this.searchQuery(),
       })
       .subscribe({
@@ -280,23 +227,13 @@ export class AssessmentList implements OnDestroy {
   }
 
   protected onRegionChange(regionId: string): void {
+    // Backend không lọc theo khu vực: lọc trên trang hiện tại.
     this.regionFilter.set(regionId);
-    this.lineFilter.set('');
-    this.loadLines(regionId);
-    this.page.set(1);
-    this.load();
-  }
-
-  protected onLineChange(lineName: string): void {
-    this.lineFilter.set(lineName);
-    this.page.set(1);
-    this.load();
   }
 
   protected onDateChange(date: string): void {
+    // Backend không lọc theo ngày: lọc trên trang hiện tại.
     this.dateFilter.set(date);
-    this.page.set(1);
-    this.load();
   }
 
   protected onSearch(value: string): void {
@@ -306,7 +243,6 @@ export class AssessmentList implements OnDestroy {
   protected resetFilters(): void {
     this.statusFilter.set('');
     this.regionFilter.set('');
-    this.lineFilter.set('');
     this.dateFilter.set('');
     this.searchQuery.set('');
     this.page.set(1);
@@ -316,7 +252,7 @@ export class AssessmentList implements OnDestroy {
   protected reevaluateItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (item.status === 'COMPLETED' || (item.status as string) === 'CONSUMED') {
+    if (item.status === 'COMPLETED') {
       this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
       return;
     }
@@ -367,7 +303,7 @@ export class AssessmentList implements OnDestroy {
   protected cancelItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (item.status === 'COMPLETED' || (item.status as string) === 'CONSUMED') {
+    if (item.status === 'COMPLETED') {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }

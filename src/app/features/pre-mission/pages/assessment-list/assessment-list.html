@@ -37,7 +37,7 @@
         <span nz-icon nzType="search" class="search-icon"></span>
         <input
           type="search"
-          placeholder="Tìm theo mã, khu vực, tuyến, người tạo..."
+          placeholder="Tìm theo mã hồ sơ, khu vực, mã cột..."
           [value]="searchQuery()"
           (input)="onSearch($any($event.target).value)"
         />
@@ -49,16 +49,6 @@
           <option value="">Tất cả khu vực</option>
           @for (reg of regions(); track reg.id) {
             <option [value]="reg.id">{{ reg.name }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        <span>Tuyến đường dây:</span>
-        <select [value]="lineFilter()" (change)="onLineChange($any($event.target).value)">
-          <option value="">Tất cả tuyến</option>
-          @for (line of availableLines(); track line.id) {
-            <option [value]="line.lineName">{{ line.lineName }}</option>
           }
         </select>
       </label>
@@ -86,7 +76,7 @@
         <span nz-icon nzType="reload"></span>Làm mới
       </button>
 
-      @if (regionFilter() || lineFilter() || statusFilter() || dateFilter() || searchQuery()) {
+      @if (regionFilter() || statusFilter() || dateFilter() || searchQuery()) {
         <button type="button" class="evn-btn secondary" (click)="resetFilters()">
           <span nz-icon nzType="clear"></span>Đặt lại
         </button>
@@ -118,7 +108,7 @@
               <th style="width: 90px;">Kỹ thuật</th>
               <th style="width: 105px;">Tổng thể</th>
               <th style="width: 110px;">Hiệu lực đến</th>
-              <th style="width: 110px;">Người tạo</th>
+              <th style="width: 110px;">Ngày tạo</th>
               <th style="width: 110px;">Cập nhật</th>
               <th style="width: 120px;">Thao tác</th>
             </tr>
@@ -145,21 +135,18 @@
                     <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
                       {{ item.assessmentCode }}
                     </a>
-                    @if (item.consumedMissionId || item.consumedMissionCode) {
+                    @if (item.completedMissionId) {
                       <div style="margin-top: 2px;">
-                        <a [routerLink]="['/missions', item.consumedMissionId || item.consumedMissionCode]" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; color: #1d4ed8; text-decoration: none;" title="Xem nhiệm vụ bay đã tạo">
+                        <a [routerLink]="['/missions', item.completedMissionId]" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; color: #1d4ed8; text-decoration: none;" title="Xem nhiệm vụ bay đã tạo">
                           <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span>
-                          #{{ item.consumedMissionCode || item.consumedMissionId }}
+                          #{{ item.completedMissionId }}
                         </a>
                       </div>
                     }
                   </td>
                   <td>
                     <strong>{{ item.regionName }}</strong>
-                    @if (item.lineName) {
-                      <span> / {{ item.lineName }}</span>
-                    }
-                    <span style="color: #64748b;"> · {{ item.assetCount }} vị trí</span>
+                    <span style="color: #64748b;"> · {{ item.towers.length }} cột</span>
                   </td>
                   <td>
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
@@ -193,7 +180,7 @@
                     {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
                   </td>
                   <td>
-                    <span style="font-size: 11px; color: #334155;">{{ item.createdBy || 'Hệ thống' }}</span>
+                    <span style="font-size: 11px; color: #334155;">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
                   </td>
                   <td>
                     <span style="font-size: 10px; color: #64748b;">
@@ -210,7 +197,7 @@
                       >
                         Mở
                       </a>
-                      @if (item.status !== 'COMPLETED' && item.status !== 'CONSUMED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"
@@ -226,7 +213,7 @@
                           }
                         </button>
                       }
-                      @if (item.status !== 'COMPLETED' && item.status !== 'CONSUMED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"
@@ -301,7 +288,7 @@
           <div class="modal-desc">
             <span>Khu vực: <strong>{{ targetItem.regionName }}</strong></span>
             <span style="margin: 0 6px; color: #94a3b8;">|</span>
-            <span>Tuyến: <strong>{{ targetItem.lineName || "Theo danh mục khảo sát" }}</strong> ({{ targetItem.assetCount }} vị trí cột)</span>
+            <span>Số lượng: <strong>{{ targetItem.towers.length }} vị trí cột</strong></span>
           </div>
 
           <div class="form-group-modal">
