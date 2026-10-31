@@ -106,6 +106,15 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly pairingSuccess = signal<string>('');
   protected readonly pairTargetDroneId = signal<string>('');
 
+  // Mock BIST Telemetry (Giả lập kiểm định viễn trắc lưu về Backend)
+  protected readonly showMockModal = signal<boolean>(false);
+  protected readonly mockSubmitting = signal<boolean>(false);
+  protected readonly mockPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
+  protected readonly mockBatteryLevel = signal<number>(96);
+  protected readonly mockGpsSats = signal<number>(28);
+  protected readonly mockRfQuality = signal<number>(98);
+  protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN (Mô phỏng thực tế)');
+
   // Khí tượng (tham khảo, không thay đổi kết quả đánh giá của backend)
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
   protected readonly loadingWeather = signal(false);
@@ -661,6 +670,204 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         error: (err) => {
           this.inspecting.set(false);
           this.error.set(err?.error?.message || err?.error?.detail || err?.message || 'Lỗi kết nối khi gửi lệnh kiểm định UAV.');
+        },
+      });
+  }
+
+  protected onSelectDrone(droneId: string): void {
+    this.selectedDroneId.set(droneId);
+    this.inspectionResult.set(null);
+    this.loadLatestInspection(droneId);
+    const drone = this.item()?.uavCandidates.find((d) => d.id === droneId);
+    if (drone?.code) {
+      const match = this.simulatedProfiles.find((p) => p.id.toLowerCase() === drone.code.toLowerCase());
+      if (match) {
+        this.selectedSimProfile.set(match.id);
+      }
+    }
+  }
+
+  protected openMockModal(preset: 'healthy' | 'warning' | 'critical' = 'healthy'): void {
+    this.applyMockPreset(preset);
+    this.showMockModal.set(true);
+  }
+
+  protected closeMockModal(): void {
+    if (this.mockSubmitting()) return;
+    this.showMockModal.set(false);
+  }
+
+  protected applyMockPreset(preset: 'healthy' | 'warning' | 'critical'): void {
+    this.mockPreset.set(preset);
+    if (preset === 'healthy') {
+      this.mockBatteryLevel.set(96);
+      this.mockGpsSats.set(28);
+      this.mockRfQuality.set(98);
+      this.mockNotes.set('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN (Mô phỏng thực tế)');
+    } else if (preset === 'warning') {
+      this.mockBatteryLevel.set(68);
+      this.mockGpsSats.set(14);
+      this.mockRfQuality.set(82);
+      this.mockNotes.set('Cảnh báo mức pin 68% cận ngưỡng và tín hiệu vệ tinh mức trung bình');
+    } else {
+      this.mockBatteryLevel.set(28);
+      this.mockGpsSats.set(4);
+      this.mockRfQuality.set(45);
+      this.mockNotes.set('Cảnh báo lỗi cảm biến IMU, mất liên kết RTK và pin dưới ngưỡng an toàn');
+    }
+  }
+
+  protected submitMockBistTelemetry(preset?: 'healthy' | 'warning' | 'critical'): void {
+    if (preset) {
+      this.applyMockPreset(preset);
+    }
+
+    const drone = this.currentAssessmentDrone();
+    const droneId = drone?.id || this.selectedDroneId();
+    if (!droneId) {
+      this.error.set('Hồ sơ chưa có UAV ứng viên để thực hiện kiểm định viễn trắc BIST.');
+      return;
+    }
+
+    const currentPreset = this.mockPreset();
+    const isHealthy = currentPreset === 'healthy';
+    const isWarning = currentPreset === 'warning';
+    const isCritical = currentPreset === 'critical';
+
+    const battery = this.mockBatteryLevel();
+    const gpsSats = this.mockGpsSats();
+    const rfQuality = this.mockRfQuality();
+    const notes = this.mockNotes().trim() || 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN';
+
+    const metrics = [
+      {
+        metricCode: 'BATTERY_HEALTH',
+        subsystem: 'Power',
+        numericValue: battery,
+        unit: '%',
+        isRequired: true,
+        critical: isCritical,
+        severity: isCritical ? 'Critical' : isWarning ? 'Medium' : 'Low',
+        passed: !isCritical && battery >= 40,
+        valueText: `Dung lượng pin ${battery}%, điện áp cell 4.20V cân bằng`,
+      },
+      {
+        metricCode: 'IMU_CALIBRATION',
+        subsystem: 'Sensors',
+        boolValue: !isCritical,
+        isRequired: true,
+        critical: true,
+        severity: isCritical ? 'Critical' : 'Medium',
+        passed: !isCritical,
+        valueText: isCritical
+          ? 'Lệch cảm biến con quay hồi chuyển Gyro > 1.8°/s'
+          : 'IMU kép 3 trục cân bằng động đạt chuẩn (Sai số < 0.05°)',
+      },
+      {
+        metricCode: 'GPS_RTK_FIX',
+        subsystem: 'Navigation',
+        boolValue: !isCritical,
+        isRequired: true,
+        critical: true,
+        severity: isCritical ? 'Critical' : 'Medium',
+        passed: !isCritical,
+        valueText: isCritical
+          ? `Mất khóa RTK định vị (${gpsSats} vệ tinh, HDOP 3.5)`
+          : `3D RTK Fixed (${gpsSats} vệ tinh, HDOP 0.65, sai số định vị cm)`,
+      },
+      {
+        metricCode: 'PROP_INTEGRITY',
+        subsystem: 'Propulsion',
+        boolValue: !isCritical,
+        isRequired: true,
+        critical: true,
+        severity: isCritical ? 'Critical' : 'Medium',
+        passed: !isCritical,
+        valueText: isCritical
+          ? 'Rung chấn rotor 3 vượt ngưỡng cho phép (> 2.5G)'
+          : 'Động cơ ESC 1-6 đồng bộ 100%, cánh quạt nguyên vẹn',
+      },
+      {
+        metricCode: 'FLIGHT_CONTROLLER',
+        subsystem: 'Avionics',
+        boolValue: true,
+        isRequired: true,
+        critical: true,
+        severity: 'Medium',
+        passed: true,
+        valueText: 'Vi điều khiển CPU load 18%, I2C/SPI bus OK, MSP active',
+      },
+      {
+        metricCode: 'RF_LINK_TELEMETRY',
+        subsystem: 'Communication',
+        numericValue: rfQuality,
+        unit: '%',
+        isRequired: true,
+        critical: true,
+        severity: isCritical ? 'Critical' : 'Medium',
+        passed: !isCritical && rfQuality >= 60,
+        valueText: `${rfQuality}% RSSI viễn trắc (-42 dBm, 150Hz)`,
+      },
+    ];
+
+    this.mockSubmitting.set(true);
+    this.inspecting.set(true);
+    this.actionMessage.set('');
+    this.error.set('');
+    const a = this.item();
+
+    let fcUid: string | undefined = undefined;
+    if (this.isFcConnected() && this.isFcMatchingAssessmentDrone()) {
+      fcUid = this.fcMetadata()?.uid;
+    }
+
+    this.api
+      .runTechnicalInspection(droneId, {
+        flightControllerUid: fcUid,
+        preMissionAssessmentId: a?.id,
+        notes,
+        policyVersion: 'v2.0',
+        metrics,
+      })
+      .subscribe({
+        next: (res) => {
+          this.inspectionResult.set(res);
+          this.mockSubmitting.set(false);
+          this.inspecting.set(false);
+          this.showMockModal.set(false);
+          const code = drone?.code || droneId;
+          this.actionMessage.set(
+            `Đã lưu dữ liệu viễn trắc BIST mẫu cho ${code} về CSDL Backend thành công. Kết quả: ${res.status} (${res.overallHealth}).`,
+          );
+
+          this.realtime.broadcastAssessmentEvent({
+            assessmentId: a?.id || '',
+            type: 'DroneInspectionCompleted',
+            status: res.eligibility === 'ELIGIBLE' ? 'PASS' : 'FAIL',
+            droneId: res.droneId,
+            droneCode: code,
+            technicalHealth: res.overallHealth,
+            technicalStatus: res.status,
+            timestamp: new Date().toISOString(),
+          });
+
+          if (a) {
+            this.api.reEvaluate(a.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                this.actionMessage.set(
+                  `Biên bản BIST cho ${code} đã lưu về DB! Hồ sơ MF01 đã được cập nhật: Trạng thái [${updated.status}].`,
+                );
+              },
+            });
+          }
+        },
+        error: (err) => {
+          this.mockSubmitting.set(false);
+          this.inspecting.set(false);
+          this.error.set(
+            err?.error?.message || err?.error?.detail || err?.message || 'Lỗi khi gửi dữ liệu viễn trắc BIST về máy chủ Backend.',
+          );
         },
       });
   }

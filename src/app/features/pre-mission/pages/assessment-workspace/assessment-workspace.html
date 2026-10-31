@@ -887,7 +887,7 @@
               <span>Thiết bị kiểm định:</span>
               <select
                 [value]="selectedDroneId()"
-                (change)="selectedDroneId.set($any($event.target).value); loadLatestInspection($any($event.target).value)"
+                (change)="onSelectDrone($any($event.target).value)"
                 style="height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px;"
               >
                 @for (d of a.uavCandidates; track d.id) {
@@ -915,11 +915,74 @@
                   <span nz-icon nzType="play-circle"></span> Chạy kiểm định kỹ thuật
                 }
               </button>
+
+              <button
+                type="button"
+                class="evn-btn secondary"
+                style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; color: #166534; background: #f0fdf4; border-color: #86efac;"
+                [disabled]="inspecting() || mockSubmitting()"
+                (click)="submitMockBistTelemetry('healthy')"
+                title="Tạo nhanh dữ liệu viễn trắc BIST đạt chuẩn 100% và lưu về CSDL Backend để bypass MF01"
+              >
+                @if (mockSubmitting() && mockPreset() === 'healthy') {
+                  <span nz-icon nzType="loading"></span> Đang gửi Mock về BE...
+                } @else {
+                  <span nz-icon nzType="thunderbolt"></span> ⚡ Giả lập BIST (Lưu BE)
+                }
+              </button>
+
+              <button
+                type="button"
+                class="evn-btn secondary"
+                style="height: 28px; min-height: 28px; padding: 0 8px; font-size: 11px;"
+                [disabled]="inspecting() || mockSubmitting()"
+                (click)="openMockModal('healthy')"
+                title="Tùy biến thông số viễn trắc BIST (pin, cảm biến, GPS, RF) để demo thực tế"
+              >
+                <span nz-icon nzType="sliders"></span> Tùy biến Mock...
+              </button>
             }
           </div>
         </div>
 
         <div class="panel-body">
+          <!-- BIST Mock Telemetry Quick Action Card -->
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span nz-icon nzType="thunderbolt" style="font-size: 18px; color: #16a34a;"></span>
+              <div>
+                <strong style="font-size: 12px; color: #166534;">Giả lập viễn trắc BIST (Telemetry Mocking &amp; Live Backend Sync)</strong>
+                <div style="font-size: 11px; color: #15803d;">
+                  Tạo dữ liệu đo kiểm BIST thực tế và lưu trực tiếp về CSDL PostgreSQL Backend qua API v1 để demo luồng MF01.
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button
+                type="button"
+                class="evn-btn primary"
+                style="height: 26px; font-size: 11px; background: #16a34a; border-color: #15803d;"
+                [disabled]="inspecting() || mockSubmitting()"
+                (click)="submitMockBistTelemetry('healthy')"
+              >
+                @if (mockSubmitting() && mockPreset() === 'healthy') {
+                  <span nz-icon nzType="loading"></span> Đang lưu CSDL...
+                } @else {
+                  <span nz-icon nzType="check-circle"></span> Mock Đạt chuẩn 100% (Bypass MF01)
+                }
+              </button>
+              <button
+                type="button"
+                class="evn-btn secondary"
+                style="height: 26px; font-size: 11px; background: #ffffff;"
+                [disabled]="inspecting() || mockSubmitting()"
+                (click)="openMockModal('healthy')"
+              >
+                <span nz-icon nzType="setting"></span> Tùy biến thông số...
+              </button>
+            </div>
+          </div>
+
           <!-- Betaflight Flight Controller Identification & Pairing Card -->
           <div class="fc-card">
             <div class="fc-header">
@@ -1394,4 +1457,147 @@
     </div>
   }
 
+
+  <!-- Mock BIST Telemetry Modal -->
+  @if (showMockModal()) {
+    <div class="evn-modal-backdrop" (click)="closeMockModal()" role="dialog" aria-modal="true" aria-labelledby="mockModalTitle">
+      <div class="evn-modal-dialog" (click)="$event.stopPropagation()" style="max-width: 560px;">
+        <div class="evn-modal-header">
+          <div class="modal-title-group">
+            <span nz-icon nzType="dashboard" style="font-size: 16px; color: #0284c7;"></span>
+            <h3 id="mockModalTitle">Giả lập dữ liệu viễn trắc BIST &amp; Lưu về CSDL Backend</h3>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeMockModal()" [disabled]="mockSubmitting()" aria-label="Đóng">✕</button>
+        </div>
+
+        <div class="evn-modal-body">
+          <div class="modal-alert-box" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
+            <div><strong>UAV kiểm định:</strong> {{ currentAssessmentDrone()?.code || selectedDroneId() }} ({{ currentAssessmentDrone()?.model || 'UAV' }})</div>
+            <div style="font-size: 11px; margin-top: 2px;">
+              Dữ liệu viễn trắc đo kiểm 6 hệ thống con sẽ được gửi về máy chủ qua API <code>POST /api/v1/drone-technical-inspections</code> và cập nhật trực tiếp vào cơ sở dữ liệu PostgreSQL.
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 11px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Chọn kịch bản mẫu:</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              <button
+                type="button"
+                class="evn-btn secondary"
+                [class.active]="mockPreset() === 'healthy'"
+                [style.background]="mockPreset() === 'healthy' ? '#dcfce7' : '#ffffff'"
+                [style.borderColor]="mockPreset() === 'healthy' ? '#16a34a' : '#cbd5e1'"
+                [style.color]="mockPreset() === 'healthy' ? '#15803d' : '#334155'"
+                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
+                (click)="applyMockPreset('healthy')"
+              >
+                <strong>✓ Đạt chuẩn 100%</strong>
+                <span style="font-size: 10px; color: #64748b;">Pin 96%, RTK 3D, IMU OK</span>
+              </button>
+
+              <button
+                type="button"
+                class="evn-btn secondary"
+                [class.active]="mockPreset() === 'warning'"
+                [style.background]="mockPreset() === 'warning' ? '#fef3c7' : '#ffffff'"
+                [style.borderColor]="mockPreset() === 'warning' ? '#d97706' : '#cbd5e1'"
+                [style.color]="mockPreset() === 'warning' ? '#b45309' : '#334155'"
+                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
+                (click)="applyMockPreset('warning')"
+              >
+                <strong>⚠ Cảnh báo (Warning)</strong>
+                <span style="font-size: 10px; color: #64748b;">Pin 68%, GPS Float</span>
+              </button>
+
+              <button
+                type="button"
+                class="evn-btn secondary"
+                [class.active]="mockPreset() === 'critical'"
+                [style.background]="mockPreset() === 'critical' ? '#fee2e2' : '#ffffff'"
+                [style.borderColor]="mockPreset() === 'critical' ? '#dc2626' : '#cbd5e1'"
+                [style.color]="mockPreset() === 'critical' ? '#b91c1c' : '#334155'"
+                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
+                (click)="applyMockPreset('critical')"
+              >
+                <strong>✕ Không đạt (Critical)</strong>
+                <span style="font-size: 10px; color: #64748b;">Pin 28%, Lỗi IMU</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Mức pin dự kiến (%):</label>
+              <input
+                type="number"
+                min="10"
+                max="100"
+                [value]="mockBatteryLevel()"
+                (input)="mockBatteryLevel.set(+$any($event.target).value)"
+                style="height: 26px; width: 100%; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 6px;"
+              />
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Số lượng vệ tinh GPS/RTK:</label>
+              <input
+                type="number"
+                min="0"
+                max="36"
+                [value]="mockGpsSats()"
+                (input)="mockGpsSats.set(+$any($event.target).value)"
+                style="height: 26px; width: 100%; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 6px;"
+              />
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Chất lượng tín hiệu RF viễn trắc (%):</label>
+              <input
+                type="number"
+                min="10"
+                max="100"
+                [value]="mockRfQuality()"
+                (input)="mockRfQuality.set(+$any($event.target).value)"
+                style="height: 26px; width: 100%; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 6px;"
+              />
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Cảm biến IMU kép &amp; Động cơ:</label>
+              <div style="font-size: 11px; line-height: 26px; font-weight: 600;" [style.color]="mockPreset() === 'critical' ? '#dc2626' : '#16a34a'">
+                {{ mockPreset() === 'critical' ? 'Lệch trục / Lỗi ESC rotor' : 'Chuẩn hóa 3 trục / Đồng bộ 100%' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group-modal">
+            <label for="mockBistNotesInput">Ghi chú biên bản BIST:</label>
+            <input
+              id="mockBistNotesInput"
+              type="text"
+              [value]="mockNotes()"
+              (input)="mockNotes.set($any($event.target).value)"
+              style="height: 28px; width: 100%; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 6px;"
+            />
+          </div>
+        </div>
+
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeMockModal()" [disabled]="mockSubmitting()">
+            Đóng
+          </button>
+          <button
+            type="button"
+            class="evn-btn primary"
+            (click)="submitMockBistTelemetry()"
+            [disabled]="mockSubmitting()"
+            style="background: #16a34a; border-color: #15803d;"
+          >
+            @if (mockSubmitting()) {
+              <span nz-icon nzType="loading"></span> Đang gửi về CSDL BE...
+            } @else {
+              <span nz-icon nzType="cloud-upload"></span> Lưu kết quả kiểm định về Backend
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </div>
