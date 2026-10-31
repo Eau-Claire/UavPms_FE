@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { InspectionFilters } from '../../components/inspection-filters/inspection-filters';
@@ -9,7 +10,7 @@ import { MonitorStore } from '../../data-access/monitor-store';
 
 @Component({
   selector: 'app-inspection-history',
-  imports: [DatePipe, RouterLink, DataState, Pagination, InspectionFilters],
+  imports: [DatePipe, RouterLink, NzIconModule, DataState, Pagination, InspectionFilters],
   providers: [MonitorStore],
   templateUrl: './inspection-history.html',
   styleUrl: './inspection-history.scss',

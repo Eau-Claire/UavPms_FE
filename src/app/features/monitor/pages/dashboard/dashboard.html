@@ -1,131 +1,119 @@
-<section class="page-heading">
-  <div>
-    <div class="page-breadcrumb"><span>TỔNG QUAN</span><span>/</span><strong>GIÁM SÁT HỆ THỐNG</strong></div>
-    <h1>Tổng quan hệ thống</h1>
-    <p class="review-subtitle">Hoạt động nhiệm vụ bay, kết quả duyệt AI và trạng thái sức khỏe lưới điện thời gian thực.</p>
-  </div>
-  <div class="live"><span aria-hidden="true"></span>Tự động làm mới · 30s</div>
-</section>
+<div class="dashboard-page">
+  <section class="page-heading">
+    <div class="heading-left">
+      <div class="page-breadcrumb"><span>TỔNG QUAN</span><span>/</span><strong>GIÁM SÁT HỆ THỐNG</strong></div>
+      <h1>Tổng quan hệ thống</h1>
+      <p class="review-subtitle">Hoạt động nhiệm vụ bay, kết quả kiểm tra kỹ thuật và trạng thái vận hành lưới điện thời gian thực.</p>
+    </div>
+    <div class="live"><span aria-hidden="true"></span>Tự động làm mới · 30s</div>
+  </section>
 
-@if (store.loading() && !store.dashboard()) {
-  <app-data-state kind="loading" title="Đang tải dữ liệu vận hành" message="Đang kết nối dịch vụ giám sát…" />
-} @else if (store.error() && !store.dashboard()) {
-  <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
-} @else if (store.summary(); as summary) {
-  <section class="dashboard-status-bar" aria-label="Thống kê trạng thái vận hành">
-    <!-- Nhóm 1: Nhiệm vụ bay -->
-    <div class="status-group">
-      <div class="group-header">
+  @if (store.loading() && !store.dashboard()) {
+    <app-data-state kind="loading" title="Đang tải dữ liệu vận hành" message="Đang kết nối dịch vụ giám sát…" />
+  } @else if (store.error() && !store.dashboard()) {
+    <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
+  } @else if (store.summary(); as summary) {
+    <!-- Compact Status Metric Strip -->
+    <section class="dashboard-status-bar" aria-label="Thống kê trạng thái vận hành">
+      <div class="status-group">
         <span class="group-tag">Nhiệm vụ bay</span>
+        <div class="status-items">
+          <div class="status-item">
+            <span class="item-label">Tổng</span>
+            <strong class="item-value">{{ summary.totalMissions }}</strong>
+          </div>
+          <div class="status-item">
+            <span class="item-label">Chờ xử lý</span>
+            <strong class="item-value">{{ summary.pendingMissions }}</strong>
+          </div>
+          <div class="status-item">
+            <span class="item-label">Đang thực hiện</span>
+            <strong class="item-value">{{ summary.inProgressMissions }}</strong>
+          </div>
+          <div class="status-item">
+            <span class="item-label">Hoàn thành</span>
+            <strong class="item-value">{{ summary.completedMissions }}</strong>
+          </div>
+        </div>
       </div>
-      <div class="status-items">
-        <div class="status-item">
-          <span class="item-label">Tổng nhiệm vụ</span>
-          <strong class="item-value">{{ summary.totalMissions }}</strong>
-        </div>
-        <div class="status-item">
-          <span class="item-label">Chờ xử lý</span>
-          <strong class="item-value">{{ summary.pendingMissions }}</strong>
-        </div>
-        <div class="status-item">
-          <span class="item-label">Đang thực hiện</span>
-          <strong class="item-value">{{ summary.inProgressMissions }}</strong>
-        </div>
-        <div class="status-item">
-          <span class="item-label">Hoàn thành</span>
-          <strong class="item-value">{{ summary.completedMissions }}</strong>
-        </div>
-      </div>
-    </div>
 
-    <!-- Vách phân cách -->
-    <div class="status-divider" aria-hidden="true"></div>
+      <div class="status-divider" aria-hidden="true"></div>
 
-    <!-- Nhóm 2: Giám sát & Sự cố -->
-    <div class="status-group">
-      <div class="group-header">
+      <div class="status-group">
         <span class="group-tag">Giám sát sự cố</span>
+        <div class="status-items">
+          <div class="status-item">
+            <span class="item-label">Lượt kiểm tra</span>
+            <strong class="item-value">{{ summary.totalInspections }}</strong>
+          </div>
+          <div class="status-item">
+            <span class="item-label">Tổng sự cố</span>
+            <strong class="item-value">{{ summary.totalDefects }}</strong>
+          </div>
+          <div class="status-item">
+            <span class="item-label">Nghiêm trọng</span>
+            <strong class="item-value critical-value">{{ summary.criticalDefects }}</strong>
+          </div>
+        </div>
       </div>
-      <div class="status-items">
-        <div class="status-item">
-          <span class="item-label">Lượt kiểm tra</span>
-          <strong class="item-value">{{ summary.totalInspections }}</strong>
-        </div>
-        <div class="status-item">
-          <span class="item-label">Tổng sự cố</span>
-          <strong class="item-value">{{ summary.totalDefects }}</strong>
-        </div>
-        <div class="status-item">
-          <span class="item-label">Sự cố nghiêm trọng</span>
-          <strong class="item-value">{{ summary.criticalDefects }}</strong>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  @if (store.error()) {
-    <div class="stale-warning" role="status">{{ store.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</div>
-  }
+    @if (store.error()) {
+      <div class="stale-warning" role="status">{{ store.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</div>
+    }
 
-  <section class="dashboard-grid">
-    <article class="panel panel-alerts">
-      <header>
-        <div>
-          <p class="kicker">Chú ý</p>
+    <!-- 4-Panel Grid Fitting Desktop Viewport without Scrolling -->
+    <div class="dashboard-grid">
+      <!-- Left Panel: Active Alerts & Notifications (full height with internal scroll) -->
+      <article class="panel panel-alerts">
+        <header>
           <h2>Cảnh báo đang hoạt động</h2>
-        </div>
-        <span class="count">{{ store.alerts().length }}</span>
-      </header>
-      @if (store.alerts().length) {
-        <app-active-alerts-panel [alerts]="store.alerts()" />
-      } @else {
-        <app-data-state kind="empty" title="Không có cảnh báo" message="Hệ thống đang hoạt động bình thường." />
-      }
-    </article>
+        </header>
+        <app-active-alerts-panel
+          [alerts]="store.alerts()"
+          (alertRead)="onAlertRead($event)"
+          (allRead)="onAllAlertsRead()"
+        />
+      </article>
 
-    <article class="panel panel-statistics">
-      <header>
-        <div>
-          <p class="kicker">Phân bổ</p>
+      <!-- Top-Middle Panel: Defect Statistics -->
+      <article class="panel panel-statistics">
+        <header>
           <h2>Thống kê sự cố</h2>
-        </div>
-      </header>
-      @if (store.defectStatistics().length) {
-        <app-defect-statistics-chart [data]="store.defectStatistics()" />
-      } @else {
-        <app-data-state kind="empty" title="Chưa có thống kê sự cố" />
-      }
-    </article>
-
-    <article class="panel panel-missions">
-      <header>
-        <div>
-          <p class="kicker">Thực thi</p>
-          <h2>Trạng thái nhiệm vụ</h2>
-        </div>
-      </header>
-      @if (store.missionStatus().length) {
-        <app-mission-status-overview [data]="store.missionStatus()" />
-      } @else {
-        <app-data-state kind="empty" title="Chưa có hoạt động nhiệm vụ" />
-      }
-    </article>
-
-    <article class="panel panel-defects">
-      <header>
-        <div>
-          <p class="kicker">Phát hiện AI</p>
-          <h2>Sự cố gần đây</h2>
-        </div>
-        <a routerLink="/inspections">Xem tất cả kiểm tra →</a>
-      </header>
-      @if (store.recentDefects(); as defects) {
-        @if (defects.items.length) {
-          <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" />
+        </header>
+        @if (store.defectStatistics().length) {
+          <app-defect-statistics-chart [data]="store.defectStatistics()" />
         } @else {
-          <app-data-state kind="empty" title="Chưa có sự cố gần đây" message="Kết quả phát hiện AI sẽ hiển thị tại đây." />
+          <app-data-state kind="empty" title="Chưa có thống kê sự cố" />
         }
-      }
-    </article>
-  </section>
-}
+      </article>
+
+      <!-- Top-Right Panel: Mission Status -->
+      <article class="panel panel-missions">
+        <header>
+          <h2>Trạng thái nhiệm vụ</h2>
+        </header>
+        @if (store.missionStatus().length) {
+          <app-mission-status-overview [data]="store.missionStatus()" />
+        } @else {
+          <app-data-state kind="empty" title="Chưa có hoạt động nhiệm vụ" />
+        }
+      </article>
+
+      <!-- Bottom Panel spanning Middle & Right: Recent Defects -->
+      <article class="panel panel-defects">
+        <header>
+          <h2>Sự cố gần đây</h2>
+          <a routerLink="/inspections">Xem tất cả kiểm tra →</a>
+        </header>
+        @if (store.recentDefects(); as defects) {
+          @if (defects.items.length) {
+            <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" />
+          } @else {
+            <app-data-state kind="empty" title="Chưa có sự cố gần đây" message="Kết quả phát hiện khuyết tật sẽ hiển thị tại đây." />
+          }
+        }
+      </article>
+    </div>
+  }
+</div>

@@ -1,23 +1,24 @@
 :host {
   display: block;
-  padding: 20px 24px;
+  padding: 12px 18px;
   box-sizing: border-box;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
 }
 
 .chart-wrap {
   display: grid;
-  grid-template-columns: minmax(9rem, 13rem) minmax(8rem, 1fr);
+  grid-template-columns: minmax(7rem, 9rem) minmax(8rem, 1fr);
   align-items: center;
-  gap: 1.25rem;
-  min-height: 16rem;
+  gap: 16px;
+  min-height: 0;
 }
 
 .chart {
-  width: min(13rem, 100%);
+  width: min(8.5rem, 100%);
   aspect-ratio: 1;
   margin: auto;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgb(15 23 42 / .06), 0 18px 42px rgb(15 23 42 / .08);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08), 0 8px 20px rgba(16, 56, 125, 0.08);
 }
 
 .chart-meta {
@@ -26,44 +27,48 @@
 
 .chart-total {
   display: block;
-  color: var(--app-text, var(--color-text));
-  font-size: 1.7rem;
-  line-height: 1;
+  color: #10387d;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .chart-caption {
   display: block;
-  margin-top: .25rem;
-  color: var(--app-muted, var(--color-muted));
-  font-size: .72rem;
-  font-weight: 700;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 ul {
   display: grid;
-  gap: .6rem;
-  margin: 1rem 0 0;
+  gap: 4px;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 li {
   display: grid;
-  grid-template-columns: .55rem 1fr auto;
+  grid-template-columns: 7px 1fr auto;
   align-items: center;
-  gap: .5rem;
-  color: var(--app-muted, var(--color-muted));
-  font-size: .72rem;
+  gap: 7px;
+  color: #475569;
+  font-size: 11.5px;
 }
 
 li > span:first-child {
-  width: .55rem;
-  height: .55rem;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
 li strong {
-  color: var(--app-text, var(--color-text));
+  color: #0f2952;
+  font-weight: 700;
 }
 
 @media (max-width: 520px) {

@@ -1,1 +1,142 @@
-<div class="alerts">@for (alert of alerts().slice(0, limit()); track alert.id) { <article [class.unread]="!alert.isRead"><span class="alert-icon" aria-hidden="true">!</span><div><div class="alert-title"><strong>{{ alert.title }}</strong>@if (!alert.isRead) { <span>Mới</span> }</div><p>{{ alert.message }}</p><time [attr.datetime]="alert.createdAt">{{ alert.createdAt | date:'dd/MM/yyyy, HH:mm' }}</time></div></article> }</div>
+<div class="alerts-container">
+  <!-- Toolbar: Filter tabs & Mark All Read action -->
+  <div class="alerts-toolbar">
+    <div class="filter-tabs">
+      <button
+        type="button"
+        class="filter-tab"
+        [class.active]="filterMode() === 'all'"
+        (click)="filterMode.set('all')"
+      >
+        Tất cả <strong>({{ alerts().length }})</strong>
+      </button>
+      <button
+        type="button"
+        class="filter-tab"
+        [class.active]="filterMode() === 'unread'"
+        (click)="filterMode.set('unread')"
+      >
+        Chưa đọc
+        @if (unreadCount() > 0) {
+          <span class="unread-pill">{{ unreadCount() }}</span>
+        }
+      </button>
+    </div>
+
+    @if (unreadCount() > 0) {
+      <button
+        type="button"
+        class="mark-all-btn"
+        (click)="markAllAsRead()"
+        title="Đánh dấu tất cả thông báo là đã đọc"
+      >
+        Đánh dấu tất cả đã đọc
+      </button>
+    }
+  </div>
+
+  <!-- Alerts Scrollable List -->
+  <div class="alerts-list" role="list">
+    @for (alert of filteredAlerts(); track alert.id) {
+      <article
+        class="alert-card"
+        [class.unread]="!alert.isRead"
+        role="button"
+        tabindex="0"
+        (click)="openAlert(alert)"
+        (keydown.enter)="openAlert(alert)"
+      >
+        <div class="card-main">
+          <div class="card-header">
+            <span class="alert-title">{{ cleanTitle(alert.title) }}</span>
+            <div class="card-meta">
+              <time [attr.datetime]="alert.createdAt">
+                {{ alert.createdAt | date:'dd/MM/yyyy HH:mm' }}
+              </time>
+              @if (!alert.isRead) {
+                <span class="badge-new">Mới</span>
+              }
+            </div>
+          </div>
+
+          <!-- Structured summary or text with highlighted numbers -->
+          @if (parseSummary(alert.message); as summary) {
+            <div class="metrics-row">
+              <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
+              <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
+              <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
+              <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
+            </div>
+          } @else {
+            <p class="alert-desc">{{ alert.message }}</p>
+          }
+        </div>
+      </article>
+    } @empty {
+      <div class="empty-alerts">
+        <span>Không có cảnh báo nào{{ filterMode() === 'unread' ? ' chưa đọc' : '' }}.</span>
+      </div>
+    }
+  </div>
+
+  <!-- Detail Modal Window -->
+  @if (selectedAlert(); as alert) {
+    <div class="modal-backdrop" (click)="closeModal()" role="presentation">
+      <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <header class="modal-header">
+          <div>
+            <h3 id="modal-title" class="modal-title">{{ cleanTitle(alert.title) }}</h3>
+            <span class="modal-time">{{ alert.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+          </div>
+          <button type="button" class="close-btn" (click)="closeModal()" aria-label="Đóng cửa sổ">✕</button>
+        </header>
+
+        <div class="modal-body">
+          @if (parseSummary(alert.message); as summary) {
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <span class="cell-label">Nhiệm vụ</span>
+                <strong class="cell-val">{{ summary.missions }}</strong>
+              </div>
+              <div class="summary-cell">
+                <span class="cell-label">Lượt kiểm tra</span>
+                <strong class="cell-val">{{ summary.inspections }}</strong>
+              </div>
+              <div class="summary-cell">
+                <span class="cell-label">Cảnh báo xử lý</span>
+                <strong class="cell-val">{{ summary.alerts }}</strong>
+              </div>
+              <div class="summary-cell">
+                <span class="cell-label">Khuyết tật phát hiện</span>
+                <strong class="cell-val">{{ summary.defects }}</strong>
+                @if (summary.critical > 0) {
+                  <small class="critical-text">({{ summary.critical }} nghiêm trọng)</small>
+                }
+              </div>
+            </div>
+          }
+
+          <div class="raw-message">
+            <pre>{{ alert.message }}</pre>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <span class="read-status-label" [class.is-read]="alert.isRead">
+            Trạng thái: <strong>{{ alert.isRead ? 'Đã xem' : 'Chưa xem' }}</strong>
+          </span>
+          <div class="modal-actions">
+            @if (!alert.isRead) {
+              <button type="button" class="action-btn secondary" (click)="markAsRead(alert)">
+                Đánh dấu đã đọc
+              </button>
+            }
+            <button type="button" class="action-btn primary" (click)="closeModal()">
+              Đóng
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  }
+</div>

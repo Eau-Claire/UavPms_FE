@@ -17,5 +17,16 @@ import { MonitorStore } from '../../data-access/monitor-store';
 })
 export class Dashboard {
   protected readonly store = inject(MonitorStore);
-  constructor() { this.store.startDashboardPolling(); }
+
+  constructor() {
+    this.store.startDashboardPolling();
+  }
+
+  protected onAlertRead(id: string): void {
+    this.store.markAlertRead(id);
+  }
+
+  protected onAllAlertsRead(): void {
+    this.store.markAllAlertsRead();
+  }
 }

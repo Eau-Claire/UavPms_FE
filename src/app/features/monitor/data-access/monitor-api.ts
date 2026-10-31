@@ -1,10 +1,46 @@
-﻿import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../models/monitor.models';
 
+export const LOCAL_STORAGE_READ_ALERTS_KEY = 'uav_pms_read_alerts_v1';
+
+export function getReadAlertIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_READ_ALERTS_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch {
+    // ignore storage read errors
+  }
+  return new Set<string>();
+}
+
+export function markAlertIdAsReadLocally(id: string): void {
+  try {
+    const set = getReadAlertIds();
+    set.add(id);
+    localStorage.setItem(LOCAL_STORAGE_READ_ALERTS_KEY, JSON.stringify([...set]));
+  } catch {
+    // ignore storage write errors
+  }
+}
+
+export function markAllAlertIdsAsReadLocally(ids: readonly string[]): void {
+  try {
+    const set = getReadAlertIds();
+    for (const id of ids) set.add(id);
+    localStorage.setItem(LOCAL_STORAGE_READ_ALERTS_KEY, JSON.stringify([...set]));
+  } catch {
+    // ignore storage write errors
+  }
+}
+
+/** `/monitor/*` endpoints (OperationsService MonitorController); every response is wrapped in ApiResponse. */
 @Injectable({
   providedIn: 'root',
 })
@@ -15,17 +51,22 @@ export class MonitorApi {
   getDashboard(page = 1, pageSize = 5) {
     return forkJoin({
       summary: this.get<unknown>('summary').pipe(catchError(() => of({}))),
-      recentDefects: this.get<unknown>('recent-defects', { page, pageSize }).pipe(catchError(() => of([]))),
-      defectStatistics: this.get<unknown>('defects-statistics').pipe(catchError(() => of([]))),
-      missionStatus: this.get<unknown>('mission-status').pipe(catchError(() => of([]))),
-      alerts: this.get<unknown>('alerts').pipe(catchError(() => of([]))),
-    }).pipe(map((value): DashboardSnapshot => ({
-      summary: normalizeSummary(value.summary),
-      recentDefects: normalizePage(value.recentDefects, page, pageSize, normalizeDefect),
-      defectStatistics: normalizeArray(value.defectStatistics).map(normalizeStatistic),
-      missionStatus: normalizeMissionStatuses(value.missionStatus),
-      alerts: normalizeArray(value.alerts).map(normalizeAlert).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
-    })));
+      recentDefects: this.get<unknown>('recent-defects', { page, pageSize }).pipe(catchError(() => of({}))),
+      defectStatistics: this.get<unknown>('defects-statistics').pipe(catchError(() => of({}))),
+      missionStatus: this.get<unknown>('mission-status').pipe(catchError(() => of({}))),
+      alerts: this.get<unknown>('alerts').pipe(catchError(() => of({}))),
+    }).pipe(map((value): DashboardSnapshot => {
+      const readSet = getReadAlertIds();
+      return {
+        summary: normalizeSummary(value.summary),
+        recentDefects: normalizePage(value.recentDefects, page, pageSize, normalizeDefect),
+        defectStatistics: normalizeStatistics(value.defectStatistics),
+        missionStatus: normalizeMissionStatuses(value.missionStatus),
+        alerts: itemsOf(value.alerts)
+          .map((item, index) => normalizeAlert(item, index, readSet))
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+      };
+    }));
   }
 
   getInspections(filters: InspectionFilters) {
@@ -47,40 +88,91 @@ export class MonitorApi {
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
 const numberValue = (value: unknown): number => Number(value ?? 0) || 0;
 const stringValue = (value: unknown, fallback = ''): string => value == null ? fallback : String(value);
-const pick = (source: Record<string, unknown>, ...keys: string[]): unknown => keys.map((key) => source[key]).find((value) => value !== undefined);
-const normalizeArray = (value: unknown): readonly unknown[] => {
+const itemsOf = (value: unknown): readonly unknown[] => {
   if (Array.isArray(value)) return value;
-  const source = record(value);
-  const list = pick(source, 'items', 'results', 'data', 'records');
-  return Array.isArray(list) ? list : [];
+  const items = record(value)['items'];
+  return Array.isArray(items) ? items : [];
 };
 
+/** `GET /monitor/summary` → DashboardSummaryDto. */
 const normalizeSummary = (value: unknown): MonitorSummary => {
-  const source = record(value);
+  const s = record(value);
   return {
-    totalMissions: numberValue(pick(source, 'totalMissions', 'missionTotal')),
-    pendingMissions: numberValue(pick(source, 'pendingMissions', 'pending')),
-    inProgressMissions: numberValue(pick(source, 'inProgressMissions', 'inProgress')),
-    completedMissions: numberValue(pick(source, 'completedMissions', 'completed')),
-    totalInspections: numberValue(pick(source, 'totalInspections', 'inspectionTotal')),
-    totalDefects: numberValue(pick(source, 'totalDefects', 'defectTotal')),
-    criticalDefects: numberValue(pick(source, 'criticalDefects', 'critical')),
+    totalMissions: numberValue(s['totalMissions']),
+    pendingMissions: numberValue(s['pendingMissions']),
+    inProgressMissions: numberValue(s['inProgressMissions']),
+    completedMissions: numberValue(s['completedMissions']),
+    totalInspections: numberValue(s['totalInspections']),
+    totalDefects: numberValue(s['totalDefects']),
+    criticalDefects: numberValue(s['criticalDefects']),
   };
 };
 
+/** Paged monitor responses are `{ items, pagination: { page, pageSize, totalItems, totalPages } }`. */
 const normalizePage = <T>(value: unknown, page: number, pageSize: number, mapper: (value: unknown, index: number) => T): PagedResponse<T> => {
-  const source = record(value); const items = normalizeArray(value).map(mapper);
-  const totalCount = numberValue(pick(source, 'totalCount', 'total', 'count')) || items.length;
-  return { items, page: numberValue(source['page']) || page, pageSize: numberValue(source['pageSize']) || pageSize, totalCount, totalPages: numberValue(source['totalPages']) || Math.max(1, Math.ceil(totalCount / pageSize)) };
+  const items = itemsOf(value).map(mapper);
+  const pagination = record(record(value)['pagination']);
+  const totalCount = numberValue(pagination['totalItems']) || items.length;
+  return {
+    items,
+    page: numberValue(pagination['page']) || page,
+    pageSize: numberValue(pagination['pageSize']) || pageSize,
+    totalCount,
+    totalPages: numberValue(pagination['totalPages']) || Math.max(1, Math.ceil(totalCount / pageSize)),
+  };
 };
 
-const normalizeDefect = (value: unknown, index: number): RecentDefect => { const s = record(value); return { id: stringValue(pick(s, 'id', 'inspectionId'), `defect-${index}`), missionId: stringValue(s['missionId']) || undefined, missionName: stringValue(pick(s, 'missionName', 'mission', 'missionCode'), 'Unknown mission'), defectType: stringValue(pick(s, 'defectType', 'type', 'classification'), 'Unclassified'), detectedAt: stringValue(pick(s, 'detectedAt', 'detectionTime', 'createdAt'), new Date(0).toISOString()), imageUrl: stringValue(pick(s, 'imageUrl', 'image', 'thumbnailUrl')) || undefined, severity: stringValue(s['severity']) || undefined }; };
-const normalizeInspection = (value: unknown, index: number): InspectionRecord => { const d = normalizeDefect(value, index); const s = record(value); return { id: d.id, missionId: d.missionId ?? '', missionName: d.missionName, imageUrl: d.imageUrl, isDefect: Boolean(pick(s, 'isDefect', 'hasDefect', 'defectDetected')), defectType: d.defectType === 'Unclassified' ? undefined : d.defectType, detectedAt: d.detectedAt }; };
-const normalizeStatistic = (value: unknown): DefectStatistic => { const s = record(value); return { defectType: stringValue(pick(s, 'defectType', 'type', 'name', 'label'), 'Other'), count: numberValue(pick(s, 'count', 'value', 'total')) }; };
-const normalizeAlert = (value: unknown, index: number): MonitorAlert => { const s = record(value); return { id: stringValue(s['id'], `alert-${index}`), title: stringValue(pick(s, 'title', 'alertTitle'), 'System alert'), message: stringValue(pick(s, 'message', 'body', 'description')), createdAt: stringValue(pick(s, 'createdAt', 'createdTime', 'timestamp'), new Date(0).toISOString()), isRead: Boolean(pick(s, 'isRead', 'read')), severity: stringValue(pick(s, 'severity', 'type')) || undefined }; };
+/** `RecentDefectDto { inspectionId, missionId, missionTitle, imageUrl, defectType, detectedAt }`. */
+const normalizeDefect = (value: unknown, index: number): RecentDefect => {
+  const s = record(value);
+  return {
+    id: stringValue(s['inspectionId'] ?? s['id'], `defect-${index}`),
+    missionId: stringValue(s['missionId']) || undefined,
+    missionName: stringValue(s['missionTitle'] ?? s['missionName'], 'Nhiệm vụ không xác định'),
+    defectType: stringValue(s['defectType'], 'Chưa phân loại'),
+    detectedAt: stringValue(s['detectedAt'], new Date(0).toISOString()),
+    imageUrl: stringValue(s['imageUrl']) || undefined,
+  };
+};
+
+/** `InspectionHistoryDto` = RecentDefectDto + `isDefect`. */
+const normalizeInspection = (value: unknown, index: number): InspectionRecord => {
+  const d = normalizeDefect(value, index);
+  const s = record(value);
+  const defectType = stringValue(s['defectType']);
+  return { id: d.id, missionId: d.missionId ?? '', missionName: d.missionName, imageUrl: d.imageUrl, isDefect: Boolean(s['isDefect']), defectType: defectType || undefined, detectedAt: d.detectedAt };
+};
+
+/** `DefectStatisticsDto { totalDefects, byType: [{ type, count }] }`. */
+const normalizeStatistics = (value: unknown): readonly DefectStatistic[] => {
+  const byType = record(value)['byType'];
+  const list = Array.isArray(byType) ? byType : itemsOf(value);
+  return list.map((item) => {
+    const s = record(item);
+    return { defectType: stringValue(s['type'] ?? s['defectType'], 'Khác'), count: numberValue(s['count']) };
+  });
+};
+
+/** `ActiveAlertDto { notificationId, title, message, createdAt, isRead }` inside `{ items }`. */
+const normalizeAlert = (value: unknown, index: number, readSet: Set<string> = new Set()): MonitorAlert => {
+  const s = record(value);
+  const id = stringValue(s['notificationId'] ?? s['id'], `alert-${index}`);
+  const isRead = Boolean(s['isRead']) || readSet.has(id);
+  return {
+    id,
+    title: stringValue(s['title'], 'Cảnh báo hệ thống'),
+    message: stringValue(s['message']),
+    createdAt: stringValue(s['createdAt'], new Date(0).toISOString()),
+    isRead,
+  };
+};
+
+/** `MissionStatusOverviewDto { pending, inProgress, completed }`. */
 const normalizeMissionStatuses = (value: unknown): readonly MissionStatus[] => {
-  const source = record(value); const list = normalizeArray(value);
-  if (list.length) return list.map((item) => { const s = record(item); return { status: stringValue(pick(s, 'status', 'name', 'label')), count: numberValue(pick(s, 'count', 'value', 'total')) }; });
-  return [{ status: 'Pending', count: numberValue(pick(source, 'pending', 'pendingMissions')) }, { status: 'InProgress', count: numberValue(pick(source, 'inProgress', 'inProgressMissions')) }, { status: 'Completed', count: numberValue(pick(source, 'completed', 'completedMissions')) }];
+  const s = record(value);
+  return [
+    { status: 'Pending', count: numberValue(s['pending']) },
+    { status: 'InProgress', count: numberValue(s['inProgress']) },
+    { status: 'Completed', count: numberValue(s['completed']) },
+  ];
 };
-

@@ -1,60 +1,60 @@
 :host {
   display: block;
-  padding: 20px 24px;
+  padding: 16px 20px;
   box-sizing: border-box;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
 }
 
 .status-list {
   display: grid;
-  gap: 1.25rem;
+  gap: 12px;
 }
 
 .status-row > div:first-child {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  gap: .55rem;
-  margin-bottom: .55rem;
-  font-size: .78rem;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.status-row strong {
+  color: #0f2952;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .status-row span {
-  color: var(--color-muted, #64748b);
+  color: #64748b;
+  font-size: 11.5px;
   font-weight: 500;
 }
 
 .status-row b {
-  color: var(--color-text, #1e293b);
+  color: #10387d;
+  font-weight: 700;
+  font-size: 12.5px;
 }
 
 .status-dot {
-  width: .55rem;
-  height: .55rem;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #f59e0b;
+  background: #10387d;
 }
 
 .track {
   overflow: hidden;
-  height: .55rem;
+  height: 6px;
   border-radius: 999px;
-  background: #eef2f7;
+  background: #e2e8f0;
 }
 
 .track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #f59e0b;
+  background: #10387d;
+  transition: width 0.3s ease;
 }
-
-.status-row[data-status='inprogress'] .status-dot,
-.status-row[data-status='inprogress'] .track span {
-  background: #2563eb;
-}
-
-.status-row[data-status='completed'] .status-dot,
-.status-row[data-status='completed'] .track span {
-  background: #16a34a;
-}
-
