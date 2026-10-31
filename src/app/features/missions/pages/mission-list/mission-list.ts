@@ -7,10 +7,18 @@ import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, o
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
-import { MISSION_STATUSES, Mission, MissionPage, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
+import {
+  MISSION_STATUSES,
+  Mission,
+  MissionPage,
+  MissionStatus,
+  missionStatusLabel,
+  normalizeMissionStatus,
+} from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionLink, MissionListScope, canViewAllMissions, missionRowLink } from '../../data-access/mission-access';
 import { MissionsApi } from '../../data-access/missions-api';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-mission-list',
@@ -82,12 +90,7 @@ export class MissionList {
           if (index === -1) return curr;
           const newItems = [...curr.items];
           const target = newItems[index];
-          let nextStatus = target.status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'Assigned';
-          else if (event.type === 'POSTPONED') nextStatus = 'Postponed';
-          else if (event.type === 'SUSPENDED') nextStatus = 'Suspended';
-          else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
-          newItems[index] = { ...target, status: nextStatus };
+          newItems[index] = { ...target, status: liveStatus(event, target.status) };
           return { ...curr, items: newItems };
         });
 
@@ -98,12 +101,7 @@ export class MissionList {
           );
           if (index === -1) return items;
           const newItems = [...items];
-          let nextStatus = newItems[index].status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'Assigned';
-          else if (event.type === 'POSTPONED') nextStatus = 'Postponed';
-          else if (event.type === 'SUSPENDED') nextStatus = 'Suspended';
-          else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
-          newItems[index] = { ...newItems[index], status: nextStatus };
+          newItems[index] = { ...newItems[index], status: liveStatus(event, newItems[index].status) };
           return newItems;
         });
       });
@@ -307,12 +305,21 @@ export class MissionList {
   }
 
   private errorMessage(error: unknown): string {
-    const fallback = 'Không thể tải danh sách nhiệm vụ.';
-    if (!(error instanceof HttpErrorResponse)) return fallback;
-    if (error.status === 0) return 'Không kết nối được máy chủ. Vui lòng thử lại.';
-    if (error.status === 401 || error.status === 403) return 'Bạn không có quyền xem danh sách nhiệm vụ này.';
-    const body = error.error && typeof error.error === 'object' ? (error.error as Record<string, unknown>) : {};
-    const message = typeof body['message'] === 'string' ? body['message'].trim() : '';
-    return message || fallback;
+    if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+      return 'Bạn không có quyền xem danh sách nhiệm vụ này.';
+    }
+    return describeHttpError(error, 'Không thể tải danh sách nhiệm vụ.');
   }
+}
+
+/**
+ * Status shown after a realtime mission event. The event's own status wins: a confirmation only makes the mission
+ * Assigned once every required member accepted, a non-required member's postponement leaves it unchanged, and
+ * resume may land in PendingAcceptance.
+ */
+function liveStatus(event: { type: string; status?: string | null }, current: MissionStatus): MissionStatus {
+  if (event.status) return normalizeMissionStatus(event.status);
+  if (event.type === 'SUSPENDED') return 'Suspended';
+  if (event.type === 'CANCELLED') return 'Cancelled';
+  return current;
 }

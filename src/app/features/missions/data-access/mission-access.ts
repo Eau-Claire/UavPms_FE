@@ -70,8 +70,66 @@ export const findMyAssignment = (mission: Mission | null | undefined, userId: st
   );
 };
 
-/** Mission statuses in which a member can still accept or ask to postpone their assignment. */
-const RESPONSE_OPEN_STATUSES = ['Draft', 'PendingAcceptance', 'Postponed'];
+/**
+ * Mission statuses in which a member can still accept or ask to postpone their assignment. The backend answers
+ * `409 INVALID_MISSION_STATE` outside PendingAcceptance/Assigned/Preparing/Ready (e.g. Draft, Postponed).
+ */
+const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
+
+/** `POST /missions/{id}/postpone` (the whole mission) is Manager/SystemAdmin only; members use `/assignments/postpone`. */
+export const canPostponeWholeMission = (role: RoleInput): boolean => isManagerRole(role);
+
+/** Statuses from which `POST /missions/{id}/start` is accepted. */
+const STARTABLE_STATUSES = ['Assigned', 'Preparing', 'Ready'];
+
+/** `Mission:StartToleranceMinutes`: a mission may start at most 2 hours before its planned start. */
+export const START_TOLERANCE_MINUTES = 120;
+
+/** Active required members (isRequired defaults to true) that have not accepted yet. */
+export const pendingRequiredMembers = (mission: Mission | null | undefined): readonly MissionAssignment[] =>
+  (mission?.team ?? []).filter(
+    (a) =>
+      a.isRequired !== false &&
+      a.status !== 'Revoked' &&
+      a.responseStatus !== 'REPLACED' &&
+      a.responseStatus !== 'CANCELLED' &&
+      a.responseStatus !== 'ACCEPTED',
+  );
+
+/** Earliest moment the mission may start (`plannedStart - 2h`), or `null` when there is no planned start. */
+export const earliestStartAt = (mission: Mission | null | undefined): Date | null => {
+  const raw = mission?.plannedStart ?? mission?.scheduledStartAt;
+  if (!raw) return null;
+  const start = new Date(raw);
+  return Number.isNaN(start.getTime()) ? null : new Date(start.getTime() - START_TOLERANCE_MINUTES * 60_000);
+};
+
+/**
+ * Why "Bắt đầu bay" is not available yet (Vietnamese), or `null` when the client-side checks pass. Mirrors the
+ * backend checks that the client can see: state, required acceptances (`REQUIRED_ACCEPTANCE_PENDING`), start window
+ * (`MISSION_START_TOO_EARLY`) and a UAV on the mission (`DRONE_ASSIGNMENT_REQUIRED`). UAV availability, health and
+ * handover are only known to the backend and are reported when the start request fails.
+ */
+export const missionStartBlocker = (mission: Mission | null | undefined, now: number): string | null => {
+  if (!mission) return 'Chưa tải được nhiệm vụ.';
+  if (!STARTABLE_STATUSES.includes(normalizeMissionStatus(mission.status))) {
+    return 'Chỉ bắt đầu bay khi nhiệm vụ ở trạng thái Đã phân công / Chuẩn bị / Sẵn sàng.';
+  }
+  const pending = pendingRequiredMembers(mission);
+  if (pending.length || (!mission.team?.length && mission.allConfirmed === false)) {
+    return pending.length
+      ? `Còn ${pending.length} thành viên bắt buộc chưa chấp nhận nhiệm vụ.`
+      : 'Còn thành viên bắt buộc chưa chấp nhận nhiệm vụ.';
+  }
+  if (!mission.droneId && !mission.droneCode) return 'Nhiệm vụ chưa có UAV.';
+  const earliest = earliestStartAt(mission);
+  if (earliest && now < earliest.getTime()) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const at = `${pad(earliest.getHours())}:${pad(earliest.getMinutes())} ${pad(earliest.getDate())}/${pad(earliest.getMonth() + 1)}`;
+    return `Chưa đến khung giờ bay: chỉ được bắt đầu từ ${at} (sớm nhất 2 giờ trước giờ bay dự kiến).`;
+  }
+  return null;
+};
 
 /** True while a member has not accepted yet and the mission has not started executing. */
 export const isAwaitingMyResponse = (mission: Mission | null | undefined, assignment: MissionAssignment | null): boolean => {
@@ -116,7 +174,10 @@ export const missionRowLink = (
   const detail = ['/missions', mission.id];
   if (isManagerRole(role)) return { commands: detail };
   if (isAnalystRole(role) && scope === 'all') return { commands: detail, queryParams: { tab: 'results' } };
-  if (isAwaitingMyResponse(mission, findMyAssignment(mission, userId))) {
+  const mine = findMyAssignment(mission, userId);
+  // A member whose postponement is still pending also lands on the acceptance page to follow its outcome.
+  const postponePending = mine?.responseStatus === 'POSTPONED' && normalizeMissionStatus(mission.status) === 'Postponed';
+  if (isAwaitingMyResponse(mission, mine) || postponePending) {
     return { commands: ['/missions', mission.id, 'inspector'] };
   }
   return { commands: detail };

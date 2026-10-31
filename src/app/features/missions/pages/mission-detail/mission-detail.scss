@@ -4985,3 +4985,17 @@
 
   .required { color: #ef4444; }
 }
+
+// MF02: reason why "Bắt đầu bay" is disabled (required acceptances, start window, UAV).
+.start-blocker-reason {
+  margin: 4px 0 0;
+  max-width: 280px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #7c2d12;
+}
+
+.btn-flight-start:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+}

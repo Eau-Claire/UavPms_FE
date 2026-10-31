@@ -9,6 +9,7 @@ import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { PreMissionApi } from '../../data-access/pre-mission-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-assessment-list',
@@ -217,8 +218,9 @@ export class AssessmentList implements OnDestroy {
           this.totalCount.set(res.totalCount);
           this.totalPages.set(res.totalPages);
         },
-        error: () => {
-          this.error.set('Không tải được danh sách đánh giá tiền nhiệm vụ. Vui lòng thử lại.');
+        error: (err: unknown) => {
+          this.loading.set(false);
+          this.error.set(describeHttpError(err, 'Không tải được danh sách đánh giá tiền nhiệm vụ. Vui lòng thử lại.'));
         },
         complete: () => {
           this.loading.set(false);
@@ -288,14 +290,9 @@ export class AssessmentList implements OnDestroy {
         });
         this.actionBusyId.set(null);
       },
-      error: (err) => {
+      error: (err: unknown) => {
         this.actionBusyId.set(null);
-        const msg = err?.error?.message;
-        if (msg === 'ASSESSMENT_ALREADY_COMPLETED' || msg === 'ASSESSMENT_ALREADY_CONSUMED') {
-          this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
-        } else {
-          this.error.set(msg || `Không thể đánh giá lại mã ${item.assessmentCode}.`);
-        }
+        this.error.set(`${item.assessmentCode}: ${describeHttpError(err, 'Không thể đánh giá lại hồ sơ.')}`);
       },
       complete: () => {
         this.actionBusyId.set(null);
@@ -346,8 +343,9 @@ export class AssessmentList implements OnDestroy {
         this.itemToCancel.set(null);
         this.successMessage.set(`Đã hủy bản đánh giá ${item.assessmentCode}.`);
       },
-      error: (err) => {
-        this.error.set(err?.error?.message || `Không thể hủy mã ${item.assessmentCode}.`);
+      error: (err: unknown) => {
+        this.error.set(`${item.assessmentCode}: ${describeHttpError(err, 'Không thể hủy hồ sơ.')}`);
+        this.itemToCancel.set(null);
         this.actionBusyId.set(null);
       },
       complete: () => {

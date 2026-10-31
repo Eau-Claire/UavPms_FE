@@ -196,7 +196,10 @@
           <span class="evn-status {{ statusTone(a.uav.status) }}">{{ statusLabel(a.uav.status) }}</span>
         </div>
         <p class="card-desc">
-          Có <strong>{{ a.uavCandidates.length }}</strong> UAV đã đăng ký và khả dụng tại trạm.
+          <strong>{{ eligibleUavCount() }}</strong>/{{ a.uavCandidates.length }} UAV đủ điều kiện
+          @if (uavNeedingInspectionCount() > 0) {
+            · {{ uavNeedingInspectionCount() }} UAV cần Kỹ thuật viên kiểm định
+          }
         </p>
         @if (a.uav.evaluatedAt) {
           <span class="card-time">Đánh giá: {{ a.uav.evaluatedAt | date:'HH:mm dd/MM' }}</span>
@@ -762,7 +765,7 @@
                       </td>
                       <td>
                         @if (person.availabilityStatus === 'Conflict') {
-                          <span style="color: #7f1d1d;"><span nz-icon nzType="warning"></span> {{ person.reasonCode || 'Trùng lịch' }}</span>
+                          <span style="color: #7f1d1d;"><span nz-icon nzType="warning" aria-hidden="true"></span> {{ personnelReason(person.reasonCode) || 'Trùng lịch' }}</span>
                         } @else {
                           <span style="color: #15803d;"><span nz-icon nzType="check"></span> Không có xung đột</span>
                         }
@@ -788,30 +791,43 @@
         <div class="panel-header">
           <div class="header-title-group">
             <h3>Danh sách thiết bị bay ứng viên (UAV Candidates)</h3>
-            <span class="panel-subinfo">Tình trạng vận hành, sức khỏe kỹ thuật và hạn kiểm định</span>
+            <span class="panel-subinfo">
+              Đủ điều kiện = sẵn sàng vận hành + kiểm định kỹ thuật còn hạn tại giờ bay + phạm vi không vượt năng lực bay
+            </span>
           </div>
         </div>
+        @if (uavNeedingInspectionCount() > 0) {
+          <div class="evn-alert uav-inspection-hint" role="note">
+            <span>
+              <span nz-icon nzType="tool" aria-hidden="true"></span>
+              Có <strong>{{ uavNeedingInspectionCount() }}</strong> UAV chưa có biên bản kiểm định kỹ thuật còn hiệu lực tại
+              thời điểm bắt đầu bay hoặc kiểm định không đạt. Kỹ thuật viên cần kiểm định các UAV này (tab “Kiểm định kỹ
+              thuật”), sau đó Quản lý bấm “Đánh giá lại” để cập nhật hồ sơ.
+            </span>
+          </div>
+        }
         <div class="pre-mission-table-card" style="border: 0;">
           <div class="table-scroll">
             <table>
+              <caption class="sr-only">Danh sách UAV ứng viên và lý do đủ/không đủ điều kiện</caption>
               <thead>
                 <tr>
-                  <th style="width: 130px;">Mã UAV</th>
-                  <th>Tên thiết bị</th>
-                  <th style="width: 130px;">Trạng thái vận hành</th>
-                  <th style="width: 130px;">Sức khỏe kỹ thuật</th>
-                  <th style="width: 130px;">Kiểm định gần nhất</th>
-                  <th style="width: 140px;">Độ phù hợp GIS</th>
-                  <th style="width: 130px;">Hạn kiểm định</th>
-                  <th style="width: 110px;">Đủ điều kiện</th>
-                  <th style="width: 120px;">Thao tác</th>
+                  <th scope="col" style="width: 110px;">Mã UAV</th>
+                  <th scope="col">Thiết bị</th>
+                  <th scope="col" style="width: 120px;">Sẵn sàng vận hành</th>
+                  <th scope="col" style="width: 150px;">Kiểm định kỹ thuật</th>
+                  <th scope="col" style="width: 160px;">Phạm vi bay</th>
+                  <th scope="col" style="width: 70px;">Pin</th>
+                  <th scope="col">Lý do</th>
+                  <th scope="col" style="width: 110px;">Đủ điều kiện</th>
+                  <th scope="col" style="width: 110px;">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 @if (!a.uavCandidates.length) {
                   <tr>
                     <td colspan="9" class="text-center" style="padding: 16px; color: #64748b;">
-                      Chưa tìm thấy UAV nào sẵn sàng trong khu vực.
+                      Chưa tìm thấy UAV nào trong lần đánh giá gần nhất.
                     </td>
                   </tr>
                 } @else {
@@ -820,37 +836,47 @@
                       <td><span class="evn-code">{{ uav.code }}</span></td>
                       <td><strong>{{ uav.model || uav.code }}</strong></td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(uav.operationalStatus) }}">
-                          {{ uav.operationalStatus }}
+                        <span class="evn-status" [class.pass]="uav.isAvailable" [class.fail]="!uav.isAvailable">
+                          {{ uav.isAvailable ? 'Sẵn sàng' : 'Không sẵn sàng' }}
                         </span>
                       </td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(uav.technicalHealth) }}">
-                          {{ uav.technicalHealth }}
+                        <span class="evn-status {{ technicalTone(uav.technicalEligibility) }}">
+                          {{ technicalLabel(uav.technicalEligibility) }}
                         </span>
+                        <div class="uav-health-sub">Sức khỏe: {{ statusLabel(uav.technicalHealth) || uav.technicalHealth }}</div>
                       </td>
                       <td class="text-center">
-                        @if (uav.suitability === 'SUITABLE') {
-                          <span class="evn-status pass" [title]="uav.suitabilityReason || 'Đủ điều kiện bay trọn vẹn 1 lượt'">
-                            <span nz-icon nzType="check"></span> PHÙ HỢP
-                          </span>
-                        } @else if (uav.suitability === 'SUITABLE_WITH_SPLIT') {
-                          <span class="evn-status warning" [title]="uav.suitabilityReason || 'Cần chia chặng'">
-                            <span nz-icon nzType="branches"></span> CHIA {{ uav.estimatedFlightsNeeded || 2 }} LƯỢT
-                          </span>
-                        } @else if (uav.suitability === 'UNSUITABLE') {
-                          <span class="evn-status fail" [title]="uav.suitabilityReason || 'Không đáp ứng tầm bay hoặc lỗi kỹ thuật'">
-                            <span nz-icon nzType="close"></span> KHÔNG PHÙ HỢP
-                          </span>
-                        } @else {
-                          <span class="evn-status pass">PHÙ HỢP</span>
+                        <span
+                          class="evn-status"
+                          [class.pass]="uav.suitability === 'SUITABLE'"
+                          [class.warning]="uav.suitability === 'SUITABLE_WITH_SPLIT'"
+                          [class.fail]="uav.suitability === 'UNSUITABLE'"
+                          [class.neutral]="!uav.suitability"
+                          [title]="uav.suitabilityReason || ''"
+                        >
+                          {{ suitabilityText(uav) }}
+                        </span>
+                        @if (uav.coverageDistanceKm !== null && uav.coverageDistanceKm !== undefined) {
+                          <div class="uav-health-sub">Tối đa {{ uav.coverageDistanceKm | number: '1.0-1' }} km/chuyến</div>
                         }
                       </td>
                       <td>{{ uav.batteryLevel }}%</td>
-                      <td>{{ uav.reasonCode || '—' }}</td>
+                      <td>
+                        @if (uav.reasonCode) {
+                          <span class="uav-reason">{{ uavReason(uav.reasonCode) }}</span>
+                        } @else {
+                          <span class="uav-reason ok">Đạt mọi điều kiện</span>
+                        }
+                        @if (needsInspection(uav)) {
+                          <div class="uav-inspection-tip">
+                            <span nz-icon nzType="tool" aria-hidden="true"></span> Cần Kỹ thuật viên kiểm định UAV này.
+                          </div>
+                        }
+                      </td>
                       <td class="text-center">
-                        <span class="evn-status {{ statusTone(uav.isEligible ? 'ELIGIBLE' : 'NOT_ELIGIBLE') }}">
-                          {{ uav.isEligible ? 'ELIGIBLE' : 'NOT_ELIGIBLE' }}
+                        <span class="evn-status" [class.pass]="uav.isEligible" [class.fail]="!uav.isEligible">
+                          {{ uav.isEligible ? 'Đủ điều kiện' : 'Chưa đủ' }}
                         </span>
                       </td>
                       <td class="text-center">
@@ -859,9 +885,9 @@
                           class="evn-btn secondary"
                           style="height: 22px; min-height: 22px; padding: 0 8px; font-size: 10px;"
                           (click)="selectDroneForInspection(uav)"
-                          title="Chuyển sang kiểm định kỹ thuật cho thiết bị này"
+                          [attr.aria-label]="'Mở kiểm định kỹ thuật cho ' + uav.code"
                         >
-                          <span nz-icon nzType="dashboard"></span> Kiểm định
+                          <span nz-icon nzType="dashboard" aria-hidden="true"></span> Kiểm định
                         </button>
                       </td>
                     </tr>
@@ -1485,7 +1511,7 @@
         <div class="evn-modal-header">
           <div class="modal-title-group">
             <span nz-icon nzType="dashboard" style="font-size: 16px; color: #0284c7;"></span>
-            <h3 id="mockModalTitle">Giả lập dữ liệu viễn trắc BIST &amp; Lưu về CSDL Backend</h3>
+            <h3 id="mockModalTitle">{{ checklistManual() ? 'Nhập kết quả kiểm định kỹ thuật UAV' : 'Giả lập dữ liệu viễn trắc BIST và lưu về CSDL Backend' }}</h3>
           </div>
           <button type="button" class="btn-close-modal" (click)="closeMockModal()" [disabled]="mockSubmitting()" aria-label="Đóng">✕</button>
         </div>
@@ -1494,12 +1520,12 @@
           <div class="modal-alert-box" style="background: #f0fdf4; border-color: #86efac; color: #166534;">
             <div><strong>UAV kiểm định:</strong> {{ currentAssessmentDrone()?.code || selectedDroneId() }} ({{ currentAssessmentDrone()?.model || 'UAV' }})</div>
             <div style="font-size: 11px; margin-top: 2px;">
-              Dữ liệu viễn trắc đo kiểm 6 hệ thống con sẽ được gửi về máy chủ qua API <code>POST /api/v1/drone-technical-inspections</code> và cập nhật trực tiếp vào cơ sở dữ liệu PostgreSQL.
+              Checklist gồm khung thân, cánh quạt, động cơ, pin, IMU, GPS, Flight Controller, liên kết RF và camera. Mục quan trọng thiếu số đo hoặc dưới ngưỡng (pin &lt; 30%, RF &lt; 60%) sẽ bị tính là không đạt.
             </div>
           </div>
 
           <div style="margin-bottom: 12px;">
-            <label style="font-size: 11px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Chọn kịch bản mẫu:</label>
+            <p style="font-size: 11px; font-weight: 600; color: #334155; margin: 0 0 6px; display: block;">Chọn kịch bản mẫu:</p>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
               <button
                 type="button"
@@ -1547,8 +1573,9 @@
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
             <div>
-              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Mức pin dự kiến (%):</label>
+              <label for="checklistBattery" style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Mức pin dự kiến (%):</label>
               <input
+                id="checklistBattery"
                 type="number"
                 min="10"
                 max="100"
@@ -1558,8 +1585,9 @@
               />
             </div>
             <div>
-              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Số lượng vệ tinh GPS/RTK:</label>
+              <label for="checklistGps" style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Số lượng vệ tinh GPS/RTK:</label>
               <input
+                id="checklistGps"
                 type="number"
                 min="0"
                 max="36"
@@ -1569,8 +1597,9 @@
               />
             </div>
             <div>
-              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Chất lượng tín hiệu RF viễn trắc (%):</label>
+              <label for="checklistRf" style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Chất lượng tín hiệu RF viễn trắc (%):</label>
               <input
+                id="checklistRf"
                 type="number"
                 min="10"
                 max="100"
@@ -1580,7 +1609,7 @@
               />
             </div>
             <div>
-              <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 3px;">Cảm biến IMU kép &amp; Động cơ:</label>
+              <p style="font-size: 11px; color: #475569; display: block; margin: 0 0 3px;">Cảm biến IMU kép &amp; Động cơ:</p>
               <div style="font-size: 11px; line-height: 26px; font-weight: 600;" [style.color]="mockPreset() === 'critical' ? '#dc2626' : '#16a34a'">
                 {{ mockPreset() === 'critical' ? 'Lệch trục / Lỗi ESC rotor' : 'Chuẩn hóa 3 trục / Đồng bộ 100%' }}
               </div>

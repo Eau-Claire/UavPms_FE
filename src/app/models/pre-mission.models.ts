@@ -66,18 +66,35 @@ export interface UavCandidate {
   readonly code: string;
   readonly model: string;
   readonly isEligible: boolean;
-  /** `Available` | `Reserved` | `InUse` | `Maintenance` | `Unavailable` | `Lost` (đã kiểm tra trong khung giờ). */
+  /**
+   * Sẵn sàng vận hành trong khung giờ của hồ sơ: `Available` | `Unavailable` (backend gộp trạng thái UAV và
+   * trùng lịch). Dữ liệu cũ có thể trả `Reserved` | `InUse` | `Maintenance` | `Lost`.
+   */
   readonly operationalStatus: string;
   /** `Unknown` | `Healthy` | `Warning` | `Critical`. */
   readonly technicalHealth: string;
   readonly technicalInspectionId?: string | null;
+  /**
+   * Lý do không đủ điều kiện, theo thứ tự ưu tiên của backend: `DRONE_NOT_AVAILABLE` → `SCHEDULE_CONFLICT` →
+   * `TECHNICAL_HEALTH_CRITICAL` / `NO_VALID_TECHNICAL_INSPECTION` / `TECHNICAL_HEALTH_DEGRADED` →
+   * `SCOPE_EXCEEDS_CAPABILITY`.
+   */
   readonly reasonCode?: string | null;
   readonly batteryLevel: number;
+  /** Chỉ mô tả phạm vi so với năng lực bay; không còn phản ánh sức khỏe hay tình trạng sẵn sàng. */
   readonly suitability?: UavSuitability | null;
   readonly estimatedFlightsNeeded?: number | null;
+  /** Quãng đường tối đa của MỘT chuyến bay (km). */
   readonly coverageDistanceKm?: number | null;
   readonly suitabilityReason?: string | null;
+  /** Sẵn sàng vận hành (`isAvailable` nếu backend trả về, ngược lại suy ra từ `operationalStatus`/`reasonCode`). */
+  readonly isAvailable?: boolean;
+  /** Kết quả kỹ thuật BR-22 (`technicalEligibilityStatus` nếu có, ngược lại suy ra từ `reasonCode`). */
+  readonly technicalEligibility?: UavTechnicalEligibility;
 }
+
+/** `ELIGIBLE`: có biên bản còn hạn tại giờ bay; `REQUIRES_INSPECTION`: chưa có/đã hết hạn; `UNKNOWN`: không xác định. */
+export type UavTechnicalEligibility = 'ELIGIBLE' | 'REQUIRES_INSPECTION' | 'CRITICAL' | 'DEGRADED' | 'UNKNOWN';
 
 /** Cột trong phạm vi hồ sơ (`PreMissionAssessmentTowerDto`). */
 export interface AssessmentTower {

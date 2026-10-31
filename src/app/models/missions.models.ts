@@ -303,6 +303,13 @@ export interface CreateMissionFromAssessmentRequest {
   readonly emergencyReason?: string | null;
   readonly isImmediate: boolean;
   readonly idempotencyKey?: string | null;
+  /**
+   * Hạn chót để thành viên xác nhận (ISO-8601 UTC có `Z`). Phải ở tương lai và không sau `plannedStart`;
+   * bỏ trống thì backend dùng `now + 24h` (tối đa bằng `plannedStart`).
+   */
+  readonly confirmationDeadline?: string | null;
+  /** Chỉ thị của quản lý, gửi kèm thông báo `MISSION_DISPATCH` (tối đa 2.000 ký tự). */
+  readonly managerInstructions?: string | null;
 }
 
 /** Nhiệm vụ vừa tạo (backend trả về thực thể nhiệm vụ). */

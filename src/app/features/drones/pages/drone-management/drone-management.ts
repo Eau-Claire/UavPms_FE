@@ -29,6 +29,7 @@ import {
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-drone-management',
@@ -179,7 +180,7 @@ export class DroneManagement {
       )
       .subscribe({
         next: (items) => this.drones.set(items),
-        error: () => this.error.set('Không thể tải danh sách phương tiện UAV.'),
+        error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể tải danh sách phương tiện UAV.')),
       });
   }
 
@@ -267,8 +268,8 @@ export class DroneManagement {
             this.closeModal();
             this.showNotification(`Đã cập nhật phương tiện ${updated.code}`);
           },
-          error: (err) => {
-            this.error.set(err?.error?.message || 'Không thể cập nhật UAV.');
+          error: (err: unknown) => {
+            this.error.set(describeHttpError(err, 'Không thể cập nhật UAV.'));
           },
         });
     } else {
@@ -299,8 +300,8 @@ export class DroneManagement {
             this.closeModal();
             this.showNotification(`Đã tạo mới phương tiện ${created.code}`);
           },
-          error: (err) => {
-            this.error.set(err?.error?.message || 'Không thể tạo mới UAV.');
+          error: (err: unknown) => {
+            this.error.set(describeHttpError(err, 'Không thể tạo mới UAV.'));
           },
         });
     }
@@ -327,8 +328,8 @@ export class DroneManagement {
           this.drones.update((list) => list.filter((d) => d.id !== drone.id));
           this.showNotification(`Đã xóa phương tiện ${drone.code}`);
         },
-        error: (err) => {
-          this.error.set(err?.error?.message || 'Không thể xóa UAV.');
+        error: (err: unknown) => {
+          this.error.set(describeHttpError(err, 'Không thể xóa UAV.'));
         },
       });
   }
@@ -463,8 +464,8 @@ export class DroneManagement {
             `Đã lưu kiểm định cho ${drone.code}: Kết quả ${res?.status || 'Hoàn tất'} - Sức khỏe kỹ thuật: ${res?.health || 'Cập nhật'}.`,
           );
         },
-        error: (err) => {
-          this.error.set(err?.error?.message || 'Không thể lưu biên bản kiểm định kỹ thuật.');
+        error: (err: unknown) => {
+          this.error.set(describeHttpError(err, 'Không thể lưu biên bản kiểm định kỹ thuật.'));
         },
       });
   }
@@ -496,7 +497,7 @@ export class DroneManagement {
       )
       .subscribe({
         next: (result) => this.gisResult.set(result),
-        error: () => this.error.set('Không thể tính toán ước tính tải GIS.'),
+        error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể tính toán ước tính tải GIS.')),
       });
   }
 

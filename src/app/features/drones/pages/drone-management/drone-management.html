@@ -790,6 +790,14 @@
                       <span>Số lần bay ước tính: <strong>{{ item.estimatedFlightsNeeded }} lượt</strong></span>
                       <span>Tầm bay tối đa mỗi lần (trừ 20% dự phòng): <strong>{{ item.maxCoverageDistanceKm | number:'1.1-1' }} km</strong></span>
                     </div>
+                    <!-- Suitability only compares scope with flight capability; readiness is reported separately. -->
+                    <div class="card-specs">
+                      <span>Sẵn sàng vận hành: <strong>{{ item.isAvailable ? 'Có' : 'Không' }}</strong></span>
+                      <span>
+                        Kiểm định kỹ thuật:
+                        <strong>{{ item.isTechnicallyReady ? 'Còn hiệu lực' : 'Cần Kỹ thuật viên kiểm định' }}</strong>
+                      </span>
+                    </div>
                   </div>
                 </div>
               }

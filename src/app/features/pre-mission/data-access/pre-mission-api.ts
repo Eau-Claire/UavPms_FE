@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { CreateMissionFromAssessmentRequest, CreatedMission } from '../../../models/missions.models';
@@ -20,6 +20,7 @@ import {
   SubsystemHealth,
   TechnicalMetric,
   UavCandidate,
+  UavTechnicalEligibility,
 } from '../../../models/pre-mission.models';
 
 export interface RealtimeWeatherSnapshot {
@@ -33,6 +34,29 @@ export interface RealtimeWeatherSnapshot {
   isSafeToFly: boolean;
   warningLevel: 'low' | 'medium' | 'high';
   time: string;
+}
+
+/** Một chỉ số trong biên bản kiểm định (`DroneInspectionMetricRequest`). */
+export interface TechnicalInspectionMetricInput {
+  readonly metricCode: string;
+  readonly subsystem: string;
+  readonly numericValue?: number | null;
+  readonly boolValue?: boolean | null;
+  readonly valueText?: string | null;
+  readonly unit?: string | null;
+  readonly passed?: boolean | null;
+  readonly isRequired?: boolean;
+  readonly critical?: boolean;
+  readonly severity?: string;
+}
+
+/** Nội dung biên bản kiểm định gửi lên backend; `metrics` bắt buộc và không được rỗng. */
+export interface TechnicalInspectionSubmission {
+  readonly metrics: readonly TechnicalInspectionMetricInput[];
+  readonly flightControllerUid?: string | null;
+  readonly preMissionAssessmentId?: string | null;
+  readonly notes?: string;
+  readonly policyVersion?: string;
 }
 
 export function isValidGuid(val?: string | null): boolean {
@@ -109,6 +133,11 @@ export class PreMissionApi {
       .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
+  /**
+   * Chạy lại đánh giá (`POST /{id}/re-evaluate`) và trả về hồ sơ đầy đủ sau khi đánh giá (cùng DTO với `GET /{id}`).
+   * Đây là cách duy nhất để làm mới ứng viên: `GET /{id}/resource-readiness` chỉ đọc kết quả lần đánh giá gần nhất.
+   * Cần quyền quản lý vùng của hồ sơ (`403 REGION_MANAGEMENT_SCOPE_REQUIRED`).
+   */
   reEvaluate(id: string): Observable<PreMissionAssessment> {
     return this.http
       .post<unknown>(`${this.url}/${id}/re-evaluate`, {})
@@ -132,6 +161,10 @@ export class PreMissionApi {
       .pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }
 
+  /**
+   * Kết quả nhân sự/drone của lần đánh giá gần nhất. CHỈ ĐỌC: không đánh giá lại, không gia hạn `validUntil`.
+   * Muốn làm mới, dùng `reEvaluate()`.
+   */
   getResourceReadiness(id: string): Observable<ResourceReadiness> {
     return this.http
       .get<unknown>(`${this.url}/${id}/resource-readiness`)
@@ -141,10 +174,17 @@ export class PreMissionApi {
   /**
    * Tạo nhiệm vụ chính thức từ hồ sơ `READY` (`POST /pre-mission-assessments/{id}/create-mission`).
    * Backend tự đánh dấu hồ sơ `COMPLETED` và giữ chỗ nhân sự, drone.
+   * Quy tắc: đúng 1 `droneIds`, không trùng `userId`, ít nhất 1 người `isRequired: true`;
+   * `confirmationDeadline` gửi dạng ISO UTC (`Z`), `managerInstructions` tối đa 2.000 ký tự.
    */
   createMission(request: CreateMissionFromAssessmentRequest): Observable<CreatedMission> {
+    const payload = {
+      ...request,
+      confirmationDeadline: request.confirmationDeadline ? toIsoString(request.confirmationDeadline) : null,
+      managerInstructions: request.managerInstructions?.trim() || null,
+    };
     return this.http
-      .post<unknown>(`${this.url}/${request.assessmentId}/create-mission`, request)
+      .post<unknown>(`${this.url}/${request.assessmentId}/create-mission`, payload)
       .pipe(
         map((response) => {
           const x = objectOf(unwrapApiData(response));
@@ -203,39 +243,22 @@ export class PreMissionApi {
 
   // --- Kiểm định kỹ thuật drone ---
 
-  runTechnicalInspection(
-    droneId: string,
-    options?: {
-      flightControllerUid?: string;
-      preMissionAssessmentId?: string;
-      notes?: string;
-      policyVersion?: string;
-      metrics?: readonly {
-        metricCode: string;
-        subsystem: string;
-        numericValue?: number | null;
-        boolValue?: boolean | null;
-        valueText?: string | null;
-        unit?: string | null;
-        passed?: boolean | null;
-        isRequired?: boolean;
-        critical?: boolean;
-        severity?: string;
-      }[];
-    },
-  ): Observable<DroneTechnicalInspectionResult> {
+  /**
+   * Nộp biên bản kiểm định (`POST /drone-technical-inspections`). Backend bắt buộc `metrics` có ít nhất 1 chỉ số
+   * (`400 METRICS_REQUIRED`) và tính mục critical thiếu số đo là KHÔNG ĐẠT, nên client phải gửi checklist thật.
+   * `droneId` trong body luôn là drone được kiểm định (`DRONE_ID_MISMATCH` nếu lệch).
+   */
+  runTechnicalInspection(droneId: string, options: TechnicalInspectionSubmission): Observable<DroneTechnicalInspectionResult> {
+    if (!options.metrics.length) {
+      return throwError(() => new Error('METRICS_REQUIRED: Biên bản kiểm định cần ít nhất một chỉ số đo kiểm.'));
+    }
     const payload = {
       droneId,
-      flightControllerUid: options?.flightControllerUid || null,
-      preMissionAssessmentId: options?.preMissionAssessmentId || null,
-      notes: options?.notes || 'Kiểm định kỹ thuật trước nhiệm vụ',
-      policyVersion: options?.policyVersion || 'v2.0',
-      metrics: options?.metrics
-        ? options.metrics.map((m) => {
-            const { valueText, ...rest } = m;
-            return rest;
-          })
-        : null,
+      flightControllerUid: options.flightControllerUid || null,
+      preMissionAssessmentId: options.preMissionAssessmentId || null,
+      notes: options.notes || 'Kiểm định kỹ thuật trước nhiệm vụ',
+      policyVersion: options.policyVersion || 'v2.0',
+      metrics: options.metrics.map((m) => ({ ...m })),
     };
     return this.http
       .post<unknown>(`${this.baseUrl}/drone-technical-inspections`, payload)
@@ -344,9 +367,44 @@ const normalizeSuitability = (value: unknown): string | null => {
   return s;
 };
 
+const TECHNICAL_REASON: Readonly<Record<string, UavTechnicalEligibility>> = {
+  NO_VALID_TECHNICAL_INSPECTION: 'REQUIRES_INSPECTION',
+  TECHNICAL_HEALTH_CRITICAL: 'CRITICAL',
+  TECHNICAL_HEALTH_DEGRADED: 'DEGRADED',
+};
+
+/**
+ * Kết quả kỹ thuật của một ứng viên UAV. Backend lưu `TechnicalEligibilityStatus` nhưng DTO chỉ trả `reasonCode`
+ * (lý do đầu tiên theo thứ tự ưu tiên), nên khi UAV không khả dụng hoặc trùng lịch thì kết quả kỹ thuật bị che.
+ */
+function technicalEligibilityOf(d: Record<string, unknown>, reasonCode: string | null, available: boolean): UavTechnicalEligibility {
+  const explicit = stringOf(d['technicalEligibilityStatus']).replace(/[\s_-]/g, '').toUpperCase();
+  if (explicit === 'ELIGIBLE') return 'ELIGIBLE';
+  if (explicit === 'REQUIRESINSPECTION') return 'REQUIRES_INSPECTION';
+  if (typeof d['isTechnicallyReady'] === 'boolean' && d['isTechnicallyReady']) return 'ELIGIBLE';
+
+  const code = (reasonCode ?? '').toUpperCase();
+  if (TECHNICAL_REASON[code]) return TECHNICAL_REASON[code];
+  if (explicit === 'INELIGIBLE') return 'CRITICAL';
+  // Lý do đầu tiên là phạm vi bay (hoặc không có lý do) nghĩa là đã qua bước kiểm tra kỹ thuật.
+  if (available && (!code || code === 'SCOPE_EXCEEDS_CAPABILITY')) return 'ELIGIBLE';
+  if (stringOf(d['technicalHealth']).toUpperCase() === 'CRITICAL') return 'CRITICAL';
+  if (!d['technicalInspectionId']) return 'REQUIRES_INSPECTION';
+  return 'UNKNOWN';
+}
+
 const normalizeDrone = (value: unknown): UavCandidate => {
   const d = objectOf(value);
+  const reasonCode = optionalStringOf(d['reasonCode']);
+  const operationalStatus = stringOf(d['operationalStatus'], 'Unknown');
+  const code = (reasonCode ?? '').toUpperCase();
+  const isAvailable =
+    typeof d['isAvailable'] === 'boolean'
+      ? d['isAvailable']
+      : operationalStatus.toUpperCase() === 'AVAILABLE' && code !== 'DRONE_NOT_AVAILABLE' && code !== 'SCHEDULE_CONFLICT';
   return {
+    isAvailable,
+    technicalEligibility: technicalEligibilityOf(d, reasonCode, isAvailable),
     id: stringOf(d['droneId']),
     candidateId: stringOf(d['id']),
     code: stringOf(d['uavCode']),

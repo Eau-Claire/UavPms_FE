@@ -39,6 +39,8 @@ const readyAssessment = (overrides: Partial<PreMissionAssessment> = {}): PreMiss
   ],
   uavCandidates: [
     { id: 'd1', candidateId: 'dc1', code: 'UAV-01', model: 'M300', isEligible: true, operationalStatus: 'Available', technicalHealth: 'Healthy', batteryLevel: 100 },
+    { id: 'd2', candidateId: 'dc2', code: 'UAV-02', model: 'M300', isEligible: true, operationalStatus: 'Available', technicalHealth: 'Warning', batteryLevel: 80 },
+    { id: 'd3', candidateId: 'dc3', code: 'UAV-03', model: 'M30', isEligible: false, operationalStatus: 'Available', technicalHealth: 'Healthy', batteryLevel: 90, reasonCode: 'NO_VALID_TECHNICAL_INSPECTION' },
   ],
   site: { status: 'PASS' },
   personnel: { status: 'PASS' },
@@ -52,11 +54,15 @@ describe('MissionCreate', () => {
   let fixture: ComponentFixture<MissionCreate>;
   let component: MissionCreate;
   let createMission: ReturnType<typeof vi.fn>;
+  let reEvaluate: ReturnType<typeof vi.fn>;
+  let getResourceReadiness: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
   let assessment: PreMissionAssessment;
 
   const setup = (queryAssessmentId: string | null) => {
     createMission = vi.fn().mockReturnValue(of({ id: 'mission-1', missionCode: 'MS-1', title: 'x', status: 'PendingAcceptance' }));
+    reEvaluate = vi.fn(() => of(assessment));
+    getResourceReadiness = vi.fn();
     TestBed.configureTestingModule({
       imports: [MissionCreate],
       providers: [
@@ -65,7 +71,8 @@ describe('MissionCreate', () => {
           useValue: {
             get: vi.fn(() => of(assessment)),
             list: vi.fn(() => of({ items: [assessment], page: 1, pageSize: 100, totalCount: 1, totalPages: 1 })),
-            getResourceReadiness: vi.fn(),
+            getResourceReadiness,
+            reEvaluate,
             createMission,
           },
         },
@@ -91,7 +98,8 @@ describe('MissionCreate', () => {
     setup(ASSESSMENT_ID);
     expect(component['assessment']()?.id).toBe(ASSESSMENT_ID);
     expect(component['selectedPersonnelIds']()).toEqual(['u-insp', 'u-ana']);
-    expect(component['selectedDroneIds']()).toEqual(['d1']);
+    expect(component['selectedDroneId']()).toBe('d1');
+    expect(component['requiredPersonnelIds']()).toEqual(['u-insp', 'u-ana']);
     expect(component['eligiblePersonnel']().map((p) => p.id)).not.toContain('u-bad');
   });
 
@@ -146,6 +154,8 @@ describe('MissionCreate', () => {
       { userId: 'u-ana', role: 'ANALYST', isRequired: true },
     ]);
     expect(req.droneIds).toEqual(['d1']);
+    expect(req.confirmationDeadline).toMatch(/Z$/);
+    expect(req.managerInstructions).toBeNull();
     expect(req.priority).toBe('EMERGENCY');
     expect(req.objective).toBe('INCIDENT_FOLLOW_UP');
     expect(req.priorityDefects).toEqual(['Insulator']);
@@ -153,13 +163,110 @@ describe('MissionCreate', () => {
     expect(navigate).toHaveBeenCalledWith(['/missions', 'mission-1'], { queryParams: { created: 'true' } });
   });
 
-  it('shows backend errors', () => {
+  it('shows backend errors in Vietnamese instead of the raw code', () => {
     setup(ASSESSMENT_ID);
     createMission.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ error: { message: 'RESOURCE_BOOKING_CONFLICT' }, status: 400 })),
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            error: { message: 'RESOURCE_BOOKING_CONFLICT: User x is booked in an overlapping window.', errorCode: 'RESOURCE_BOOKING_CONFLICT' },
+            status: 409,
+          }),
+      ),
     );
     component['form'].patchValue({ title: 'Kiểm tra tuyến A' });
     component['submit']();
-    expect(component['error']()).toContain('RESOURCE_BOOKING_CONFLICT');
+    expect(component['error']()).toContain('trùng khung giờ');
+    expect(component['error']()).not.toContain('overlapping');
+  });
+
+  it('sends exactly one UAV: choosing another UAV replaces the selection', () => {
+    setup(ASSESSMENT_ID);
+    component['form'].patchValue({ title: 'Kiểm tra tuyến A' });
+    component['selectDrone']('d2');
+    expect(component['selectedDroneId']()).toBe('d2');
+    component['submit']();
+    expect(createMission.mock.calls[0][0].droneIds).toEqual(['d2']);
+  });
+
+  it('only offers eligible UAVs (a UAV without a valid inspection is hidden)', () => {
+    setup(ASSESSMENT_ID);
+    expect(component['eligibleDrones']().map((d) => d.id)).toEqual(['d1', 'd2']);
+    expect(component['ineligibleDroneCount']()).toBe(1);
+  });
+
+  it('requires at least one member marked as required and sends the flag per person', () => {
+    setup(ASSESSMENT_ID);
+    component['form'].patchValue({ title: 'Kiểm tra tuyến A' });
+    component['toggleRequired']('u-insp');
+    component['toggleRequired']('u-ana');
+    component['submit']();
+    expect(createMission).not.toHaveBeenCalled();
+    expect(component['error']()).toContain('Bắt buộc xác nhận');
+
+    component['toggleRequired']('u-insp');
+    component['submit']();
+    expect(createMission.mock.calls[0][0].personnel).toEqual([
+      { userId: 'u-insp', role: 'INSPECTOR', isRequired: true },
+      { userId: 'u-ana', role: 'ANALYST', isRequired: false },
+    ]);
+  });
+
+  it('defaults the confirmation deadline to 24 h from now, capped at the planned start', () => {
+    const start = new Date(Date.now() + 3 * 3_600_000);
+    assessment = readyAssessment({ plannedStart: start.toISOString() });
+    setup(ASSESSMENT_ID);
+    const value = component['form'].controls.confirmationDeadline.value;
+    expect(value).toBeTruthy();
+    const deadline = new Date(value).getTime();
+    expect(deadline).toBeLessThanOrEqual(start.getTime());
+    expect(deadline).toBeGreaterThan(start.getTime() - 60_000);
+  });
+
+  it('rejects a deadline after the planned start or in the past', () => {
+    setup(ASSESSMENT_ID);
+    component['form'].patchValue({ title: 'Kiểm tra tuyến A', confirmationDeadline: '2099-02-01T00:00' });
+    component['submit']();
+    expect(createMission).not.toHaveBeenCalled();
+    expect(component['error']()).toContain('không được sau');
+
+    component['form'].patchValue({ confirmationDeadline: '2000-01-01T00:00' });
+    component['submit']();
+    expect(createMission).not.toHaveBeenCalled();
+    expect(component['error']()).toContain('tương lai');
+  });
+
+  it('sends manager instructions and limits them to 2000 characters', () => {
+    setup(ASSESSMENT_ID);
+    component['form'].patchValue({ title: 'Kiểm tra tuyến A', managerInstructions: 'x'.repeat(2001) });
+    component['submit']();
+    expect(createMission).not.toHaveBeenCalled();
+
+    component['form'].patchValue({ managerInstructions: ' Mang thêm 2 pin dự phòng ' });
+    component['submit']();
+    expect(createMission.mock.calls[0][0].managerInstructions).toBe('Mang thêm 2 pin dự phòng');
+  });
+
+  it('keeps the idempotency key for a retry and renews it when the form changes', () => {
+    setup(ASSESSMENT_ID);
+    createMission.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    component['form'].patchValue({ title: 'Kiểm tra tuyến A' });
+    component['submit']();
+    component['submit']();
+    component['form'].patchValue({ title: 'Kiểm tra tuyến B' });
+    component['submit']();
+    const keys = createMission.mock.calls.map((c) => c[0].idempotencyKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it('refreshes readiness with POST re-evaluate and flags an assessment that is no longer READY', () => {
+    setup(ASSESSMENT_ID);
+    reEvaluate.mockReturnValue(of(readyAssessment({ status: 'NOT_READY' })));
+    component['refreshReadiness']();
+    expect(reEvaluate).toHaveBeenCalledWith(ASSESSMENT_ID);
+    expect(getResourceReadiness).not.toHaveBeenCalled();
+    expect(component['assessment']()?.status).toBe('NOT_READY');
+    expect(component['error']()).toContain('không còn ở trạng thái READY');
   });
 });

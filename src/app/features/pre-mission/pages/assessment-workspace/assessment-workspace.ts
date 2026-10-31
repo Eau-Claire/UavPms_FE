@@ -1,4 +1,5 @@
-import { DatePipe, Location } from '@angular/common';
+import { DatePipe, DecimalPipe, Location } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -33,7 +34,17 @@ import {
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { FlightControllerApi } from '../../data-access/flight-controller-api';
+import {
+  needsTechnicianInspection,
+  personnelReasonLabel,
+  suitabilityLabel,
+  technicalEligibilityLabel,
+  technicalEligibilityTone,
+  uavReasonLabel,
+} from '../../data-access/candidate-labels';
+import { buildInspectionChecklist } from '../../data-access/inspection-checklist';
 import { PreMissionApi, RealtimeWeatherSnapshot, weatherSiteChecks } from '../../data-access/pre-mission-api';
+import { describeHttpError, isStaleDataError } from '../../../../shared/errors/business-error-messages';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
 
@@ -42,7 +53,7 @@ const REQUIRED_PER_ROLE = 1;
 
 @Component({
   selector: 'app-assessment-workspace',
-  imports: [RouterLink, DatePipe, NzIconModule],
+  imports: [RouterLink, DatePipe, DecimalPipe, NzIconModule],
   templateUrl: './assessment-workspace.html',
   styleUrl: './assessment-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -296,6 +307,21 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly statusTone = statusTone;
   protected readonly statusLabel = statusLabel;
 
+  // MF01 candidate reasons: `suitability` only describes scope; availability/technical come from separate fields.
+  protected readonly uavReason = uavReasonLabel;
+  protected readonly personnelReason = personnelReasonLabel;
+  protected readonly technicalLabel = technicalEligibilityLabel;
+  protected readonly technicalTone = technicalEligibilityTone;
+  protected readonly suitabilityText = suitabilityLabel;
+  protected readonly needsInspection = needsTechnicianInspection;
+  protected readonly eligibleUavCount = computed(() => (this.item()?.uavCandidates ?? []).filter((d) => d.isEligible).length);
+  /** UAVs that a technician must inspect (no inspection valid at the planned start, failed or degraded). */
+  protected readonly uavNeedingInspectionCount = computed(
+    () => (this.item()?.uavCandidates ?? []).filter((d) => needsTechnicianInspection(d)).length,
+  );
+  /** The checklist modal opened from "Chạy kiểm định" (real readings) rather than the BIST simulator. */
+  protected readonly checklistManual = signal(false);
+
   protected readonly showCancelModal = signal<boolean>(false);
   protected readonly cancelReason = signal<string>('');
 
@@ -440,13 +466,13 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           timestamp: new Date().toISOString(),
         });
       },
-      error: (err) => {
+      error: (err: unknown) => {
         this.busy.set(false);
-        if (err?.status === 409) {
+        if (isStaleDataError(err)) {
           this.isStaleConflict.set(true);
-          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác (HTTP 409). Vui lòng bấm "Làm mới dữ liệu".');
+          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác. Vui lòng bấm "Làm mới dữ liệu".');
         } else {
-          this.error.set(err?.error?.message || 'Không thể thực hiện đánh giá lại. Vui lòng thử lại sau.');
+          this.error.set(describeHttpError(err, 'Không thể thực hiện đánh giá lại. Vui lòng thử lại sau.'));
         }
       },
     });
@@ -458,8 +484,21 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }
+    if (this.isCancelled()) {
+      this.error.set('Hồ sơ đánh giá đã bị hủy trước đó.');
+      return;
+    }
+    if (this.isExpired()) {
+      this.error.set('Hồ sơ đánh giá đã hết hạn, không thể hủy. Vui lòng lập hồ sơ mới nếu cần.');
+      return;
+    }
     this.cancelReason.set('');
     this.showCancelModal.set(true);
+  }
+
+  /** Reloads the assessment quietly (after an action failed because its state changed on the server). */
+  private refreshItem(id: string): void {
+    this.api.get(id).subscribe({ next: (updated) => this.item.set(updated), error: () => undefined });
   }
 
   protected closeCancelModal(): void {
@@ -482,13 +521,16 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         this.showCancelModal.set(false);
         this.actionMessage.set(`Đã hủy bản đánh giá ${a.assessmentCode}.`);
       },
-      error: (err) => {
+      error: (err: unknown) => {
         this.busy.set(false);
-        if (err?.status === 409) {
+        if (isStaleDataError(err)) {
           this.isStaleConflict.set(true);
-          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác (HTTP 409). Vui lòng bấm "Làm mới dữ liệu".');
+          this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác. Vui lòng bấm "Làm mới dữ liệu".');
         } else {
-          this.error.set(err?.error?.message || 'Không thể hủy bản đánh giá.');
+          // ASSESSMENT_CANCELLED / ASSESSMENT_EXPIRED / ASSESSMENT_ALREADY_COMPLETED are final: reload to show the state.
+          this.error.set(describeHttpError(err, 'Không thể hủy bản đánh giá.'));
+          this.showCancelModal.set(false);
+          this.refreshItem(a.id);
         }
       },
     });
@@ -574,12 +616,12 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         const current = this.currentAssessmentDrone();
         if (current) this.pairTargetDroneId.set(current.id);
       },
-      error: (err) => {
+      error: (err: unknown) => {
         this.resolvingFc.set(false);
-        if (err?.status === 404) {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
           this.resolvedFcData.set({ registered: false, flightControllerUid: uid, drone: null, binding: null });
         } else {
-          this.pairingError.set(err?.error?.message || 'Không thể tra cứu thông tin Flight Controller từ máy chủ.');
+          this.pairingError.set(describeHttpError(err, 'Không thể tra cứu thông tin Flight Controller từ máy chủ.'));
         }
       },
     });
@@ -614,11 +656,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           this.pairingSuccess.set(`Đã ghép nối thành công Flight Controller [${meta.uid}] với drone.`);
           this.resolveFc(meta.uid);
         },
-        error: (err) => {
+        error: (err: unknown) => {
           this.pairingFc.set(false);
-          this.pairingError.set(
-            err?.error?.message || err?.error?.detail || err?.message || 'Lỗi khi thực hiện ghép nối Flight Controller.',
-          );
+          this.pairingError.set(describeHttpError(err, 'Lỗi khi thực hiện ghép nối Flight Controller.'));
         },
       });
   }
@@ -645,38 +685,11 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       }
     }
 
-    this.inspecting.set(true);
-    this.actionMessage.set('');
+    // The backend no longer accepts an inspection without readings (`METRICS_REQUIRED`) and fails every critical
+    // item that has none, so the technician records the checklist first; the modal submits it with the FC UID.
     this.error.set('');
-    const a = this.item();
-
-    this.api
-      .runTechnicalInspection(droneId, { flightControllerUid: this.fcMetadata()?.uid, preMissionAssessmentId: a?.id })
-      .subscribe({
-        next: (res) => {
-          this.inspectionResult.set(res);
-          this.inspecting.set(false);
-          const code = drone?.code || droneId;
-          this.actionMessage.set(`Đã hoàn tất kiểm định kỹ thuật cho ${code}. Kết quả: ${res.status} (${res.overallHealth}).`);
-          this.realtime.broadcastAssessmentEvent({
-            assessmentId: a?.id || '',
-            type: 'DroneInspectionCompleted',
-            status: res.eligibility === 'ELIGIBLE' ? 'PASS' : 'FAIL',
-            droneId: res.droneId,
-            droneCode: code,
-            technicalHealth: res.overallHealth,
-            technicalStatus: res.status,
-            timestamp: new Date().toISOString(),
-          });
-          if (a && res.eligibility === 'ELIGIBLE') {
-            this.api.reEvaluate(a.id).subscribe({ next: (updated) => this.item.set(updated) });
-          }
-        },
-        error: (err) => {
-          this.inspecting.set(false);
-          this.error.set(err?.error?.message || err?.error?.detail || err?.message || 'Lỗi kết nối khi gửi lệnh kiểm định UAV.');
-        },
-      });
+    this.checklistManual.set(true);
+    this.showMockModal.set(true);
   }
 
   protected onSelectDrone(droneId: string): void {
@@ -694,6 +707,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
   protected openMockModal(preset: 'healthy' | 'warning' | 'critical' = 'healthy'): void {
     this.applyMockPreset(preset);
+    this.checklistManual.set(false);
     this.showMockModal.set(true);
   }
 
@@ -722,86 +736,42 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Submits the checklist from the modal (or a BIST preset) as a technical inspection. The payload always has
+   * readings for every critical item; the `droneId` in the body is the inspected UAV.
+   */
   protected submitMockBistTelemetry(preset?: 'healthy' | 'warning' | 'critical'): void {
     if (preset) {
       this.applyMockPreset(preset);
+      this.checklistManual.set(false);
     }
 
     const drone = this.currentAssessmentDrone();
     const droneId = drone?.id || this.selectedDroneId();
     if (!droneId) {
-      this.error.set('Hồ sơ chưa có UAV ứng viên để thực hiện kiểm định viễn trắc BIST.');
+      this.error.set('Hồ sơ chưa có UAV ứng viên để thực hiện kiểm định kỹ thuật.');
+      return;
+    }
+    if (this.isFcConnected() && (this.isFcDroneMismatch() || this.isFcUnregistered())) {
+      this.error.set(
+        this.isFcUnregistered()
+          ? 'Flight Controller chưa được đăng ký trong hệ thống. Vui lòng ghép nối trước khi gửi biên bản kiểm định.'
+          : `CẢNH BÁO LỆCH THIẾT BỊ (BR-05): Flight Controller kết nối thuộc về ${this.fcDrone()?.code || 'drone khác'}, nhưng hồ sơ yêu cầu ${drone?.code || droneId}.`,
+      );
       return;
     }
 
-    const currentPreset = this.mockPreset();
-    const isHealthy = currentPreset === 'healthy';
-    const isWarning = currentPreset === 'warning';
-    const isCritical = currentPreset === 'critical';
-
-    const battery = this.mockBatteryLevel();
-    const gpsSats = this.mockGpsSats();
-    const rfQuality = this.mockRfQuality();
-    const notes = this.mockNotes().trim() || 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN';
-
-    const metrics = [
-      {
-        metricCode: 'BATTERY_HEALTH',
-        subsystem: 'Power',
-        numericValue: battery,
-        unit: '%',
-        isRequired: true,
-        critical: isCritical,
-        severity: isCritical ? 'Critical' : isWarning ? 'Medium' : 'Low',
-        passed: !isCritical && battery >= 40,
-      },
-      {
-        metricCode: 'IMU_CALIBRATION',
-        subsystem: 'Sensors',
-        boolValue: !isCritical,
-        isRequired: true,
-        critical: true,
-        severity: isCritical ? 'Critical' : 'Medium',
-        passed: !isCritical,
-      },
-      {
-        metricCode: 'GPS_RTK_FIX',
-        subsystem: 'Navigation',
-        boolValue: !isCritical,
-        isRequired: true,
-        critical: true,
-        severity: isCritical ? 'Critical' : 'Medium',
-        passed: !isCritical,
-      },
-      {
-        metricCode: 'PROP_INTEGRITY',
-        subsystem: 'Propulsion',
-        boolValue: !isCritical,
-        isRequired: true,
-        critical: true,
-        severity: isCritical ? 'Critical' : 'Medium',
-        passed: !isCritical,
-      },
-      {
-        metricCode: 'FLIGHT_CONTROLLER',
-        subsystem: 'Avionics',
-        boolValue: true,
-        isRequired: true,
-        critical: true,
-        severity: 'Medium',
-        passed: true,
-      },
-      {
-        metricCode: 'RF_LINK_TELEMETRY',
-        subsystem: 'Communication',
-        numericValue: rfQuality,
-        unit: '%',
-        isRequired: true,
-        critical: true,
-        severity: isCritical ? 'Critical' : 'Medium',
-        passed: !isCritical && rfQuality >= 60,
-      },
-    ];
+    const fcMatches = this.isFcConnected() && this.isFcMatchingAssessmentDrone();
+    const metrics = buildInspectionChecklist({
+      preset: this.mockPreset(),
+      batteryLevel: this.mockBatteryLevel(),
+      gpsSatellites: this.mockGpsSats(),
+      rfLinkQuality: this.mockRfQuality(),
+      flightControllerConnected: fcMatches,
+    });
+    const manual = this.checklistManual();
+    const notes =
+      this.mockNotes().trim() || (manual ? 'Kiểm định kỹ thuật trước nhiệm vụ' : 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN');
 
     this.mockSubmitting.set(true);
     this.inspecting.set(true);
@@ -809,14 +779,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.error.set('');
     const a = this.item();
 
-    let fcUid: string | undefined = undefined;
-    if (this.isFcConnected() && this.isFcMatchingAssessmentDrone()) {
-      fcUid = this.fcMetadata()?.uid;
-    }
-
     this.api
       .runTechnicalInspection(droneId, {
-        flightControllerUid: fcUid,
+        flightControllerUid: fcMatches ? this.fcMetadata()?.uid : null,
         preMissionAssessmentId: a?.id,
         notes,
         policyVersion: 'v2.0',
@@ -829,14 +794,15 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           this.inspecting.set(false);
           this.showMockModal.set(false);
           const code = drone?.code || droneId;
+          const passed = res.eligibility === 'ELIGIBLE';
           this.actionMessage.set(
-            `Đã lưu dữ liệu viễn trắc BIST mẫu cho ${code} về CSDL Backend thành công. Kết quả: ${res.status} (${res.overallHealth}).`,
+            `Đã lưu biên bản kiểm định cho ${code}. Kết quả: ${passed ? 'Đạt' : 'Không đạt'} (sức khỏe ${res.overallHealth}).`,
           );
 
           this.realtime.broadcastAssessmentEvent({
             assessmentId: a?.id || '',
             type: 'DroneInspectionCompleted',
-            status: res.eligibility === 'ELIGIBLE' ? 'PASS' : 'FAIL',
+            status: passed ? 'PASS' : 'FAIL',
             droneId: res.droneId,
             droneCode: code,
             technicalHealth: res.overallHealth,
@@ -844,26 +810,29 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
             timestamp: new Date().toISOString(),
           });
 
-          if (a) {
-            this.api.reEvaluate(a.id).subscribe({
-              next: (updated) => {
-                this.item.set(updated);
-                this.actionMessage.set(
-                  `Biên bản BIST cho ${code} đã lưu về DB! Hồ sơ MF01 đã được cập nhật: Trạng thái [${updated.status}].`,
-                );
-              },
-              error: (err) => {
-                console.warn('Could not re-evaluate automatically:', err);
-              },
-            });
+          if (!a) return;
+          // Re-evaluation needs manager scope for the region; technicians hand it over to the manager.
+          if (!this.canManage()) {
+            this.actionMessage.update(
+              (msg) => `${msg} Quản lý cần bấm “Đánh giá lại” để cập nhật kết quả của hồ sơ.`,
+            );
+            return;
           }
+          this.api.reEvaluate(a.id).subscribe({
+            next: (updated) => {
+              this.item.set(updated);
+              this.actionMessage.set(
+                `Biên bản kiểm định cho ${code} đã được lưu. Hồ sơ đã được đánh giá lại: ${statusLabel(updated.status) || updated.status}.`,
+              );
+            },
+            error: (err: unknown) =>
+              this.error.set(describeHttpError(err, 'Đã lưu biên bản nhưng chưa thể đánh giá lại hồ sơ. Vui lòng bấm “Đánh giá lại”.')),
+          });
         },
-        error: (err) => {
+        error: (err: unknown) => {
           this.mockSubmitting.set(false);
           this.inspecting.set(false);
-          this.error.set(
-            err?.error?.message || err?.error?.detail || err?.message || 'Lỗi khi gửi dữ liệu viễn trắc BIST về máy chủ Backend.',
-          );
+          this.error.set(describeHttpError(err, 'Không thể lưu biên bản kiểm định kỹ thuật. Vui lòng thử lại.'));
         },
       });
   }

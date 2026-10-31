@@ -30,6 +30,7 @@ import {
   missionPriorityLabel,
   towerInspectionStatusLabel,
 } from '../../data-access/mission-access';
+import { describeHttpError, readBackendError } from '../../../../shared/errors/business-error-messages';
 
 /** Which role-specific panel the summary column shows. */
 type InspectorFocus = 'flight' | 'analysis' | 'maintenance' | 'other';
@@ -185,7 +186,7 @@ export class MissionInspector {
           } : null);
           this.actionMessage.set(`[CẢNH BÁO KHẨN CẤP] Quản lý đã tạm đình chỉ bay: ${event.reason || 'Kiểm tra an toàn.'}`);
         } else if (event.type === 'RESUMED') {
-          this.mission.update((curr) => curr ? { ...curr, status: 'Assigned' } : null);
+          this.mission.update((curr) => curr ? { ...curr, status: event.status ? normalizeMissionStatus(event.status) : 'Assigned' } : null);
           this.actionMessage.set('[THÔNG BÁO] Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Bạn có thể tiếp tục nhiệm vụ.');
         } else if (event.type === 'CANCELLED') {
           this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
@@ -262,11 +263,25 @@ export class MissionInspector {
             timestamp: new Date().toISOString(),
           });
         },
-        error: () => {
+        error: (err: unknown) => {
           this.actionBusy.set(false);
-          this.actionMessage.set('Lỗi khi gửi xác nhận. Vui lòng thử lại.');
+          this.actionMessage.set(describeHttpError(err, 'Lỗi khi gửi xác nhận. Vui lòng thử lại.'));
+          this.reloadAfterConflict(m.id, err);
         },
       });
+  }
+
+  /**
+   * After `409 INVALID_MISSION_STATE` (the mission left PendingAcceptance/Assigned/Preparing/Ready) or
+   * `403 USER_NOT_ASSIGNED` (removed from the team), reload so the page shows the current state.
+   */
+  private reloadAfterConflict(missionId: string, err: unknown): void {
+    const { status } = readBackendError(err);
+    if (status !== 409 && status !== 403) return;
+    this.api
+      .get(missionId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (mission) => this.mission.set(mission), error: () => undefined });
   }
 
   protected openPostponeModal(): void {
@@ -300,7 +315,7 @@ export class MissionInspector {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'Postponed',
+            status: updated.status,
             reason,
             actorRole: role,
             assignmentId: assign.id,
@@ -309,9 +324,10 @@ export class MissionInspector {
             timestamp: new Date().toISOString(),
           });
         },
-        error: () => {
+        error: (err: unknown) => {
           this.actionBusy.set(false);
-          this.actionMessage.set('Không thể gửi yêu cầu dời lịch. Vui lòng thử lại.');
+          this.actionMessage.set(describeHttpError(err, 'Không thể gửi yêu cầu dời lịch. Vui lòng thử lại.'));
+          this.reloadAfterConflict(m.id, err);
         },
       });
   }

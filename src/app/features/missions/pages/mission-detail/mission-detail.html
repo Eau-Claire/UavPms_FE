@@ -212,7 +212,7 @@
                           </button>
                         </div>
                       }
-                    } @else if (member.responseStatus !== 'ACCEPTED' && (mission.status === 'PendingAcceptance' || mission.status === 'Draft')) {
+                    } @else if (canRespondTo(member)) {
                       @if (canAcceptMemberAssignment(member)) {
                         <div class="member-decision-actions">
                           <button
@@ -247,10 +247,16 @@
                     <button
                       type="button"
                       class="btn-flight-start"
-                      [disabled]="actionBusy()"
+                      [disabled]="actionBusy() || !!startBlocker()"
+                      [attr.aria-describedby]="startBlocker() ? 'start-blocker-reason' : null"
                       (click)="startFlight()">
                       <span nz-icon nzType="send" aria-hidden="true"></span> Bắt đầu bay
                     </button>
+                    @if (startBlocker(); as reason) {
+                      <p id="start-blocker-reason" class="start-blocker-reason" role="status">
+                        <span nz-icon nzType="info-circle" aria-hidden="true"></span> {{ reason }}
+                      </p>
+                    }
                   }
 
                   @if (mission.status === 'InProgress') {

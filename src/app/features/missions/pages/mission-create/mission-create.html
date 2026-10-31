@@ -132,7 +132,7 @@
           </div>
 
           <div class="form-field-row">
-            <label class="field-label" for="mission-description">Mô tả / chỉ đạo</label>
+            <label class="field-label" for="mission-description">Mô tả nhiệm vụ</label>
             <textarea id="mission-description" class="evn-textarea" rows="3" formControlName="description"></textarea>
           </div>
 
@@ -177,6 +177,42 @@
             <input type="checkbox" formControlName="isImmediate" />
             Thực hiện ngay (bỏ qua thời gian chờ thành viên xác nhận)
           </label>
+
+          <div class="form-field-row">
+            <label class="field-label" for="confirmation-deadline">Hạn chót thành viên xác nhận</label>
+            <input
+              id="confirmation-deadline"
+              type="datetime-local"
+              class="evn-input"
+              formControlName="confirmationDeadline"
+              [max]="deadlineMax()"
+              aria-describedby="confirmation-deadline-hint"
+            />
+            <span id="confirmation-deadline-hint" class="field-hint">
+              Mặc định 24 giờ kể từ lúc tạo, không muộn hơn giờ bay dự kiến
+              @if (assessment(); as a) {
+                ({{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }})
+              }. Để trống để hệ thống tự đặt.
+            </span>
+          </div>
+
+          <div class="form-field-row">
+            <label class="field-label" for="manager-instructions">Chỉ thị của quản lý</label>
+            <textarea
+              id="manager-instructions"
+              class="evn-textarea"
+              rows="3"
+              formControlName="managerInstructions"
+              [attr.maxlength]="instructionsMax"
+              aria-describedby="manager-instructions-hint"
+            ></textarea>
+            <span id="manager-instructions-hint" class="field-hint">
+              Gửi kèm thông báo giao nhiệm vụ cho các thành viên ({{ form.controls.managerInstructions.value.length }}/{{ instructionsMax }} ký tự).
+            </span>
+            @if (form.controls.managerInstructions.invalid) {
+              <span class="field-error">Chỉ thị tối đa 2.000 ký tự.</span>
+            }
+          </div>
         </div>
       </section>
 
@@ -200,13 +236,24 @@
         <div class="panel-body form-body-stack">
           <fieldset class="candidate-group">
             <legend class="field-label">Nhân sự thực hiện <span class="req">*</span></legend>
+            <p class="field-hint">
+              Thành viên <strong>bắt buộc xác nhận</strong> phải chấp nhận trước khi nhiệm vụ được bắt đầu; cần ít nhất một người.
+            </p>
             @for (p of eligiblePersonnel(); track p.id) {
-              <label class="candidate-row" [class.selected]="isPersonnelSelected(p.id)">
-                <input type="checkbox" [checked]="isPersonnelSelected(p.id)" (change)="togglePersonnel(p.id)" />
-                <span class="candidate-name">{{ p.name }}</span>
+              <div class="candidate-row" [class.selected]="isPersonnelSelected(p.id)">
+                <label class="candidate-check">
+                  <input type="checkbox" [checked]="isPersonnelSelected(p.id)" (change)="togglePersonnel(p.id)" />
+                  <span class="candidate-name">{{ p.name }}</span>
+                </label>
                 <span class="evn-status info">{{ roleLabel(p.role) }}</span>
                 <span class="candidate-meta">{{ p.availabilityStatus }}</span>
-              </label>
+                @if (isPersonnelSelected(p.id)) {
+                  <label class="candidate-check required-toggle">
+                    <input type="checkbox" [checked]="isPersonnelRequired(p.id)" (change)="toggleRequired(p.id)" />
+                    Bắt buộc xác nhận
+                  </label>
+                }
+              </div>
             } @empty {
               <p class="field-error">Hồ sơ không có nhân sự đủ điều kiện. Hãy đánh giá lại hồ sơ.</p>
             }
@@ -216,39 +263,36 @@
             @if (selectedPersonnel().length && !hasSelectedInspector()) {
               <p class="field-error">Cần ít nhất một Phi công / Inspector.</p>
             }
+            @if (selectedPersonnel().length && !requiredSelectedCount()) {
+              <p class="field-error">Cần ít nhất một thành viên bắt buộc xác nhận.</p>
+            }
           </fieldset>
 
           <fieldset class="candidate-group">
-            <legend class="field-label">Drone <span class="req">*</span></legend>
+            <legend class="field-label">UAV thực hiện (chọn 1) <span class="req">*</span></legend>
+            <p class="field-hint">Mỗi nhiệm vụ chỉ bay một UAV; chỉ UAV này được giữ chỗ trong khung giờ bay.</p>
             @for (d of eligibleDrones(); track d.id) {
               <div class="candidate-row" [class.selected]="isDroneSelected(d.id)">
                 <label class="candidate-check">
-                  <input type="checkbox" [checked]="isDroneSelected(d.id)" (change)="toggleDrone(d.id)" />
+                  <input type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
                   <span class="candidate-name">{{ d.code }}</span>
                   <span class="candidate-meta">{{ d.model }}</span>
                 </label>
                 <span class="evn-status" [class.pass]="d.technicalHealth === 'Healthy'" [class.warning]="d.technicalHealth === 'Warning'">
                   {{ d.technicalHealth }}
                 </span>
-                <span class="candidate-meta">{{ d.operationalStatus }} · Pin {{ d.batteryLevel }}%</span>
-                @if (isDroneSelected(d.id)) {
-                  @if (primaryDrone()?.id === d.id) {
-                    <span class="evn-status pass">Drone chính</span>
-                  } @else {
-                    <button type="button" class="link-btn" (click)="setPrimaryDrone(d.id)">Đặt làm drone chính</button>
-                  }
+                <span class="candidate-meta">Pin {{ d.batteryLevel }}%</span>
+                @if (d.suitability === 'SUITABLE_WITH_SPLIT') {
+                  <span class="candidate-meta">Cần chia {{ d.estimatedFlightsNeeded ?? 2 }} chuyến</span>
                 }
               </div>
             } @empty {
-              <p class="field-error">Hồ sơ không có drone đủ điều kiện. Hãy đánh giá lại hồ sơ.</p>
+              <p class="field-error">Hồ sơ không có UAV đủ điều kiện. Kỹ thuật viên cần kiểm định UAV, sau đó đánh giá lại hồ sơ.</p>
             }
             @if (ineligibleDroneCount()) {
-              <p class="field-hint">{{ ineligibleDroneCount() }} drone không đủ điều kiện đã bị ẩn.</p>
-            }
-            @if (primaryDrone(); as primary) {
-              @if (primary.operationalStatus !== 'Available') {
-                <p class="field-error">Drone chính phải ở trạng thái Available (hiện tại: {{ primary.operationalStatus }}).</p>
-              }
+              <p class="field-hint">
+                {{ ineligibleDroneCount() }} UAV không đủ điều kiện đã bị ẩn (không sẵn sàng, trùng lịch hoặc chưa có kiểm định còn hạn).
+              </p>
             }
           </fieldset>
         </div>

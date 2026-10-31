@@ -5,6 +5,7 @@ import {
   activitySenderRole,
   assignmentRoleLabel,
   canManageMission,
+  canPostponeWholeMission,
   canOpenEmergencyAlerts,
   canOpenMaintenanceTicket,
   canOpenPreMissionAssessment,
@@ -17,6 +18,8 @@ import {
   maintenanceStatusLabel,
   missionPriorityLabel,
   missionRowLink,
+  missionStartBlocker,
+  pendingRequiredMembers,
   towerInspectionStatusLabel,
   userDirectorySource,
 } from './mission-access';
@@ -200,6 +203,58 @@ describe('mission access rules', () => {
       expect(maintenanceStatusLabel('InProgress')).toBe('Đang sửa chữa');
       expect(maintenanceStatusLabel('PendingVerification')).toBe('Chờ nghiệm thu');
       expect(maintenanceStatusLabel('Completed')).toBe('Đã đóng');
+    });
+  });
+
+  describe('MF02 lifecycle rules', () => {
+    it('lets members answer in PendingAcceptance/Assigned/Preparing/Ready only (409 INVALID_MISSION_STATE otherwise)', () => {
+      for (const status of ['PendingAcceptance', 'Assigned', 'Preparing', 'Ready'] as const) {
+        const m = mission({ status });
+        expect(acceptanceState(m, findMyAssignment(m, 'u-me')), status).toBe('awaiting');
+      }
+      for (const status of ['Draft', 'Postponed'] as const) {
+        const m = mission({ status });
+        expect(acceptanceState(m, findMyAssignment(m, 'u-me')), status).toBe('closed');
+      }
+    });
+
+    it('keeps the whole-mission postpone for managers; members postpone their own assignment', () => {
+      expect(canPostponeWholeMission('Manager')).toBe(true);
+      expect(canPostponeWholeMission('SystemAdmin')).toBe(true);
+      expect(canPostponeWholeMission('Inspector')).toBe(false);
+    });
+
+    it('blocks the start while a required member has not accepted', () => {
+      const m = mission({
+        status: 'Assigned',
+        droneId: 'd1',
+        plannedStart: new Date(Date.now() + 30 * 60_000).toISOString(),
+        team: [
+          assignment({ id: 'a1', responseStatus: 'ACCEPTED' }),
+          assignment({ id: 'a2', userId: 'u-2', responseStatus: 'PENDING', isRequired: true }),
+          assignment({ id: 'a3', userId: 'u-3', responseStatus: 'PENDING', isRequired: false }),
+        ],
+      });
+      expect(pendingRequiredMembers(m).map((a) => a.id)).toEqual(['a2']);
+      expect(missionStartBlocker(m, Date.now())).toContain('1 thành viên bắt buộc');
+    });
+
+    it('blocks the start more than 2 hours before the planned start and allows it inside the window', () => {
+      const plannedStart = new Date('2099-01-01T10:00:00Z');
+      const m = mission({
+        status: 'Ready',
+        droneId: 'd1',
+        plannedStart: plannedStart.toISOString(),
+        team: [assignment({ responseStatus: 'ACCEPTED' })],
+      });
+      expect(missionStartBlocker(m, plannedStart.getTime() - 3 * 3_600_000)).toContain('Chưa đến khung giờ bay');
+      expect(missionStartBlocker(m, plannedStart.getTime() - 90 * 60_000)).toBeNull();
+    });
+
+    it('blocks the start without a UAV or outside the startable states', () => {
+      const noDrone = mission({ status: 'Assigned', team: [assignment({ responseStatus: 'ACCEPTED' })] });
+      expect(missionStartBlocker(noDrone, Date.now())).toContain('chưa có UAV');
+      expect(missionStartBlocker(mission({ status: 'PendingAcceptance', droneId: 'd1' }), Date.now())).toContain('trạng thái');
     });
   });
 });

@@ -173,7 +173,11 @@
             </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Nhiệm vụ {{ statusLabel(mission.status).toLowerCase() }}</h2>
-              <p>Giai đoạn tiếp nhận đã kết thúc. Theo dõi tiến độ và kết quả trên bảng điều khiển nhiệm vụ.</p>
+              @if (mission.status === 'Postponed') {
+                <p>Nhiệm vụ đang tạm hoãn, chờ Quản lý điều chỉnh lịch hoặc thay người. Bạn chưa thể nhận việc lúc này.</p>
+              } @else {
+                <p>Giai đoạn tiếp nhận đã kết thúc. Theo dõi tiến độ và kết quả trên bảng điều khiển nhiệm vụ.</p>
+              }
             </div>
           </div>
           <a class="btn-open-dashboard" [routerLink]="['/missions', mission.id]">Mở bảng điều khiển nhiệm vụ</a>

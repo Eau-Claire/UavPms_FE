@@ -54,12 +54,15 @@ import {
   canUploadMissionMedia,
   defaultMissionTab,
   findMyAssignment,
+  isAwaitingMyResponse,
   isTowerInspected,
+  missionStartBlocker,
   maintenanceStatusLabel,
   maintenanceStatusTone,
   towerInspectionStatusLabel,
   userDirectorySource,
 } from '../../data-access/mission-access';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 export type MissionDetailTab = MissionTab;
 
@@ -186,8 +189,16 @@ export class MissionDetail {
   /** SystemAdmin or Manager: remind, suspend, resume, cancel, reassign, priority. */
   protected readonly isManager = computed(() => isManagerRole(this.userRole()));
   protected readonly isFlightCrew = computed(() => isInspectorRole(this.userRole()));
-  /** Media upload and the processing view: SystemAdmin, Manager and Inspector. */
-  protected readonly canUpload = computed(() => canUploadMissionMedia(this.userRole()));
+  /**
+   * Media upload and the processing view (SRS SCR-13, BR-40): SystemAdmin, Manager, or an Inspector on this
+   * mission's team. Analyst and Technician only view the mission even when they are members.
+   */
+  protected readonly canUpload = computed(() => {
+    if (!canUploadMissionMedia(this.userRole())) return false;
+    if (this.isManager()) return true;
+    const userId = this.auth.user()?.id;
+    return !!userId && (!!this.myAssignment() || this.mission()?.assignedToUserId === userId);
+  });
   /** Detection review: SystemAdmin, Manager and Analyst. */
   protected readonly canReview = computed(() => canReviewDetections(this.userRole()));
   protected readonly canOpenEmergencyCenter = computed(() => canOpenEmergencyAlerts(this.userRole()));
@@ -203,6 +214,11 @@ export class MissionDetail {
     const userId = this.auth.user()?.id;
     return !!userId && (!!this.myAssignment() || m?.assignedToUserId === userId);
   });
+  /**
+   * Why "Bắt đầu bay" is disabled (required members still pending, too early, no UAV), or `null` when it may be sent.
+   * Re-evaluated every 30 s with `currentTime` so the button unlocks when the 2-hour window opens.
+   */
+  protected readonly startBlocker = computed(() => missionStartBlocker(this.mission(), this.currentTime()));
   /** The command console is for managers and the flight crew; Analyst/Technician only see the read-only summary. */
   protected readonly showCommandConsole = computed(() => this.isManager() || this.isFlightCrew());
   protected readonly consoleTitle = computed(() => roleLabel(this.userRole()));
@@ -357,6 +373,11 @@ export class MissionDetail {
 
   protected canPostponeMemberAssignment(member: MissionAssignment): boolean {
     return this.canAcceptMemberAssignment(member);
+  }
+
+  /** Accept/postpone are open only in PendingAcceptance/Assigned/Preparing/Ready (`409 INVALID_MISSION_STATE`). */
+  protected canRespondTo(member: MissionAssignment): boolean {
+    return isAwaitingMyResponse(this.mission(), member) && member.responseStatus !== 'POSTPONED';
   }
 
   protected canReassignMember(member: MissionAssignment): boolean {
@@ -698,7 +719,7 @@ export class MissionDetail {
           this.loadMaintenanceTasks(mission.id);
           this.loadActivities(mission.id);
         },
-        error: (error: unknown) => this.error.set(this.errorMessage(error)),
+        error: (error: unknown) => this.error.set(this.errorMessage(error, 'Không thể tải chi tiết nhiệm vụ.')),
       });
   }
 
@@ -1068,7 +1089,7 @@ export class MissionDetail {
         },
         error: (error: unknown) => {
           this.setQueueProgress('Tải lên lỗi', this.uploadProgress());
-          this.uploadMessage.set(this.errorMessage(error));
+          this.uploadMessage.set(this.errorMessage(error, 'Không thể tải tệp lên. Vui lòng thử lại.'));
         },
       });
   }
@@ -1293,7 +1314,7 @@ export class MissionDetail {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'Postponed',
+            status: updated.status,
             assignmentId: assignment?.id,
             reason,
             actorRole: role,
@@ -1308,6 +1329,11 @@ export class MissionDetail {
   protected startFlight(): void {
     const currentMission = this.mission();
     if (!currentMission) return;
+    const blocker = this.startBlocker();
+    if (blocker) {
+      this.actionMessage.set(blocker);
+      return;
+    }
     this.actionBusy.set(true);
     this.actionMessage.set('');
 
@@ -1334,7 +1360,11 @@ export class MissionDetail {
             timestamp: now,
           });
         },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+        error: (err: unknown) => {
+          // REQUIRED_ACCEPTANCE_PENDING, MISSION_START_TOO_EARLY, DRONE_IN_USE, HANDOVER_REJECTED, ... (Vietnamese).
+          this.actionMessage.set(this.errorMessage(err, 'Không thể bắt đầu chuyến bay.'));
+          this.reloadMission(currentMission.id);
+        },
       });
   }
 
@@ -1405,7 +1435,9 @@ export class MissionDetail {
           this.showReassignModal.set(false);
           const newUser = this.availableUsers().find((u) => u.id === newUserId);
           const newName = newUser?.fullName || newUser?.email || 'Thành viên mới';
-          this.actionMessage.set(`Đã tái phân công vai trò ${assignment.assignmentRole} cho ${newName}.`);
+          this.actionMessage.set(`Đã tái phân công vai trò ${assignmentRoleLabel(assignment.assignmentRole)} cho ${newName}.`);
+          // The backend revokes the old assignment and creates a new one (new id): reload the member list.
+          this.loadAssignmentsOverview(currentMission.id);
 
 
           this.realtime.broadcastMissionEvent({
@@ -1423,7 +1455,18 @@ export class MissionDetail {
             timestamp: new Date().toISOString(),
           });
         },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+        error: (err: unknown) => {
+          const notFound = err instanceof HttpErrorResponse && err.status === 404;
+          this.actionMessage.set(
+            notFound
+              ? 'Phân công này không còn tồn tại (có thể đã được thay thế). Danh sách thành viên đã được tải lại.'
+              : this.errorMessage(err, 'Không thể tái phân công nhân sự.'),
+          );
+          if (notFound) {
+            this.showReassignModal.set(false);
+            this.reloadMission(currentMission.id);
+          }
+        },
       });
   }
 
@@ -1481,11 +1524,16 @@ export class MissionDetail {
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
-          this.actionMessage.set('Đã khôi phục nhiệm vụ bay.');
+          // Resume lands in PendingAcceptance when a required member has not accepted yet.
+          this.actionMessage.set(
+            updated.status === 'PendingAcceptance'
+              ? 'Đã khôi phục nhiệm vụ. Còn thành viên bắt buộc chưa chấp nhận nên nhiệm vụ quay về trạng thái Chờ tiếp nhận.'
+              : 'Đã khôi phục nhiệm vụ bay.',
+          );
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'RESUMED',
-            status: 'Assigned',
+            status: updated.status,
             actorRole: 'MANAGER',
             actorName: updated.managerUsername || 'Quản lý vận hành',
             timestamp: new Date().toISOString(),
@@ -2086,7 +2134,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: 'Postponed',
+          status: event.status ? normalizeMissionStatus(event.status) : curr.status,
           postponeReason: event.reason || curr.postponeReason,
           team: updatedTeam,
           requiresReassignment: true,
@@ -2108,7 +2156,7 @@ export class MissionDetail {
       } : null);
       this.actionMessage.set(`[LỆNH ĐÌNH CHỈ] Nhiệm vụ tạm đình chỉ: ${event.reason || ''}`);
     } else if (event.type === 'RESUMED') {
-      this.mission.update((curr) => curr ? { ...curr, status: 'Assigned' } : null);
+      this.mission.update((curr) => curr ? { ...curr, status: event.status ? normalizeMissionStatus(event.status) : 'Assigned' } : null);
       this.actionMessage.set('[THÔNG BÁO] Nhiệm vụ đã được khôi phục, sẵn sàng bay.');
     } else if (event.type === 'CANCELLED') {
       this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
@@ -2276,9 +2324,23 @@ export class MissionDetail {
     return event.status || 'Đang xử lý AI';
   }
 
-  private errorMessage(error: unknown): string {
-    if (!(error instanceof HttpErrorResponse)) return 'Không thể tải chi tiết nhiệm vụ.';
-    const body = error.error && typeof error.error === 'object' ? (error.error as Record<string, unknown>) : {};
-    return String(body['message'] ?? error.message ?? 'Không thể tải chi tiết nhiệm vụ.');
+  /** Vietnamese text for a backend error (business codes are mapped; raw English messages are never shown). */
+  private errorMessage(error: unknown, fallback = 'Không thể thực hiện thao tác. Vui lòng thử lại.'): string {
+    return describeHttpError(error, fallback);
+  }
+
+  /** Reloads the mission and its member list quietly (after an action failed because the state moved on). */
+  private reloadMission(missionId: string): void {
+    this.api
+      .get(missionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of(null)),
+      )
+      .subscribe((mission) => {
+        if (!mission) return;
+        this.mission.set(mission);
+        this.loadAssignmentsOverview(mission.id);
+      });
   }
 }

@@ -1,5 +1,4 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -20,7 +19,9 @@ import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AssessmentTowerOption, RegionOption } from '../../../../models/pre-mission.models';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
-import { generateGuid, isValidGuid, PreMissionApi } from '../../data-access/pre-mission-api';
+import { isValidGuid, PreMissionApi } from '../../data-access/pre-mission-api';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 
 function formatDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -79,8 +80,11 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
   protected readonly selectedTowerIds = signal<readonly string[]>([]);
   protected readonly towerSearch = signal('');
 
-  /** Khóa idempotency cho một lần mở biểu mẫu, tránh tạo trùng hồ sơ khi gửi lại. */
-  private readonly idempotencyKey = generateGuid();
+  /**
+   * Khóa idempotency: giữ nguyên khi gửi lại cùng nội dung (tránh tạo trùng hồ sơ), đổi khóa mới khi vùng, khung giờ
+   * hoặc danh sách cột thay đổi (backend trả `409 IDEMPOTENCY_KEY_REUSED` nếu dùng lại khóa cho nội dung khác).
+   */
+  private readonly idempotency = new IdempotencyKeyTracker();
 
   protected readonly form = this.fb.nonNullable.group(
     {
@@ -255,15 +259,11 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       return;
     }
     const raw = this.form.getRawValue();
+    // `datetime-local` values are local time; the API sends them as ISO-8601 UTC (`toISOString()`, with `Z`).
+    const scope = { regionId: raw.regionId, plannedStart: raw.plannedStart, plannedEnd: raw.plannedEnd, towerIds };
     this.busy.set(true);
     this.api
-      .create({
-        regionId: raw.regionId,
-        plannedStart: raw.plannedStart,
-        plannedEnd: raw.plannedEnd,
-        towerIds,
-        idempotencyKey: this.idempotencyKey,
-      })
+      .create({ ...scope, idempotencyKey: this.idempotency.keyFor(scope) })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.busy.set(false)),
@@ -275,7 +275,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
         },
         error: (err: unknown) =>
           this.error.set(
-            extractErrorMessage(err, 'Không thể tạo đánh giá tiền nhiệm vụ. Vui lòng kiểm tra lại phạm vi và thời gian.'),
+            describeHttpError(err, 'Không thể tạo đánh giá tiền nhiệm vụ. Vui lòng kiểm tra lại phạm vi và thời gian.'),
           ),
       });
   }
@@ -548,18 +548,4 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       this.fitMapToBounds();
     }
   }
-}
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (!(err instanceof HttpErrorResponse)) return fallback;
-  const body = err.error;
-  if (typeof body === 'string' && body.trim()) return body;
-  if (body && typeof body === 'object') {
-    const e = body as Record<string, unknown>;
-    for (const key of ['message', 'detail', 'title']) {
-      const value = e[key];
-      if (typeof value === 'string' && value.trim()) return value;
-    }
-  }
-  return fallback;
 }

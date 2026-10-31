@@ -135,12 +135,17 @@ export class MissionsApi {
       .pipe(map((res) => normalizeAssignmentsOverview(unwrapApiData(res), missionId)));
   }
 
-  assignMember(missionId: string, userId: string, assignmentRole: string): Observable<MissionAssignment> {
+  /**
+   * Thêm thành viên (`POST /missions/{id}/assignments`). `isRequired` mặc định `true`; thêm người bắt buộc khi nhiệm vụ
+   * đang `Assigned`/`Preparing`/`Ready` đưa nhiệm vụ về `PendingAcceptance`.
+   */
+  assignMember(missionId: string, userId: string, assignmentRole: string, isRequired = true): Observable<MissionAssignment> {
     return this.http
-      .post<unknown>(`${this.url}/${missionId}/assignments`, { userId, assignmentRole })
+      .post<unknown>(`${this.url}/${missionId}/assignments`, { userId, assignmentRole, isRequired })
       .pipe(map((res) => normalizeAssignment(unwrapApiData(res), missionId)));
   }
 
+  /** Gỡ phân công. Không gỡ được thành viên bắt buộc cuối cùng (`REQUIRED_MEMBER_REQUIRED`). */
   removeAssignment(missionId: string, assignmentId: string): Observable<unknown> {
     return this.http.delete<unknown>(`${this.url}/${missionId}/assignments/${assignmentId}`);
   }
@@ -149,20 +154,28 @@ export class MissionsApi {
     return this.http.put<unknown>(`${this.url}/${missionId}/drone`, { droneId });
   }
 
-  /** Thành viên đang đăng nhập nhận nhiệm vụ (backend xác định phân công theo người gọi). */
+  /**
+   * Thành viên đang đăng nhập nhận nhiệm vụ (backend xác định phân công theo người gọi). Chỉ hợp lệ khi nhiệm vụ
+   * `PendingAcceptance`/`Assigned`/`Preparing`/`Ready` (ngược lại `409 INVALID_MISSION_STATE`).
+   */
   acceptAssignment(id: string): Observable<Mission> {
     return this.http
       .post<unknown>(`${this.url}/${id}/assignments/accept`, {})
       .pipe(switchMap(() => this.get(id)));
   }
 
-  /** Thành viên đang đăng nhập xin hoãn nhiệm vụ. */
+  /** Thành viên đang đăng nhập xin hoãn nhiệm vụ (cùng điều kiện trạng thái như `acceptAssignment`). */
   postponeAssignment(id: string, reason: string): Observable<Mission> {
     return this.http
       .post<unknown>(`${this.url}/${id}/assignments/postpone`, { reason })
       .pipe(switchMap(() => this.get(id)));
   }
 
+  /**
+   * Đổi người cho một phân công. Backend thu hồi phân công cũ và tạo phân công MỚI (id mới), nên luôn tải lại
+   * nhiệm vụ (kèm danh sách thành viên) sau khi đổi. Lỗi: `404` (phân công không tồn tại),
+   * `409 ASSIGNEE_ALREADY_ASSIGNED`, `400 ASSIGNMENT_ID_REQUIRED`.
+   */
   reassignAssignment(id: string, assignmentId: string, newUserId: string, reason?: string): Observable<Mission> {
     return this.http
       .post<unknown>(`${this.url}/${id}/assignments/${assignmentId}/reassign`, {
@@ -175,12 +188,20 @@ export class MissionsApi {
 
   // --- Điều phối vòng đời ---
 
+  /**
+   * Người gọi xác nhận phân công CỦA CHÍNH MÌNH (tương đương `assignments/accept`). Người không phải thành viên nhận
+   * `403 USER_NOT_ASSIGNED`.
+   */
   confirmMission(id: string, reason?: string): Observable<Mission> {
     return this.http
       .post<unknown>(`${this.url}/${id}/confirm`, { reason: reason || null })
       .pipe(switchMap(() => this.get(id)));
   }
 
+  /**
+   * Hoãn cả nhiệm vụ: CHỈ Manager/SystemAdmin của vùng. Thành viên (Inspector...) tự hoãn phải dùng
+   * `postponeAssignment` (`/assignments/postpone`).
+   */
   postponeMission(id: string, reason: string): Observable<Mission> {
     return this.http
       .post<unknown>(`${this.url}/${id}/postpone`, { reason })
