@@ -777,22 +777,6 @@
   background: #ffffff !important;
   padding: 10px !important;
   box-shadow: none !important;
-
-  .mission-camera-feed {
-    height: 120px !important;
-    border-radius: 0 !important;
-    border: 1px solid #003f99 !important;
-    background: #07101d;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
-
-    .mission-camera-empty {
-      font-size: 11px !important;
-      color: #94a3b8 !important;
-    }
-  }
 }
 
 .mission-live-page:not(.workbench-mode) .mission-telemetry-panel h2,
