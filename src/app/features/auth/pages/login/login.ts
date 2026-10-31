@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -29,7 +29,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Login {
+export class Login implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
@@ -42,6 +42,17 @@ export class Login {
     username: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(3)]],
   });
+  ngOnInit(): void {
+    const errorParam = this.route.snapshot.queryParamMap.get('error');
+    if (errorParam === 'account_suspended') {
+      this.error.set('Tài khoản của bạn đã bị khóa hoặc tạm đình chỉ. Vui lòng liên hệ Quản trị viên hệ thống.');
+    } else if (errorParam === 'account_inactive') {
+      this.error.set('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
+    } else if (errorParam === 'session_expired') {
+      this.error.set('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    }
+  }
+
   protected usernameError(): string {
     const username = this.form.controls.username;
     if (!username.touched || !username.invalid) return '';
@@ -80,13 +91,18 @@ export class Login {
               : this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard',
           );
         },
-        error: (error: HttpErrorResponse) => {
+        error: (error: unknown) => {
+          if (error instanceof Error && !(error instanceof HttpErrorResponse) && error.message) {
+            this.error.set(error.message);
+            return;
+          }
+          const httpError = error as HttpErrorResponse;
           let serverMessage = '';
-          if (error.error) {
-            if (typeof error.error === 'string') {
-              serverMessage = error.error;
-            } else if (error.error.errors && typeof error.error.errors === 'object') {
-              const messages = Object.values(error.error.errors)
+          if (httpError?.error) {
+            if (typeof httpError.error === 'string') {
+              serverMessage = httpError.error;
+            } else if (httpError.error.errors && typeof httpError.error.errors === 'object') {
+              const messages = Object.values(httpError.error.errors)
                 .filter(Array.isArray)
                 .flat()
                 .join('. ');
@@ -94,22 +110,22 @@ export class Login {
             }
             if (!serverMessage) {
               serverMessage =
-                error.error.message ||
-                error.error.detail ||
-                (error.error.title && error.error.title !== 'One or more validation errors occurred.'
-                  ? error.error.title
+                httpError.error.message ||
+                httpError.error.detail ||
+                (httpError.error.title && httpError.error.title !== 'One or more validation errors occurred.'
+                  ? httpError.error.title
                   : '');
             }
           }
 
           if (serverMessage) {
             this.error.set(serverMessage);
-          } else if (error.status === 400 || error.status === 401) {
+          } else if (httpError?.status === 400 || httpError?.status === 401) {
             this.error.set('Tên đăng nhập hoặc mật khẩu không chính xác.');
-          } else if (error.status === 0) {
+          } else if (httpError?.status === 0) {
             this.error.set('Không thể kết nối đến máy chủ API. Vui lòng kiểm tra mạng hoặc kết nối server.');
           } else {
-            this.error.set(`Đăng nhập thất bại (Mã lỗi ${error.status || 'Unknown'}). Vui lòng thử lại.`);
+            this.error.set(`Đăng nhập thất bại (Mã lỗi ${httpError?.status || 'Unknown'}). Vui lòng thử lại.`);
           }
         },
       });

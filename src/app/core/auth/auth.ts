@@ -24,6 +24,32 @@ export class Auth {
 
   constructor() {
     this.scheduleSessionExpiry(this.sessionState()?.tokens.accessToken);
+    this.listenToAccountEvents();
+  }
+
+  private listenToAccountEvents(): void {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'uavpms.account_event' && event.newValue) {
+        try {
+          const data = JSON.parse(event.newValue) as { type?: string; userId?: string };
+          if ((data.type === 'suspended' || data.type === 'inactive') && data.userId && data.userId === this.user()?.id) {
+            this.logout();
+            window.location.href = `/login?error=${data.type === 'suspended' ? 'account_suspended' : 'account_inactive'}`;
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+    });
+  }
+
+  broadcastUserSuspended(userId: string, type: 'suspended' | 'inactive' = 'suspended'): void {
+    try {
+      localStorage.setItem('uavpms.account_event', JSON.stringify({ type, userId, timestamp: Date.now() }));
+    } catch {
+      // ignore storage error
+    }
   }
 
   login(credentials: { username: string; password: string }) {
@@ -39,6 +65,16 @@ export class Auth {
         const nested = (payload['authResult'] ?? payload) as Record<string, unknown>;
         if (Boolean(nested['otpRequired']) || !this.hasTokens(nested))
           return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.username)) };
+
+        const rawUser = (nested['user'] ?? {}) as Record<string, unknown>;
+        const userStatus = String(rawUser['status'] ?? nested['status'] ?? payload['status'] ?? '').toLowerCase();
+        if (userStatus === 'locked' || userStatus === 'suspended') {
+          throw new Error('Tài khoản của bạn đã bị khóa hoặc tạm đình chỉ. Vui lòng liên hệ Quản trị viên hệ thống.');
+        }
+        if (userStatus === 'inactive') {
+          throw new Error('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
+        }
+
         return { otpRequired: false, session: this.normalizeSession(payload) };
       }),
       tap((result) => {
@@ -72,8 +108,14 @@ export class Auth {
   resetPassword(request: { verificationToken: string; newPassword: string }) {
     return this.http.post(`${environment.apiBaseUrl}/auth/reset-password`, request);
   }
-  changePassword(newPassword: string) {
-    return this.http.post(`${environment.apiBaseUrl}/users/change-password`, { newPassword });
+  changePassword(newPassword: string, oldPassword?: string) {
+    const body = oldPassword ? { oldPassword, newPassword } : { newPassword };
+    return this.http.post(`${environment.apiBaseUrl}/users/change-password`, body);
+  }
+  getProfile() {
+    return this.http.get<unknown>(`${environment.apiBaseUrl}/users/me`).pipe(
+      map((response) => unwrapApiData<Record<string, unknown>>(response)),
+    );
   }
 
   refresh() {
@@ -96,8 +138,6 @@ export class Auth {
     if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
     this.sessionExpiryTimer = null;
     localStorage.removeItem(this.sessionKey);
-    // Clear per-session caches to prevent cross-user data contamination
-    // when switching accounts on the same browser/domain
     localStorage.removeItem('uav_pms_missions_data_v2');
     localStorage.removeItem('uav_pms_notifications_v1');
     sessionStorage.removeItem('uav_pms_missions_data_v2');
@@ -116,7 +156,6 @@ export class Auth {
       const value = localStorage.getItem(this.sessionKey);
       if (!value) return null;
       const session = JSON.parse(value) as AuthSession;
-      // If session role is Viewer or missing, attempt to re-resolve from token
       if (session?.tokens?.accessToken && (!session.user?.role || session.user.role === 'Viewer')) {
         const tokenRole = this.parseRoleFromToken(session.tokens.accessToken);
         if (tokenRole && tokenRole !== 'Viewer') {
@@ -220,7 +259,6 @@ export class Auth {
       const expiresAtSeconds = Number(payload['exp']);
       return Number.isFinite(expiresAtSeconds) && expiresAtSeconds * 1000 <= Date.now();
     } catch {
-      // Some test/dev environments use opaque access tokens without JWT claims.
       return false;
     }
   }

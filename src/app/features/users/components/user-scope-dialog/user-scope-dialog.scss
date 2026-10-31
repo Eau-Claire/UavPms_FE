@@ -1,0 +1,259 @@
+:host {
+  display: contents;
+}
+
+.scope-dialog {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  z-index: 1050;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  color: #17324d;
+  background: #ffffff;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
+  font-family: inherit;
+}
+
+.scope-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.scope-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.scope-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 18px;
+
+  h2 {
+    margin: 0;
+    color: #0f2952;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 2px 0 0;
+    color: #526b82;
+    font-size: 12px;
+  }
+}
+
+.scope-dialog-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #10387d;
+  }
+}
+
+.scope-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px;
+}
+
+.scope-muted {
+  margin: 0 0 10px;
+  color: #526b82;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.scope-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 12px;
+  font-size: 12px;
+
+  button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+.scope-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  input {
+    flex: 1 1 180px;
+    height: 28px;
+    min-height: 28px;
+    border: 1px solid #cbd8e5;
+    border-radius: 4px;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 12px;
+    color: #17324d;
+
+    &:focus {
+      border-color: #10387d;
+      outline: 2px solid #10387d;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.scope-link {
+  border: 0;
+  background: transparent;
+  color: #10387d;
+  padding: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #10387d;
+  }
+}
+
+.scope-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px 10px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.scope-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  color: #17324d;
+  font-size: 12.5px;
+  cursor: pointer;
+
+  input {
+    width: 15px;
+    height: 15px;
+    accent-color: #10387d;
+  }
+
+  input:focus-visible {
+    outline: 2px solid #10387d;
+    outline-offset: 2px;
+  }
+}
+
+.scope-summary {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.scope-readonly {
+  margin: 0;
+  padding-left: 18px;
+  color: #17324d;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.scope-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 10px 18px;
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+
+    &.primary {
+      background: #10387d;
+      border-color: #10387d;
+      color: #ffffff;
+
+      &:hover:not(:disabled) {
+        background: #0d2e67;
+        border-color: #0d2e67;
+      }
+    }
+
+    &.secondary {
+      background: #ffffff;
+      border-color: #cbd8e5;
+      color: #17324d;
+
+      &:hover:not(:disabled) {
+        background: #f8fafc;
+        border-color: #94a3b8;
+      }
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #10387d;
+      outline-offset: 1px;
+    }
+  }
+}
