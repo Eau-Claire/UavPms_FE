@@ -46,7 +46,7 @@
     }
 
     <!-- ACCEPTANCE HERO BANNER -->
-    @if (!isMyAssignmentAccepted() && mission.status !== 'Cancelled' && mission.status !== 'SUSPENDED') {
+    @if (!isMyAssignmentAccepted() && mission.status !== 'Cancelled' && mission.status !== 'Suspended') {
       <section class="acceptance-hero-banner pending" aria-label="Yêu cầu tiếp nhận nhiệm vụ">
         <div class="hero-content">
           <div class="hero-icon">
@@ -104,7 +104,7 @@
           <div class="hero-details">
             <h2>BẠN ĐÃ TIẾP NHẬN VAI TRÒ NÀY ({{ currentRoleTitle() }})</h2>
             <p>
-              @if (mission.status === 'CONFIRMED') {
+              @if ((mission.status === 'Assigned' || mission.status === 'Ready')) {
                 100% các vai trò trong đội bay đã xác nhận! Nhiệm vụ chính thức sẵn sàng cất cánh theo lịch.
               } @else {
                 Bạn đã xác nhận sẵn sàng. Đang chờ các thành viên còn lại trong đội bay xác nhận (Đã xác nhận: {{ mission.confirmedCount || 1 }}/{{ mission.totalRequiredCount || 3 }} vai trò).
@@ -114,10 +114,10 @@
         </div>
         <div class="hero-status-pill">
           <span nz-icon nzType="safety-certificate" nzTheme="fill"></span>
-          {{ mission.status === 'CONFIRMED' ? 'Sẵn sàng cất cánh' : 'Chờ hoàn tất đội bay' }}
+          {{ (mission.status === 'Assigned' || mission.status === 'Ready') ? 'Sẵn sàng cất cánh' : 'Chờ hoàn tất đội bay' }}
         </div>
       </section>
-    } @else if (mission.status === 'POSTPONED') {
+    } @else if (mission.status === 'Postponed') {
       <section class="acceptance-hero-banner postponed" aria-label="Yêu cầu hoãn">
         <div class="hero-content">
           <div class="hero-icon postponed">
@@ -129,7 +129,7 @@
           </div>
         </div>
       </section>
-    } @else if (mission.status === 'SUSPENDED') {
+    } @else if (mission.status === 'Suspended') {
       <section class="acceptance-hero-banner suspended" aria-label="Tạm đình chỉ bay">
         <div class="hero-content">
           <div class="hero-icon suspended">
@@ -231,16 +231,16 @@
         </div>
 
         <div class="waypoints-scroll-list">
-          @for (target of mission.targets; track target.assetId) {
+          @for (target of mission.targets; track target.towerId) {
             <button
               type="button"
               class="waypoint-item-btn"
-              [class.active]="selectedTargetId() === target.assetId"
-              (click)="selectTarget(target.assetId)">
+              [class.active]="selectedTargetId() === target.towerId"
+              (click)="selectTarget(target.towerId)">
               <span class="waypoint-badge">{{ target.sequence || ($index + 1) }}</span>
               <div class="waypoint-info">
-                <strong>{{ target.towerCode || target.assetCode }}</strong>
-                <span>{{ target.assetName || 'Cột đỡ đỡ néo 22kV' }}</span>
+                <strong>{{ target.towerCode }}</strong>
+                <span>{{ target.inspectionStatus }}</span>
                 @if (target.latitude && target.longitude) {
                   <small class="gps-text">GPS: {{ target.latitude.toFixed(4) }}, {{ target.longitude.toFixed(4) }}</small>
                 }
@@ -256,8 +256,8 @@
           <div class="selected-target-details">
             <h4>Chi tiết cột đang chọn:</h4>
             <div class="target-quick-data">
-              <div><span>Mã cột:</span><strong>{{ current.towerCode || current.assetCode }}</strong></div>
-              <div><span>Tên tài sản:</span><strong>{{ current.assetName || '—' }}</strong></div>
+              <div><span>Mã cột:</span><strong>{{ current.towerCode }}</strong></div>
+              <div><span>Trạng thái:</span><strong>{{ current.inspectionStatus || '—' }}</strong></div>
               @if (current.latitude && current.longitude) {
                 <div><span>Tọa độ:</span><strong>{{ current.latitude.toFixed(5) }}, {{ current.longitude.toFixed(5) }}</strong></div>
               }

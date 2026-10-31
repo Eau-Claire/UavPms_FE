@@ -1,75 +1,61 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { EMPTY, expand, map, Observable, reduce, timeout } from 'rxjs';
+import { map, Observable, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
-import { SelectableAsset, SpatialAssetQueryRequest } from '../../../models/assets.models';
+import { RegionLookup, SelectableAsset, SpatialTowerQueryRequest } from '../../../models/assets.models';
+import { RegionsApi } from '../../towers/data-access/regions-api';
 
-export interface BoundingBoxQuery {
-  readonly minLat: number;
-  readonly minLng: number;
-  readonly maxLat: number;
-  readonly maxLng: number;
-}
-
+/** Tower marker from GET /gis/infrastructure (GisTowerDto). */
 export interface GisTower {
   readonly id: string;
-  readonly lineAssetId?: string;
   readonly towerCode: string;
+  readonly regionId: string;
+  readonly poleType?: string;
+  readonly address?: string;
   readonly latitude: number;
   readonly longitude: number;
-  readonly transmissionLineName?: string;
-  readonly voltageLevel?: string; // 110kV, 220kV, 500kV
-  readonly towerType?: string; // Tension, Suspension, Terminal
-  readonly healthScore?: number;
-  readonly riskLevel?: string;
-  readonly status?: string;
-  readonly assetsCount?: number;
-  readonly activeAnomaliesCount?: number;
 }
 
-export interface GisTransmissionLine {
-  readonly id: string;
-  readonly lineCode: string;
-  readonly lineName: string;
-  readonly voltage: string;
-  readonly coordinates: readonly [number, number][]; // [lat, lng][]
-}
-
+/** Open anomaly from GET /gis/infrastructure (GisAnomalyDto). */
 export interface GisAnomalyFeature {
   readonly id: string;
   readonly anomalyId: string;
-  readonly assetCode: string;
-  readonly category: string;
-  readonly severity: number; // 1..5
+  readonly towerId?: string;
   readonly towerCode: string;
+  readonly category: string;
+  readonly severity: number;
   readonly latitude: number;
   readonly longitude: number;
-  readonly status: 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected';
-  readonly confidenceScore?: number;
+  readonly status: string;
+  readonly confidenceScore: number;
   readonly imageUrl?: string;
   readonly detectedAt?: string;
 }
 
+/** Active alert from GET /gis/infrastructure (GisAlertDto). */
 export interface GisAlert {
   readonly id: string;
   readonly anomalyId?: string;
-  readonly assetCode: string;
+  readonly towerId?: string;
   readonly towerCode?: string;
   readonly latitude: number;
   readonly longitude: number;
-  readonly status: 'Active' | 'Resolved' | 'Dismissed';
-  readonly priority: 'Critical' | 'High' | 'Medium';
+  readonly status: string;
+  readonly priority: string;
   readonly title: string;
-  readonly message?: string;
   readonly triggeredAt: string;
 }
 
 export interface GisDataSnapshot {
   readonly towers: readonly GisTower[];
-  readonly lines: readonly GisTransmissionLine[];
   readonly anomalies: readonly GisAnomalyFeature[];
   readonly alerts: readonly GisAlert[];
+}
+
+export interface GisInfrastructureFilters {
+  /** Region id; the backend narrows to that region (always within the caller's geographic scope). */
+  readonly administrativeAreaId?: string;
 }
 
 @Injectable({
@@ -77,114 +63,39 @@ export interface GisDataSnapshot {
 })
 export class GisApi {
   private readonly http = inject(HttpClient);
+  private readonly regionsApi = inject(RegionsApi);
   private readonly baseUrl = environment.apiBaseUrl;
 
-  getTowersInBBox(bbox: BoundingBoxQuery): Observable<readonly GisTower[]> {
-    return this.http
-      .get<unknown>(`${this.baseUrl}/towers/in-bbox`, {
-        params: {
-          minLat: bbox.minLat,
-          minLng: bbox.minLng,
-          maxLat: bbox.maxLat,
-          maxLng: bbox.maxLng,
-        },
-      })
-      .pipe(
-        timeout(3500),
-        map((response) => {
-          const raw = unwrapApiData<readonly unknown[]>(response);
-          return Array.isArray(raw) ? raw.map(normalizeGisTower) : [];
-        }),
-      );
+  /** All regions (GET /regions, every page). */
+  getRegions(): Observable<readonly RegionLookup[]> {
+    return this.regionsApi.getAll();
   }
 
-  getAnomaliesGeoJson(): Observable<readonly GisAnomalyFeature[]> {
-    return this.http.get<unknown>(`${this.baseUrl}/anomalies/geojson`).pipe(
-      timeout(3500),
-      map((response) => {
-        const raw = unwrapApiData<Record<string, unknown>>(response);
-        return normalizeGeoJsonAnomalies(raw);
-      }),
-    );
-  }
-
-  getActiveAlerts(): Observable<readonly GisAlert[]> {
-    return this.http.get<unknown>(`${this.baseUrl}/alerts/active`).pipe(
-      timeout(3500),
-      map((response) => {
-        const raw = unwrapApiData<readonly unknown[]>(response);
-        return Array.isArray(raw) ? raw.map(normalizeGisAlert) : [];
-      }),
-    );
-  }
-
-  getInstantBaselineData(): GisDataSnapshot {
-    return { towers: [], lines: [], anomalies: [], alerts: [] };
-  }
-
-  getRegions(): Observable<readonly { id: string; name: string }[]> {
-    const page = (number: number) => this.http.get<unknown>(`${this.baseUrl}/regions`, { params: { page: number, pageSize: 100 } }).pipe(map((response) => {
-      const data = record(unwrapApiData(response));
-      const pagination = record(data['pagination']);
-      return { page: number, totalPages: Number(pagination['totalPages'] ?? 1),
-        items: itemsFromRecord(data).map((item) => { const region = record(item); return { id: stringValue(region['id']), name: stringValue(region['regionName'] ?? region['name']) }; }) };
-    }));
-    return page(1).pipe(expand((result) => result.page < result.totalPages ? page(result.page + 1) : EMPTY),
-      reduce((all, result) => [...all, ...result.items], [] as { id: string; name: string }[]));
-  }
-
-  getAllGisData(filters: { administrativeAreaId?: string; powerLineId?: string } = {}): Observable<GisDataSnapshot> {
-    return this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`, { params: { ...filters } }).pipe(
+  /** GET /gis/infrastructure: towers, open anomalies and active alerts. */
+  getAllGisData(filters: GisInfrastructureFilters = {}): Observable<GisDataSnapshot> {
+    const params: Record<string, string> = {};
+    if (filters.administrativeAreaId) params['administrativeAreaId'] = filters.administrativeAreaId;
+    return this.http.get<unknown>(`${this.baseUrl}/gis/infrastructure`, { params }).pipe(
       timeout(15000),
       map((response) => {
         const data = record(unwrapApiData<unknown>(response));
-        const rawTowers = Array.isArray(data['towers']) ? data['towers'] : data['assets'];
-        if (!Array.isArray(rawTowers) || !Array.isArray(data['powerLines'])) {
-          throw new Error('Invalid GIS infrastructure response');
-        }
-        const lines = data['powerLines'].map((item): GisTransmissionLine => {
-          const line = record(item);
-          const wkt = stringValue(line['geometry']);
-          const match = /^LINESTRING\s*\(([^()]+)\)$/i.exec(wkt);
-          const coordinates: [number, number][] = match ? match[1].split(',').map((point) => {
-            const [longitude, latitude] = point.trim().split(/\s+/).map(Number);
-            return [latitude, longitude];
-          }) : [];
-          return { id: stringValue(line['id']), lineCode: stringValue(line['code']), lineName: stringValue(line['name']), voltage: stringValue(line['voltageLevel']), coordinates };
-        });
-        const towers = rawTowers.flatMap((item): readonly GisTower[] => {
-          const asset = record(item);
-          const coordinates = pointCoordinates(asset);
-          const id = stringValue(pick(asset, 'id', 'towerId', 'assetId'));
-          if (!id || !coordinates) return [];
-          const lineAssetId = stringValue(pick(asset, 'powerLineId', 'lineAssetId', 'lineId'));
-          const line = lines.find((candidate) => candidate.id === lineAssetId);
-          return [{
-            id,
-            towerCode: stringValue(pick(asset, 'towerCode', 'code', 'assetCode', 'name')),
-            lineAssetId,
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            towerType: stringValue(pick(asset, 'towerType', 'assetType', 'type')),
-            status: stringValue(asset['status']),
-            transmissionLineName: stringValue(pick(asset, 'transmissionLineName', 'lineName'), line?.lineName),
-            voltageLevel: stringValue(pick(asset, 'voltageLevel', 'voltage'), line?.voltage),
-          }];
-        });
-        const anomalies = Array.isArray(data['anomalies']) ? normalizeGeoJsonAnomalies({ items: data['anomalies'] }) : [];
-        const alerts = Array.isArray(data['alerts']) ? data['alerts'].map(normalizeGisAlert) : [];
-        if ([...anomalies, ...alerts].some((item) => !item.id || !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude))) throw new Error('Invalid GIS event coordinates');
-        return { towers, lines, anomalies, alerts };
+        if (!Array.isArray(data['towers'])) throw new Error('Invalid GIS infrastructure response');
+        return {
+          towers: data['towers'].map(normalizeGisTower).filter((tower) => tower.id && validCoordinates(tower.latitude, tower.longitude)),
+          anomalies: arrayOf(data['anomalies']).map(normalizeGisAnomaly).filter((item) => item.id && validCoordinates(item.latitude, item.longitude)),
+          alerts: arrayOf(data['alerts']).map(normalizeGisAlert).filter((item) => item.id && validCoordinates(item.latitude, item.longitude)),
+        };
       }),
     );
   }
 
-  spatialQuery(request: SpatialAssetQueryRequest): Observable<readonly SelectableAsset[]> {
-    return this.http.post<unknown>(`${this.baseUrl}/assets/spatial-query`, request).pipe(
+  /** POST /towers/spatial-query: towers inside a GeoJSON polygon (closed [lng, lat] ring). */
+  spatialQuery(request: SpatialTowerQueryRequest): Observable<readonly SelectableAsset[]> {
+    return this.http.post<unknown>(`${this.baseUrl}/towers/spatial-query`, request).pipe(
       map((response) => {
         const data = unwrapApiData<unknown>(response);
-        const items = Array.isArray(data) ? data : itemsFromRecord(data);
-        return items.map(normalizeSelectableAsset);
+        const items = Array.isArray(data) ? data : arrayOf(record(data)['towers']);
+        return items.map(normalizeSpatialTower).filter((tower) => tower.towerId);
       }),
     );
   }
@@ -211,121 +122,82 @@ export function isPointInPolygon(
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
+const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
+
 const stringValue = (value: unknown, fallback = '') =>
   value === undefined || value === null ? fallback : String(value);
 
-const numberValue = (value: unknown) => Number(value ?? 0) || 0;
+const optionalString = (value: unknown): string | undefined => stringValue(value) || undefined;
 
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const pointCoordinates = (source: Record<string, unknown>): { latitude: number; longitude: number } | null => {
-  const directLatitude = pick(source, 'latitude', 'lat');
-  const directLongitude = pick(source, 'longitude', 'lng', 'lon');
-  if (directLatitude != null && directLongitude != null) {
-    const latitude = Number(directLatitude);
-    const longitude = Number(directLongitude);
-    if (validCoordinates(latitude, longitude)) return { latitude, longitude };
-  }
-
-  const geometry = source['geometry'];
-  if (typeof geometry === 'string') {
-    const match = /^POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)$/i.exec(geometry);
-    if (match) {
-      const longitude = Number(match[1]);
-      const latitude = Number(match[2]);
-      if (validCoordinates(latitude, longitude)) return { latitude, longitude };
-    }
-  }
-
-  const geometryRecord = record(geometry);
-  const coordinates = geometryRecord['coordinates'];
-  if (Array.isArray(coordinates) && coordinates.length >= 2) {
-    const longitude = Number(coordinates[0]);
-    const latitude = Number(coordinates[1]);
-    if (validCoordinates(latitude, longitude)) return { latitude, longitude };
-  }
-  return null;
+const numberValue = (value: unknown, fallback = 0): number => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+/** TowerDto/GisTowerDto report 0,0 when a tower has no geometry; such points are not drawable. */
 const validCoordinates = (latitude: number, longitude: number): boolean =>
-  Number.isFinite(latitude) && Number.isFinite(longitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
-
-const itemsFromRecord = (value: unknown): readonly unknown[] => {
-  const source = record(value);
-  const items = pick(source, 'items', 'assets', 'results', 'records');
-  return Array.isArray(items) ? items : [];
-};
-const normalizeSelectableAsset = (item: unknown): SelectableAsset => {
-  const source = record(item);
-  return {
-    assetId: stringValue(pick(source, 'assetId', 'id')),
-    code: stringValue(pick(source, 'code', 'assetCode')),
-    name: stringValue(pick(source, 'name', 'assetName', 'towerCode')),
-    latitude: numberValue(pick(source, 'latitude', 'lat')),
-    longitude: numberValue(pick(source, 'longitude', 'lng', 'lon')),
-    status: stringValue(pick(source, 'status'), 'Operational'),
-  };
-};
+  Number.isFinite(latitude) && Number.isFinite(longitude)
+  && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
+  && !(latitude === 0 && longitude === 0);
 
 const normalizeGisTower = (item: unknown): GisTower => {
-  const s = record(item);
+  const source = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'towerId')),
-    lineAssetId: stringValue(pick(s, 'lineAssetId', 'lineId')),
-    towerCode: stringValue(pick(s, 'towerCode', 'code', 'name')),
-    latitude: numberValue(pick(s, 'latitude', 'lat')),
-    longitude: numberValue(pick(s, 'longitude', 'lng', 'lon')),
-    transmissionLineName: stringValue(pick(s, 'transmissionLineName', 'lineName')),
-    voltageLevel: stringValue(pick(s, 'voltageLevel', 'voltage')),
-    towerType: stringValue(pick(s, 'towerType', 'type')),
-    healthScore: numberValue(pick(s, 'healthScore', 'currentHealthScore')),
-    riskLevel: stringValue(pick(s, 'riskLevel', 'risk')),
-    assetsCount: numberValue(pick(s, 'assetsCount', 'assetTotal')),
-    activeAnomaliesCount: numberValue(pick(s, 'activeAnomaliesCount', 'defectCount')) || 0,
+    id: stringValue(source['id']),
+    towerCode: stringValue(source['code'] ?? source['towerCode']),
+    regionId: stringValue(source['regionId']),
+    poleType: optionalString(source['poleType']),
+    address: optionalString(source['address']),
+    latitude: numberValue(source['latitude'], Number.NaN),
+    longitude: numberValue(source['longitude'], Number.NaN),
   };
 };
 
-const normalizeGeoJsonAnomalies = (raw: Record<string, unknown>): readonly GisAnomalyFeature[] => {
-  const features = (raw['features'] ?? raw['items'] ?? raw) as readonly unknown[];
-  if (!Array.isArray(features)) throw new Error('Invalid anomaly response');
-
-  return features.map((f) => {
-    const feat = record(f);
-    const geom = record(feat['geometry']);
-    const coords = (geom['coordinates'] as readonly number[]) || [NaN, NaN];
-    const props = record(feat['properties'] ?? feat);
-
-    return {
-      id: stringValue(pick(props, 'anomalyId', 'id')),
-      anomalyId: stringValue(pick(props, 'anomalyId', 'id')),
-      assetCode: stringValue(pick(props, 'assetCode', 'code')),
-      category: stringValue(pick(props, 'category', 'categoryName', 'defectType')),
-      severity: numberValue(pick(props, 'severity', 'severityWeight')),
-      towerCode: stringValue(pick(props, 'towerCode', 'tower')),
-      longitude: Number(props['longitude'] ?? coords[0]),
-      latitude: Number(props['latitude'] ?? coords[1]),
-      status: (stringValue(pick(props, 'status', 'validationStatus'))) as 'Pending' | 'Confirmed' | 'Resolved' | 'Rejected',
-      confidenceScore: numberValue(pick(props, 'confidenceScore', 'confidence')),
-      imageUrl: stringValue(pick(props, 'imageUrl', 'mediaUrl')),
-      detectedAt: stringValue(pick(props, 'detectedAt', 'createdAt')),
-    };
-  });
+const normalizeGisAnomaly = (item: unknown): GisAnomalyFeature => {
+  const source = record(item);
+  const anomalyId = stringValue(source['anomalyId'] ?? source['id']);
+  return {
+    id: stringValue(source['id'] ?? anomalyId),
+    anomalyId,
+    towerId: optionalString(source['towerId']),
+    towerCode: stringValue(source['towerCode']),
+    category: stringValue(source['category']),
+    severity: numberValue(source['severity']),
+    latitude: numberValue(source['latitude'], Number.NaN),
+    longitude: numberValue(source['longitude'], Number.NaN),
+    status: stringValue(source['status']),
+    confidenceScore: numberValue(source['confidenceScore']),
+    imageUrl: optionalString(source['imageUrl']),
+    detectedAt: optionalString(source['detectedAt']),
+  };
 };
 
 const normalizeGisAlert = (item: unknown): GisAlert => {
-  const s = record(item);
+  const source = record(item);
   return {
-    id: stringValue(pick(s, 'id', 'alertId')),
-    anomalyId: stringValue(pick(s, 'anomalyId', 'defectId')),
-    assetCode: stringValue(pick(s, 'assetCode', 'asset')),
-    towerCode: stringValue(pick(s, 'towerCode', 'tower')),
-    latitude: numberValue(pick(s, 'latitude', 'lat')),
-    longitude: numberValue(pick(s, 'longitude', 'lng')),
-    status: (stringValue(pick(s, 'status'))) as 'Active' | 'Resolved' | 'Dismissed',
-    priority: (stringValue(pick(s, 'priority', 'level'))) as 'Critical' | 'High' | 'Medium',
-    title: stringValue(pick(s, 'title', 'headline')),
-    message: stringValue(pick(s, 'message', 'description')),
-    triggeredAt: stringValue(pick(s, 'triggeredAt', 'timestamp', 'createdAt')),
+    id: stringValue(source['id']),
+    anomalyId: optionalString(source['anomalyId']),
+    towerId: optionalString(source['towerId']),
+    towerCode: optionalString(source['towerCode']),
+    latitude: numberValue(source['latitude'], Number.NaN),
+    longitude: numberValue(source['longitude'], Number.NaN),
+    status: stringValue(source['status']),
+    priority: stringValue(source['priority']),
+    title: stringValue(source['title']),
+    triggeredAt: stringValue(source['triggeredAt']),
+  };
+};
+
+/** SpatialTowerDto { towerId, towerCode, regionId, latitude, longitude } → mission target candidate. */
+const normalizeSpatialTower = (item: unknown): SelectableAsset => {
+  const source = record(item);
+  const code = stringValue(source['towerCode'] ?? source['code']);
+  return {
+    towerId: stringValue(source['towerId'] ?? source['id']),
+    code,
+    name: code,
+    latitude: numberValue(source['latitude']),
+    longitude: numberValue(source['longitude']),
   };
 };

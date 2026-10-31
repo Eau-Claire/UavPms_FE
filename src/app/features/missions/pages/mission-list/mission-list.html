@@ -12,26 +12,67 @@
 
   @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
 
-  <section class="mission-filters" aria-label="Bo loc nhiem vu">
-    <div class="mission-scope-tabs" role="tablist" aria-label="Phạm vi nhiệm vụ">
-      <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" (click)="setScope('my')">
-        <span nz-icon nzType="user"></span> Được giao cho tôi
-      </button>
-      <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" (click)="setScope('all')">
-        <span nz-icon nzType="appstore"></span> Tất cả nhiệm vụ
-      </button>
-    </div>
-    <label class="mission-search"><span nz-icon nzType="search"></span><input type="search" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" /></label>
-    <label><span>Trạng thái</span><select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()"><option value="">Tất cả</option>@for (item of statuses; track item) { <option [value]="item">{{ statusLabel(item) }}</option> }</select></label>
-    <label><span>Độ ưu tiên</span><select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()"><option value="">Tất cả</option><option value="EMERGENCY">⚡ Khẩn cấp</option><option value="HIGH">🔥 Cao</option><option value="NORMAL">○ Bình thường</option></select></label>
-    <button type="button" class="mission-filter-btn" (click)="applyFilters()"><span nz-icon nzType="filter"></span>Lọc</button>
-    <button type="button" class="mission-filter-btn" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên"><span nz-icon nzType="thunderbolt"></span>Xếp theo ưu tiên</button>
-    <button type="button" class="mission-filter-btn mission-refresh-btn" [disabled]="loading()" (click)="refreshList()"><span nz-icon nzType="reload"></span>Refresh</button>
-  </section>
+  <div class="mission-toolbar-card">
+    <div class="mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
+      <div class="mission-scope-tabs" role="tablist" aria-label="Phạm vi nhiệm vụ">
+        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" (click)="setScope('my')">
+          <span nz-icon nzType="user"></span> Được giao cho tôi
+        </button>
+        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" (click)="setScope('all')">
+          <span nz-icon nzType="appstore"></span> Tất cả nhiệm vụ
+        </button>
+      </div>
 
-  <section class="mission-summary-strip" aria-label="Tổng quan nhiệm vụ">
-    @for (item of stats(); track item.label) { <span><strong>{{ item.value }}</strong> {{ item.label }}</span> }
-  </section>
+      <div class="mission-search-wrap">
+        <span nz-icon nzType="search" class="search-icon"></span>
+        <input type="search" class="mission-search-input" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" />
+      </div>
+
+      <div class="mission-filter-selects">
+        <label class="mission-select-label">
+          <span class="filter-lbl">Trạng thái:</span>
+          <select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()" title="Lọc theo trạng thái">
+            <option value="">Tất cả</option>
+            @for (item of statuses; track item) {
+              <option [value]="item">{{ statusLabel(item) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="mission-select-label">
+          <span class="filter-lbl">Độ ưu tiên:</span>
+          <select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()" title="Lọc theo độ ưu tiên">
+            <option value="">Tất cả</option>
+            <option value="EMERGENCY">⚡ Khẩn cấp</option>
+            <option value="HIGH">🔥 Cao</option>
+            <option value="NORMAL">○ Bình thường</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="mission-actions">
+        <button type="button" class="button primary mission-action-btn" (click)="applyFilters()">
+          <span nz-icon nzType="filter"></span> Lọc
+        </button>
+        <button type="button" class="button secondary mission-action-btn" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên">
+          <span nz-icon nzType="thunderbolt"></span> Xếp theo ưu tiên
+        </button>
+        <button type="button" class="button secondary mission-action-btn" [disabled]="loading()" (click)="refreshList()" title="Tải lại danh sách">
+          <span nz-icon nzType="reload"></span> Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="mission-summary-strip" aria-label="Tổng quan nhiệm vụ">
+      @for (item of stats(); track item.label) {
+        <div class="summary-stat-badge tone-{{ item.tone }}">
+          <span class="stat-badge-dot"></span>
+          <strong class="stat-badge-val">{{ item.value }}</strong>
+          <span class="stat-badge-label">{{ item.label }}</span>
+        </div>
+      }
+    </div>
+  </div>
 
   <section class="mission-table-card" [class.is-loading]="loading()" aria-busy="{{ loading() }}">
     <div class="mission-table-scroll">

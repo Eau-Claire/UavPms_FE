@@ -19,15 +19,15 @@ import * as L from 'leaflet';
 import 'leaflet-draw';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
-import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
+import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
-import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
+import { MissionTargetSelection, MissionTargetTower } from '../../../missions/data-access/mission-target-selection';
+import { anomalyStatusLabel } from '../../../towers/data-access/tower-labels';
 import {
   GisAlert,
   GisAnomalyFeature,
   GisApi,
   GisTower,
-  GisTransmissionLine,
 } from '../../data-access/gis-api';
 
 export type MapType = 'google-streets' | 'google-hybrid' | 'google-terrain' | 'osm';
@@ -77,7 +77,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private map: L.Map | null = null;
   private currentTileLayer: L.TileLayer | null = null;
   private towersLayer = L.layerGroup();
-  private linesLayer = L.layerGroup();
   private defectsLayer = L.layerGroup();
   private alertsLayer = L.layerGroup();
   private selectionResultsLayer = L.layerGroup();
@@ -102,9 +101,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   // GIS remains empty until authorized API data arrives.
   protected readonly towers = signal<readonly GisTower[]>([]);
-  protected readonly lines = signal<readonly GisTransmissionLine[]>([]);
   protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
   protected readonly alerts = signal<readonly GisAlert[]>([]);
+  protected readonly regions = signal<readonly RegionLookup[]>([]);
+  protected readonly regionFilter = signal('');
+  private readonly regionNames = computed(() => new Map(this.regions().map((region) => [region.id, region.name])));
 
   // State signals
   protected readonly loading = signal(false);
@@ -122,42 +123,50 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly drawingInstruction = computed(() => this.drawMode() === 'rectangle'
     ? 'Nhấn và kéo trên bản đồ để tạo vùng.'
     : this.drawMode() === 'polygon' ? 'Nhấp để đặt từng điểm.\nNhấp điểm đầu để hoàn tất.' : '');
-  protected readonly missionCtaLabel = computed(() => this.targetSelection.count() ? `Tạo nhiệm vụ (${this.targetSelection.count()})` : 'Tạo nhiệm vụ');
+  protected readonly missionCtaLabel = computed(() => this.targetSelection.count() ? `Lập đánh giá tiền bay (${this.targetSelection.count()})` : 'Lập đánh giá tiền bay');
 
   // Popup title computed
   protected readonly popupTitle = computed(() => {
     const state = this.uxState();
     if (state === 'editing') return 'Chỉnh sửa vùng';
-    if (state === 'querying') return 'Tài sản trong vùng';
+    if (state === 'querying') return 'Cột điện trong vùng';
     if (state === 'success') {
       const count = this.spatialAssets().length;
-      return `Tài sản trong vùng (${count})`;
+      return `Cột điện trong vùng (${count})`;
     }
-    if (state === 'empty') return 'Tài sản trong vùng (0)';
-    if (state === 'error') return 'Tài sản trong vùng';
-    return 'Chọn tài sản theo vùng';
+    if (state === 'empty') return 'Cột điện trong vùng (0)';
+    if (state === 'error') return 'Cột điện trong vùng';
+    return 'Chọn cột điện theo vùng';
   });
 
   // Check if all spatial candidates are selected
   protected readonly isAllSpatialSelected = computed(() => {
     const list = this.spatialAssets();
     if (!list.length) return false;
-    return list.every((a) => this.targetSelection.has(a.assetId));
+    return list.every((a) => this.targetSelection.has(a.towerId));
   });
 
   // Toggle select all / deselect all spatial candidates
   protected toggleSelectAllSpatial(): void {
     if (this.isAllSpatialSelected()) {
-      this.spatialAssets().forEach((a) => this.targetSelection.remove(a.assetId));
+      this.spatialAssets().forEach((a) => this.targetSelection.remove(a.towerId));
     } else {
-      this.targetSelection.addMany(this.spatialAssets());
+      this.targetSelection.addMany(this.spatialAssets().map((a) => this.toTargetTower(a)));
     }
     this.renderSpatialAssets();
   }
 
+  private toTargetTower(asset: SelectableAsset): MissionTargetTower {
+    return {
+      towerId: asset.towerId,
+      towerCode: asset.code,
+      latitude: asset.latitude,
+      longitude: asset.longitude,
+    };
+  }
+
   // Layer Visibility
   protected readonly showTowersLayer = signal(true);
-  protected readonly showLinesLayer = signal(true);
   protected readonly showDefectsLayer = signal(true);
   protected readonly showAlertsLayer = signal(true);
 
@@ -169,21 +178,20 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   // Computed metrics
   protected readonly totalTowersCount = computed(() => this.towers().length);
   protected readonly activeDefectsCount = computed(() => this.anomalies().length);
-  protected readonly criticalAlertsCount = computed(
-    () => this.alerts().filter((a) => a.priority === 'Critical' && a.status === 'Active').length,
-  );
+  /** GET /gis/infrastructure only returns alerts that are still Active. */
+  protected readonly activeAlertsCount = computed(() => this.alerts().length);
 
   protected readonly filteredAnomalies = computed(() => {
     const list = this.anomalies();
     const query = this.searchCode().trim().toLowerCase();
-    const sev = this.severityFilter();
+    const minSeverity = Number(this.severityFilter() || 0);
     const status = this.statusFilter();
 
     return list.filter((item) => {
-      if (query && !item.assetCode.toLowerCase().includes(query) && !item.towerCode.toLowerCase().includes(query)) {
+      if (query && !item.towerCode.toLowerCase().includes(query) && !item.category.toLowerCase().includes(query)) {
         return false;
       }
-      if (sev && String(item.severity) !== sev) {
+      if (minSeverity && item.severity < minSeverity - 0.5) {
         return false;
       }
       if (status && item.status.toLowerCase() !== status.toLowerCase()) {
@@ -223,7 +231,17 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     }, 500);
 
     // 3. Refresh live data from server asynchronously
+    this.loadRegions();
     this.loadGisData();
+
+    // 4. Responsive map resize synchronization
+    const onResize = () => {
+      this.map?.invalidateSize();
+    };
+    window.addEventListener('resize', onResize);
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener('resize', onResize);
+    });
   }
 
   ngOnDestroy(): void {
@@ -253,7 +271,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.setMapType('google-streets');
 
     // Add Layer Groups
-    this.linesLayer.addTo(this.map);
     this.towersLayer.addTo(this.map);
     this.defectsLayer.addTo(this.map);
     this.alertsLayer.addTo(this.map);
@@ -525,30 +542,31 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.drawSelectionBoundary(geometry);
     this.spatialLoading.set(true);
     this.spatialMessage.set('');
-    this.gisApi.spatialQuery({ geometry }).pipe(
+    const regionId = this.regionFilter();
+    this.gisApi.spatialQuery(regionId ? { geometry, filters: { regionId } } : { geometry }).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.spatialLoading.set(false)),
     ).subscribe({
       next: (assets) => {
-        const uniqueAssets = assets.filter((asset, index, list) => list.findIndex((item) => item.assetId === asset.assetId) === index);
+        const uniqueAssets = assets.filter((asset, index, list) => list.findIndex((item) => item.towerId === asset.towerId) === index);
         this.spatialAssets.set(uniqueAssets);
         this.uxState.set(uniqueAssets.length ? 'success' : 'empty');
-        this.spatialMessage.set(uniqueAssets.length ? '' : 'Không có tài sản trong vùng này.');
+        this.spatialMessage.set(uniqueAssets.length ? '' : 'Không có cột điện trong vùng này.');
         this.renderSpatialAssets();
       },
       error: (error: unknown) => {
         const status = error instanceof Object && 'status' in error ? Number(error.status) : 0;
         this.uxState.set('error');
-        this.spatialMessage.set(status === 401 || status === 403 ? 'Bạn không có quyền truy vấn tài sản trong vùng này.' : 'Không thể truy vấn tài sản trong vùng.');
+        this.spatialMessage.set(status === 401 || status === 403 ? 'Bạn không có quyền truy vấn cột điện trong vùng này.' : 'Không thể truy vấn cột điện trong vùng.');
       },
     });
   }
 
-  /** Open the existing inspection UI / drawer for a candidate asset. */
+  /** Open the tower drawer for a spatial-query candidate. */
   protected inspectAsset(asset: SelectableAsset): void {
-    const tower = this.towers().find((t) => t.id === asset.assetId || t.towerCode === asset.code) ?? {
-      id: asset.assetId,
-      lineAssetId: '',
+    const tower = this.towers().find((t) => t.id === asset.towerId || t.towerCode === asset.code) ?? {
+      id: asset.towerId,
+      regionId: '',
       towerCode: asset.code,
       latitude: asset.latitude,
       longitude: asset.longitude,
@@ -612,7 +630,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected createMission(): void {
-    if (this.canCreateMission() && this.targetSelection.count()) void this.router.navigate(['/missions/new']);
+    // POST /missions is gone: towers go into a pre-mission assessment, which reads MissionTargetSelection.
+    if (this.canCreateMission() && this.targetSelection.count()) void this.router.navigate(['/pre-mission/new']);
   }
 
   protected onKeydown(event: KeyboardEvent): void {
@@ -672,7 +691,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected renderSpatialAssets(): void {
     this.selectionResultsLayer.clearLayers();
     this.spatialAssets().forEach((asset) => {
-      const selected = this.targetSelection.has(asset.assetId);
+      const selected = this.targetSelection.has(asset.towerId);
       const marker = L.circleMarker([asset.latitude, asset.longitude], {
         radius: 8, color: selected ? '#15803d' : '#7c3aed', fillColor: selected ? '#22c55e' : '#a78bfa', fillOpacity: 0.9,
       });
@@ -688,19 +707,19 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.targetSelection.selected().forEach((asset) => {
       const icon = L.divIcon({ className: 'confirmed-target-marker', html: '<span>✓</span>', iconSize: [24, 24], iconAnchor: [12, 12] });
       L.marker([asset.latitude, asset.longitude], { icon, zIndexOffset: 900 })
-        .bindTooltip(`<strong>Đã chọn: ${asset.code}</strong><br>${asset.name}`)
+        .bindTooltip(`<strong>Đã chọn: ${asset.towerCode}</strong>`)
         .addTo(this.confirmedTargetsLayer);
     });
   }
 
   protected toggleAsset(asset: SelectableAsset): void {
-    if (this.targetSelection.has(asset.assetId)) this.targetSelection.remove(asset.assetId);
-    else this.targetSelection.add(asset);
+    if (this.targetSelection.has(asset.towerId)) this.targetSelection.remove(asset.towerId);
+    else this.targetSelection.add(this.toTargetTower(asset));
     this.renderSpatialAssets();
   }
 
   protected addAllSpatialAssets(): void {
-    this.targetSelection.addMany(this.spatialAssets());
+    this.targetSelection.addMany(this.spatialAssets().map((a) => this.toTargetTower(a)));
     this.renderSpatialAssets();
   }
 
@@ -754,14 +773,14 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.error.set('');
 
     this.towers.set([]);
-    this.lines.set([]);
     this.anomalies.set([]);
     this.alerts.set([]);
     this.selectedEntity.set(null);
     this.targetSelection.clear();
     this.clearBoundary();
     this.renderAllLayers();
-    this.gisApi.getAllGisData()
+    const regionId = this.regionFilter();
+    this.gisApi.getAllGisData(regionId ? { administrativeAreaId: regionId } : {})
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
@@ -769,54 +788,36 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       .subscribe({
         next: (data) => {
           this.towers.set(data.towers);
-          this.lines.set(data.lines);
           this.anomalies.set(data.anomalies);
           this.alerts.set(data.alerts);
-
           this.renderAllLayers();
-
+          this.fitMapBounds();
         },
         error: (error: unknown) => {
           const status = error instanceof Object && 'status' in error ? Number(error.status) : 0;
           this.error.set(status === 403 ? '403 — Bạn không có quyền xem dữ liệu GIS.' : 'Không thể tải dữ liệu GIS. Vui lòng thử lại.');
           this.towers.set([]);
-          this.lines.set([]);
           this.anomalies.set([]);
           this.alerts.set([]);
           this.renderAllLayers();
-
         },
       });
   }
 
+  private loadRegions(): void {
+    this.gisApi.getRegions().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (regions) => {
+        this.regions.set(regions);
+        this.renderTowers();
+      },
+      error: () => this.regions.set([]),
+    });
+  }
+
   private renderAllLayers(): void {
-    this.renderTransmissionLines();
     this.renderTowers();
     this.renderDefects();
     this.renderAlerts();
-  }
-
-  private renderTransmissionLines(): void {
-    this.linesLayer.clearLayers();
-    if (!this.showLinesLayer()) return;
-
-    this.lines().forEach((line) => {
-      const is500kV = line.voltage.includes('500');
-      const coords = line.coordinates as unknown as L.LatLngExpression[];
-      const polyline = L.polyline(coords, {
-        color: is500kV ? '#dc2626' : '#0284c7',
-        weight: is500kV ? 5 : 4,
-        opacity: 0.9,
-        dashArray: is500kV ? '10, 5' : undefined,
-      });
-
-      polyline.bindTooltip(
-        `<div style="font-weight: 700; font-size: 13px;">${line.lineName}</div><div style="font-size: 11px; color: #64748b;">Cấp điện áp: ${line.voltage}</div>`,
-        { sticky: true },
-      );
-
-      this.linesLayer.addLayer(polyline);
-    });
   }
 
   private renderTowers(): void {
@@ -834,12 +835,13 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       const marker = L.marker([tower.latitude, tower.longitude], { icon });
       marker.on('click', () => {
         this.selectedEntity.set({ type: 'tower', data: tower });
-        this.targetSelection.add({ assetId: tower.id, code: tower.towerCode, name: tower.towerCode, latitude: tower.latitude, longitude: tower.longitude, status: 'Operational' });
+        this.targetSelection.add({ towerId: tower.id, towerCode: tower.towerCode, regionId: tower.regionId, latitude: tower.latitude, longitude: tower.longitude });
         this.renderSpatialAssets();
       });
 
+      const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
       marker.bindTooltip(
-        `<div style="font-weight: 700; font-size: 13px;">${tower.towerCode}</div><div style="font-size: 11px; color: #64748b;">${tower.transmissionLineName || ''}</div>`,
+        `<div style="font-weight: 700; font-size: 13px;">${escapeHtml(tower.towerCode)}</div><div style="font-size: 11px; color: #64748b;">${escapeHtml(subtitle)}</div>`,
         { direction: 'top', offset: [0, -10] },
       );
 
@@ -853,7 +855,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     const defects = this.filteredAnomalies();
     defects.forEach((defect) => {
-      const sevClass = defect.severity >= 5 ? 'sev-critical' : defect.severity >= 4 ? 'sev-high' : 'sev-med';
+      const sevClass = defect.severity >= 4.5 ? 'sev-critical' : defect.severity >= 3.5 ? 'sev-high' : 'sev-med';
       const icon = L.divIcon({
         className: `custom-defect-marker ${sevClass}`,
         html: `<span>!</span>`,
@@ -867,7 +869,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       });
 
       marker.bindTooltip(
-        `<div style="font-weight: 700; color: #dc2626;">⚠️ ${defect.category}</div><div style="font-size: 11px;">Mức độ: Cấp ${defect.severity}/5 (${defect.confidenceScore}% AI)</div>`,
+        `<div style="font-weight: 700; color: #dc2626;">⚠️ ${escapeHtml(defect.category)}</div><div style="font-size: 11px;">${escapeHtml(defect.towerCode)} · Mức độ ${this.severityLabel(defect.severity)}/5 · AI ${this.confidencePercent(defect.confidenceScore)}%</div>`,
         { direction: 'top', offset: [0, -10] },
       );
 
@@ -893,7 +895,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       });
 
       marker.bindTooltip(
-        `<div style="font-weight: 800; color: #dc2626;">🔥 ${alert.title}</div><div style="font-size: 11px;">Ưu tiên: ${alert.priority}</div>`,
+        `<div style="font-weight: 800; color: #dc2626;">🔥 ${escapeHtml(alert.title)}</div><div style="font-size: 11px;">Ưu tiên: ${escapeHtml(alert.priority)}</div>`,
         { direction: 'top', offset: [0, -14] },
       );
 
@@ -912,13 +914,17 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.renderDefects();
   }
 
-  protected toggleLayer(type: 'towers' | 'lines' | 'defects' | 'alerts'): void {
+  /** Region filter is applied server-side by GET /gis/infrastructure?administrativeAreaId=. */
+  protected changeRegion(regionId: string): void {
+    if (this.regionFilter() === regionId) return;
+    this.regionFilter.set(regionId);
+    this.loadGisData();
+  }
+
+  protected toggleLayer(type: 'towers' | 'defects' | 'alerts'): void {
     if (type === 'towers') {
       this.showTowersLayer.update((v) => !v);
       this.renderTowers();
-    } else if (type === 'lines') {
-      this.showLinesLayer.update((v) => !v);
-      this.renderTransmissionLines();
     } else if (type === 'defects') {
       this.showDefectsLayer.update((v) => !v);
       this.renderDefects();
@@ -930,6 +936,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected fitMapBounds(): void {
     if (!this.map) return;
+    const points = this.towers().map((tower) => L.latLng(tower.latitude, tower.longitude));
+    if (points.length) {
+      this.map.fitBounds(L.latLngBounds(points).pad(0.15), { maxZoom: 15 });
+      return;
+    }
     this.map.fitBounds(L.latLngBounds([8.15, 102.0], [23.5, 110.0]));
   }
 
@@ -940,4 +951,28 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected navigateToReview(anomalyId: string): void {
     void this.router.navigate(['/ai-review', anomalyId]);
   }
+
+  protected regionName(regionId: string | undefined): string {
+    return regionId ? this.regionNames().get(regionId) ?? '' : '';
+  }
+
+  protected openAnomaliesForTower(towerId: string): number {
+    return this.anomalies().filter((anomaly) => anomaly.towerId === towerId).length;
+  }
+
+  /** GIS severity = category severity weight × 5 (0–5). */
+  protected severityLabel(severity: number): string {
+    return (Math.round(severity * 10) / 10).toString();
+  }
+
+  protected confidencePercent(score: number): number {
+    return Math.round(score <= 1 ? score * 100 : score);
+  }
+
+  protected anomalyStatusLabel(status: string): string {
+    return anomalyStatusLabel(status);
+  }
 }
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);

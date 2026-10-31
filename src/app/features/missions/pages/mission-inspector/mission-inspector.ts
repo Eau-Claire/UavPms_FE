@@ -15,7 +15,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { Mission, MissionAssignment, MissionOperationalRole } from '../../../../models/missions.models';
+import { Mission, MissionAssignment, MissionOperationalRole, missionStatusLabel } from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 import { Auth } from '../../../../core/auth/auth';
@@ -58,19 +58,8 @@ export class MissionInspector {
   protected readonly myAssignment = computed<MissionAssignment | null>(() => {
     const m = this.mission();
     const u = this.currentUser();
-    if (!m || !m.team || m.team.length === 0) return null;
-    if (u?.id) {
-      const match = m.team.find((a) => a.userId === u.id);
-      if (match) return match;
-    }
-    const uRole = (u?.role || '').toLowerCase();
-    if (uRole.includes('analyst') || uRole.includes('phân tích')) {
-      return m.team.find((a) => a.assignmentRole === 'ANALYST') || null;
-    }
-    if (uRole.includes('tech') || uRole.includes('kỹ thuật') || uRole.includes('bảo trì')) {
-      return m.team.find((a) => a.assignmentRole === 'TECHNICIAN') || null;
-    }
-    return m.team.find((a) => a.assignmentRole === 'INSPECTOR') || m.team[0] || null;
+    if (!m?.team?.length || !u?.id) return null;
+    return m.team.find((a) => a.userId === u.id) ?? null;
   });
 
   protected readonly currentRoleTitle = computed<string>(() => {
@@ -85,30 +74,25 @@ export class MissionInspector {
 
   protected readonly isMyAssignmentAccepted = computed<boolean>(() => {
     const a = this.myAssignment();
-    return a ? a.responseStatus === 'ACCEPTED' : this.mission()?.status === 'CONFIRMED';
+    return a?.responseStatus === 'ACCEPTED';
   });
 
   protected readonly isMyAssignmentPostponed = computed<boolean>(() => {
     const a = this.myAssignment();
-    return a ? a.responseStatus === 'POSTPONED' : this.mission()?.status === 'POSTPONED';
+    return a?.responseStatus === 'POSTPONED';
   });
 
   protected readonly confirmationDeadlineDate = computed(() => {
     const m = this.mission();
     if (!m) return null;
-    if (m.confirmationDeadline) return new Date(m.confirmationDeadline);
-    if (m.plannedStart) {
-      return new Date(new Date(m.plannedStart).getTime() - 2 * 3600 * 1000);
-    }
-    return null;
+    return m.confirmationDeadline ? new Date(m.confirmationDeadline) : null;
   });
 
   protected readonly isDeadlineOverdue = computed(() => {
     const deadline = this.confirmationDeadlineDate();
     const m = this.mission();
     if (!deadline || !m) return false;
-    const pending = m.status === 'PENDING_CONFIRMATION' || m.status === 'Assigned' || m.status === 'Pending';
-    return pending && this.currentTime() > deadline.getTime();
+    return m.status === 'PendingAcceptance' && this.currentTime() > deadline.getTime();
   });
 
   protected readonly deadlineRemainingText = computed(() => {
@@ -136,7 +120,7 @@ export class MissionInspector {
 
   protected readonly selectedTarget = computed(() => {
     const targets = this.mission()?.targets ?? [];
-    return targets.find((t) => t.assetId === this.selectedTargetId()) ?? targets[0] ?? null;
+    return targets.find((t) => t.towerId === this.selectedTargetId()) ?? targets[0] ?? null;
   });
 
   private readonly mapEffect = effect(() => {
@@ -167,12 +151,12 @@ export class MissionInspector {
         if (event.type === 'SUSPENDED') {
           this.mission.update((curr) => curr ? {
             ...curr,
-            status: 'SUSPENDED',
+            status: 'Suspended',
             suspendedReason: event.reason || curr.suspendedReason,
           } : null);
           this.actionMessage.set(`[CẢNH BÁO KHẨN CẤP] Quản lý đã tạm đình chỉ bay: ${event.reason || 'Kiểm tra an toàn.'}`);
         } else if (event.type === 'RESUMED') {
-          this.mission.update((curr) => curr ? { ...curr, status: 'CONFIRMED' } : null);
+          this.mission.update((curr) => curr ? { ...curr, status: 'Assigned' } : null);
           this.actionMessage.set('[THÔNG BÁO] Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Bạn có thể tiếp tục nhiệm vụ.');
         } else if (event.type === 'CANCELLED') {
           this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
@@ -193,7 +177,7 @@ export class MissionInspector {
         next: (mission) => {
           this.mission.set(mission);
           this.loading.set(false);
-          this.selectedTargetId.set(mission.targets[0]?.assetId ?? '');
+          this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
         },
         error: (err: unknown) => {
           this.loading.set(false);
@@ -211,14 +195,14 @@ export class MissionInspector {
     const role: MissionOperationalRole = assign?.assignmentRole || 'INSPECTOR';
     const note = `${this.currentRoleTitle()} xác nhận sẵn sàng tham gia thực hiện nhiệm vụ.`;
 
-    this.api.acceptAssignment(m.id, assign?.id, note, role)
+    this.api.acceptAssignment(m.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
           this.actionBusy.set(false);
-          const total = updated.totalRequiredCount || 3;
-          const conf = updated.confirmedCount || 1;
+          const total = updated.totalRequiredCount ?? 0;
+          const conf = updated.confirmedCount ?? 0;
           this.actionMessage.set(`Đã xác nhận tiếp nhận vai trò ${role} thành công! (${conf}/${total} vai trò đã xác nhận).`);
 
           // Broadcast real-time event to Manager console & Mission lists
@@ -263,7 +247,7 @@ export class MissionInspector {
     const assign = this.myAssignment();
     const role: MissionOperationalRole = assign?.assignmentRole || 'INSPECTOR';
 
-    this.api.postponeAssignment(m.id, reason, assign?.id, role)
+    this.api.postponeAssignment(m.id, reason)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
@@ -276,7 +260,7 @@ export class MissionInspector {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'POSTPONED',
+            status: 'Postponed',
             reason,
             actorRole: role,
             assignmentId: assign?.id,
@@ -292,9 +276,9 @@ export class MissionInspector {
       });
   }
 
-  protected selectTarget(assetId: string): void {
-    this.selectedTargetId.set(assetId);
-    const target = this.mission()?.targets.find((t) => t.assetId === assetId);
+  protected selectTarget(towerId: string): void {
+    this.selectedTargetId.set(towerId);
+    const target = this.mission()?.targets.find((t) => t.towerId === towerId);
     if (!target || !target.latitude || !target.longitude || !this.map) return;
     this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
   }
@@ -381,7 +365,7 @@ export class MissionInspector {
       latLngs.push([lat, lng]);
 
       const sequence = target.sequence || index + 1;
-      const code = target.towerCode || target.assetCode || `Cột ${sequence}`;
+      const code = target.towerCode || `Cột ${sequence}`;
 
       const icon = L.divIcon({
         className: 'custom-tower-marker',
@@ -397,9 +381,9 @@ export class MissionInspector {
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(this.map!)
-        .bindPopup(`<strong>${code}</strong><br/>${target.assetName || ''}<br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        .bindPopup(`<strong>${code}</strong><br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
-      marker.on('click', () => this.selectTarget(target.assetId));
+      marker.on('click', () => this.selectTarget(target.towerId));
       this.markers.push(marker);
     });
 
@@ -434,25 +418,25 @@ export class MissionInspector {
   }
 
   protected statusLabel(status: string): string {
-    switch (status) {
-      case 'PENDING_CONFIRMATION': return 'Chờ tiếp nhận';
-      case 'CONFIRMED': return 'Đã tiếp nhận';
-      case 'POSTPONED': return 'Yêu cầu hoãn';
-      case 'SUSPENDED': return 'Tạm đình chỉ';
-      case 'Completed': return 'Đã hoàn thành';
-      case 'Cancelled': return 'Đã hủy';
-      default: return status;
-    }
+    return missionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
     switch (status) {
-      case 'PENDING_CONFIRMATION': return 'status-pending';
-      case 'CONFIRMED': return 'status-confirmed';
-      case 'POSTPONED': return 'status-postponed';
-      case 'SUSPENDED': return 'status-suspended';
-      case 'Completed': return 'status-completed';
-      default: return 'status-default';
+      case 'PendingAcceptance':
+        return 'status-pending';
+      case 'Assigned':
+      case 'Preparing':
+      case 'Ready':
+        return 'status-confirmed';
+      case 'Postponed':
+        return 'status-postponed';
+      case 'Suspended':
+        return 'status-suspended';
+      case 'Completed':
+        return 'status-completed';
+      default:
+        return 'status-default';
     }
   }
 }

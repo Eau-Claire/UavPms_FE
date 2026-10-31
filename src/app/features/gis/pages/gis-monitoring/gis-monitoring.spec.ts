@@ -1,3 +1,4 @@
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
@@ -38,13 +39,13 @@ interface GisHarness {
   createMission(): void;
 }
 
-describe('GisMonitoring asset selection', () => {
+describe('GisMonitoring tower selection', () => {
   let fixture: ComponentFixture<GisMonitoring>;
-  let api: { spatialQuery: ReturnType<typeof vi.fn>; getAllGisData: ReturnType<typeof vi.fn> };
+  let api: { spatialQuery: ReturnType<typeof vi.fn>; getAllGisData: ReturnType<typeof vi.fn>; getRegions: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let store: MissionTargetSelection;
-  let authMock: { user: ReturnType<typeof vi.fn> };
-  const asset: SelectableAsset = { assetId: 'a1', code: 'A-1', name: 'Tower', latitude: 21, longitude: 105, status: 'Operational' };
+  let authMock: { user: WritableSignal<{ id: string; email: string; role: string } | null> };
+  const asset: SelectableAsset = { towerId: 'a1', code: 'A-1', name: 'A-1', latitude: 21, longitude: 105 };
   const polygon: GeoJsonPolygon = { type: 'Polygon', coordinates: [[[105, 21], [106, 21], [106, 22], [105, 21]]] };
 
   it('converts a rectangle to a closed GeoJSON Polygon with [lng, lat] order', () => {
@@ -61,9 +62,9 @@ describe('GisMonitoring asset selection', () => {
   });
 
   beforeEach(() => {
-    api = { spatialQuery: vi.fn().mockReturnValue(of([asset])), getAllGisData: vi.fn() };
+    api = { spatialQuery: vi.fn().mockReturnValue(of([asset])), getAllGisData: vi.fn(), getRegions: vi.fn().mockReturnValue(of([])) };
     router = { navigate: vi.fn() };
-    authMock = { user: vi.fn().mockReturnValue({ id: 'u1', email: 'manager@evn.vn', role: 'Manager' }) };
+    authMock = { user: signal<{ id: string; email: string; role: string } | null>({ id: 'u1', email: 'manager@evn.vn', role: 'Manager' }) };
 
     TestBed.configureTestingModule({
       imports: [GisMonitoring],
@@ -99,12 +100,12 @@ describe('GisMonitoring asset selection', () => {
     expect(component.showSelectionPopup()).toBe(false);
   });
 
-  it('queries and displays assets for a completed polygon', () => {
+  it('queries and displays towers for a completed polygon', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
     component.resolveGeometry(polygon);
     expect(api.spatialQuery).toHaveBeenCalledWith({ geometry: polygon });
     expect(component.spatialAssets()).toEqual([asset]);
-    expect(component.popupTitle()).toBe('Tài sản trong vùng (1)');
+    expect(component.popupTitle()).toBe('Cột điện trong vùng (1)');
   });
 
   it('enters rectangle drawing mode with contextual instructions and Escape cancels it', () => {
@@ -165,7 +166,7 @@ describe('GisMonitoring asset selection', () => {
     expect(component.spatialAssets()).toEqual([asset]);
   });
 
-  it('inspectAsset opens the asset inspection UI with details', () => {
+  it('inspectAsset opens the tower drawer', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
     component.resolveGeometry(polygon);
     expect(component.selectedEntity()).toBeNull();
@@ -176,39 +177,39 @@ describe('GisMonitoring asset selection', () => {
     expect(selected.data.towerCode).toBe('A-1');
   });
 
-  it('CREATE_MISSION permission check allows Manager, Admin, and Inspector', () => {
+  it('CREATE_MISSION permission check allows Admin and Manager', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
-    authMock.user.mockReturnValue({ id: 'u1', email: 'admin@evn.vn', role: 'Admin' });
+    authMock.user.set({ id: 'u1', email: 'admin@evn.vn', role: 'Admin' });
     expect(component.canCreateMission()).toBe(true);
 
-    authMock.user.mockReturnValue({ id: 'u2', email: 'manager@evn.vn', role: 'Manager' });
-    expect(component.canCreateMission()).toBe(true);
-
-    authMock.user.mockReturnValue({ id: 'u3', email: 'inspector@evn.vn', role: 'Inspector' });
+    authMock.user.set({ id: 'u2', email: 'manager@evn.vn', role: 'Manager' });
     expect(component.canCreateMission()).toBe(true);
   });
 
-  it('CREATE_MISSION permission check disallows Analyst, Technician, Viewer', () => {
+  it('CREATE_MISSION permission check disallows Inspector, Analyst, Technician, Viewer', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
-    authMock.user.mockReturnValue({ id: 'u4', email: 'analyst@evn.vn', role: 'Analyst' });
+    authMock.user.set({ id: 'u3', email: 'inspector@evn.vn', role: 'Inspector' });
     expect(component.canCreateMission()).toBe(false);
 
-    authMock.user.mockReturnValue({ id: 'u5', email: 'tech@evn.vn', role: 'Technician' });
+    authMock.user.set({ id: 'u4', email: 'analyst@evn.vn', role: 'Analyst' });
     expect(component.canCreateMission()).toBe(false);
 
-    authMock.user.mockReturnValue({ id: 'u6', email: 'viewer@evn.vn', role: 'Viewer' });
+    authMock.user.set({ id: 'u5', email: 'tech@evn.vn', role: 'Technician' });
+    expect(component.canCreateMission()).toBe(false);
+
+    authMock.user.set({ id: 'u6', email: 'viewer@evn.vn', role: 'Viewer' });
     expect(component.canCreateMission()).toBe(false);
   });
 
-  it('createMission navigates to /missions/new when targets are selected', () => {
+  it('createMission opens a pre-mission assessment when towers are selected', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
     component.resolveGeometry(polygon);
     component.addAllSpatialAssets();
     expect(store.count()).toBe(1);
     component.createMission();
-    expect(router.navigate).toHaveBeenCalledWith(['/missions/new']);
+    expect(router.navigate).toHaveBeenCalledWith(['/pre-mission/new']);
     // Target asset IDs remain stored in targetSelection
-    expect(store.selected()[0].assetId).toBe('a1');
+    expect(store.selected()[0].towerId).toBe('a1');
   });
 
   it('clears region candidates without removing confirmed mission targets', () => {
@@ -235,9 +236,9 @@ describe('GisMonitoring asset selection', () => {
 
   it('reflects the selected count in the mission CTA', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
-    expect(component.missionCtaLabel()).toBe('Tạo nhiệm vụ');
-    store.add(asset);
-    expect(component.missionCtaLabel()).toBe('Tạo nhiệm vụ (1)');
+    expect(component.missionCtaLabel()).toBe('Lập đánh giá tiền bay');
+    store.add({ towerId: asset.towerId, towerCode: asset.code, latitude: asset.latitude, longitude: asset.longitude });
+    expect(component.missionCtaLabel()).toBe('Lập đánh giá tiền bay (1)');
   });
 
   it('handles empty results as a distinct state from API errors', () => {
@@ -246,13 +247,13 @@ describe('GisMonitoring asset selection', () => {
     // Empty result (0 assets)
     api.spatialQuery.mockReturnValueOnce(of([]));
     component.resolveGeometry(polygon);
-    expect(component.spatialMessage()).toContain('Không có tài sản');
+    expect(component.spatialMessage()).toContain('Không có cột điện');
     expect(component.uxState()).toBe('empty');
 
     // API error
     api.spatialQuery.mockReturnValueOnce(throwError(() => ({ status: 500 })));
     component.resolveGeometry(polygon);
-    expect(component.spatialMessage()).toContain('Không thể truy vấn tài sản trong vùng');
+    expect(component.spatialMessage()).toContain('Không thể truy vấn cột điện trong vùng');
     expect(component.uxState()).toBe('error');
   });
 
@@ -262,7 +263,7 @@ describe('GisMonitoring asset selection', () => {
     component.resolveGeometry(polygon);
     expect(component.uxState()).toBe('error');
     expect(component.hasBoundary()).toBe(true);
-    expect(component.spatialMessage()).toContain('Không thể truy vấn tài sản trong vùng');
+    expect(component.spatialMessage()).toContain('Không thể truy vấn cột điện trong vùng');
   });
 
   it('closeSelectionPopup during drawing cancels unfinished geometry', () => {
@@ -338,7 +339,7 @@ describe('GisMonitoring asset selection', () => {
     component.loadGisData();
     expect(component.loading()).toBe(true);
     expect(component.towers()).toEqual([]);
-    pending.next({ towers: [], lines: [], anomalies: [], alerts: [] });
+    pending.next({ towers: [], anomalies: [], alerts: [] });
     pending.complete();
     expect(component.loading()).toBe(false);
     expect(component.error()).toBe('');
@@ -352,5 +353,14 @@ describe('GisMonitoring asset selection', () => {
     expect(component.loading()).toBe(false);
     expect(component.towers()).toEqual([]);
     expect(component.error()).toContain(status === 403 ? '403' : 'Không thể tải');
+  });
+
+  it('reloads GIS data for the selected region and scopes the spatial query to it', () => {
+    api.getAllGisData.mockReturnValue(of({ towers: [], anomalies: [], alerts: [] }));
+    const component = fixture.componentInstance as unknown as GisHarness & { changeRegion(id: string): void };
+    component.changeRegion('r1');
+    expect(api.getAllGisData).toHaveBeenLastCalledWith({ administrativeAreaId: 'r1' });
+    component.resolveGeometry(polygon);
+    expect(api.spatialQuery).toHaveBeenLastCalledWith({ geometry: polygon, filters: { regionId: 'r1' } });
   });
 });

@@ -2,19 +2,26 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 420px;
+  box-sizing: border-box;
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--color-text-primary, #17324d);
 }
 
+.page-heading,
 .gis-page-head {
-  margin-bottom: 24px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
   border: none !important;
   border-bottom: none !important;
 
+  .heading-left,
   .page-heading-group {
     display: flex;
     flex-direction: column;
@@ -24,9 +31,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 0 0 4px 0;
+    margin: 0 0 2px 0;
     color: #64748b;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -43,9 +50,9 @@
 
   h1,
   .page-title {
-    margin: 4px 0 4px 0;
+    margin: 0 0 2px 0;
     color: #0f2952;
-    font-size: 22px;
+    font-size: 19px;
     font-weight: 700;
     line-height: 1.25;
     letter-spacing: -0.01em;
@@ -53,11 +60,12 @@
   }
 
   p,
+  .review-subtitle,
   .page-subtitle {
     margin: 0;
-    color: #526b82;
-    font-size: 13px;
-    line-height: 1.4;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
     font-weight: 400;
   }
 }
@@ -87,11 +95,12 @@
 .gis-page-wrapper {
   position: relative;
   width: 100%;
-  height: calc(100vh - 210px);
-  min-height: 520px;
-  border-radius: 16px;
+  flex: 1 1 auto;
+  min-height: 420px;
+  height: 100%;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   border: 1px solid #cbd5e1;
   display: flex;
   flex-direction: column;

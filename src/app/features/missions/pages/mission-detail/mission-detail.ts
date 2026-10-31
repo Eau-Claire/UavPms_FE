@@ -17,25 +17,22 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { catchError, finalize, of } from 'rxjs';
+import { catchError, concatMap, finalize, from, of, tap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import {
   InspectionObjective,
   Mission,
   MissionAssignment,
-  MissionAssignmentsOverview,
-  MissionBackendActivity,
   MissionBackendDetection,
-  MissionBackendMaintenanceTask,
   MissionCommunicationLog,
-  MissionOperationalRole,
   MissionPriority,
   MissionTarget,
   PRIORITY_DEFECT_CATEGORIES,
   UpdateMissionPriorityRequest,
+  missionStatusLabel,
+  normalizeMissionStatus,
 } from '../../../../models/missions.models';
 import { UserRecord } from '../../../../models/users.models';
-import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
 import {
   AiAnalysisStatusChangedEvent,
   MissionLifecycleRealtimeEvent,
@@ -46,7 +43,8 @@ import { UsersApi } from '../../../users/data-access/users-api';
 import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { Auth } from '../../../../core/auth/auth';
 
-export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
+export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'towers' | 'maintenance' | 'activity';
+export type DetectionReviewDecision = 'Approved' | 'Rejected';
 export type MediaKind = 'image' | 'video';
 
 export interface MissionMediaPreview {
@@ -98,7 +96,7 @@ export interface MissionDetectionView {
     readonly height: number;
   };
   readonly missionId: string;
-  readonly assetId: string;
+  readonly towerId: string;
   readonly tower: string;
   readonly gps: string;
   readonly description: string;
@@ -118,16 +116,15 @@ export interface MissionTimelineMarker {
   readonly isEmergency: boolean;
 }
 
-export interface MissionAssetItem {
-  readonly id: string;
-  readonly code: string;
-  readonly type: string;
+/** Cột điện của nhiệm vụ kèm số khuyết tật đã được duyệt. */
+export interface MissionTowerItem {
+  readonly towerId: string;
   readonly towerCode: string;
-  readonly healthScore: number;
-  readonly riskLevel: 'Critical Risk' | 'High Risk' | 'Medium Risk' | 'Low Risk';
+  readonly sequence: number;
+  readonly inspectionStatus: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
   readonly defectCount: number;
-  readonly status: 'Operational' | 'Maintenance' | 'InspectionRequired';
-  readonly lastInspected: string;
 }
 
 export interface MissionMaintenanceTask {
@@ -135,7 +132,6 @@ export interface MissionMaintenanceTask {
   readonly title: string;
   readonly priority: 'Urgent' | 'High' | 'Medium' | 'Scheduled';
   readonly towerCode: string;
-  readonly assetCode: string;
   readonly defectDescription: string;
   readonly suggestedAction: string;
   readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed';
@@ -153,7 +149,6 @@ export interface MissionMaintenanceTask {
 export class MissionDetail {
   private readonly api = inject(MissionsApi);
   private readonly usersApi = inject(UsersApi);
-  private readonly assetApi = inject(AssetManagementApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -272,12 +267,7 @@ export class MissionDetail {
         return found.fullName || found.username || found.email;
       }
     }
-    const raw = member.userFullName || member.userName || '';
-    if (raw.includes('Nguyễn Văn An')) return 'inspector';
-    if (raw.includes('Lê Thị Mai')) return 'analyst';
-    if (raw.includes('Phạm Quốc Toàn')) return 'technician';
-    if (raw.includes('Trần Đình Trọng')) return 'manager';
-    return raw || (member.assignmentRole ? member.assignmentRole.toLowerCase() : 'Thành viên');
+    return member.userFullName || member.userName || member.assignmentRole || 'Thành viên';
   }
 
   protected getAssignedPilotDisplayName(): string {
@@ -298,9 +288,7 @@ export class MissionDetail {
         return found.fullName || found.username || found.email;
       }
     }
-    const raw = m.assignedToUsername || '';
-    if (raw.includes('Nguyễn Văn An')) return 'inspector';
-    return raw || 'inspector';
+    return m.assignedToUsername || 'Chưa phân công';
   }
 
   protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
@@ -310,18 +298,7 @@ export class MissionDetail {
     // Managers or Administrators cannot accept assignments on behalf of assigned roles
     if (['manager', 'supervisor', 'admin', 'systemadmin', 'administrator'].includes(userRole)) return false;
 
-    // Match by direct userId or username
-    if (member.userId && (user.id === member.userId || user.email === member.userId || (user as any).username === member.userId)) {
-      return true;
-    }
-
-    // Match by assigned role
-    const memberRole = (member.assignmentRole || '').toUpperCase();
-    if (memberRole === 'INSPECTOR' && (userRole.includes('inspector') || userRole.includes('pilot'))) return true;
-    if (memberRole === 'ANALYST' && userRole.includes('analyst')) return true;
-    if (memberRole === 'TECHNICIAN' && (userRole.includes('tech') || userRole.includes('maintenance'))) return true;
-
-    return false;
+    return !!member.userId && user.id === member.userId;
   }
 
   protected canPostponeMemberAssignment(member: MissionAssignment): boolean {
@@ -329,43 +306,26 @@ export class MissionDetail {
   }
 
   protected canReassignMember(member: MissionAssignment): boolean {
-    if (member.responseStatus !== 'POSTPONED') return false;
-    const user = this.auth.user();
-    const userRole = (user?.role || '').toLowerCase();
-    return this.activeRole() === 'MANAGER' || userRole.includes('manager') || userRole.includes('admin') || userRole.includes('supervisor');
+    return member.responseStatus === 'POSTPONED' && this.isManager();
   }
 
   protected readonly confirmationDeadlineDate = computed(() => {
     const m = this.mission();
     if (!m) return null;
-    if (m.confirmationDeadline) return new Date(m.confirmationDeadline);
-    if (m.plannedStart) {
-      return new Date(new Date(m.plannedStart).getTime() - 2 * 3600 * 1000);
-    }
-    return null;
+    return m.confirmationDeadline ? new Date(m.confirmationDeadline) : null;
   });
 
   protected readonly isDeadlineOverdue = computed(() => {
     const deadline = this.confirmationDeadlineDate();
     const m = this.mission();
     if (!deadline || !m) return false;
-    const pending = m.status === 'PENDING_CONFIRMATION' || m.status === 'Assigned' || m.status === 'Pending';
-    return pending && this.currentTime() > deadline.getTime();
+    return m.status === 'PendingAcceptance' && this.currentTime() > deadline.getTime();
   });
 
   protected readonly isLinearUploadBlocked = computed(() => {
     const m = this.mission();
     if (!m) return true;
-    const s = (m.status || '').toLowerCase();
-    return (
-      s === 'draft' ||
-      s === 'pendingacceptance' ||
-      s === 'pending_confirmation' ||
-      s === 'pending' ||
-      s === 'postponed' ||
-      s === 'suspended' ||
-      s === 'cancelled'
-    );
+    return ['Draft', 'PendingAcceptance', 'Postponed', 'Suspended', 'Cancelled'].includes(m.status);
   });
 
   protected readonly deadlineTimeRemaining = computed(() => {
@@ -402,8 +362,10 @@ export class MissionDetail {
   protected readonly selectedTargetId = signal('');
   protected readonly selectedTarget = computed(() => {
     const targets = this.mission()?.targets ?? [];
-    return targets.find((target) => target.assetId === this.selectedTargetId()) ?? targets[0] ?? null;
+    return targets.find((target) => target.towerId === this.selectedTargetId()) ?? targets[0] ?? null;
   });
+  /** Cột được gắn với tệp tải lên; để trống khi là video quét hành lang qua nhiều cột. */
+  protected readonly uploadTowerId = signal('');
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -502,64 +464,20 @@ export class MissionDetail {
       });
   });
 
-  // Mission Assets Data
-  protected readonly missionAssets = signal<readonly MissionAssetItem[]>([
-    {
-      id: 'ast-01',
-      code: 'INS-220KV-042-PHA-B',
-      type: 'Chuỗi sứ cách điện đỡ',
-      towerCode: 'Cột 042 (Néo)',
-      healthScore: 38,
-      riskLevel: 'Critical Risk',
-      defectCount: 1,
-      status: 'Maintenance',
-      lastInspected: '27/08/2026 14:20',
-    },
-    {
-      id: 'ast-02',
-      code: 'BOLT-TOW-042-X1',
-      type: 'Bu lông thanh giằng xà',
-      towerCode: 'Cột 042 (Néo)',
-      healthScore: 54,
-      riskLevel: 'High Risk',
-      defectCount: 1,
-      status: 'InspectionRequired',
-      lastInspected: '27/08/2026 14:21',
-    },
-    {
-      id: 'ast-03',
-      code: 'VEG-SPAN-041-042',
-      type: 'Hành lang an toàn khoảng cột',
-      towerCode: 'Khoảng cột 041 - 042',
-      healthScore: 68,
-      riskLevel: 'Medium Risk',
-      defectCount: 1,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:18',
-    },
-    {
-      id: 'ast-04',
-      code: 'COND-ACSR-400-PhaA',
-      type: 'Dây dẫn ACSR 400mm2',
-      towerCode: 'Cột 041 (Đỡ)',
-      healthScore: 92,
-      riskLevel: 'Low Risk',
-      defectCount: 0,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:15',
-    },
-    {
-      id: 'ast-05',
-      code: 'OPGW-EARTH-24F',
-      type: 'Dây chống sét cáp quang OPGW',
-      towerCode: 'Đỉnh cột 040 - 043',
-      healthScore: 96,
-      riskLevel: 'Low Risk',
-      defectCount: 0,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:10',
-    },
-  ]);
+  /** Cột điện của nhiệm vụ kèm số khuyết tật đã duyệt. */
+  protected readonly missionTowers = computed<readonly MissionTowerItem[]>(() => {
+    const approved = this.detections().filter((d) => d.status === 'Approved' || d.status === 'Accepted');
+    return (this.mission()?.targets ?? []).map((t, idx) => ({
+      towerId: t.towerId,
+      towerCode: t.towerCode || t.towerId,
+      sequence: t.sequence ?? idx + 1,
+      inspectionStatus: t.inspectionStatus,
+      latitude: t.latitude,
+      longitude: t.longitude,
+      defectCount: approved.filter((d) => d.towerId === t.towerId).length,
+    }));
+  });
+  protected readonly towersWithDefectsCount = computed(() => this.missionTowers().filter((t) => t.defectCount > 0).length);
 
   // Emergency Siren and Banner Alert
   protected readonly activeEmergency = signal<{ title: string; message: string; timestamp: string } | null>(null);
@@ -568,12 +486,6 @@ export class MissionDetail {
 
   // Mission Maintenance Recommendations (Derived from Approved Detections or Mission Maintenance API)
   protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([]);
-  protected readonly criticalAssetCount = computed(
-    () => this.missionAssets().filter((a) => a.healthScore > 0 && a.healthScore < 40).length,
-  );
-  protected readonly stableAssetCount = computed(
-    () => this.missionAssets().filter((a) => a.healthScore >= 80).length,
-  );
 
   private resizeStartX = 0;
   private resizeStartWidth = 400;
@@ -625,7 +537,7 @@ export class MissionDetail {
     const timer = setInterval(() => this.currentTime.set(Date.now()), 30000);
     const pollTimer = setInterval(() => {
       const m = this.mission();
-      if (m && !m.allConfirmed && (m.status === 'PENDING_CONFIRMATION' || m.status === 'Pending' || m.status === 'Assigned' || m.status === 'Draft')) {
+      if (m && !m.allConfirmed && m.status === 'PendingAcceptance') {
         this.loadAssignmentsOverview(m.id);
       }
     }, 5000);
@@ -656,18 +568,7 @@ export class MissionDetail {
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
-          this.selectedTargetId.set(mission.targets[0]?.assetId ?? '');
-          this.missionAssets.set(mission.targets.map((target) => ({
-            id: target.assetId,
-            code: target.assetCode,
-            type: target.assetName || '—',
-            towerCode: target.towerCode || '—',
-            healthScore: 98,
-            riskLevel: 'Low Risk',
-            defectCount: 0,
-            status: 'Operational',
-            lastInspected: '27/08/2026 14:20',
-          })));
+          this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
           this.loadAssignmentsOverview(mission.id);
           this.loadDetections(mission.id);
           this.loadMaintenanceTasks(mission.id);
@@ -728,9 +629,9 @@ export class MissionDetail {
     this.currentTileLayer.addTo(this.map);
   }
 
-  protected selectTarget(assetId: string): void {
-    this.selectedTargetId.set(assetId);
-    const target = this.mission()?.targets.find((item) => item.assetId === assetId);
+  protected selectTarget(towerId: string): void {
+    this.selectedTargetId.set(towerId);
+    const target = this.mission()?.targets.find((item) => item.towerId === towerId);
     if (!target || !target.latitude || !target.longitude || !this.map) return;
     this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
   }
@@ -787,7 +688,7 @@ export class MissionDetail {
       latLngs.push([lat, lng]);
 
       const sequence = target.sequence || index + 1;
-      const code = target.towerCode || target.assetCode || `Cột ${sequence}`;
+      const code = target.towerCode || `Cột ${sequence}`;
 
       const icon = L.divIcon({
         className: 'custom-tower-marker',
@@ -803,9 +704,9 @@ export class MissionDetail {
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(this.map!)
-        .bindPopup(`<strong>${code}</strong><br/>${target.assetName || ''}<br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        .bindPopup(`<strong>${code}</strong><br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
-      marker.on('click', () => this.selectTarget(target.assetId));
+      marker.on('click', () => this.selectTarget(target.towerId));
       this.targetMarkers.push(marker);
     });
 
@@ -994,48 +895,51 @@ export class MissionDetail {
     this.uploadMessage.set('Đang tải tệp lên máy chủ AI Inspection...');
     this.setQueueProgress('Đang tải lên', 0);
 
-    this.assetApi
-      .uploadAnalysisFile({
-        files: media.map((item) => item.file),
-        missionId,
-        analysisType: 'DefectDetection',
-        preferredModel: 'SERVER',
-        notes: this.mission()?.missionCode ?? '',
-      })
+    const towerId = this.uploadTowerId() || null;
+    const totalBytes = media.reduce((sum, item) => sum + item.file.size, 0) || 1;
+    let uploadedBytes = 0;
+    let duplicates = 0;
+
+    from(media)
       .pipe(
+        concatMap((item) =>
+          this.api.uploadMedia(missionId, item.file, { towerId }).pipe(
+            tap((event) => {
+              if (event.type === HttpEventType.UploadProgress) {
+                const itemTotal = event.total || item.file.size || 1;
+                this.uploadProgress.set(Math.min(100, Math.round(((uploadedBytes + event.loaded) / totalBytes) * 100)));
+                this.updateMedia(item.id, { status: 'Đang tải lên', progress: Math.round((event.loaded / itemTotal) * 100) });
+              } else if (event.type === HttpEventType.Response) {
+                uploadedBytes += item.file.size;
+                const body = event.body && typeof event.body === 'object' ? (event.body as Record<string, unknown>) : {};
+                const data = body['data'] && typeof body['data'] === 'object' ? (body['data'] as Record<string, unknown>) : {};
+                const isDuplicate = data['isDuplicate'] === true;
+                if (isDuplicate) duplicates++;
+                this.updateMedia(item.id, {
+                  status: isDuplicate ? 'Tệp đã có trong nhiệm vụ (bỏ qua)' : 'Đã tải lên, chờ phân tích',
+                  progress: 100,
+                  accepted: true,
+                });
+              }
+            }),
+          ),
+        ),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.uploadBusy.set(false)),
       )
       .subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            const total = event.total || media.reduce((sum, item) => sum + item.file.size, 0);
-            const progress = Math.round((event.loaded / total) * 100);
-            this.uploadProgress.set(progress);
-            this.setQueueProgress('Đang tải lên', progress);
-            return;
-          }
-          if (event.type === HttpEventType.Response) {
-            this.uploadProgress.set(100);
-            this.applyUploadResponse(event.body);
-            this.uploadMessage.set(this.uploadResultMessage(event.body));
-            this.setTab('processing');
-          }
+        complete: () => {
+          this.uploadProgress.set(100);
+          this.uploadMessage.set(
+            duplicates
+              ? `Đã tải lên ${media.length - duplicates}/${media.length} tệp, ${duplicates} tệp trùng đã bỏ qua.`
+              : `Đã tải lên ${media.length} tệp. Hệ thống đang phân tích.`,
+          );
+          this.setTab('processing');
         },
         error: (error: unknown) => {
-          this.setQueueProgress('Upload lỗi', this.uploadProgress());
-          const msg = this.errorMessage(error);
-          if (
-            msg.includes('INVALID_MISSION_STATUS_FOR_UPLOAD') ||
-            msg.includes('dự thảo') ||
-            msg.includes('chờ các vai trò xác nhận')
-          ) {
-            this.uploadMessage.set(
-              '⛔ CHẶN TẢI MEDIA (Quy chuẩn Tuyến tính): Nhiệm vụ đang ở trạng thái dự thảo hoặc chờ xác nhận tiếp nhận. Vui lòng hoàn tất tiếp nhận 3 vai trò và thực hiện bay trước khi tải ảnh/video.',
-            );
-          } else {
-            this.uploadMessage.set(msg);
-          }
+          this.setQueueProgress('Tải lên lỗi', this.uploadProgress());
+          this.uploadMessage.set(this.errorMessage(error));
         },
       });
   }
@@ -1122,9 +1026,6 @@ export class MissionDetail {
       })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() =>
-          this.assetApi.reviewMissionDetection(missionId, selected.id, { decision, notes: this.reviewNotes() }),
-        ),
         finalize(() => this.reviewBusy.set(false)),
       )
       .subscribe({
@@ -1139,12 +1040,11 @@ export class MissionDetail {
           this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
           this.resultMessage.set(
             decision === 'Approved'
-              ? 'Đã duyệt khuyết tật. Hệ thống tự động khấu trừ điểm sức khỏe tài sản và lập phiếu bảo trì!'
+              ? 'Đã duyệt khuyết tật. Hệ thống lập khuyến nghị bảo trì từ khuyết tật này.'
               : 'Đã từ chối phát hiện AI (nhận diện sai).',
           );
           // Auto reload maintenance tasks generated by backend
           this.loadMaintenanceTasks(missionId);
-          this.syncAssetsWithDetections(this.mission()?.targets ?? [], this.detections());
 
           this.realtime.broadcastMissionEvent({
             missionId,
@@ -1219,7 +1119,7 @@ export class MissionDetail {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CONFIRMED',
-            status: 'CONFIRMED',
+            status: 'Assigned',
             actorRole: 'INSPECTOR',
             actorName: updated.assignedToUsername || 'Inspector',
             reason: 'Inspector xác nhận tiếp nhận nhiệm vụ.',
@@ -1243,13 +1143,7 @@ export class MissionDetail {
 
     const userName = this.getMemberDisplayName(assignment);
     this.api
-      .acceptAssignment(
-        currentMission.id,
-        assignment.id,
-        `${assignment.assignmentRole} đã xác nhận sẵn sàng tiếp nhận nhiệm vụ.`,
-        assignment.assignmentRole,
-        userName,
-      )
+      .acceptAssignment(currentMission.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.actionBusy.set(false)),
@@ -1302,7 +1196,7 @@ export class MissionDetail {
     const userName = assignment ? this.getMemberDisplayName(assignment) : 'Thành viên đội ngũ';
 
     this.api
-      .postponeAssignment(currentMission.id, reason, assignment?.id, role, userName)
+      .postponeAssignment(currentMission.id, reason)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.actionBusy.set(false)),
@@ -1326,7 +1220,7 @@ export class MissionDetail {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'POSTPONED',
+            status: 'Postponed',
             assignmentId: assignment?.id,
             reason,
             actorRole: role,
@@ -1366,17 +1260,17 @@ export class MissionDetail {
             curr
               ? {
                   ...curr,
-                  status: 'Executing',
+                  status: 'InProgress',
                   actualStart: now,
                   communicationLogs: [newLog, ...(curr.communicationLogs || [])],
                 }
               : null,
           );
-          this.actionMessage.set('Đã khởi động chuyến bay khảo sát! Trạng thái: Đang bay (Executing).');
+          this.actionMessage.set('Đã khởi động chuyến bay khảo sát! Trạng thái: Đang bay.');
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'STARTED',
-            status: 'Executing',
+            status: 'InProgress',
             actorRole: 'INSPECTOR',
             actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
             reason: 'Bắt đầu hành trình bay khảo sát hiện trường.',
@@ -1544,7 +1438,7 @@ export class MissionDetail {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'SUSPENDED',
-            status: 'SUSPENDED',
+            status: 'Suspended',
             reason,
             actorRole: 'MANAGER',
             actorName: updated.managerUsername || 'Quản lý vận hành',
@@ -1584,7 +1478,7 @@ export class MissionDetail {
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'RESUMED',
-            status: 'CONFIRMED',
+            status: 'Assigned',
             actorRole: 'MANAGER',
             actorName: updated.managerUsername || 'Quản lý vận hành',
             timestamp: new Date().toISOString(),
@@ -1700,7 +1594,7 @@ export class MissionDetail {
       .addMissionActivity(currentMission.id, content, role)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => this.api.sendCommunication(currentMission.id, content, role, senderName)),
+        catchError(() => this.api.sendCommunication(currentMission.id, content)),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
@@ -1847,7 +1741,7 @@ export class MissionDetail {
             ...updatedMission,
             team: updatedMission.team && updatedMission.team.length ? updatedMission.team : currentMission.team,
             targets: updatedMission.targets && updatedMission.targets.length ? updatedMission.targets : currentMission.targets,
-            status: updatedMission.status && updatedMission.status !== 'Pending' ? updatedMission.status : currentMission.status,
+            status: updatedMission.status && updatedMission.status !== 'Draft' ? updatedMission.status : currentMission.status,
             priority: p,
             objective: payload.objective ?? currentMission.objective,
             emergencyReason: payload.emergencyReason ?? currentMission.emergencyReason,
@@ -1882,32 +1776,14 @@ export class MissionDetail {
   }
 
   protected statusLabel(status: string): string {
-    return (
-      ({
-        PENDING_CONFIRMATION: 'Chờ 3 vai trò tiếp nhận',
-        CONFIRMED: 'Đã xác nhận (Sẵn sàng bay)',
-        POSTPONED: 'Yêu cầu hoãn/Điều chỉnh',
-        SUSPENDED: 'Tạm đình chỉ bay',
-        Cancelled: 'Đã hủy',
-        Pending: 'Chờ xử lý',
-        Draft: 'Bản nháp',
-        Assigned: 'Đã xác nhận (Sẵn sàng bay)',
-        Preparing: 'Đang chuẩn bị',
-        Ready: 'Sẵn sàng bay',
-        Executing: 'Đang bay khảo sát',
-        InProgress: 'Đang bay khảo sát',
-        'In Progress': 'Đang bay khảo sát',
-        Completed: 'Đã hoàn tất chuyến bay',
-        Failed: 'Lỗi bay',
-      } as Record<string, string>)[status] ?? status
-    );
+    return missionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
-    const normalized = status.replace(/\s+/g, '');
-    if (['Failed', 'Error', 'Cancelled', 'Rejected', 'SUSPENDED'].includes(normalized)) return 'danger';
-    if (['Completed', 'Approved', 'Accepted', 'CONFIRMED', 'Ready'].includes(normalized)) return 'success';
-    if (['Executing', 'InProgress', 'Processing', 'AIProcessing', 'PENDING_CONFIRMATION', 'POSTPONED'].includes(normalized)) return 'warning';
+    const normalized = normalizeMissionStatus(status);
+    if (['Cancelled', 'Suspended', 'Rejected', 'Failed'].includes(normalized)) return 'danger';
+    if (['Completed', 'Approved', 'Accepted', 'Assigned', 'Ready'].includes(normalized)) return 'success';
+    if (['InProgress', 'Preparing', 'PendingAcceptance', 'Postponed'].includes(normalized)) return 'warning';
     return 'neutral';
   }
 
@@ -1953,68 +1829,21 @@ export class MissionDetail {
         takeUntilDestroyed(this.destroyRef),
         catchError(() => of(null)),
       )
-      .subscribe({
-        next: (overview) => {
-          if (!overview) return;
-          this.mission.update((curr) => {
-            if (!curr) return null;
-            const updatedTeam = overview.assignments && overview.assignments.length > 0 ? [...overview.assignments] : (curr.team ? [...curr.team] : []);
-
-            // Guarantee 3 mandatory roles exist in updatedTeam
-            if (!updatedTeam.some((t) => t.assignmentRole === 'INSPECTOR')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-insp`,
-                missionId: curr.id,
-                userId: curr.assignedToUserId || 'inspector',
-                userName: curr.assignedToUsername || 'Phi công UAV EVN',
-                assignmentRole: 'INSPECTOR',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-            if (!updatedTeam.some((t) => t.assignmentRole === 'ANALYST')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-analyst`,
-                missionId: curr.id,
-                userId: 'analyst',
-                userName: 'Chuyên viên phân tích AI',
-                assignmentRole: 'ANALYST',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-            if (!updatedTeam.some((t) => t.assignmentRole === 'TECHNICIAN')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-tech`,
-                missionId: curr.id,
-                userId: 'technician',
-                userName: 'Kỹ thuật viên bảo trì lưới',
-                assignmentRole: 'TECHNICIAN',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-
-            const required = updatedTeam.filter((m) => m.isRequired !== false && m.status !== 'Revoked');
-            const confirmedCount = required.filter((m) => m.responseStatus === 'ACCEPTED').length;
-            const totalRequiredCount = Math.max(3, required.length);
-            const allConfirmed = required.length >= 3 && confirmedCount >= totalRequiredCount && required.every((m) => m.responseStatus === 'ACCEPTED');
-
-            return {
-              ...curr,
-              totalRequiredCount,
-              confirmedCount,
-              allConfirmed,
-              confirmationProgress: `${confirmedCount}/${totalRequiredCount}`,
-              confirmationDeadline: overview.confirmationDeadline || curr.confirmationDeadline,
-              status: allConfirmed ? 'CONFIRMED' : (curr.status === 'CONFIRMED' && !allConfirmed ? 'PENDING_CONFIRMATION' : curr.status),
-              team: updatedTeam,
-            };
-          });
-        },
+      .subscribe((overview) => {
+        if (!overview) return;
+        this.mission.update((curr) =>
+          curr
+            ? {
+                ...curr,
+                team: overview.assignments.length ? overview.assignments : curr.team,
+                totalRequiredCount: overview.totalRequiredCount,
+                confirmedCount: overview.confirmedCount,
+                allConfirmed: overview.allConfirmed,
+                confirmationProgress: `${overview.confirmedCount}/${overview.totalRequiredCount}`,
+                confirmationDeadline: overview.confirmationDeadline || curr.confirmationDeadline,
+              }
+            : null,
+        );
       });
   }
 
@@ -2024,7 +1853,6 @@ export class MissionDetail {
       .getMissionDetections(missionId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => this.assetApi.getMissionDetections(missionId).pipe(catchError(() => of([])))),
         finalize(() => this.detectionsLoading.set(false)),
       )
       .subscribe({
@@ -2033,7 +1861,6 @@ export class MissionDetail {
           this.resultPage.set(1);
           this.detections.set(mapped);
           this.selectedDetection.set(mapped[0] ?? null);
-          this.syncAssetsWithDetections(this.mission()?.targets ?? [], mapped);
         },
         error: () => {
           this.resultPage.set(1);
@@ -2041,42 +1868,6 @@ export class MissionDetail {
           this.selectedDetection.set(null);
         },
       });
-  }
-
-  private syncAssetsWithDetections(
-    targets: readonly MissionTarget[],
-    detections: readonly MissionDetectionView[],
-  ): void {
-    if (!targets.length) return;
-    const approved = detections.filter((d) => d.status === 'Approved' || d.status === 'Accepted');
-    const assetList: MissionAssetItem[] = targets.map((t, idx) => {
-      const relatedDetections = approved.filter(
-        (d) =>
-          d.assetId === t.assetId ||
-          (t.towerCode && d.tower.includes(t.towerCode)) ||
-          (idx === 0 && approved.length > 0),
-      );
-      const defectCount = relatedDetections.length;
-      const totalPenalty = relatedDetections.reduce((sum, d) => sum + (d.severityWeight || 1) * 20, 0);
-      const score = Math.max(25, 98 - totalPenalty);
-      const risk: MissionAssetItem['riskLevel'] =
-        score < 40 ? 'Critical Risk' : score < 60 ? 'High Risk' : score < 80 ? 'Medium Risk' : 'Low Risk';
-      const status: MissionAssetItem['status'] =
-        score < 50 ? 'Maintenance' : score < 75 ? 'InspectionRequired' : 'Operational';
-
-      return {
-        id: t.assetId || `ast-${idx + 1}`,
-        code: t.assetCode || `AST-220KV-04${idx + 1}`,
-        type: t.assetName || (t.assetType === 'TOWER' ? 'Cột néo truyền tải 220kV' : 'Chuỗi sứ cách điện đỡ'),
-        towerCode: t.towerCode || `Cột 04${idx + 1}`,
-        healthScore: score,
-        riskLevel: risk,
-        defectCount,
-        status,
-        lastInspected: '27/08/2026 14:20',
-      };
-    });
-    this.missionAssets.set(assetList);
   }
 
   private loadMaintenanceTasks(missionId: string): void {
@@ -2096,14 +1887,13 @@ export class MissionDetail {
               : t.priority === 'Low'
               ? 'Scheduled'
               : 'Medium') as MissionMaintenanceTask['priority'],
-            towerCode: t.towerCode || 'Cột 042 (Néo)',
-            assetCode: t.assetCode || 'INS-220KV-042',
-            defectDescription: t.defectDescription || 'Khuyết tật xác nhận bởi AI & Analyst',
-            suggestedAction: t.suggestedAction || 'Bảo dưỡng / Thay thế thiết bị',
+            towerCode: t.towerCode || '—',
+            defectDescription: t.defectDescription || '—',
+            suggestedAction: t.suggestedAction || '—',
             status: (t.status === 'Approved' || t.status === 'InProgress' || t.status === 'Completed'
               ? t.status
               : 'Pending') as MissionMaintenanceTask['status'],
-            assignedTeam: t.assignedTeam || 'Đội Truyền tải / Bảo dưỡng EVN',
+            assignedTeam: t.assignedTeam || '—',
           }));
           this.maintenanceTasks.set(mapped);
         },
@@ -2157,21 +1947,12 @@ export class MissionDetail {
       });
   }
 
-  private mapDetection(item: MissionBackendDetection | MissionAiDetection): MissionDetectionView {
+  private mapDetection(item: MissionBackendDetection): MissionDetectionView {
     const tsSec = item.timestampSeconds ?? null;
-    const durSec =
-      ('videoDurationSeconds' in item ? item.videoDurationSeconds : null) ?? (tsSec ? Math.max(60, tsSec + 10) : 60);
     const tsLabel =
-      'timestampLabel' in item && item.timestampLabel
-        ? item.timestampLabel
-        : tsSec !== null
-        ? this.formatTime(tsSec)
-        : item.frameIndex !== null && item.frameIndex !== undefined
-        ? `Frame ${item.frameIndex}`
-        : 'N/A';
-
-    const rawNotes = 'reviewNotes' in item ? item.reviewNotes : 'analystNotes' in item ? item.analystNotes : '';
-    const rawValidatedAt = 'reviewedAt' in item ? item.reviewedAt : 'validatedAt' in item ? item.validatedAt : '';
+      item.timestampLabel ||
+      (tsSec !== null ? this.formatTime(tsSec) : item.frameIndex != null ? `Frame ${item.frameIndex}` : 'N/A');
+    const isVideo = tsSec !== null || /\.(mp4|mov|avi|webm)(\?|$)/i.test(item.sourceUrl ?? '');
 
     return {
       id: item.id,
@@ -2181,26 +1962,26 @@ export class MissionDetail {
       timestampLabel: tsLabel,
       timestampSeconds: tsSec,
       frameIndex: item.frameIndex ?? null,
-      videoDurationLabel: this.formatTime(durSec),
+      videoDurationLabel: tsLabel,
       status: item.status,
-      mediaStatus: ('mediaStatus' in item ? item.mediaStatus : 'Analyzed') || 'Analyzed',
-      categoryCode: item.categoryCode || 'DEFECT',
+      mediaStatus: 'Analyzed',
+      categoryCode: item.categoryCode || '—',
       severityWeight: item.severityWeight ?? 1,
       isEmergency: item.isEmergency ?? false,
-      aiSource: ('aiSource' in item ? item.aiSource : 'SERVER') || 'SERVER',
-      mediaType: ('mediaType' in item ? item.mediaType : tsSec !== null ? 'video' : 'image') || 'image',
+      aiSource: 'SERVER',
+      mediaType: isVideo ? 'video' : 'image',
       sourceUrl: item.sourceUrl,
-      imageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
-      cropImageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
+      imageUrl: item.imageUrl || item.sourceUrl,
+      cropImageUrl: item.imageUrl || item.sourceUrl,
       boundingBox: item.boundingBox,
       missionId: item.missionId,
-      assetId: item.assetId || 'Chưa liên kết',
-      tower: ('tower' in item && item.tower ? item.tower : 'Cột 042 (TOW-220KV-042)'),
-      gps: ('gps' in item && item.gps ? item.gps : '20°58\'14.2"N 105°48\'22.6"E'),
-      description: item.description || 'Không có mô tả từ máy chủ AI.',
-      notes: rawNotes || '',
-      detectedAt: item.detectedAt || new Date().toISOString(),
-      validatedAt: rawValidatedAt || '',
+      towerId: item.towerId || '',
+      tower: item.tower || 'Chưa gắn cột',
+      gps: item.gps || '—',
+      description: item.description || 'Không có mô tả.',
+      notes: item.reviewNotes || '',
+      detectedAt: item.detectedAt || '',
+      validatedAt: item.reviewedAt || '',
     };
   }
 
@@ -2280,7 +2061,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: isAllConfirmed ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
+          status: isAllConfirmed ? 'Assigned' : 'PendingAcceptance',
           confirmedAt: isAllConfirmed ? (event.timestamp || new Date().toISOString()) : (curr.confirmedAt ?? null),
           allConfirmed: isAllConfirmed,
           confirmedCount: confCount,
@@ -2319,7 +2100,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: 'POSTPONED',
+          status: 'Postponed',
           postponeReason: event.reason || curr.postponeReason,
           team: updatedTeam,
           requiresReassignment: true,
@@ -2336,12 +2117,12 @@ export class MissionDetail {
     } else if (event.type === 'SUSPENDED') {
       this.mission.update((curr) => curr ? {
         ...curr,
-        status: 'SUSPENDED',
+        status: 'Suspended',
         suspendedReason: event.reason || curr.suspendedReason,
       } : null);
       this.actionMessage.set(`[LỆNH ĐÌNH CHỈ] Nhiệm vụ tạm đình chỉ: ${event.reason || ''}`);
     } else if (event.type === 'RESUMED') {
-      this.mission.update((curr) => curr ? { ...curr, status: 'CONFIRMED' } : null);
+      this.mission.update((curr) => curr ? { ...curr, status: 'Assigned' } : null);
       this.actionMessage.set('[THÔNG BÁO] Nhiệm vụ đã được khôi phục, sẵn sàng bay.');
     } else if (event.type === 'CANCELLED') {
       this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
@@ -2375,11 +2156,6 @@ export class MissionDetail {
       );
       this.loadDetections(currentMission.id);
       this.loadMaintenanceTasks(currentMission.id);
-      if (typeof event.newHealthScore === 'number') {
-        this.api.get(currentMission.id).subscribe({
-          next: (fresh) => this.mission.set(fresh),
-        });
-      }
     } else if (event.type === 'MEDIA_UPLOADED') {
       this.actionMessage.set(`[HIỆN TRƯỜNG] Tệp bay mới đã được Inspector tải lên thành công.`);
       this.loadDetections(currentMission.id);
@@ -2446,44 +2222,6 @@ export class MissionDetail {
     this.activeEmergency.set(null);
   }
 
-  private applyUploadResponse(body: unknown): void {
-    const source = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const data = source['data'] && typeof source['data'] === 'object' ? (source['data'] as Record<string, unknown>) : source;
-    const requestIds = Array.isArray(data['requestIds']) ? data['requestIds'].map(String) : [];
-    const batchId = String(data['batchId'] ?? '');
-    this.lastUploadBatchId.set(batchId);
-    this.mediaQueue.update((items) =>
-      items.map((item, index) => {
-        const requestId = requestIds[index] ?? item.requestId;
-        const nextItem = {
-          ...item,
-          batchId,
-          requestId,
-          accepted: requestIds[index] !== undefined,
-          status: requestIds[index] !== undefined ? 'Đã upload. Đang chờ AI xử lý' : 'Upload xong',
-          progress: 100,
-        };
-        const cachedEvent = requestId ? this.aiStatusEvents.get(requestId) : undefined;
-        return cachedEvent ? this.applyAiStatusToMedia(nextItem, cachedEvent, this.aiStatusLabel(cachedEvent)) : nextItem;
-      }),
-    );
-    const cachedEvents = requestIds
-      .map((id) => this.aiStatusEvents.get(id))
-      .filter((event): event is AiAnalysisStatusChangedEvent => Boolean(event));
-    const failed = cachedEvents.find((event) => event.status.trim().toLowerCase() === 'failed');
-    if (failed) {
-      this.uploadMessage.set(failed.errorMessage || 'AI xử lý thất bại.');
-      return;
-    }
-    if (cachedEvents.some((event) => event.status.trim().toLowerCase() === 'completed')) {
-      const savedDetections = cachedEvents.reduce((sum, event) => sum + event.savedDetections, 0);
-      const createdAlerts = cachedEvents.reduce((sum, event) => sum + event.createdAlerts, 0);
-      this.uploadMessage.set(`AI hoàn tất. Lưu ${savedDetections} detection, tạo ${createdAlerts} cảnh báo.`);
-      const missionId = this.mission()?.id;
-      if (missionId) this.loadDetections(missionId);
-    }
-  }
-
   private applyAiStatusToMedia(
     item: MissionMediaPreview,
     event: AiAnalysisStatusChangedEvent,
@@ -2513,7 +2251,7 @@ export class MissionDetail {
       value === 'upload' ||
       value === 'processing' ||
       value === 'results' ||
-      value === 'assets' ||
+      value === 'towers' ||
       value === 'maintenance' ||
       value === 'activity'
     );
@@ -2544,73 +2282,12 @@ export class MissionDetail {
     return Math.min(Math.max(1, Math.trunc(page)), Math.max(1, total));
   }
 
-  private uploadResultMessage(body: unknown): string {
-    const source = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const data = source['data'] && typeof source['data'] === 'object' ? (source['data'] as Record<string, unknown>) : {};
-    const accepted = Number(data['acceptedFiles'] ?? 0);
-    const rejected = Number(data['rejectedFiles'] ?? 0);
-    const total = Number(data['totalFiles'] ?? accepted + rejected);
-    if (total > 0)
-      return `Backend nhận ${accepted}/${total} file. ${rejected ? `${rejected} file bị từ chối.` : 'Đã tạo AIAnalysisRequest pending.'}`;
-    return String(source['message'] ?? 'Upload hoàn tất.');
-  }
-
   private aiStatusLabel(event: AiAnalysisStatusChangedEvent): string {
     const status = event.status.trim().toLowerCase();
     if (status === 'completed') return `AI hoàn tất - ${event.savedDetections} detection`;
     if (status === 'failed') return event.errorMessage ? `AI lỗi - ${event.errorMessage}` : 'AI lỗi';
     if (status === 'pending') return 'Đang chờ AI xử lý';
     return event.status || 'Đang xử lý AI';
-  }
-
-  private getDemoMission(id: string): Mission {
-    return {
-      id,
-      missionCode: id.startsWith('MIS-') ? id : 'MIS-HN-DEMO-001',
-      title: 'Kiểm tra định kỳ ĐZ 220kV Hòa Bình - Nho Quan',
-      routeData: 'Tuyến ĐZ 220kV Hòa Bình - Nho Quan',
-      assignedToUserId: 'pilot-01',
-      assignedToUsername: 'Nguyễn Văn Bay (Pilot)',
-      droneCode: 'UAV-001 (Matrice 300 RTK)',
-      status: 'Executing',
-      description: 'Nhiệm vụ kiểm tra nhiệt độ tiếp xúc lèo, cách điện chuỗi néo các khoảng cột 040 đến 045.',
-      managerId: 'mgr-01',
-      managerUsername: 'An Nguyen (Admin)',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      targets: [
-        {
-          assetId: 'ast-01',
-          assetCode: 'EVN-P041',
-          assetName: 'Cột néo 041 - ĐZ 220kV',
-          towerCode: 'T-041',
-          sequence: 1,
-          inspectionStatus: 'Completed',
-          latitude: 20.8124,
-          longitude: 105.3421,
-        },
-        {
-          assetId: 'ast-02',
-          assetCode: 'EVN-P042',
-          assetName: 'Cột đỡ 042 - ĐZ 220kV',
-          towerCode: 'T-042',
-          sequence: 2,
-          inspectionStatus: 'InProgress',
-          latitude: 20.8168,
-          longitude: 105.3489,
-        },
-        {
-          assetId: 'ast-03',
-          assetCode: 'EVN-P043',
-          assetName: 'Cột đỡ néo 043 - ĐZ 220kV',
-          towerCode: 'T-043',
-          sequence: 3,
-          inspectionStatus: 'Pending',
-          latitude: 20.8212,
-          longitude: 105.3556,
-        },
-      ],
-    };
   }
 
   private errorMessage(error: unknown): string {

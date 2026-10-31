@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
-import { Mission, MissionPage } from '../../../../models/missions.models';
+import { MISSION_STATUSES, Mission, MissionPage, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 
@@ -50,7 +50,7 @@ export class MissionList {
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
   protected readonly statsItems = signal<readonly Mission[]>([]);
-  protected readonly statuses = ['PENDING_CONFIRMATION', 'CONFIRMED', 'Draft', 'Assigned', 'Preparing', 'Ready', 'InProgress', 'Completed', 'Cancelled'];
+  protected readonly statuses = MISSION_STATUSES;
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
@@ -88,9 +88,9 @@ export class MissionList {
           const newItems = [...curr.items];
           const target = newItems[index];
           let nextStatus = target.status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'CONFIRMED';
-          else if (event.type === 'POSTPONED') nextStatus = 'POSTPONED';
-          else if (event.type === 'SUSPENDED') nextStatus = 'SUSPENDED';
+          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'Assigned';
+          else if (event.type === 'POSTPONED') nextStatus = 'Postponed';
+          else if (event.type === 'SUSPENDED') nextStatus = 'Suspended';
           else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
           newItems[index] = { ...target, status: nextStatus };
           return { ...curr, items: newItems };
@@ -104,9 +104,9 @@ export class MissionList {
           if (index === -1) return items;
           const newItems = [...items];
           let nextStatus = newItems[index].status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'CONFIRMED';
-          else if (event.type === 'POSTPONED') nextStatus = 'POSTPONED';
-          else if (event.type === 'SUSPENDED') nextStatus = 'SUSPENDED';
+          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'Assigned';
+          else if (event.type === 'POSTPONED') nextStatus = 'Postponed';
+          else if (event.type === 'SUSPENDED') nextStatus = 'Suspended';
           else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
           newItems[index] = { ...newItems[index], status: nextStatus };
           return newItems;
@@ -237,30 +237,14 @@ export class MissionList {
   }
 
   protected statusLabel(status: string): string {
-    return ({
-      Pending: 'Chờ xử lý',
-      PENDING_CONFIRMATION: 'Chờ xác nhận',
-      CONFIRMED: 'Đã tiếp nhận',
-      POSTPONED: 'Tạm hoãn',
-      SUSPENDED: 'Đình chỉ bay',
-      Draft: 'Bản nháp',
-      Assigned: 'Đã phân công',
-      Preparing: 'Đang chuẩn bị',
-      Ready: 'Sẵn sàng',
-      Executing: 'Đang xử lý AI',
-      InProgress: 'Đang bay',
-      'In Progress': 'Đang bay',
-      Completed: 'Hoàn thành',
-      Failed: 'Lỗi bay',
-      Cancelled: 'Đã hủy',
-    } as Record<string, string>)[status] ?? status;
+    return missionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
-    if (this.isFailed(status)) return 'danger';
-    if (status.replace(/\s+/g, '') === 'Completed') return 'success';
-    if (status === 'CONFIRMED' || status === 'Ready') return 'success';
-    if (this.isInProgress(status) || status === 'PENDING_CONFIRMATION' || status === 'POSTPONED') return 'warning';
+    const normalized = normalizeMissionStatus(status);
+    if (this.isFailed(normalized)) return 'danger';
+    if (['Completed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
+    if (this.isInProgress(normalized) || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
     return 'neutral';
   }
 
@@ -302,11 +286,11 @@ export class MissionList {
   }
 
   private isInProgress(status: string): boolean {
-    return ['Executing', 'Preparing', 'Ready', 'InProgress', 'Processing', 'AIProcessing', 'PENDING_CONFIRMATION'].includes(status.replace(/\s+/g, ''));
+    return ['Preparing', 'Ready', 'InProgress', 'PendingAcceptance'].includes(normalizeMissionStatus(status));
   }
 
   private isFailed(status: string): boolean {
-    return ['Failed', 'Error', 'Cancelled'].includes(status.replace(/\s+/g, ''));
+    return ['Cancelled', 'Suspended'].includes(normalizeMissionStatus(status));
   }
 
   private compactPages(current: number, total: number): readonly number[] {
