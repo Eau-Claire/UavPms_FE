@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
+import { HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,6 +22,7 @@ import {
   AiAnalysisApi,
   AiDetection,
   AnalysisSessionResult,
+  StandaloneUploadRequest,
   captureVideoFrameAtTime,
   extractCropDataUrl,
   VideoTimelineMarker,
@@ -81,7 +82,7 @@ export class StandaloneUpload {
     return list.find((item) => item.id === this.activeMediaId()) ?? list[0];
   });
 
-  // AI Detections & Inspection State
+  // Detections & Inspection State
   protected readonly allDetections = signal<readonly AiDetection[]>([]);
   protected readonly confidenceThreshold = signal<number>(60);
   protected readonly selectedCategoryFilter = signal<string>('ALL');
@@ -98,8 +99,8 @@ export class StandaloneUpload {
 
   protected readonly form = this.fb.nonNullable.group({
     notes: [''],
-    analysisType: ['DefectDetection'],
-    preferredModel: ['YOLOv8-PowerGrid-X'],
+    analysisType: ['DefectDetection' as NonNullable<StandaloneUploadRequest['analysisType']>],
+    preferredModel: ['DefectDetection-Standard'],
   });
 
   // Filtered Detections
@@ -196,7 +197,7 @@ export class StandaloneUpload {
       this.uploadError.set(
         isVideoMode
           ? 'Vui lòng chọn các tệp định dạng video (.mp4, .avi, .mov, .webm).'
-          : 'Vui lòng chọn các tệp định dạng hình ảnh (.jpg, .jpeg, .png, .webp).'
+          : 'Vui lòng chọn các tệp định dạng hình ảnh (.jpg, .jpeg, .png, .webp).',
       );
       return;
     }
@@ -222,7 +223,7 @@ export class StandaloneUpload {
         duration: isVid ? 'Đang đọc...' : '-',
         durationSeconds: 0,
         kind: isVid ? 'video' : 'image',
-        status: 'Sẵn sàng phân tích AI',
+        status: 'Sẵn sàng kiểm tra',
         progress: 0,
       };
     });
@@ -279,7 +280,6 @@ export class StandaloneUpload {
         fps: '30 FPS (H.264)',
       });
 
-      // Capture first frame thumbnail via canvas
       video.currentTime = Math.min(1.0, durSec / 4);
     };
 
@@ -295,7 +295,6 @@ export class StandaloneUpload {
           this.updateMedia(item.id, { thumbnailUrl: thumb });
         }
       } catch {
-        // Fallback placeholder thumbnail
         this.updateMedia(item.id, { thumbnailUrl: item.previewUrl });
       }
     };
@@ -346,7 +345,7 @@ export class StandaloneUpload {
   onSubmit(): void {
     const files = this.selectedFiles().map((item) => item.file);
     if (!files.length) {
-      this.uploadError.set('Vui lòng chọn ít nhất một tệp hình ảnh hoặc video để phân tích.');
+      this.uploadError.set('Vui lòng chọn ít nhất một tệp hình ảnh hoặc video để kiểm tra.');
       return;
     }
 
@@ -358,14 +357,12 @@ export class StandaloneUpload {
     const formValues = this.form.getRawValue();
     const isVideo = this.workflowMode() === 'video';
     const curMedia = this.currentMedia();
-    const duration = curMedia?.durationSeconds || 60;
     const userMediaUrl = curMedia?.previewUrl || '';
-    const preferredModel = formValues.preferredModel || 'YOLOv8-PowerGrid-X';
 
     this.api
       .uploadStandaloneAnalysis({
         files,
-        analysisType: formValues.analysisType as any,
+        analysisType: formValues.analysisType,
         notes: formValues.notes,
       })
       .pipe(
@@ -384,9 +381,9 @@ export class StandaloneUpload {
             const serverId = this.extractServerId(data, rawBody) || `analysis-${Date.now()}`;
 
             let detections: readonly AiDetection[] = [];
-            if (data && Array.isArray((data as any).detections) && (data as any).detections.length) {
-              // Backend returned real detection results -> Use backend results!
-              detections = (data as any).detections.map((d: any) => ({
+            const rawDetections = data && typeof data === 'object' ? data['detections'] : undefined;
+            if (Array.isArray(rawDetections) && rawDetections.length) {
+              detections = (rawDetections as readonly AiDetection[]).map((d) => ({
                 ...d,
                 imageUrl: userMediaUrl || d.imageUrl,
                 sourceUrl: userMediaUrl || d.sourceUrl,
@@ -396,7 +393,7 @@ export class StandaloneUpload {
             const result: AnalysisSessionResult = {
               id: String(serverId),
               status: 'Completed',
-              analysisType: formValues.analysisType as any,
+              analysisType: formValues.analysisType,
               notes: formValues.notes,
               createdAt: new Date().toISOString(),
               filesCount: files.length,
@@ -405,11 +402,11 @@ export class StandaloneUpload {
             };
 
             this.uploadSuccessResult.set(result);
-            this.applyDetectionsWithCrops(detections, isVideo, userMediaUrl);
+            void this.applyDetectionsWithCrops(detections, isVideo, userMediaUrl);
           }
         },
         error: () => {
-          this.uploadError.set('Không thể kết nối dịch vụ phân tích. Vui lòng thử lại sau.');
+          this.uploadError.set('Không thể kết nối dịch vụ xử lý dữ liệu. Vui lòng thử lại sau.');
           this.workflowStage.set('ready');
         },
       });
@@ -424,12 +421,10 @@ export class StandaloneUpload {
     this.allDetections.set(rawDetections);
     this.selectedDetection.set(rawDetections[0] ?? null);
 
-    // Asynchronously generate real crops and video frame captures from user's actual uploaded file!
     const updatedDetections = await Promise.all(
       rawDetections.map(async (det) => {
         try {
           if (isVideo && det.timestampSeconds !== null && mediaUrl) {
-            // Capture exact frame from user's video at detection timestamp
             const frameUrl = await captureVideoFrameAtTime(mediaUrl, det.timestampSeconds);
             const cropUrl = det.boundingBox ? await extractCropDataUrl(frameUrl, det.boundingBox) : frameUrl;
             return {
@@ -439,7 +434,6 @@ export class StandaloneUpload {
               cropImageUrl: cropUrl,
             };
           } else if (!isVideo && mediaUrl && det.boundingBox) {
-            // Crop exact bounding box from user's uploaded image
             const cropUrl = await extractCropDataUrl(mediaUrl, det.boundingBox);
             return {
               ...det,
@@ -533,14 +527,24 @@ export class StandaloneUpload {
 
     this.reviewFeedback.set(
       decision === 'Approved'
-        ? '✓ Đã xác nhận: Khuyết tật hợp lệ được ghi nhận vào nhật ký kiểm tra.'
-        : '× Đã từ chối: Đánh dấu kết quả AI là nhận diện sai (False Positive).',
+        ? 'Đã xác nhận: Khuyết tật hợp lệ được ghi nhận vào nhật ký kiểm tra.'
+        : 'Đã từ chối: Đánh dấu kết quả không phải khuyết tật thực tế.',
     );
   }
 
   setConfidenceFilter(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
     this.confidenceThreshold.set(value);
+  }
+
+  onCategoryFilterChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedCategoryFilter.set(value);
+  }
+
+  onReviewNotesInput(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.reviewNotes.set(value);
   }
 
   setCategoryFilter(category: string): void {
@@ -556,7 +560,7 @@ export class StandaloneUpload {
     this.form.reset({
       notes: '',
       analysisType: 'DefectDetection',
-      preferredModel: 'YOLOv8-PowerGrid-X',
+      preferredModel: 'DefectDetection-Standard',
     });
   }
 

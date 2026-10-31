@@ -1,5 +1,4 @@
 <div class="emergency-alerts-container">
-  <!-- Top Header -->
   <header class="page-header">
     <div class="header-main">
       <div class="title-with-badge">
@@ -8,59 +7,52 @@
         </span>
         <div class="header-titles">
           <h1 class="page-title">
-            Th?m �?nh C?nh B�o Kh?n C?p Edge AI
+            Thẩm định cảnh báo khẩn cấp
             @if (activeCount() > 0) {
-              <span class="active-badge-pulse">{{ activeCount() }} C?N X? L�</span>
+              <span class="active-badge-pulse">{{ activeCount() }} CẦN XỬ LÝ</span>
             }
           </h1>
           <p class="page-subtitle">
-            H�ng d?i th?m d?nh v� b�o c�o leo thang s? c? lu?i di?n truy?n t?i ph�t hi?n t? d?ng t? UAV th?i gian th?c.
+            Hàng đợi thẩm định và chuyển cấp các sự cố lưới điện được phát hiện tự động từ UAV theo thời gian thực.
           </p>
         </div>
       </div>
 
       <div class="header-actions">
-        <div class="realtime-status-chip" title="�� k?t n?i m�y ch? th�ng b�o th?i gian th?c SignalR">
-          <span class="live-dot"></span>
-          <span class="live-text">Realtime Live</span>
+        <div class="realtime-status-chip" title="Nhận cảnh báo mới qua kênh thông báo thời gian thực">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="live-text">Thời gian thực</span>
         </div>
-
-        <button
-          nz-button
-          nzType="default"
-          class="simulate-btn"
-          (click)="onSimulateIncomingAlert()"
-          nz-tooltip
-          nzTooltipTitle="T?o m?t c?nh b�o kh?n c?p gi? l?p t? UAV d? ki?m tra lu?ng Real-time SignalR"
-        >
-          <span nz-icon nzType="thunderbolt" nzTheme="outline"></span>
-          B?n th? c?nh b�o Edge AI
+        <button nz-button nzType="default" class="simulate-btn" [disabled]="activeLoading()" (click)="refresh()">
+          <span nz-icon [nzType]="activeLoading() ? 'loading' : 'reload'" aria-hidden="true"></span>
+          Làm mới
         </button>
       </div>
     </div>
 
-    <!-- Role Permission Notice if Read-Only -->
     @if (!canReview()) {
-      <div class="permission-notice-banner">
-        <span nz-icon nzType="info-circle" nzTheme="outline"></span>
+      <div class="permission-notice-banner" role="note">
+        <span nz-icon nzType="info-circle" nzTheme="outline" aria-hidden="true"></span>
         <span>
-          <strong>Ch? d? Xem:</strong> B?n dang dang nh?p v?i vai tr� <em>{{ user()?.role }}</em>. Ch? t�i kho?n <strong>Analyst</strong>, <strong>Manager</strong> ho?c <strong>Admin</strong> m?i c� th?m quy?n th?c hi?n c�c thao t�c X�c nh?n, B�c b? ho?c Leo thang s? c?.
+          <strong>Chế độ xem:</strong> Bạn đang đăng nhập với vai trò <em>{{ user()?.role }}</em>. Chỉ tài khoản
+          <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền xác nhận, bác bỏ hoặc chuyển cấp cảnh báo.
         </span>
       </div>
     }
   </header>
 
-  <!-- Main Tabs Navigation Bar -->
   <div class="alerts-tab-wrapper">
-    <div class="custom-nav-tabs">
+    <div class="custom-nav-tabs" role="tablist" aria-label="Cảnh báo khẩn cấp">
       <button
         type="button"
+        role="tab"
         class="tab-btn"
         [class.active]="selectedTab() === 'active'"
+        [attr.aria-selected]="selectedTab() === 'active'"
         (click)="selectedTab.set('active')"
       >
-        <span nz-icon nzType="warning" nzTheme="outline"></span>
-        C?nh B�o �ang Ho?t �?ng
+        <span nz-icon nzType="warning" nzTheme="outline" aria-hidden="true"></span>
+        Cảnh báo đang hoạt động
         @if (activeCount() > 0) {
           <span class="tab-counter-danger">{{ activeCount() }}</span>
         }
@@ -68,182 +60,206 @@
 
       <button
         type="button"
+        role="tab"
         class="tab-btn"
         [class.active]="selectedTab() === 'history'"
+        [attr.aria-selected]="selectedTab() === 'history'"
         (click)="selectedTab.set('history')"
       >
-        <span nz-icon nzType="history" nzTheme="outline"></span>
-        L?ch S? C?nh B�o & Th?m �?nh
-        <span class="tab-counter-neutral">{{ historyAlerts().length }}</span>
+        <span nz-icon nzType="history" nzTheme="outline" aria-hidden="true"></span>
+        Lịch sử cảnh báo
+        <span class="tab-counter-neutral">{{ historyPage().totalCount }}</span>
       </button>
     </div>
 
-    <!-- TAB 1: ACTIVE ALERTS -->
     @if (selectedTab() === 'active') {
-      <div class="tab-pane-content">
-        @if (activeAlerts().length === 0) {
+      <div class="tab-pane-content" role="tabpanel">
+        @if (activeError()) {
+          <div class="permission-notice-banner" role="alert">
+            <span nz-icon nzType="exclamation-circle" aria-hidden="true"></span>
+            <span>{{ activeError() }}</span>
+          </div>
+        }
+
+        @if (activeLoading() && activeAlerts().length === 0) {
+          <div class="empty-state-card" aria-busy="true">
+            <span nz-icon nzType="loading" aria-hidden="true"></span>
+            <p>Đang tải danh sách cảnh báo...</p>
+          </div>
+        } @else if (activeAlerts().length === 0) {
           <div class="empty-state-card">
-            <span nz-icon nzType="check-circle" class="empty-icon-success"></span>
-            <h3>Kh�ng C� C?nh B�o Kh?n C?p N�o</h3>
-            <p>T?t c? c�c c?nh b�o t? Edge AI UAV d?u d� du?c th?m d?nh xong. Lu?i di?n dang v?n h�nh an to�n.</p>
-            <button nz-button nzType="primary" (click)="onSimulateIncomingAlert()">
-              <span nz-icon nzType="thunderbolt"></span> B?n th? c?nh b�o m?i
-            </button>
+            <span nz-icon nzType="check-circle" class="empty-icon-success" aria-hidden="true"></span>
+            <h3>Không có cảnh báo khẩn cấp nào</h3>
+            <p>Tất cả cảnh báo đã được thẩm định. Cảnh báo mới sẽ hiện ở đây ngay khi được kích hoạt.</p>
           </div>
         } @else {
           <div class="alerts-split-layout">
-            <!-- Left Panel: Alert Queue List -->
-            <aside class="alerts-queue-panel">
+            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
               <div class="queue-header">
-                <h3>Danh s�ch ch? x? l� ({{ activeAlerts().length }})</h3>
-                <span class="queue-hint">Ch?n d? ki?m tra b?ng ch?ng</span>
+                <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
+                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
               </div>
 
               <div class="queue-list-scroll">
                 @for (alert of activeAlerts(); track alert.id) {
-                  <div
+                  <button
+                    type="button"
                     class="alert-queue-item"
                     [class.selected]="selectedAlert()?.id === alert.id"
+                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
                     (click)="selectAlert(alert)"
                   >
                     <div class="item-top-row">
-                      <span class="severity-tag" [class.critical]="alert.severity === 'Critical'" [class.high]="alert.severity === 'High'">
-                        {{ alert.severity }}
+                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
+                        {{ priorityLabels[alert.priority] }}
                       </span>
-                      <span class="item-time">{{ alert.detectedAt | date: 'HH:mm � dd/MM' }}</span>
+                      <span class="item-time">{{ alert.triggeredAt | date: 'HH:mm dd/MM' }}</span>
                     </div>
 
-                    <h4 class="item-title">{{ alert.title }}</h4>
+                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
 
                     <div class="item-meta">
-                      <span class="meta-code"><span nz-icon nzType="environment"></span> {{ alert.towerCode }}</span>
-                      <span class="meta-line">{{ alert.lineName }}</span>
+                      <span class="meta-code">
+                        <span nz-icon nzType="environment" aria-hidden="true"></span>
+                        {{ alert.towerCode || 'Chưa gắn cột' }}
+                      </span>
                     </div>
 
-                    <div class="item-confidence-row">
-                      <span class="model-tag">{{ alert.aiModelName }}</span>
-                      <span class="confidence-badge">�? tin c?y: {{ alert.confidenceScore }}%</span>
-                    </div>
-                  </div>
+                    @if (alert.evidence.confidenceScore !== null) {
+                      <div class="item-confidence-row">
+                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
+                      </div>
+                    }
+                  </button>
                 }
               </div>
             </aside>
 
-            <!-- Right Panel: Inspection Canvas & Evidence -->
             @if (selectedAlert(); as alert) {
               <main class="alert-inspection-panel">
-                <!-- Inspection Header -->
                 <div class="inspection-header">
                   <div class="header-details">
                     <div class="category-chip">
                       <span class="alert-type-label">{{ alert.alertType }}</span>
-                      <span class="severity-pill" [class.critical]="alert.severity === 'Critical'">
-                        M?c d?: {{ alert.severity }}
+                      <span class="severity-pill" [class.critical]="alert.priority === 'Critical'">
+                        Mức độ: {{ priorityLabels[alert.priority] }}
                       </span>
                     </div>
-                    <h2 class="inspection-title">{{ alert.title }}</h2>
+                    <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
                     <div class="inspection-sub-meta">
-                      <span><strong>M� thi?t b?:</strong> {{ alert.assetCode }}</span>
-                      <span>�</span>
-                      <span><strong>V? tr�:</strong> {{ alert.towerCode }}</span>
-                      <span>�</span>
-                      <span><strong>Th?i gian:</strong> {{ alert.detectedAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
-                      <span>�</span>
-                      <span><strong>UAV:</strong> {{ alert.droneId }} (Nhi?m v?: {{ alert.missionCode }})</span>
+                      <span><strong>Cột điện:</strong> {{ alert.towerCode || 'Chưa gắn cột' }}</span>
+                      <span><strong>Kích hoạt lúc:</strong> {{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
+                      <span><strong>Độ trễ truyền:</strong> {{ alert.deliveryLatencySeconds }} giây</span>
                     </div>
                   </div>
                 </div>
 
-                <!-- Evidence Image Canvas with Bounding Box & Zoom -->
                 <div class="evidence-canvas-wrapper">
                   <div class="canvas-controls">
                     <div class="canvas-title">
-                      <span nz-icon nzType="picture"></span>
-                      <span>?nh B?ng Ch?ng Ph�t Hi?n B?i Edge AI</span>
+                      <span nz-icon nzType="picture" aria-hidden="true"></span>
+                      <span>Ảnh bằng chứng</span>
                     </div>
 
-                    <div class="control-buttons">
-                      <button nz-button nzSize="small" (click)="zoomIn()" title="Ph�ng to">
-                        <span nz-icon nzType="zoom-in"></span>
-                      </button>
-                      <button nz-button nzSize="small" (click)="zoomOut()" title="Thu nh?">
-                        <span nz-icon nzType="zoom-out"></span>
-                      </button>
-                      <button nz-button nzSize="small" (click)="resetZoom()" title="�?t l?i t? l?">
-                        <span nz-icon nzType="redo"></span>
-                      </button>
-                      <button
-                        nz-button
-                        nzSize="small"
-                        [nzType]="showBoundingBox() ? 'primary' : 'default'"
-                        (click)="toggleBoundingBox()"
-                        title="?n/Hi?n h?p nh?n di?n s? c?"
-                      >
-                        <span nz-icon nzType="border"></span> Bounding Box
-                      </button>
-                    </div>
+                    @if (alert.evidence.mediaUrl) {
+                      <div class="control-buttons">
+                        <button nz-button nzSize="small" (click)="zoomIn()" aria-label="Phóng to">
+                          <span nz-icon nzType="zoom-in" aria-hidden="true"></span>
+                        </button>
+                        <button nz-button nzSize="small" (click)="zoomOut()" aria-label="Thu nhỏ">
+                          <span nz-icon nzType="zoom-out" aria-hidden="true"></span>
+                        </button>
+                        <button nz-button nzSize="small" (click)="resetZoom()" aria-label="Đặt lại tỉ lệ">
+                          <span nz-icon nzType="redo" aria-hidden="true"></span>
+                        </button>
+                        <button
+                          nz-button
+                          nzSize="small"
+                          [nzType]="showBoundingBox() ? 'primary' : 'default'"
+                          [attr.aria-pressed]="showBoundingBox()"
+                          (click)="toggleBoundingBox()"
+                        >
+                          <span nz-icon nzType="border" aria-hidden="true"></span> Khung nhận diện
+                        </button>
+                      </div>
+                    }
                   </div>
 
                   <div class="canvas-viewport">
-                    <div class="image-stage" [style.transform]="'scale(' + zoomLevel() + ')'">
-                      <img
-                        [src]="alert.imageUrl"
-                        alt="B?ng ch?ng s? c?"
-                        class="evidence-img"
-                        (load)="onImageLoaded($event)"
-                      />
+                    @if (alert.evidence.mediaUrl) {
+                      <div class="image-stage" [style.transform]="'scale(' + zoomLevel() + ')'">
+                        <img
+                          [src]="alert.evidence.mediaUrl"
+                          [alt]="'Ảnh bằng chứng cảnh báo tại ' + (alert.towerCode || 'cột chưa xác định')"
+                          class="evidence-img"
+                          (load)="onImageLoaded($event)"
+                        />
 
-                      <!-- Bounding box highlight -->
-                      @if (showBoundingBox() && alert.boundingBox) {
-                        @if (getBoundingBoxStyle(alert.boundingBox); as bboxStyle) {
-                          <div class="detection-bbox" [ngStyle]="bboxStyle">
-                            <span class="bbox-label">
-                              <span class="bbox-label-type">{{ alert.categoryCode }}</span>
-                              <span class="bbox-label-conf">{{ alert.confidenceScore }}%</span>
-                            </span>
-                            <div class="corner top-left"></div>
-                            <div class="corner top-right"></div>
-                            <div class="corner bottom-left"></div>
-                            <div class="corner bottom-right"></div>
-                          </div>
+                        @if (showBoundingBox()) {
+                          @if (boundingBoxStyle(alert.evidence.boundingBox); as box) {
+                            <div
+                              class="detection-bbox"
+                              [style.left.%]="box.left"
+                              [style.top.%]="box.top"
+                              [style.width.%]="box.width"
+                              [style.height.%]="box.height"
+                            >
+                              <span class="bbox-label">
+                                <span class="bbox-label-type">{{ alert.categoryName || alert.alertType }}</span>
+                                @if (alert.evidence.confidenceScore !== null) {
+                                  <span class="bbox-label-conf">{{ alert.evidence.confidenceScore }}%</span>
+                                }
+                              </span>
+                              <div class="corner top-left"></div>
+                              <div class="corner top-right"></div>
+                              <div class="corner bottom-left"></div>
+                              <div class="corner bottom-right"></div>
+                            </div>
+                          }
                         }
-                      }
-                    </div>
+                      </div>
+                    } @else {
+                      <p class="desc-text">Cảnh báo này không kèm ảnh bằng chứng.</p>
+                    }
                   </div>
                 </div>
 
-                <!-- Incident Location & Details Card -->
                 <div class="incident-details-grid">
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="environment"></span> T?a �? & H? T?ng</h4>
+                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí</h4>
                     <ul class="detail-list">
-                      <li><span>Tuy?n du?ng d�y:</span> <strong>{{ alert.lineName }}</strong></li>
-                      <li><span>V? tr� c?t / n�o:</span> <strong>{{ alert.towerCode }}</strong></li>
-                      <li><span>T?a d? GPS:</span> <strong>{{ alert.latitude.toFixed(5) }}�N, {{ alert.longitude.toFixed(5) }}�E</strong></li>
-                      <li><span>Tr?m li�n k?t:</span> <strong>{{ alert.substationName || 'N/A' }}</strong></li>
+                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
+                      <li>
+                        <span>Tọa độ GPS:</span>
+                        @if (alert.location.latitude !== null && alert.location.longitude !== null) {
+                          <strong>{{ alert.location.latitude | number: '1.5-5' }}°N, {{ alert.location.longitude | number: '1.5-5' }}°E</strong>
+                        } @else {
+                          <strong>Không có</strong>
+                        }
+                      </li>
                     </ul>
                   </div>
 
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="robot"></span> K?t Qu? Edge AI</h4>
+                    <h4><span nz-icon nzType="aim" aria-hidden="true"></span> Kết quả nhận diện</h4>
                     <ul class="detail-list">
-                      <li><span>M� h�nh AI:</span> <strong>{{ alert.aiModelName }}</strong></li>
-                      <li><span>�? tin c?y:</span> <strong class="conf-high">{{ alert.confidenceScore }}%</strong></li>
-                      <li><span>Tr?ng th�i:</span> <span class="status-badge-active">�ANG K�CH HO?T</span></li>
-                      <li><span>M� t? s? c?:</span> <p class="desc-text">{{ alert.description || 'Kh�ng c� m� t? b? sung t? Edge AI.' }}</p></li>
+                      <li><span>Loại sự cố:</span> <strong>{{ alert.categoryName || alert.alertType }}</strong></li>
+                      <li>
+                        <span>Độ tin cậy:</span>
+                        <strong class="conf-high">{{ alert.evidence.confidenceScore !== null ? alert.evidence.confidenceScore + '%' : 'Không rõ' }}</strong>
+                      </li>
+                      <li><span>Trạng thái:</span> <span class="status-badge-active">{{ statusLabels[alert.status] }}</span></li>
                     </ul>
                   </div>
                 </div>
 
-                <!-- Sticky Review Action Bar for Analyst -->
                 <div class="analyst-action-bar">
                   <div class="action-bar-label">
-                    <span nz-icon nzType="audit"></span>
-                    <span>Quy?t �?nh Th?m �?nh (Analyst Review):</span>
+                    <span nz-icon nzType="audit" aria-hidden="true"></span>
+                    <span>Quyết định thẩm định:</span>
                   </div>
 
                   <div class="action-buttons-group">
-                    <!-- Action 1: Confirm -->
                     <button
                       nz-button
                       nzType="primary"
@@ -251,23 +267,19 @@
                       [disabled]="!canReview() || actionBusy()"
                       (click)="openConfirmModal()"
                     >
-                      <span nz-icon nzType="check-circle"></span>
-                      X�c Nh?n S? C? (Confirm)
+                      <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+                      Xác nhận sự cố
                     </button>
-
-                    <!-- Action 2: Reject -->
                     <button
                       nz-button
                       nzType="default"
                       class="btn-action-reject"
                       [disabled]="!canReview() || actionBusy()"
-                      (click)="openRejectModal()"
+                      (click)="openDismissModal()"
                     >
-                      <span nz-icon nzType="close-circle"></span>
-                      B�c B? C?nh B�o (Reject)
+                      <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+                      Bác bỏ cảnh báo
                     </button>
-
-                    <!-- Action 3: Escalate -->
                     <button
                       nz-button
                       nzType="primary"
@@ -276,8 +288,8 @@
                       [disabled]="!canReview() || actionBusy()"
                       (click)="openEscalateModal()"
                     >
-                      <span nz-icon nzType="thunderbolt"></span>
-                      B�o C�o Leo Thang (Escalate)
+                      <span nz-icon nzType="thunderbolt" aria-hidden="true"></span>
+                      Chuyển cấp
                     </button>
                   </div>
                 </div>
@@ -288,41 +300,51 @@
       </div>
     }
 
-    <!-- TAB 2: ALERT HISTORY -->
     @if (selectedTab() === 'history') {
-      <div class="history-content-container">
-        <!-- Filter Controls -->
+      <div class="history-content-container" role="tabpanel">
         <div class="history-filter-bar">
           <div class="filter-group">
-            <label>L?c theo quy?t d?nh:</label>
-            <nz-select [ngModel]="historyFilterStatus()" (ngModelChange)="historyFilterStatus.set($event)" style="width: 220px;">
-              <nz-option nzValue="ALL" nzLabel="T?t c? tr?ng th�i"></nz-option>
-              <nz-option nzValue="CONFIRMED" nzLabel="�� x�c nh?n s? c?"></nz-option>
-              <nz-option nzValue="ESCALATED" nzLabel="�� leo thang kh?n c?p"></nz-option>
-              <nz-option nzValue="DISMISSED" nzLabel="�� b�c b? / C?nh b�o gi?"></nz-option>
+            <label for="history-status-filter">Lọc theo trạng thái:</label>
+            <nz-select id="history-status-filter" [formControl]="historyStatus" style="width: 220px;">
+              <nz-option nzValue="" nzLabel="Tất cả trạng thái"></nz-option>
+              <nz-option nzValue="Active" nzLabel="Đang hoạt động"></nz-option>
+              <nz-option nzValue="Confirmed" nzLabel="Đã xác nhận"></nz-option>
+              <nz-option nzValue="Escalated" nzLabel="Đã chuyển cấp"></nz-option>
+              <nz-option nzValue="Dismissed" nzLabel="Đã bác bỏ"></nz-option>
             </nz-select>
           </div>
-          <span class="history-total">T?ng s?: <strong>{{ filteredHistoryAlerts().length }}</strong> b?n ghi</span>
+          <span class="history-total">Tổng số: <strong>{{ historyPage().totalCount }}</strong> bản ghi</span>
         </div>
 
-        <!-- History Table -->
+        @if (historyError()) {
+          <div class="permission-notice-banner" role="alert">
+            <span nz-icon nzType="exclamation-circle" aria-hidden="true"></span>
+            <span>{{ historyError() }}</span>
+          </div>
+        }
+
         <div class="history-table-wrapper">
           <nz-table
             #historyTable
-            [nzData]="filteredHistoryAlerts()"
-            [nzPageSize]="10"
+            [nzData]="historyPage().items"
+            [nzFrontPagination]="false"
+            [nzLoading]="historyLoading()"
+            [nzTotal]="historyPage().totalCount"
+            [nzPageIndex]="historyPage().page"
+            [nzPageSize]="historyPage().pageSize"
             [nzBordered]="true"
             nzSize="middle"
+            (nzPageIndexChange)="loadHistory($event)"
           >
             <thead>
               <tr>
-                <th nzWidth="150px">M� & Th?i Gian</th>
-                <th>Lo?i C?nh B�o / S? C?</th>
-                <th nzWidth="160px">V? Tr� & Tuy?n</th>
-                <th nzWidth="130px">M?c �?</th>
-                <th nzWidth="140px">Quy?t �?nh</th>
-                <th>Ngu?i X? L� & Ghi Ch�</th>
-                <th nzWidth="110px" nzAlign="center">Chi Ti?t</th>
+                <th nzWidth="160px">Thời gian</th>
+                <th>Loại cảnh báo</th>
+                <th nzWidth="150px">Cột điện</th>
+                <th nzWidth="120px">Mức độ</th>
+                <th nzWidth="140px">Trạng thái</th>
+                <th>Người xử lý &amp; ghi chú</th>
+                <th nzWidth="110px" nzAlign="center">Chi tiết</th>
               </tr>
             </thead>
             <tbody>
@@ -330,62 +352,48 @@
                 <tr>
                   <td>
                     <div class="table-id-col">
-                      <strong>#{{ item.id }}</strong>
-                      <small>{{ item.detectedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
+                      <strong>{{ item.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</strong>
+                      @if (item.resolvedAt) {
+                        <small>Xử lý: {{ item.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
+                      }
                     </div>
                   </td>
                   <td>
                     <div class="table-title-col">
-                      <strong>{{ item.title }}</strong>
-                      <span class="table-sub-cat">{{ item.alertType }}</span>
+                      <strong>{{ item.alertType }}</strong>
                     </div>
                   </td>
                   <td>
                     <div class="table-loc-col">
-                      <span>{{ item.towerCode }}</span>
-                      <small>{{ item.lineName }}</small>
+                      <span>{{ item.towerCode || 'Chưa gắn cột' }}</span>
                     </div>
                   </td>
                   <td>
-                    <span class="severity-tag" [class.critical]="item.severity === 'Critical'" [class.high]="item.severity === 'High'">
-                      {{ item.severity }}
+                    <span class="severity-tag" [class.critical]="item.priority === 'Critical'" [class.high]="item.priority === 'High'">
+                      {{ priorityLabels[item.priority] }}
                     </span>
                   </td>
                   <td>
-                    @if (item.status === 'Confirmed') {
-                      <nz-tag nzColor="success">�� X�C NH?N</nz-tag>
-                    } @else if (item.status === 'Escalated') {
-                      <nz-tag nzColor="error">�� LEO THANG</nz-tag>
-                    } @else {
-                      <nz-tag nzColor="default">�� B�C B?</nz-tag>
-                    }
+                    <nz-tag [nzColor]="statusColor(item.status)">{{ statusLabels[item.status] }}</nz-tag>
                   </td>
                   <td>
                     <div class="review-log-cell">
-                      @if (item.reviewInfo; as log) {
+                      @if (item.reviewedBy) {
                         <div class="reviewer-badge">
-                          <span nz-icon nzType="user"></span> {{ log.reviewedBy }}
-                          <small>({{ log.reviewedAt | date: 'HH:mm dd/MM' }})</small>
+                          <span nz-icon nzType="user" aria-hidden="true"></span> {{ item.reviewedBy }}
                         </div>
-                        @if (log.notes) {
-                          <p class="review-notes-text">{{ log.notes }}</p>
-                        }
-                        @if (log.escalatedToUserName) {
-                          <p class="escalate-target-text">
-                            <strong>B�n giao:</strong> {{ log.escalatedToUserName }}
-                          </p>
-                          <p class="escalate-reason-text">
-                            <em>"{{ log.escalationReason }}"</em>
-                          </p>
-                        }
-                      } @else {
-                        <span class="text-muted">Chua c� th�ng tin review.</span>
+                      }
+                      @if (item.notes) {
+                        <p class="review-notes-text">{{ item.notes }}</p>
+                      }
+                      @if (!item.reviewedBy && !item.notes) {
+                        <span class="text-muted">Chưa có thông tin thẩm định.</span>
                       }
                     </div>
                   </td>
                   <td nzAlign="center">
-                    <button nz-button nzSize="small" nzType="link" (click)="viewHistoryItem(item)">
-                      Xem ?nh
+                    <button nz-button nzSize="small" nzType="link" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
+                      Xem
                     </button>
                   </td>
                 </tr>
@@ -397,159 +405,187 @@
     }
   </div>
 
-  <!-- MODAL 1: CONFIRM ALERT -->
+  <!-- MODAL 1: CONFIRM -->
   <nz-modal
     [nzVisible]="isConfirmModalVisible()"
-    nzTitle="X�c Nh?n S? C? Kh?n C?p (Confirm)"
+    nzTitle="Xác nhận sự cố khẩn cấp"
     (nzOnCancel)="closeConfirmModal()"
     (nzOnOk)="executeConfirm()"
     [nzOkLoading]="actionBusy()"
-    nzOkText="X�c Nh?n S? C? K? Thu?t"
-    nzCancelText="H?y"
+    nzOkText="Xác nhận"
+    nzCancelText="Hủy"
   >
     <ng-container *nzModalContent>
-      <div class="modal-form-content">
+      <form [formGroup]="confirmForm" class="modal-form-content">
         <div class="modal-alert-info">
-          <span nz-icon nzType="question-circle" class="modal-info-icon"></span>
+          <span nz-icon nzType="question-circle" class="modal-info-icon" aria-hidden="true"></span>
           <div>
-            <h4>X�c nh?n dua s? c? v�o danh m?c ch�nh th?c</h4>
-            <p>S? c? <strong>{{ selectedAlert()?.title }}</strong> s? du?c d�nh d?u l� h?p l? v� chuy?n sang bu?c x? l� k? thu?t/b?o tr�.</p>
+            <h4>Xác nhận cảnh báo là sự cố thật</h4>
+            <p>
+              Cảnh báo <strong>{{ selectedAlert()?.categoryName || selectedAlert()?.alertType }}</strong> tại
+              <strong>{{ selectedAlert()?.towerCode || 'cột chưa xác định' }}</strong> sẽ được đánh dấu là hợp lệ.
+            </p>
           </div>
         </div>
-
         <div class="form-field-group">
-          <label>Ghi ch� th?m d?nh c?a Analyst:</label>
-          <textarea
-            nz-input
-            rows="3"
-            [ngModel]="confirmNotes()"
-            (ngModelChange)="confirmNotes.set($event)"
-            placeholder="Nh?p nh?n d?nh chuy�n m�n ho?c can c? k? thu?t..."
-          ></textarea>
-        </div>
-      </div>
-    </ng-container>
-  </nz-modal>
-
-  <!-- MODAL 2: REJECT / DISMISS ALERT -->
-  <nz-modal
-    [nzVisible]="isRejectModalVisible()"
-    nzTitle="B�c B? C?nh B�o Edge AI (Reject / Dismiss)"
-    (nzOnCancel)="closeRejectModal()"
-    (nzOnOk)="executeReject()"
-    [nzOkLoading]="actionBusy()"
-    nzOkText="X�c Nh?n B�c B?"
-    [nzOkDanger]="true"
-    nzCancelText="H?y"
-  >
-    <ng-container *nzModalContent>
-      <div class="modal-form-content">
-        <p class="modal-desc-warn">
-          Vui l�ng n�u r� l� do b�c b? d? h? th?ng ghi nh?n l�m d? li?u c?i thi?n m� h�nh Edge AI.
-        </p>
-
-        <div class="form-field-group">
-          <label>Ph�n lo?i l� do b�c b?:</label>
-          <nz-select [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)" style="width: 100%;">
-            <nz-option nzValue="B�o d?ng gi? (False positive - l� c�y/ph?n x? �nh s�ng)" nzLabel="B�o d?ng gi? (False positive - l� c�y/ph?n x? �nh s�ng)"></nz-option>
-            <nz-option nzValue="G�c ch?p/?nh qu� m? kh�ng d? can c? x�c th?c" nzLabel="G�c ch?p/?nh qu� m? kh�ng d? can c? x�c th?c"></nz-option>
-            <nz-option nzValue="Khuy?t t?t d� du?c x? l� ho?c n?m trong gi?i h?n cho ph�p" nzLabel="Khuy?t t?t d� du?c x? l� ho?c n?m trong gi?i h?n cho ph�p"></nz-option>
-            <nz-option nzValue="V? tr� ph�t hi?n n?m ngo�i h�nh lang an to�n di?n" nzLabel="V? tr� ph�t hi?n n?m ngo�i h�nh lang an to�n di?n"></nz-option>
-            <nz-option nzValue="L� do k? thu?t kh�c" nzLabel="L� do k? thu?t kh�c"></nz-option>
-          </nz-select>
-        </div>
-
-        <div class="form-field-group">
-          <label>Chi ti?t l� do b? sung:</label>
-          <textarea
-            nz-input
-            rows="3"
-            [ngModel]="rejectNotes()"
-            (ngModelChange)="rejectNotes.set($event)"
-            placeholder="Nh?p th�m chi ti?t ph�n t�ch c?a b?n..."
-          ></textarea>
-        </div>
-      </div>
-    </ng-container>
-  </nz-modal>
-
-  <!-- MODAL 3: ESCALATE TO MANAGEMENT -->
-  <nz-modal
-    [nzVisible]="isEscalateModalVisible()"
-    nzTitle="?? B�o C�o Leo Thang Kh?n C?p (Escalate)"
-    (nzOnCancel)="closeEscalateModal()"
-    (nzOnOk)="executeEscalate()"
-    [nzOkLoading]="actionBusy()"
-    nzOkText="G?i B�o C�o Leo Thang Ngay"
-    [nzOkDanger]="true"
-    nzCancelText="H?y"
-  >
-    <ng-container *nzModalContent>
-      <form [formGroup]="escalateForm" class="modal-form-content">
-        <div class="modal-escalate-callout">
-          <span nz-icon nzType="warning" class="callout-icon"></span>
-          <div>
-            <h4>K�ch ho?t quy tr�nh ?ng ph� s? c? c?p b�ch</h4>
-            <p>H? so s? c? s? du?c b�n giao ngay l?p t?c t?i C?p Qu?n l� v� Trung t�m �i?u d? qua th�ng b�o uu ti�n t?i cao.</p>
-          </div>
-        </div>
-
-        <div class="form-field-group">
-          <label class="required">C�n b? / �on v? ti?p nh?n b�n giao:</label>
-          <nz-select formControlName="escalatedToUserId" style="width: 100%;" nzPlaceHolder="Ch?n c?p Qu?n l� / �?i di?u d?...">
-            @for (mgr of managers(); track mgr.id) {
-              <nz-option [nzValue]="mgr.id" [nzLabel]="mgr.fullName + ' � ' + mgr.department"></nz-option>
-            }
-          </nz-select>
-        </div>
-
-        <div class="form-field-group">
-          <label>C?p d? kh?n c?p ki?n ngh?:</label>
-          <nz-select formControlName="urgencyLevel" style="width: 100%;">
-            <nz-option nzValue="C?p b�ch (Kh?n c?p c?p 1 - Nguy co r� lu?i ngay)" nzLabel="C?p b�ch (Kh?n c?p c?p 1 - Nguy co r� lu?i ngay)"></nz-option>
-            <nz-option nzValue="Nghi�m tr?ng (Kh?n c?p c?p 2 - X? l� trong 2h)" nzLabel="Nghi�m tr?ng (Kh?n c?p c?p 2 - X? l� trong 2h)"></nz-option>
-            <nz-option nzValue="Uu ti�n cao (Kh?n c?p c?p 3 - X? l� trong ca)" nzLabel="Uu ti�n cao (Kh?n c?p c?p 3 - X? l� trong ca)"></nz-option>
-          </nz-select>
-        </div>
-
-        <div class="form-field-group">
-          <label class="required">L� do leo thang v� d? xu?t phuong �n ?ng ph�:</label>
-          <textarea
-            nz-input
-            rows="3"
-            formControlName="reason"
-            placeholder="N�u r� di?n bi?n s? c? v� l� do c?n can thi?p kh?n c?p t? c?p qu?n l�..."
-          ></textarea>
+          <label for="confirm-notes">Ghi chú thẩm định:</label>
+          <textarea id="confirm-notes" nz-input rows="3" formControlName="notes" placeholder="Nhập nhận định chuyên môn..."></textarea>
         </div>
       </form>
     </ng-container>
   </nz-modal>
 
-  <!-- MODAL 4: VIEW HISTORY ARCHIVED EVIDENCE -->
-  @if (inspectingHistoryItem(); as hist) {
+  <!-- MODAL 2: DISMISS -->
+  <nz-modal
+    [nzVisible]="isDismissModalVisible()"
+    nzTitle="Bác bỏ cảnh báo khẩn cấp"
+    (nzOnCancel)="closeDismissModal()"
+    (nzOnOk)="executeDismiss()"
+    [nzOkLoading]="actionBusy()"
+    nzOkText="Bác bỏ"
+    [nzOkDanger]="true"
+    nzCancelText="Hủy"
+  >
+    <ng-container *nzModalContent>
+      <form [formGroup]="dismissForm" class="modal-form-content">
+        <p class="modal-desc-warn">Vui lòng nêu rõ lý do bác bỏ để lưu trữ hồ sơ thẩm định kỹ thuật.</p>
+        <div class="form-field-group">
+          <label for="dismiss-reason">Lý do bác bỏ:</label>
+          <nz-select id="dismiss-reason" formControlName="reason" style="width: 100%;">
+            @for (reason of dismissReasons; track reason) {
+              <nz-option [nzValue]="reason" [nzLabel]="reason"></nz-option>
+            }
+          </nz-select>
+        </div>
+        <div class="form-field-group">
+          <label for="dismiss-notes">Chi tiết bổ sung:</label>
+          <textarea id="dismiss-notes" nz-input rows="3" formControlName="notes" placeholder="Nhập thêm chi tiết phân tích..."></textarea>
+        </div>
+      </form>
+    </ng-container>
+  </nz-modal>
+
+  <!-- MODAL 3: ESCALATE -->
+  <nz-modal
+    [nzVisible]="isEscalateModalVisible()"
+    nzTitle="Chuyển cấp cảnh báo khẩn cấp"
+    (nzOnCancel)="closeEscalateModal()"
+    (nzOnOk)="executeEscalate()"
+    [nzOkLoading]="actionBusy()"
+    nzOkText="Chuyển cấp"
+    [nzOkDanger]="true"
+    nzCancelText="Hủy"
+  >
+    <ng-container *nzModalContent>
+      <form [formGroup]="escalateForm" class="modal-form-content">
+        <div class="modal-escalate-callout">
+          <span nz-icon nzType="warning" class="callout-icon" aria-hidden="true"></span>
+          <div>
+            <h4>Chuyển cảnh báo cho cấp quản lý</h4>
+            <p>Người nhận sẽ được thông báo ngay và cảnh báo chuyển sang trạng thái "Đã chuyển cấp".</p>
+          </div>
+        </div>
+
+        <div class="form-field-group">
+          @if (escalationTargetsUnavailable()) {
+            <label class="required" for="escalate-target-id">ID người nhận (Manager):</label>
+            <input
+              id="escalate-target-id"
+              nz-input
+              formControlName="escalatedToUserId"
+              placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            />
+            <small>Bạn không có quyền xem danh sách người dùng; nhập ID tài khoản Manager nhận cảnh báo.</small>
+          } @else {
+            <label class="required" for="escalate-target">Người nhận:</label>
+            <nz-select
+              id="escalate-target"
+              formControlName="escalatedToUserId"
+              style="width: 100%;"
+              nzPlaceHolder="Chọn Manager / quản trị viên"
+              [nzLoading]="escalationTargets() === null"
+            >
+              @for (target of escalationTargets() ?? []; track target.id) {
+                <nz-option [nzValue]="target.id" [nzLabel]="target.fullName + ' (' + target.role + ')'"></nz-option>
+              }
+            </nz-select>
+          }
+          @if (escalateForm.controls.escalatedToUserId.touched && escalateForm.controls.escalatedToUserId.invalid) {
+            <small class="escalate-reason-text" role="alert">Vui lòng chọn hoặc nhập người nhận hợp lệ.</small>
+          }
+        </div>
+
+        <div class="form-field-group">
+          <label for="escalate-urgency">Cấp độ khẩn cấp kiến nghị:</label>
+          <nz-select id="escalate-urgency" formControlName="urgencyLevel" style="width: 100%;">
+            @for (level of urgencyLevels; track level) {
+              <nz-option [nzValue]="level" [nzLabel]="level"></nz-option>
+            }
+          </nz-select>
+        </div>
+
+        <div class="form-field-group">
+          <label class="required" for="escalate-reason">Lý do chuyển cấp và đề xuất xử lý:</label>
+          <textarea
+            id="escalate-reason"
+            nz-input
+            rows="3"
+            formControlName="reason"
+            placeholder="Nêu rõ diễn biến sự cố và lý do cần cấp quản lý can thiệp..."
+          ></textarea>
+          @if (escalateForm.controls.reason.touched && escalateForm.controls.reason.invalid) {
+            <small class="escalate-reason-text" role="alert">Lý do cần tối thiểu 10 ký tự.</small>
+          }
+        </div>
+
+        @if (escalateError()) {
+          <p class="escalate-reason-text" role="alert">{{ escalateError() }}</p>
+        }
+      </form>
+    </ng-container>
+  </nz-modal>
+
+  <!-- MODAL 4: ALERT DETAIL -->
+  @if (detail(); as d) {
     <nz-modal
       [nzVisible]="true"
-      [nzTitle]="'B?ng Ch?ng Luu Tr?: #' + hist.id"
-      (nzOnCancel)="closeHistoryDetailModal()"
+      [nzTitle]="'Chi tiết cảnh báo: ' + (d.categoryName || d.alertType)"
+      (nzOnCancel)="closeDetail()"
       [nzFooter]="null"
       nzWidth="750px"
     >
       <ng-container *nzModalContent>
         <div class="history-detail-modal-body">
-          <div class="modal-evidence-preview">
-            <img [src]="hist.imageUrl" alt="?nh s? c?" class="modal-preview-img" />
-          </div>
+          @if (d.evidence.mediaUrl) {
+            <div class="modal-evidence-preview">
+              <img [src]="d.evidence.mediaUrl" alt="Ảnh bằng chứng sự cố" class="modal-preview-img" />
+            </div>
+          }
 
           <div class="history-audit-box">
-            <h4>Th�ng Tin X? L�</h4>
-            <p><strong>S? c?:</strong> {{ hist.title }}</p>
-            <p><strong>V? tr�:</strong> {{ hist.towerCode }} ({{ hist.lineName }})</p>
-            <p><strong>Quy?t d?nh:</strong> <nz-tag [nzColor]="hist.status === 'Confirmed' ? 'success' : hist.status === 'Escalated' ? 'error' : 'default'">{{ hist.status }}</nz-tag></p>
-            @if (hist.reviewInfo; as r) {
-              <p><strong>Ngu?i th?c hi?n:</strong> {{ r.reviewedBy }} ({{ r.reviewedAt | date: 'dd/MM/yyyy HH:mm:ss' }})</p>
-              @if (r.notes) { <p><strong>Ghi ch�:</strong> {{ r.notes }}</p> }
-              @if (r.escalatedToUserName) { <p><strong>B�n giao t?i:</strong> {{ r.escalatedToUserName }}</p> }
-              @if (r.escalationReason) { <p><strong>L� do leo thang:</strong> {{ r.escalationReason }}</p> }
+            <h4>Thông tin xử lý</h4>
+            <p><strong>Cột điện:</strong> {{ d.towerCode || 'Chưa gắn cột' }}</p>
+            <p><strong>Mức độ:</strong> {{ priorityLabels[d.priority] }}</p>
+            <p><strong>Trạng thái:</strong> <nz-tag [nzColor]="statusColor(d.status)">{{ statusLabels[d.status] }}</nz-tag></p>
+            <p><strong>Kích hoạt:</strong> {{ d.triggeredAt | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
+            @if (d.receivedAt) {
+              <p><strong>Nhận lúc:</strong> {{ d.receivedAt | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
+            }
+            @if (d.reviewedByName) {
+              <p><strong>Người thẩm định:</strong> {{ d.reviewedByName }}@if (d.resolvedAt) { ({{ d.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}) }</p>
+            }
+            @if (d.notes) {
+              <p><strong>Ghi chú:</strong> {{ d.notes }}</p>
+            }
+            @if (d.escalations.length) {
+              <h4>Lịch sử chuyển cấp</h4>
+              @for (esc of d.escalations; track esc.id) {
+                <p class="escalate-target-text">
+                  <strong>{{ esc.escalatedByName }}</strong> → <strong>{{ esc.escalatedToName }}</strong>
+                  ({{ esc.escalatedAt | date: 'dd/MM/yyyy HH:mm' }})
+                </p>
+                <p class="escalate-reason-text"><em>"{{ esc.reason }}"</em></p>
+              }
             }
           </div>
         </div>

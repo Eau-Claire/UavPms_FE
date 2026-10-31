@@ -1,41 +1,36 @@
-<div class="ai-studio-container">
+<div class="ops-page standalone-upload-page">
   @if (!isAuthorized()) {
-    <!-- 403 Forbidden / Permission Denied State -->
     <section class="forbidden-card" role="alert" aria-label="Quyền truy cập bị từ chối">
       <div class="forbidden-icon-wrap">
         <span nz-icon nzType="lock" class="forbidden-icon" aria-hidden="true"></span>
       </div>
       <h1 class="forbidden-title">Quyền truy cập bị từ chối (403 Forbidden)</h1>
       <p class="forbidden-desc">
-        Trang Studio Phân tích AI chỉ dành cho các tài khoản có vai trò <strong>Nhà phân tích (Analyst)</strong>, <strong>Quản lý (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
+        Chức năng kiểm tra dữ liệu độc lập chỉ dành cho các tài khoản có vai trò <strong>Chuyên viên phân tích (Analyst)</strong>, <strong>Quản lý (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
       </p>
       <div class="forbidden-actions">
         <a routerLink="/dashboard" class="btn-return-dashboard">
           <span nz-icon nzType="arrow-left" aria-hidden="true"></span>
-          <span>Quay lại Trang Tổng quan</span>
+          <span>Quay lại Trang chủ</span>
         </a>
       </div>
     </section>
   } @else {
-    <!-- Studio Header -->
-    <header class="studio-header">
-      <div class="studio-header-left">
-        <div class="studio-badge-row">
-          <span class="ai-platform-badge">
-            <span class="pulse-dot-ai" aria-hidden="true"></span>
-            <span>UAV AI Inspection Studio</span>
-          </span>
-          <span class="workflow-type-tag">Stand-alone Inspection</span>
-        </div>
-        <h1 class="studio-title">Trạm Phân tích & Giám định AI Trực quan</h1>
-        <p class="studio-subtitle">
-          Nền tảng kiểm tra tự động phát hiện khuyết tật lưới điện trên Hình ảnh & Video flycam theo chuẩn thị giác máy tính Roboflow / CVAT.
+    <header class="page-head">
+      <div class="page-heading-group">
+        <nav class="page-breadcrumb" aria-label="Đường dẫn">
+          <a routerLink="/dashboard">Trang chủ</a>
+          <span class="separator">/</span>
+          <strong>Kiểm tra dữ liệu độc lập</strong>
+        </nav>
+        <h1 class="page-title">Kiểm tra dữ liệu hình ảnh &amp; video độc lập</h1>
+        <p class="page-subtitle">
+          Tải lên tệp hình ảnh hoặc video khảo sát hiện trường để kiểm tra và ghi nhận khuyết tật thiết bị lưới điện.
         </p>
       </div>
 
       <div class="studio-header-right">
-        <!-- Workflow Mode Switcher -->
-        <div class="workflow-switcher" role="tablist" aria-label="Chế độ phân tích">
+        <div class="workflow-switcher" role="tablist" aria-label="Chế độ dữ liệu">
           <button
             type="button"
             class="switch-btn"
@@ -45,7 +40,7 @@
             [attr.aria-selected]="workflowMode() === 'image'"
           >
             <span nz-icon nzType="picture" aria-hidden="true"></span>
-            <span>Phân tích Hình ảnh (Image)</span>
+            <span>Hình ảnh (Image)</span>
           </button>
           <button
             type="button"
@@ -56,15 +51,13 @@
             [attr.aria-selected]="workflowMode() === 'video'"
           >
             <span nz-icon nzType="video-camera" aria-hidden="true"></span>
-            <span>Phân tích Video (Stream)</span>
+            <span>Video khảo sát</span>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- MAIN WORKSPACE ACCORDING TO STAGE -->
     @if (workflowStage() === 'idle') {
-      <!-- STAGE 1: EMPTY DROPZONE + SAMPLE LOADERS -->
       <section class="upload-stage-idle">
         <div
           class="studio-dropzone"
@@ -93,19 +86,19 @@
               <span nz-icon [nzType]="workflowMode() === 'video' ? 'video-camera' : 'cloud-upload'" class="dropzone-icon" aria-hidden="true"></span>
             </div>
             <h2 class="dropzone-title">
-              Kéo thả {{ workflowMode() === 'video' ? 'Video đường bay UAV' : 'Hình ảnh thiết bị' }} vào đây hoặc <span class="highlight-link">Chọn từ máy tính</span>
+              Kéo thả {{ workflowMode() === 'video' ? 'tệp video khảo sát UAV' : 'hình ảnh thiết bị' }} vào đây hoặc <span class="highlight-link">chọn từ máy tính</span>
             </h2>
             <p class="dropzone-sub">
               @if (workflowMode() === 'video') {
                 Hỗ trợ định dạng: <strong>MP4, MOV, WEBM, AVI</strong> (H.264/H.265 4K/FHD). Tối đa 2GB.
               } @else {
-                Hỗ trợ định dạng: <strong>JPG, JPEG, PNG, WEBP</strong> (Độ phân giải cao tối đa 50MB/ảnh).
+                Hỗ trợ định dạng: <strong>JPG, JPEG, PNG, WEBP</strong> (Độ phân giải cao, tối đa 50MB/ảnh).
               }
             </p>
             <div class="dropzone-tags">
-              <span class="feature-tag"><span nz-icon nzType="check"></span> Tự động trích xuất frame</span>
-              <span class="feature-tag"><span nz-icon nzType="check"></span> Định vị Bounding Box</span>
-              <span class="feature-tag"><span nz-icon nzType="check"></span> Đồng bộ Timeline video</span>
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Trích xuất khung hình</span>
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Khoanh vùng vị trí lỗi</span>
+              <span class="feature-tag"><span nz-icon nzType="check"></span> Đồng bộ mốc thời gian video</span>
             </div>
           </div>
         </div>
@@ -119,13 +112,12 @@
       </section>
 
     } @else if (workflowStage() === 'ready') {
-      <!-- STAGE 2: UPLOAD PREVIEW REPLACES EMPTY DROPZONE -->
-      <section class="upload-stage-ready" aria-label="Xem trước tệp đã chọn trước khi phân tích">
+      <section class="upload-stage-ready" aria-label="Xem trước tệp đã chọn">
         <div class="preview-header-bar">
           <div class="preview-status-pill">
             <span class="status-indicator-dot ready"></span>
-            <strong>{{ selectedFiles().length }} tệp đã sẵn sàng</strong>
-            <span>— Đã hoàn tất trích xuất thông số kỹ thuật</span>
+            <strong>{{ selectedFiles().length }} tệp đã chọn</strong>
+            <span>— Đã kiểm tra định dạng và thông số kỹ thuật</span>
           </div>
           <button type="button" class="btn-ghost-clear" (click)="clearFiles()">
             <span nz-icon nzType="delete" aria-hidden="true"></span>
@@ -134,7 +126,6 @@
         </div>
 
         @if (currentMedia(); as media) {
-          <!-- Rich Media Preview Hero Card -->
           <div class="media-preview-hero">
             <div class="hero-thumb-side">
               @if (media.kind === 'video') {
@@ -144,16 +135,16 @@
                   } @else {
                     <div class="thumb-placeholder-loading">
                       <span nz-icon nzType="loading" aria-hidden="true"></span>
-                      <span>Đang trích xuất frame đầu...</span>
+                      <span>Đang đọc khung hình đầu...</span>
                     </div>
                   }
                   <span class="video-duration-badge">{{ media.duration }}</span>
-                  <span class="video-type-badge">VIDEO STREAM</span>
+                  <span class="video-type-badge">VIDEO</span>
                 </div>
               } @else {
                 <div class="image-preview-shell">
                   <img [src]="media.thumbnailUrl || media.previewUrl" [alt]="media.name" class="hero-thumb-img" />
-                  <span class="image-type-badge">HIGH-RES IMAGE</span>
+                  <span class="image-type-badge">HÌNH ẢNH</span>
                 </div>
               }
             </div>
@@ -161,16 +152,15 @@
             <div class="hero-meta-side">
               <div class="hero-meta-head">
                 <div class="meta-title-group">
-                  <span class="file-kind-tag">{{ media.kind === 'video' ? 'Video khảo sát UAV' : 'Hình ảnh chụp Flycam' }}</span>
+                  <span class="file-kind-tag">{{ media.kind === 'video' ? 'Video khảo sát UAV' : 'Hình ảnh thiết bị' }}</span>
                   <h2 class="file-main-name" [title]="media.name">{{ media.name }}</h2>
                 </div>
                 <span class="ready-badge">
                   <span nz-icon nzType="check-circle" aria-hidden="true"></span>
-                  <span>Sẵn sàng phân tích AI</span>
+                  <span>Sẵn sàng xử lý</span>
                 </span>
               </div>
 
-              <!-- Metadata Specs Grid -->
               <dl class="specs-grid">
                 <div class="spec-card">
                   <dt>Dung lượng tệp</dt>
@@ -182,32 +172,32 @@
                 </div>
                 @if (media.kind === 'video') {
                   <div class="spec-card">
-                    <dt>Tốc độ khung hình (FPS)</dt>
+                    <dt>Tốc độ khung hình</dt>
                     <dd>{{ media.fps }}</dd>
                   </div>
                   <div class="spec-card">
                     <dt>Thời lượng</dt>
-                    <dd class="font-mono text-amber-500 font-bold">{{ media.duration }}</dd>
+                    <dd class="font-mono">{{ media.duration }}</dd>
                   </div>
                 }
                 <div class="spec-card">
-                  <dt>Mô hình AI dự kiến</dt>
-                  <dd class="text-blue-400 font-semibold">{{ form.get('preferredModel')?.value }}</dd>
+                  <dt>Chế độ kiểm tra</dt>
+                  <dd>{{ form.get('analysisType')?.value }}</dd>
                 </div>
                 <div class="spec-card">
-                  <dt>Trạng thái</dt>
-                  <dd class="text-green-400 font-semibold">Khung hình hợp lệ</dd>
+                  <dt>Trạng thái tệp</dt>
+                  <dd>Hợp lệ</dd>
                 </div>
               </dl>
 
-              <!-- Optional Notes & AI Options -->
               <form [formGroup]="form" class="hero-form-row">
                 <div class="form-field-group">
-                  <label for="preferredModelSelect">Bộ mô hình chuyên dụng:</label>
-                  <select id="preferredModelSelect" formControlName="preferredModel" class="studio-select">
-                    <option value="YOLOv8-PowerGrid-X">YOLOv8-PowerGrid-X (Phát hiện cách điện, bu lông, cây cối)</option>
-                    <option value="Transformer-Defect-Net">Transformer-Defect-Net (Độ chính xác cao trên ảnh 4K)</option>
-                    <option value="Thermal-Hotspot-AI">Thermal-Hotspot-AI (Phát hiện phát nhiệt mối nối)</option>
+                  <label for="analysisTypeSelect">Loại kiểm tra kỹ thuật:</label>
+                  <select id="analysisTypeSelect" formControlName="analysisType" class="studio-select">
+                    <option value="DefectDetection">Phát hiện khuyết tật thiết bị (DefectDetection)</option>
+                    <option value="VegetationIntrusion">Kiểm tra vi phạm hành lang tuyến (VegetationIntrusion)</option>
+                    <option value="ThermalAnomaly">Kiểm tra bất thường nhiệt (ThermalAnomaly)</option>
+                    <option value="General">Kiểm tra tổng hợp (General)</option>
                   </select>
                 </div>
 
@@ -223,24 +213,22 @@
                 </div>
               </form>
 
-              <!-- Main Execution CTA -->
               <div class="hero-action-bar">
                 <button type="button" class="btn-studio-secondary" (click)="clearFiles()">
                   <span>Hủy bỏ</span>
                 </button>
                 <button type="button" class="btn-studio-primary" (click)="onSubmit()">
-                  <span nz-icon nzType="thunderbolt" aria-hidden="true"></span>
-                  <span>Bắt đầu Phân tích AI ngay</span>
+                  <span nz-icon nzType="cloud-upload" aria-hidden="true"></span>
+                  <span>Tải lên &amp; Xử lý dữ liệu</span>
                 </button>
               </div>
             </div>
           </div>
         }
 
-        <!-- Multi-file Thumbnail Strip if multiple files queued -->
         @if (selectedFiles().length > 1) {
           <div class="queued-strip">
-            <h3>Danh sách {{ selectedFiles().length }} tệp trong hàng đợi:</h3>
+            <h3>Danh sách {{ selectedFiles().length }} tệp đã chọn:</h3>
             <div class="queued-grid">
               @for (item of selectedFiles(); track item.id) {
                 <div
@@ -262,51 +250,47 @@
       </section>
 
     } @else if (workflowStage() === 'processing') {
-      <!-- STAGE 3: AI PROCESSING VISUALIZATION PIPELINE -->
       <section class="upload-stage-processing" aria-live="polite">
         <div class="pipeline-card">
           <div class="pipeline-header">
             <div class="pipeline-title-group">
-              <span class="pulse-dot-ai" aria-hidden="true"></span>
-              <h2>Hệ thống Trí tuệ Nhân tạo đang xử lý dữ liệu...</h2>
-              <p>Mô hình YOLOv8-PowerGrid đang thực thi suy luận qua GPU TensorRT Engine</p>
+              <h2>Đang tải lên và xử lý tệp dữ liệu...</h2>
+              <p>Hệ thống đang truyền tải tệp và kiểm tra thông tin khuyết tật trên máy chủ.</p>
             </div>
-            <div class="pipeline-percent font-mono font-bold">{{ uploadProgress() }}%</div>
+            <div class="pipeline-percent font-mono">{{ uploadProgress() }}%</div>
           </div>
 
-          <!-- Progress Track -->
           <div class="pipeline-progress-bar">
             <div class="pipeline-progress-fill" [style.width.%]="uploadProgress()"></div>
           </div>
 
-          <!-- Pipeline Stages Flow -->
           <div class="pipeline-steps-flow">
             <div class="pipe-step done">
               <span class="pipe-step-num">1</span>
               <div>
-                <strong>Tiếp nhận tệp media</strong>
-                <small>Multipart Stream Upload</small>
+                <strong>Tải tệp lên máy chủ</strong>
+                <small>Truyền tải dữ liệu</small>
               </div>
             </div>
             <div class="pipe-step done">
               <span class="pipe-step-num">2</span>
               <div>
-                <strong>Trích xuất khung hình</strong>
-                <small>4K Frame Sampling</small>
+                <strong>Đọc khung hình</strong>
+                <small>Kiểm tra độ phân giải</small>
               </div>
             </div>
             <div class="pipe-step active">
               <span class="pipe-step-num">3</span>
               <div>
-                <strong>Nhận diện khuyết tật</strong>
-                <small>Neural Bounding Box Regression</small>
+                <strong>Xử lý phát hiện</strong>
+                <small>Định vị vùng khuyết tật</small>
               </div>
             </div>
             <div class="pipe-step">
               <span class="pipe-step-num">4</span>
               <div>
-                <strong>Phân loại &amp; Gắn mốc thời gian</strong>
-                <small>Timeline Event Mapping</small>
+                <strong>Tổng hợp kết quả</strong>
+                <small>Lưu phiên kiểm tra</small>
               </div>
             </div>
           </div>
@@ -314,20 +298,17 @@
       </section>
 
     } @else if (workflowStage() === 'inspected') {
-      <!-- STAGE 4: ROBOWFLOW / CVAT STYLE AI INSPECTION STUDIO -->
-      <section class="studio-inspection-workspace" aria-label="Không gian khám phá kết quả AI">
-        <!-- Workbench Toolbar -->
+      <section class="studio-inspection-workspace" aria-label="Không gian xem kết quả kiểm tra">
         <header class="workbench-toolbar">
           <div class="toolbar-left">
-            <span class="session-badge">ID: {{ uploadSuccessResult()?.id }}</span>
-            <div class="summary-pill total">Phát hiện: <strong>{{ allDetections().length }} lỗi</strong></div>
-            <div class="summary-pill high-conf">Tin cậy &gt; 90%: <strong>{{ filteredDetections().length }}</strong></div>
+            <span class="session-badge">Mã phiên: {{ uploadSuccessResult()?.id }}</span>
+            <div class="summary-pill total">Tổng phát hiện: <strong>{{ allDetections().length }}</strong></div>
+            <div class="summary-pill high-conf">Hiển thị theo bộ lọc: <strong>{{ filteredDetections().length }}</strong></div>
           </div>
 
           <div class="toolbar-controls">
-            <!-- Confidence Filter Slider -->
             <div class="filter-control-item">
-              <label for="confSlider">Ngưỡng tin cậy (Confidence): <strong>{{ confidenceThreshold() }}%</strong></label>
+              <label for="confSlider">Ngưỡng độ tin cậy: <strong>{{ confidenceThreshold() }}%</strong></label>
               <input
                 id="confSlider"
                 type="range"
@@ -340,9 +321,8 @@
               />
             </div>
 
-            <!-- Category Filter Pills -->
             <div class="category-filter-select">
-              <select [value]="selectedCategoryFilter()" (change)="setCategoryFilter($any($event.target).value)" class="studio-mini-select">
+              <select [value]="selectedCategoryFilter()" (change)="onCategoryFilterChange($event)" class="studio-mini-select">
                 <option value="ALL">Tất cả loại khuyết tật</option>
                 @for (cat of availableCategories(); track cat) {
                   <option [value]="cat">{{ cat }}</option>
@@ -350,7 +330,6 @@
               </select>
             </div>
 
-            <!-- Bounding Box Toggle -->
             <button
               type="button"
               class="btn-toggle-boxes"
@@ -358,23 +337,19 @@
               (click)="toggleBoundingBoxes()"
             >
               <span nz-icon nzType="border" aria-hidden="true"></span>
-              <span>Bounding Boxes {{ showBoundingBoxes() ? 'BẬT' : 'TẮT' }}</span>
+              <span>Khung đánh dấu: {{ showBoundingBoxes() ? 'BẬT' : 'TẮT' }}</span>
             </button>
 
-            <!-- Reset / New Session -->
             <button type="button" class="btn-new-analysis" (click)="onReset()">
               <span nz-icon nzType="plus" aria-hidden="true"></span>
-              <span>Phiên phân tích mới</span>
+              <span>Phiên kiểm tra mới</span>
             </button>
           </div>
         </header>
 
-        <!-- WORKSPACE GRID: MEDIA CANVAS + GALLERY + DETAIL INSPECTOR -->
         <div class="workbench-grid" [class.video-layout]="workflowMode() === 'video'">
-          <!-- MAIN MEDIA CANVAS -->
           <div class="media-canvas-panel">
             @if (workflowMode() === 'video') {
-              <!-- VIDEO DETECTION WORKFLOW -->
               <div class="video-inspection-player">
                 <div class="video-viewport-wrapper">
                   @if (currentMedia(); as media) {
@@ -388,7 +363,6 @@
                     ></video>
                   }
 
-                  <!-- Overlay Bounding Box on Current Active Video Frame if visible -->
                   @if (showBoundingBoxes() && selectedDetection(); as det) {
                     @if (det.boundingBox; as box) {
                       <div
@@ -404,7 +378,6 @@
                     }
                   }
 
-                  <!-- Video Controls HUD -->
                   <div class="video-controls-hud">
                     <button type="button" class="btn-hud-play" (click)="toggleVideoPlay()">
                       <span nz-icon [nzType]="isVideoPlaying() ? 'pause' : 'caret-right'" aria-hidden="true"></span>
@@ -415,12 +388,11 @@
                   </div>
                 </div>
 
-                <!-- DETECTION TIMELINE SCRUBBER -->
-                <div class="detection-timeline-container" aria-label="Thanh timeline phát hiện lỗi">
+                <div class="detection-timeline-container" aria-label="Thanh thời gian phát hiện lỗi">
                   <div class="timeline-header-label">
                     <span class="timeline-title">
                       <span nz-icon nzType="field-time" aria-hidden="true"></span>
-                      <span>Timeline phát hiện AI (Nhấp điểm mốc để tua video)</span>
+                      <span>Mốc thời gian ghi nhận (Nhấp điểm mốc để chuyển đến vị trí video)</span>
                     </span>
                     <span class="timeline-counter">{{ videoTimelineMarkers().length }} mốc sự kiện</span>
                   </div>
@@ -429,19 +401,15 @@
                     class="timeline-track-interactive"
                     (click)="onTimelineScrub($event)"
                     role="slider"
-                    aria-label="Thanh tua video timeline"
+                    aria-label="Thanh tua video"
                     tabindex="0"
                   >
-                    <!-- Base Track -->
                     <div class="timeline-base-bar"></div>
-
-                    <!-- Video Progress Fill -->
                     <div
                       class="timeline-play-progress"
                       [style.width.%]="(videoCurrentTime() / (videoDuration() || 60)) * 100"
                     ></div>
 
-                    <!-- DETECTION MARKERS PINNED ON TIMELINE -->
                     @for (marker of videoTimelineMarkers(); track marker.id) {
                       <div
                         class="timeline-marker-pin"
@@ -457,7 +425,6 @@
                         <span class="marker-dot"></span>
                         <span class="marker-time-tag">{{ marker.timestampLabel }}</span>
 
-                        <!-- Hover Popover Preview -->
                         @if (videoHoveredMarker()?.id === marker.id) {
                           <div class="marker-popover" role="tooltip">
                             <strong>{{ marker.title }}</strong>
@@ -469,14 +436,13 @@
                   </div>
                 </div>
 
-                <!-- DETECTION FRAME GALLERY (Below Video) -->
-                <section class="detection-frame-gallery" aria-label="Bộ sưu tập khung hình lỗi phát hiện">
+                <section class="detection-frame-gallery" aria-label="Danh sách khung hình phát hiện">
                   <div class="gallery-head">
                     <h3>
                       <span nz-icon nzType="appstore" aria-hidden="true"></span>
-                      <span>Khung hình phát hiện lỗi (Detection Frame Gallery)</span>
+                      <span>Danh sách khung hình phát hiện</span>
                     </h3>
-                    <span class="gallery-hint">Nhấp vào thẻ để tua video đến đúng giây</span>
+                    <span class="gallery-hint">Nhấp vào thẻ để chuyển video đến thời điểm tương ứng</span>
                   </div>
 
                   <div class="gallery-cards-grid">
@@ -525,14 +491,12 @@
               </div>
 
             } @else {
-              <!-- IMAGE DETECTION WORKFLOW -->
               <div class="image-inspection-canvas-shell">
                 <div class="canvas-viewport" #imageViewerContainer>
                   @if (currentMedia(); as media) {
                     <div class="image-with-boxes-container">
                       <img [src]="media.previewUrl" [alt]="media.name" class="inspection-main-img" />
 
-                      <!-- Overlay Bounding Boxes -->
                       @if (showBoundingBoxes()) {
                         @for (det of filteredDetections(); track det.id) {
                           @if (det.boundingBox; as box) {
@@ -559,10 +523,9 @@
                   }
                 </div>
 
-                <!-- Image Detection List Under Canvas -->
                 <div class="image-detections-list-strip">
                   <div class="strip-header">
-                    <h3>Danh sách phát hiện trên ảnh:</h3>
+                    <h3>Danh sách đối tượng ghi nhận trên ảnh:</h3>
                     <span>{{ filteredDetections().length }} đối tượng</span>
                   </div>
                   <div class="strip-cards">
@@ -575,7 +538,7 @@
                         <img [src]="det.cropImageUrl || det.imageUrl" [alt]="det.title" class="strip-thumb" />
                         <div class="strip-info">
                           <strong>{{ det.title }}</strong>
-                          <span>Độ tin cậy: <b class="text-blue-400">{{ det.confidence }}%</b></span>
+                          <span>Độ tin cậy: <b>{{ det.confidence }}%</b></span>
                         </div>
                       </div>
                     }
@@ -585,12 +548,11 @@
             }
           </div>
 
-          <!-- SIDE INSPECTION DETAIL PANEL (RICH DETAILS) -->
           <aside class="detection-inspector-panel" aria-label="Bảng chi tiết khuyết tật">
             <div class="inspector-header">
               <h3>
                 <span nz-icon nzType="file-search" aria-hidden="true"></span>
-                <span>Chi tiết Giám định AI</span>
+                <span>Chi tiết phát hiện kỹ thuật</span>
               </h3>
               @if (selectedDetection(); as det) {
                 <span
@@ -605,19 +567,17 @@
 
             @if (selectedDetection(); as selected) {
               <div class="inspector-body">
-                <!-- Dual Frame Comparison: Crop vs Original Frame -->
                 <div class="comparison-container">
                   <div class="crop-view-box">
-                    <span class="comp-label">Ảnh Crop Cận cảnh (Zoom)</span>
+                    <span class="comp-label">Ảnh cận cảnh (Crop)</span>
                     <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" class="crop-img" />
                   </div>
                   <div class="original-view-box">
-                    <span class="comp-label">Khung hình Gốc (Full Frame)</span>
+                    <span class="comp-label">Khung hình gốc</span>
                     <img [src]="selected.imageUrl" [alt]="selected.title" class="original-img" />
                   </div>
                 </div>
 
-                <!-- Primary Meta Fields -->
                 <div class="inspector-meta-section">
                   <div class="meta-row highlight">
                     <span class="meta-label">Loại khuyết tật</span>
@@ -630,12 +590,12 @@
                   </div>
 
                   <div class="meta-row">
-                    <span class="meta-label">Độ tin cậy AI</span>
+                    <span class="meta-label">Độ tin cậy</span>
                     <div class="confidence-val-group">
                       <div class="conf-meter-bar">
                         <div class="conf-meter-fill" [style.width.%]="selected.confidence"></div>
                       </div>
-                      <strong class="font-mono text-blue-400">{{ selected.confidence }}%</strong>
+                      <strong class="font-mono">{{ selected.confidence }}%</strong>
                     </div>
                   </div>
 
@@ -646,7 +606,7 @@
 
                   <div class="meta-row">
                     <span class="meta-label">Tọa độ GPS</span>
-                    <span class="meta-val font-mono text-xs">{{ selected.gps }}</span>
+                    <span class="meta-val font-mono">{{ selected.gps }}</span>
                   </div>
 
                   <div class="meta-row">
@@ -655,28 +615,27 @@
                   </div>
 
                   <div class="meta-row">
-                    <span class="meta-label">Mức độ khẩn cấp</span>
-                    <span class="meta-val" [class.text-red-400]="selected.isEmergency">
-                      {{ selected.isEmergency ? '⚠ NGUY CẤP (Cần xử lý ngay)' : 'Theo dõi định kỳ' }}
+                    <span class="meta-label">Mức độ ưu tiên</span>
+                    <span class="meta-val" [class.emergency-text]="selected.isEmergency">
+                      {{ selected.isEmergency ? 'Khẩn cấp (Cần xử lý ngay)' : 'Theo dõi định kỳ' }}
                     </span>
                   </div>
 
                   <div class="meta-desc-box">
-                    <span class="desc-label">Mô tả phát hiện AI:</span>
+                    <span class="desc-label">Mô tả kỹ thuật:</span>
                     <p>{{ selected.description }}</p>
                   </div>
                 </div>
 
-                <!-- Analyst Notes & Validation Actions -->
                 <div class="inspector-action-section">
                   <label for="reviewNotesTextarea" class="analyst-notes-label">
-                    Ghi chú của chuyên viên giám định:
+                    Ghi chú thẩm định của chuyên viên:
                   </label>
                   <textarea
                     id="reviewNotesTextarea"
                     rows="2"
                     [value]="reviewNotes()"
-                    (input)="reviewNotes.set($any($event.target).value)"
+                    (input)="onReviewNotesInput($event)"
                     placeholder="Nhập hướng xử lý, mã lệnh công tác bảo dưỡng..."
                     class="inspector-notes-textarea"
                   ></textarea>
@@ -692,7 +651,7 @@
                       (click)="reviewDetection('Rejected')"
                     >
                       <span nz-icon nzType="close" aria-hidden="true"></span>
-                      <span>Từ chối (AI Sai)</span>
+                      <span>Từ chối</span>
                     </button>
 
                     <button
@@ -701,7 +660,7 @@
                       (click)="reviewDetection('Approved')"
                     >
                       <span nz-icon nzType="check" aria-hidden="true"></span>
-                      <span>Xác nhận (Có lỗi)</span>
+                      <span>Xác nhận lỗi</span>
                     </button>
                   </div>
                 </div>
@@ -709,7 +668,7 @@
             } @else {
               <div class="inspector-empty-state">
                 <span nz-icon nzType="info-circle" class="empty-icon" aria-hidden="true"></span>
-                <p>Chọn một phát hiện trên ảnh hoặc thẻ frame bên dưới video để xem chi tiết.</p>
+                <p>Chưa có đối tượng nào được chọn hoặc không phát hiện khuyết tật trong phiên này.</p>
               </div>
             }
           </aside>

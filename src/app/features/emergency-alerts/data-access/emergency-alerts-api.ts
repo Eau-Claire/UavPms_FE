@@ -1,444 +1,303 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
-import { Auth } from '../../../core/auth/auth';
 import { unwrapApiData } from '../../../models/api.models';
 import {
-  EmergencyAlertItem,
-  AlertSeverity,
+  ActiveEmergencyAlert,
+  ALERT_STATUSES,
+  AlertBoundingBox,
+  AlertEscalation,
+  AlertHistoryQuery,
+  AlertPriority,
   AlertStatus,
-  ReviewAlertPayload,
+  EmergencyAlertDetail,
+  EmergencyAlertHistoryItem,
+  EmergencyAlertHistoryPage,
   EscalateAlertPayload,
-  EscalationManagerOption,
+  EscalationTarget,
+  ReviewAlertPayload,
+  TriggerAlertPayload,
 } from '../models/emergency-alert.models';
 
-const SEED_ACTIVE_ALERTS: EmergencyAlertItem[] = [
-  {
-    id: 'ea-001',
-    title: 'Phát hiện đám cháy rừng sát hành lang an toàn cột 042',
-    alertType: 'Cháy rừng / Nhiệt độ cao đe dọa đường dây',
-    categoryCode: 'EMERGENCY-FIRE-CORRIDOR',
-    severity: 'Critical',
-    status: 'Active',
-    detectedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    assetCode: 'TOW-220KV-042',
-    assetName: 'Cột néo hãm đỡ số 42 - 220kV',
-    towerCode: 'Cột 042 (TOW-220KV-042)',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    substationName: 'TBA 500kV Tây Hà Nội',
-    latitude: 20.8924,
-    longitude: 105.4182,
-    imageUrl: '/images/defect-preview-frame.png',
-    boundingBox: { x: 38, y: 32, width: 34, height: 38, isNormalized: true },
-    confidenceScore: 96,
-    aiModelName: 'EdgeYOLOv8-Thermal-UAV-v3.1',
-    droneId: 'UAV-MATRICE-300-RTK-01',
-    missionCode: 'MIS-20260904-EMG',
-    description: 'Cảm biến hồng ngoại nhiệt độ phát hiện vùng nhiệt > 350°C cách dây dẫn pha C dưới 12 mét. Khói đậm đặc đe dọa sự cố phóng điện ion hóa.',
-  },
-  {
-    id: 'ea-002',
-    title: 'Xơ tưa, đứt nhiều tao dây dẫn pha B sắp đứt gãy',
-    alertType: 'Tổn thương cơ học dây dẫn cấp bách',
-    categoryCode: 'EMERGENCY-COND-BREAK',
-    severity: 'Critical',
-    status: 'Active',
-    detectedAt: new Date(Date.now() - 42 * 60 * 1000).toISOString(),
-    assetCode: 'COND-220KV-HB-043',
-    assetName: 'Dây dẫn nhôm lõi thép ACSR 400mm2',
-    towerCode: 'Khoảng cột 042 - 043',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    substationName: 'TBA 220kV Xuân Mai',
-    latitude: 20.8988,
-    longitude: 105.4295,
-    imageUrl: '/images/defect-conductor-damage.png',
-    boundingBox: { x: 45, y: 48, width: 32, height: 26, isNormalized: true },
-    confidenceScore: 92,
-    aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
-    droneId: 'UAV-MATRICE-350-RTK-02',
-    missionCode: 'MIS-20260904-INSP',
-    description: 'Phát hiện 6 tao nhôm ngoài bị xé toạc, vặn xoắn nghiêm trọng do sét đánh hoặc rung lắc gió lớn. Nguy cơ đứt rơi dây dẫn khi tải cao.',
-  },
-  {
-    id: 'ea-003',
-    title: 'Phóng điện bề mặt chuỗi cách điện composite (Flashover)',
-    alertType: 'Hư hỏng vật liệu cách điện cao áp',
-    categoryCode: 'EMERGENCY-INS-FLASHOVER',
-    severity: 'High',
-    status: 'Active',
-    detectedAt: new Date(Date.now() - 85 * 60 * 1000).toISOString(),
-    assetCode: 'INS-COMP-TOW043-P1',
-    assetName: 'Chuỗi cách điện néo polymer 220kV',
-    towerCode: 'Cột 043 (TOW-220KV-043)',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    substationName: 'TBA 500kV Tây Hà Nội',
-    latitude: 20.9015,
-    longitude: 105.4358,
-    imageUrl: '/images/defect-insulator-flashover.png',
-    boundingBox: { x: 42, y: 35, width: 28, height: 32, isNormalized: true },
-    confidenceScore: 89,
-    aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
-    droneId: 'UAV-MATRICE-300-RTK-01',
-    missionCode: 'MIS-20260904-EMG',
-    description: 'Vết cháy đen rãnh sâu do phóng điện vầng quang kéo dài. Bát cách điện bị nứt nẻ, có nguy cơ đánh thủng cách điện gây sự cố rã lưới.',
-  },
-];
+/** Vietnamese messages for the alert endpoints' error codes (api_spec Module 8). */
+const ALERT_ERROR_MESSAGES: Record<string, string> = {
+  ALERT_ALREADY_ACTIVE: 'Bất thường này đã có một cảnh báo khẩn cấp đang hoạt động.',
+  INVALID_ESCALATION_TARGET: 'Không thể chuyển cấp cảnh báo cho chính bạn. Vui lòng chọn người nhận khác.',
+};
 
-const SEED_HISTORY_ALERTS: EmergencyAlertItem[] = [
-  {
-    id: 'ea-hist-001',
-    title: 'Cây ngã đổ đè dây cáp quang chống sét OPGW',
-    alertType: 'Vi phạm khoảng cách an toàn hành lang',
-    categoryCode: 'EMERGENCY-TREE-FALL',
-    severity: 'Critical',
-    status: 'Escalated',
-    detectedAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    assetCode: 'OPGW-220KV-TOW039',
-    assetName: 'Cáp quang kết hợp chống sét OPGW 70',
-    towerCode: 'Khoảng cột 038 - 039',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    latitude: 20.8841,
-    longitude: 105.4052,
-    imageUrl: '/images/defect-preview-frame.png',
-    boundingBox: { x: 50, y: 40, width: 35, height: 35, isNormalized: true },
-    confidenceScore: 94,
-    aiModelName: 'EdgeYOLOv8-Thermal-UAV-v3.1',
-    droneId: 'UAV-MATRICE-300-RTK-01',
-    missionCode: 'MIS-20260903-STORM',
-    description: 'Cây keo lai cao 18m bị bật gốc sau bão, ngọn cây vắt ngang cáp OPGW tạo lực căng nguy hiểm.',
-    reviewInfo: {
-      reviewedBy: 'Nguyễn Văn Minh (Analyst)',
-      reviewerRole: 'Analyst',
-      reviewedAt: new Date(Date.now() - 23 * 3600 * 1000).toISOString(),
-      decision: 'Escalated',
-      escalatedToUserId: 'mgr-001',
-      escalatedToUserName: 'Trần Hữu Nam (Trưởng Trung tâm Điều độ)',
-      escalationReason: 'Tình trạng khẩn cấp cấp độ 1: Cần điều động ngay Đội Truyền tải điện khu vực chặt tỉa khẩn cấp và ngắt điện tạm thời đoạn tuyến.',
-    },
-  },
-  {
-    id: 'ea-hist-002',
-    title: 'Bung bu lông thanh giằng chân cột néo góc 044',
-    alertType: 'Hư hỏng kết cấu cơ khí cột',
-    categoryCode: 'EMERGENCY-BOLT-MISSING',
-    severity: 'High',
-    status: 'Confirmed',
-    detectedAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-    assetCode: 'TWR-BOLT-TOW044',
-    assetName: 'Khung giằng chịu lực góc dưới',
-    towerCode: 'Cột néo 044 (TOW-220KV-044)',
-    lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-    latitude: 20.9122,
-    longitude: 105.4491,
-    imageUrl: '/images/defect-bolt-loose.png',
-    boundingBox: { x: 55, y: 44, width: 22, height: 26, isNormalized: true },
-    confidenceScore: 91,
-    aiModelName: 'EdgeYOLOv8-GridStructural-v2.8',
-    droneId: 'UAV-MATRICE-350-RTK-02',
-    missionCode: 'MIS-20260902-REG',
-    description: '2 bu lông M24 bị bung đai ốc hoàn toàn do rung động cơ học.',
-    reviewInfo: {
-      reviewedBy: 'Lê Thu Trang (Analyst)',
-      reviewerRole: 'Analyst',
-      reviewedAt: new Date(Date.now() - 47 * 3600 * 1000).toISOString(),
-      decision: 'Confirmed',
-      notes: 'Đã xác nhận hình ảnh độ phân giải cao 4K. Chuyển thông tin sang Đội Bảo dưỡng để thay thế bu lông và siết lại toàn bộ thanh giằng.',
-    },
-  },
-];
+export const alertErrorMessage = (error: unknown, fallback: string): string => {
+  if (!(error instanceof HttpErrorResponse)) return fallback;
+  const body = error.error && typeof error.error === 'object' ? (error.error as Record<string, unknown>) : {};
+  const code = typeof body['errorCode'] === 'string' ? body['errorCode'] : '';
+  if (code && ALERT_ERROR_MESSAGES[code]) return ALERT_ERROR_MESSAGES[code];
+  if (error.status === 0) return 'Không thể kết nối đến máy chủ.';
+  if (error.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+  if (error.status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+  if (error.status === 404) return 'Không tìm thấy cảnh báo khẩn cấp.';
+  if (error.status === 409) return ALERT_ERROR_MESSAGES['ALERT_ALREADY_ACTIVE'];
+  const message = body['message'];
+  return typeof message === 'string' && message ? message : fallback;
+};
 
-const MOCK_MANAGERS: EscalationManagerOption[] = [
-  {
-    id: 'mgr-001',
-    fullName: 'Trần Hữu Nam',
-    email: 'nam.tran@evn-uavpms.vn',
-    role: 'Manager',
-    department: 'Trung Tâm Điều Độ Hệ Thống Điện Miền Bắc',
-    phone: '0912 345 678',
-  },
-  {
-    id: 'mgr-002',
-    fullName: 'Lê Đình Khoa',
-    email: 'khoa.le@evn-uavpms.vn',
-    role: 'Manager',
-    department: 'Ban Kỹ Thuật An Toàn & Bảo Dưỡng Lưới Điện',
-    phone: '0987 654 321',
-  },
-  {
-    id: 'mgr-003',
-    fullName: 'Vũ Đức Cường',
-    email: 'cuong.vu@evn-uavpms.vn',
-    role: 'Supervisor',
-    department: 'Đội Truyền Tải Điện Khu Vực Tây Hà Nội',
-    phone: '0904 888 999',
-  },
-];
-
-function mapBackendAlertItem(raw: any): EmergencyAlertItem {
-  const lat = raw.latitude ?? raw.location?.latitude ?? 20.8924;
-  const lng = raw.longitude ?? raw.location?.longitude ?? 105.4182;
-  const tower = raw.towerCode ?? raw.location?.towerCode ?? raw.assetCode ?? 'Cột điện';
-  const img = raw.imageUrl ?? raw.evidence?.mediaUrl ?? '/images/defect-preview-frame.png';
-
-  let bbox = raw.boundingBox;
-  if (!bbox && raw.evidence?.boundingBox) {
-    try {
-      bbox = typeof raw.evidence.boundingBox === 'string'
-        ? JSON.parse(raw.evidence.boundingBox)
-        : raw.evidence.boundingBox;
-    } catch {
-      bbox = { x: 35, y: 30, width: 30, height: 30, isNormalized: true };
-    }
-  }
-
-  const confidence = raw.confidenceScore ?? raw.evidence?.confidenceScore ?? 90;
-  const rawSev = raw.severity ?? raw.priority ?? 'Critical';
-  const severity: AlertSeverity = ['Critical', 'High', 'Medium', 'Low'].includes(rawSev) ? rawSev : 'Critical';
-  const rawStatus = raw.status ?? 'Active';
-  const status: AlertStatus = ['Active', 'Confirmed', 'Dismissed', 'Escalated'].includes(rawStatus) ? rawStatus : 'Active';
-  const detectedAt = raw.detectedAt ?? raw.triggeredAt ?? new Date().toISOString();
-
-  return {
-    id: String(raw.id ?? ''),
-    title: raw.title ?? `Cảnh báo sự cố: ${raw.alertType || 'Bất thường'} tại ${tower}`,
-    alertType: raw.alertType ?? 'Sự cố lưới điện khẩn cấp',
-    categoryCode: raw.categoryCode ?? raw.categoryName ?? 'EMERGENCY-GRID',
-    severity,
-    status,
-    detectedAt: String(detectedAt),
-    assetCode: raw.assetCode ?? 'ASSET-220KV',
-    assetName: raw.assetName ?? `Thiết bị tại ${tower}`,
-    towerCode: tower,
-    lineName: raw.lineName ?? 'Đường dây 220kV Hòa Bình - Hà Đông',
-    substationName: raw.substationName ?? 'TBA 500kV Tây Hà Nội',
-    latitude: Number(lat),
-    longitude: Number(lng),
-    imageUrl: img,
-    boundingBox: bbox,
-    confidenceScore: Number(confidence),
-    aiModelName: raw.aiModelName ?? 'EdgeYOLOv8-Emergency-Drone-v3.2',
-    droneId: raw.droneId ?? 'UAV-MATRICE-300-RTK-01',
-    missionCode: raw.missionCode ?? 'MIS-2026-REALTIME',
-    description: raw.description ?? raw.notes ?? 'Phát hiện sự cố bất thường từ hệ thống giám sát.',
-    reviewInfo: raw.reviewInfo ?? (raw.reviewedBy ? {
-      reviewedBy: raw.reviewedBy,
-      reviewerRole: 'Analyst',
-      reviewedAt: raw.resolvedAt ?? detectedAt,
-      decision: status === 'Active' ? 'Confirmed' : (status as any),
-      notes: raw.notes,
-    } : undefined),
-  };
-}
+const ESCALATION_ROLES = new Set(['manager', 'systemadmin', 'admin']);
 
 @Injectable({
   providedIn: 'root',
 })
 export class EmergencyAlertsApi {
   private readonly http = inject(HttpClient);
-  private readonly auth = inject(Auth);
+  private readonly baseUrl = `${environment.apiBaseUrl}/alerts`;
 
-  // Reactive state
-  private readonly activeAlertsSignal = signal<EmergencyAlertItem[]>(SEED_ACTIVE_ALERTS);
-  private readonly historyAlertsSignal = signal<EmergencyAlertItem[]>(SEED_HISTORY_ALERTS);
-  private readonly managersSignal = signal<EscalationManagerOption[]>(MOCK_MANAGERS);
+  private readonly activeAlertsState = signal<readonly ActiveEmergencyAlert[]>([]);
 
-  readonly activeAlerts = computed(() => this.activeAlertsSignal());
-  readonly historyAlerts = computed(() => this.historyAlertsSignal());
-  readonly managers = computed(() => this.managersSignal());
-  readonly activeCount = computed(() => this.activeAlertsSignal().length);
+  /** Last fetched `GET /alerts/active`; shared with the sidebar badge. */
+  readonly activeAlerts = this.activeAlertsState.asReadonly();
+  readonly activeCount = computed(() => this.activeAlertsState().length);
 
-  /**
-   * Fetch active alerts from backend or fallback to local signal
-   */
-  fetchActiveAlerts(): Observable<EmergencyAlertItem[]> {
-    return this.http.get<unknown>(`${environment.apiBaseUrl}/alerts/active`).pipe(
-      map((res) => {
-        const data = unwrapApiData<any>(res);
-        const items = Array.isArray(data)
-          ? data
-          : data?.items && Array.isArray(data.items)
-            ? data.items
-            : [];
-        return items.length > 0 ? items.map(mapBackendAlertItem) : this.activeAlertsSignal();
-      }),
-      tap((alerts) => this.activeAlertsSignal.set(alerts)),
-      catchError((err: HttpErrorResponse) => {
-        console.warn('[EmergencyAlertsApi] Backend /alerts/active not yet deployed or error, using local queue:', err.status);
-        return of(this.activeAlertsSignal());
-      }),
+  /** `GET /alerts/active` returns a raw array. */
+  fetchActiveAlerts(): Observable<readonly ActiveEmergencyAlert[]> {
+    return this.http.get<unknown>(`${this.baseUrl}/active`).pipe(
+      map((response) => arrayOf(response).map(normalizeActiveAlert)),
+      tap((alerts) => this.activeAlertsState.set(alerts)),
     );
   }
 
-  /**
-   * Fetch alert history
-   */
-  fetchAlertHistory(params?: { status?: string; page?: number; pageSize?: number }): Observable<EmergencyAlertItem[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.status) queryParams.set('status', params.status);
-    if (params?.page) queryParams.set('page', String(params.page));
-    if (params?.pageSize) queryParams.set('pageSize', String(params.pageSize));
-    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  /** `GET /alerts?status&page&pageSize` returns a raw `{ totalCount, page, pageSize, items }`. */
+  fetchAlertHistory(query: AlertHistoryQuery = {}): Observable<EmergencyAlertHistoryPage> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
+    if (query.status) params = params.set('status', query.status);
 
-    return this.http.get<unknown>(`${environment.apiBaseUrl}/alerts${queryString}`).pipe(
-      map((res) => {
-        const data = unwrapApiData<any>(res);
-        const items = Array.isArray(data)
-          ? data
-          : data?.items && Array.isArray(data.items)
-            ? data.items
-            : [];
-        return items.length > 0 ? items.map(mapBackendAlertItem) : this.historyAlertsSignal();
-      }),
-      tap((history) => this.historyAlertsSignal.set(history)),
-      catchError((err: HttpErrorResponse) => {
-        console.warn('[EmergencyAlertsApi] Backend /alerts history not yet deployed, using local queue:', err.status);
-        return of(this.historyAlertsSignal());
-      }),
-    );
+    return this.http
+      .get<unknown>(this.baseUrl, { params })
+      .pipe(map((response) => normalizeHistoryPage(response, page, pageSize)));
   }
 
-  /**
-   * Confirm or Dismiss (Reject) an alert: PUT /api/v1/alerts/{id}/review
-   */
+  /** `GET /alerts/{id}` (raw detail with escalation history). */
+  getAlert(id: string): Observable<EmergencyAlertDetail> {
+    return this.http
+      .get<unknown>(`${this.baseUrl}/${encodeURIComponent(id)}`)
+      .pipe(map((response) => normalizeDetail(response)));
+  }
+
+  /** `PUT /alerts/{id}/review` → 204. Removes the alert from the active list on success. */
   reviewAlert(id: string, payload: ReviewAlertPayload): Observable<void> {
-    const user = this.auth.user();
-    const reviewerName = user?.fullName || user?.email || 'Chuyên viên Analyst';
-    const reviewerRole = user?.role || 'Analyst';
+    return this.http.put<void>(`${this.baseUrl}/${encodeURIComponent(id)}/review`, payload).pipe(
+      map(() => undefined),
+      tap(() => this.removeActive(id)),
+    );
+  }
 
-    return this.http.put<void>(`${environment.apiBaseUrl}/alerts/${id}/review`, payload).pipe(
-      catchError((err: HttpErrorResponse) => {
-        console.warn('[EmergencyAlertsApi] Fallback local review for alert:', id, err.status);
-        return of(undefined as void);
-      }),
-      tap(() => {
-        // Move item from active to history
-        const active = this.activeAlertsSignal();
-        const target = active.find((a) => a.id === id);
-        if (target) {
-          const updated: EmergencyAlertItem = {
-            ...target,
-            status: payload.status,
-            reviewInfo: {
-              reviewedBy: reviewerName,
-              reviewerRole: reviewerRole,
-              reviewedAt: new Date().toISOString(),
-              decision: payload.status,
-              notes: payload.notes,
-            },
-          };
-          this.activeAlertsSignal.set(active.filter((a) => a.id !== id));
-          this.historyAlertsSignal.update((hist) => [updated, ...hist]);
+  /** `POST /alerts/{id}/escalate` → 201 with the escalation (raw). */
+  escalateAlert(id: string, payload: EscalateAlertPayload): Observable<AlertEscalation> {
+    return this.http.post<unknown>(`${this.baseUrl}/${encodeURIComponent(id)}/escalate`, payload).pipe(
+      map((response) => normalizeEscalation(response)),
+      tap(() => this.removeActive(id)),
+    );
+  }
+
+  /** `POST /alerts/trigger` → 201 with the alert detail; 409 `ALERT_ALREADY_ACTIVE` when one is active. */
+  triggerAlert(payload: TriggerAlertPayload): Observable<EmergencyAlertDetail> {
+    return this.http.post<unknown>(`${this.baseUrl}/trigger`, payload).pipe(
+      map((response) => normalizeDetail(response)),
+      tap((alert) => {
+        if (alert.status === 'Active' && !this.activeAlertsState().some((a) => a.id === alert.id)) {
+          this.activeAlertsState.update((list) => [alert, ...list]);
         }
       }),
     );
   }
 
   /**
-   * Escalate an alert: POST /api/v1/alerts/{id}/escalate
+   * Users an alert can be escalated to (Manager / SystemAdmin). Uses `GET /users`, which the
+   * backend currently restricts to SystemAdmin; other roles get 403 and must enter the user ID.
    */
-  escalateAlert(id: string, payload: EscalateAlertPayload): Observable<void> {
-    const user = this.auth.user();
-    const reviewerName = user?.fullName || user?.email || 'Chuyên viên Analyst';
-    const reviewerRole = user?.role || 'Analyst';
-    const manager = this.managersSignal().find((m) => m.id === payload.escalatedToUserId);
-    const targetManagerName = manager ? `${manager.fullName} (${manager.department})` : 'Cấp Quản Lý Hệ Thống';
-
-    return this.http.post<void>(`${environment.apiBaseUrl}/alerts/${id}/escalate`, payload).pipe(
-      catchError((err: HttpErrorResponse) => {
-        console.warn('[EmergencyAlertsApi] Fallback local escalate for alert:', id, err.status);
-        return of(undefined as void);
-      }),
-      tap(() => {
-        const active = this.activeAlertsSignal();
-        const target = active.find((a) => a.id === id);
-        if (target) {
-          const updated: EmergencyAlertItem = {
-            ...target,
-            status: 'Escalated',
-            reviewInfo: {
-              reviewedBy: reviewerName,
-              reviewerRole: reviewerRole,
-              reviewedAt: new Date().toISOString(),
-              decision: 'Escalated',
-              escalatedToUserId: payload.escalatedToUserId,
-              escalatedToUserName: targetManagerName,
-              escalationReason: payload.reason,
-            },
-          };
-          this.activeAlertsSignal.set(active.filter((a) => a.id !== id));
-          this.historyAlertsSignal.update((hist) => [updated, ...hist]);
-        }
-      }),
+  getEscalationTargets(): Observable<readonly EscalationTarget[]> {
+    const params = new HttpParams().set('page', 1).set('pageSize', 100);
+    return this.http.get<unknown>(`${environment.apiBaseUrl}/users`, { params }).pipe(
+      map((response) =>
+        arrayOf(unwrapApiData(response))
+          .map(normalizeUser)
+          .filter((user) => user.id && ESCALATION_ROLES.has(user.role.toLowerCase())),
+      ),
     );
   }
 
-  /**
-   * Ingest real-time alert received from SignalR
-   */
-  ingestRealtimeAlert(alert: EmergencyAlertItem): void {
-    const exists = this.activeAlertsSignal().some((a) => a.id === alert.id);
-    if (!exists) {
-      this.activeAlertsSignal.update((list) => [alert, ...list]);
-    }
-  }
-
-  /**
-   * Simulation helper for demo & manual testing of Edge AI incoming emergency detection
-   */
-  simulateRealtimeAlert(): EmergencyAlertItem {
-    const randomId = 'ea-' + Math.random().toString(36).substring(2, 7);
-    const mockTypes = [
-      {
-        title: 'Phát hiện phóng điện hồ quang chuỗi bát cách điện pha A',
-        type: 'Hồ quang điện nguy hiểm',
-        code: 'EMG-ARC-FLASHOVER',
-        image: '/images/defect-insulator-crack.png',
-        desc: 'Tia lửa hồ quang sáng chói kèm nhiệt độ > 400°C phát hiện qua cảm biến quang phổ UV.',
-      },
-      {
-        title: 'Vật thể lạ (Bạt rơm / Diều khổng lồ) vướng vào đường dây',
-        type: 'Dị vật vi phạm khoảng cách phóng điện',
-        code: 'EMG-FOREIGN-OBJECT',
-        image: '/images/defect-conductor-damage.png',
-        desc: 'Màng bạt nông nghiệp dài 4 mét mắc trên dây dẫn đang cháy xém do phóng điện vầng quang.',
-      },
-      {
-        title: 'Sạt lở đất đe dọa sập móng trụ néo số 045',
-        type: 'Sạt lở địa chất nguy cơ đổ cột',
-        code: 'EMG-GEO-LANDSLIDE',
-        image: '/images/defect-preview-frame.png',
-        desc: 'Mưa lớn gây sạt lở taluy âm cách móng trụ néo 1.8 mét. Đất đá đang sụt lún nhanh.',
-      },
-    ];
-
-    const pick = mockTypes[Math.floor(Math.random() * mockTypes.length)];
-    const newAlert: EmergencyAlertItem = {
-      id: randomId,
-      title: pick.title,
-      alertType: pick.type,
-      categoryCode: pick.code,
-      severity: 'Critical',
-      status: 'Active',
-      detectedAt: new Date().toISOString(),
-      assetCode: `TOW-220KV-0${Math.floor(Math.random() * 20 + 35)}`,
-      assetName: 'Cột đỡ néo đường dây 220kV',
-      towerCode: `Cột 0${Math.floor(Math.random() * 20 + 35)}`,
-      lineName: 'Đường dây 220kV Hòa Bình - Hà Đông',
-      substationName: 'TBA 500kV Tây Hà Nội',
-      latitude: 20.89 + Math.random() * 0.05,
-      longitude: 105.41 + Math.random() * 0.05,
-      imageUrl: pick.image,
-      boundingBox: { x: 35 + Math.random() * 15, y: 30 + Math.random() * 15, width: 30, height: 30, isNormalized: true },
-      confidenceScore: Math.floor(Math.random() * 10 + 90),
-      aiModelName: 'EdgeYOLOv8-Emergency-Drone-v3.2',
-      droneId: 'UAV-MATRICE-300-RTK-01',
-      missionCode: 'MIS-20260904-REALTIME',
-      description: pick.desc,
-    };
-
-    this.ingestRealtimeAlert(newAlert);
-    return newAlert;
+  private removeActive(id: string): void {
+    this.activeAlertsState.update((list) => list.filter((alert) => alert.id !== id));
   }
 }
+
+const record = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+const arrayOf = (value: unknown): readonly unknown[] => {
+  if (Array.isArray(value)) return value;
+  const items = record(value)['items'];
+  return Array.isArray(items) ? items : [];
+};
+
+const stringOf = (value: unknown, fallback = ''): string =>
+  value === undefined || value === null ? fallback : String(value);
+
+const optionalString = (value: unknown): string | null => {
+  const text = stringOf(value).trim();
+  return text ? text : null;
+};
+
+const optionalNumber = (value: unknown): number | null => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toStatus = (value: unknown): AlertStatus => {
+  const text = stringOf(value).toLowerCase();
+  return ALERT_STATUSES.find((status) => status.toLowerCase() === text) ?? 'Active';
+};
+
+const toPriority = (value: unknown): AlertPriority => {
+  const text = stringOf(value).toLowerCase();
+  if (text === 'high') return 'High';
+  if (text === 'medium') return 'Medium';
+  if (text === 'low') return 'Low';
+  return 'Critical';
+};
+
+/** Evidence bounding boxes arrive as a JSON string: `{x,y,width,height}` or `[x,y,w,h]`, normalized or pixels. */
+export const parseAlertBoundingBox = (value: unknown): AlertBoundingBox | null => {
+  let parsed: unknown = value;
+  if (typeof value === 'string') {
+    if (!value.trim()) return null;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  let x: number;
+  let y: number;
+  let width: number;
+  let height: number;
+  if (Array.isArray(parsed) && parsed.length >= 4) {
+    [x, y, width, height] = parsed.map((n) => Number(n) || 0);
+  } else if (parsed && typeof parsed === 'object') {
+    const box = parsed as Record<string, unknown>;
+    x = Number(box['x'] ?? box['left']) || 0;
+    y = Number(box['y'] ?? box['top']) || 0;
+    width = Number(box['width'] ?? box['w']) || 0;
+    height = Number(box['height'] ?? box['h']) || 0;
+  } else {
+    return null;
+  }
+  if (width <= 0 || height <= 0) return null;
+  if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
+    return { x: x * 100, y: y * 100, width: width * 100, height: height * 100, isNormalized: true };
+  }
+  return { x, y, width, height, isNormalized: false };
+};
+
+const toPercent = (value: unknown): number | null => {
+  const score = optionalNumber(value);
+  if (score === null) return null;
+  return Math.round(score <= 1 ? score * 100 : score);
+};
+
+export const normalizeActiveAlert = (value: unknown): ActiveEmergencyAlert => {
+  const source = record(value);
+  const location = record(source['location']);
+  const evidence = record(source['evidence']);
+  const towerCode = stringOf(source['towerCode']) || stringOf(location['towerCode']);
+  return {
+    id: stringOf(source['id']),
+    anomalyId: stringOf(source['anomalyId']),
+    towerId: optionalString(source['towerId']),
+    towerCode,
+    alertType: stringOf(source['alertType']),
+    categoryName: stringOf(source['categoryName']),
+    priority: toPriority(source['priority']),
+    status: toStatus(source['status']),
+    deliveryLatencySeconds: optionalNumber(source['deliveryLatencySeconds']) ?? 0,
+    triggeredAt: stringOf(source['triggeredAt']),
+    location: {
+      latitude: optionalNumber(location['latitude']),
+      longitude: optionalNumber(location['longitude']),
+      towerCode: stringOf(location['towerCode']) || towerCode,
+    },
+    evidence: {
+      mediaUrl: optionalString(evidence['mediaUrl']),
+      boundingBox: parseAlertBoundingBox(evidence['boundingBox']),
+      confidenceScore: toPercent(evidence['confidenceScore']),
+    },
+  };
+};
+
+const normalizeHistoryItem = (value: unknown): EmergencyAlertHistoryItem => {
+  const source = record(value);
+  return {
+    id: stringOf(source['id']),
+    towerCode: stringOf(source['towerCode']),
+    alertType: stringOf(source['alertType']),
+    priority: toPriority(source['priority']),
+    status: toStatus(source['status']),
+    triggeredAt: stringOf(source['triggeredAt']),
+    resolvedAt: optionalString(source['resolvedAt']),
+    reviewedBy: optionalString(source['reviewedBy']),
+    notes: optionalString(source['notes']),
+  };
+};
+
+const normalizeHistoryPage = (value: unknown, page: number, pageSize: number): EmergencyAlertHistoryPage => {
+  const source = record(value);
+  const items = arrayOf(value).map(normalizeHistoryItem);
+  return {
+    totalCount: optionalNumber(source['totalCount']) ?? items.length,
+    page: optionalNumber(source['page']) ?? page,
+    pageSize: optionalNumber(source['pageSize']) ?? pageSize,
+    items,
+  };
+};
+
+const normalizeEscalation = (value: unknown): AlertEscalation => {
+  const source = record(value);
+  return {
+    id: stringOf(source['id']),
+    escalatedBy: stringOf(source['escalatedBy']),
+    escalatedByName: stringOf(source['escalatedByName']),
+    escalatedTo: stringOf(source['escalatedTo']),
+    escalatedToName: stringOf(source['escalatedToName']),
+    reason: stringOf(source['reason']),
+    escalatedAt: stringOf(source['escalatedAt']),
+  };
+};
+
+const normalizeDetail = (value: unknown): EmergencyAlertDetail => {
+  const source = record(value);
+  const escalations = Array.isArray(source['escalations']) ? (source['escalations'] as unknown[]) : [];
+  const missionId = optionalString(source['missionId']);
+  return {
+    ...normalizeActiveAlert(value),
+    missionId: missionId === '00000000-0000-0000-0000-000000000000' ? null : missionId,
+    receivedAt: optionalString(source['receivedAt']),
+    resolvedAt: optionalString(source['resolvedAt']),
+    reviewedByUserId: optionalString(source['reviewedByUserId']),
+    reviewedByName: optionalString(source['reviewedByName']),
+    notes: optionalString(source['notes']),
+    escalations: escalations.map(normalizeEscalation),
+  };
+};
+
+const normalizeUser = (value: unknown): EscalationTarget => {
+  const source = record(value);
+  const roles = Array.isArray(source['roles']) ? (source['roles'] as unknown[]).map(String) : [];
+  const role = roles.find((r) => ESCALATION_ROLES.has(r.toLowerCase())) ?? roles[0] ?? stringOf(source['role']);
+  return {
+    id: stringOf(source['id']),
+    fullName: stringOf(source['fullName']) || stringOf(source['email']),
+    email: stringOf(source['email']),
+    role,
+  };
+};
