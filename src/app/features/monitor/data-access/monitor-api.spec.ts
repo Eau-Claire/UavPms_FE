@@ -55,3 +55,36 @@ describe('MonitorApi', () => {
     expect(total).toBe(25);
   });
 });
+
+describe('MonitorApi (field dashboards and inspection filter guard)', () => {
+  let api: MonitorApi;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    api = TestBed.inject(MonitorApi);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('never sends a non-GUID missionId (the backend binds it as a Guid)', () => {
+    api.getInspections({ missionId: 'NV-2026-001', isDefect: null, fromDate: '', toDate: '', page: 1, pageSize: 10 }).subscribe();
+    const request = http.expectOne((item) => item.url.endsWith('/monitor/inspections'));
+    expect(request.request.params.has('missionId')).toBe(false);
+    request.flush({ success: true, data: { items: [], pagination: { page: 1, pageSize: 10, totalItems: 0, totalPages: 1 } } });
+  });
+
+  it('loads only the personal alerts, newest first', () => {
+    let ids: string[] = [];
+    api.getAlerts().subscribe((alerts) => (ids = alerts.map((a) => a.id)));
+    http.expectOne(`${environment.apiBaseUrl}/monitor/alerts`).flush({
+      success: true,
+      data: { items: [
+        { notificationId: 'old', title: 'A', message: '', createdAt: '2026-10-01T00:00:00Z', isRead: false },
+        { notificationId: 'new', title: 'B', message: '', createdAt: '2026-10-31T00:00:00Z', isRead: false },
+      ] },
+    });
+    expect(ids).toEqual(['new', 'old']);
+  });
+});

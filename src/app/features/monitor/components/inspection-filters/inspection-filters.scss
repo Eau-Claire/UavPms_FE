@@ -81,6 +81,14 @@ select {
   }
 }
 
+.hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #526b82;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 @media (max-width: 1024px) {
   form {
     grid-template-columns: repeat(2, 1fr);

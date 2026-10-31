@@ -96,28 +96,30 @@
       <span nz-icon nzType="environment"></span>
     </button>
 
-    <!-- Tower Selection / Drawing Tool -->
-    <button
-      type="button"
-      class="tool-btn tool-btn-selection"
-      [class.active]="showSelectionPopup()"
-      title="Khoanh vùng & chọn cột điện"
-      aria-label="Khoanh vùng & chọn cột điện"
-      (click)="toggleSelectionTool()"
-    >
-      <svg class="tool-svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-        <path d="M15.5 8.5l2 2-7.5 7.5H8v-2l7.5-7.5z" fill="currentColor" fill-opacity="0.2" />
-        <path d="M14 10l2 2" />
-      </svg>
-    </button>
+    <!-- Tower Selection / Drawing Tool (managers only) -->
+    @if (canCreateMission()) {
+      <button
+        type="button"
+        class="tool-btn tool-btn-selection"
+        [class.active]="showSelectionPopup()"
+        title="Khoanh vùng & chọn cột điện"
+        aria-label="Khoanh vùng & chọn cột điện"
+        (click)="toggleSelectionTool()"
+      >
+        <svg class="tool-svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+          <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+          <path d="M15.5 8.5l2 2-7.5 7.5H8v-2l7.5-7.5z" fill="currentColor" fill-opacity="0.2" />
+          <path d="M14 10l2 2" />
+        </svg>
+      </button>
+    }
   </aside>
 
   <!-- Compact Selection Popup (bottom-left) -->
-  @if (showSelectionPopup()) {
+  @if (canCreateMission() && showSelectionPopup()) {
     <section
       class="gis-selection-popup"
       aria-label="Chọn cột điện theo vùng"
@@ -569,15 +571,23 @@
       </div>
 
       <div class="drawer-footer">
-        @if (selected.type === 'anomaly') {
+        @if (selected.type === 'anomaly' && canReviewAnomalies()) {
           <button
             type="button"
             class="btn-primary"
             (click)="navigateToReview(selected.data.anomalyId)"
           >
-            <span nz-icon nzType="audit"></span>
+            <span nz-icon nzType="audit" aria-hidden="true"></span>
             Xem & Thẩm định AI
           </button>
+        } @else if (selected.type === 'anomaly' && selected.data.towerId) {
+          <a
+            [routerLink]="['/towers', selected.data.towerId]"
+            class="btn-primary"
+          >
+            <span nz-icon nzType="history" aria-hidden="true"></span>
+            Lịch sử cột điện
+          </a>
         } @else if (selected.type === 'tower') {
           <a
             [routerLink]="['/towers', selected.data.id]"

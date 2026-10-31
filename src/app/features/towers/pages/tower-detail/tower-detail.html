@@ -226,7 +226,11 @@
                 @for (ticket of maintenance(); track ticket.id) {
                   <tr>
                     <td class="td-ticket-code tower-mono">
-                      <a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Mở phiếu bảo trì ' + ticket.ticketCode">{{ ticket.ticketCode }}</a>
+                      @if (canOpenTicket()) {
+                        <a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Mở phiếu bảo trì ' + ticket.ticketCode">{{ ticket.ticketCode }}</a>
+                      } @else {
+                        {{ ticket.ticketCode }}
+                      }
                     </td>
                     <td class="td-ticket-desc tower-description" [title]="ticket.description || ''">{{ ticket.description || '—' }}</td>
                     <td class="td-ticket-priority"><span class="tower-pill tone-{{ ticketPriorityTone(ticket.priority) }}">{{ ticketPriorityLabel(ticket.priority) }}</span></td>

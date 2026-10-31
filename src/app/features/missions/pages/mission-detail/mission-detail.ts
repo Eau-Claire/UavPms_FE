@@ -17,7 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { catchError, concatMap, finalize, from, of, tap } from 'rxjs';
+import { Observable, catchError, concatMap, finalize, from, of, tap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import {
   InspectionObjective,
@@ -26,7 +26,6 @@ import {
   MissionBackendDetection,
   MissionCommunicationLog,
   MissionPriority,
-  MissionTarget,
   PRIORITY_DEFECT_CATEGORIES,
   UpdateMissionPriorityRequest,
   missionStatusLabel,
@@ -40,10 +39,37 @@ import {
 } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 import { UsersApi } from '../../../users/data-access/users-api';
-import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { Auth } from '../../../../core/auth/auth';
+import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
+import {
+  MissionTab,
+  activitySenderKind,
+  activitySenderLabel,
+  activitySenderRole,
+  assignmentRoleLabel,
+  canOpenEmergencyAlerts,
+  canOpenMaintenanceTicket,
+  canOpenPreMissionAssessment,
+  canReviewDetections,
+  canUploadMissionMedia,
+  defaultMissionTab,
+  findMyAssignment,
+  isTowerInspected,
+  maintenanceStatusLabel,
+  maintenanceStatusTone,
+  towerInspectionStatusLabel,
+  userDirectorySource,
+} from '../../data-access/mission-access';
 
-export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'towers' | 'maintenance' | 'activity';
+export type MissionDetailTab = MissionTab;
+
+/** A step of the mission lifecycle shown in the activity sidebar and used for the progress bar. */
+export interface MissionMilestone {
+  readonly key: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly state: 'completed' | 'active' | 'pending';
+}
 export type DetectionReviewDecision = 'Approved' | 'Rejected';
 export type MediaKind = 'image' | 'video';
 
@@ -134,7 +160,8 @@ export interface MissionMaintenanceTask {
   readonly towerCode: string;
   readonly defectDescription: string;
   readonly suggestedAction: string;
-  readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed';
+  /** Status as returned by the backend (Pending/InProgress/Completed or the ticket enum). */
+  readonly status: string;
   readonly assignedTeam: string;
 }
 
@@ -152,17 +179,54 @@ export class MissionDetail {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly notificationsStore = inject(NotificationsStore);
   protected readonly auth = inject(Auth);
-  protected readonly isInspector = computed(() => {
-    const role = (this.auth.user()?.role || '').toLowerCase();
-    return (
-      role === 'inspector' ||
-      role === 'pilot' ||
-      role === 'admin' ||
-      role === 'systemadmin' ||
-      role === 'administrator'
-    );
+
+  // --- Role rules (mirror MissionController's [Authorize] attributes) ---
+  private readonly userRole = computed(() => this.auth.user()?.role);
+  /** SystemAdmin or Manager: remind, suspend, resume, cancel, reassign, priority. */
+  protected readonly isManager = computed(() => isManagerRole(this.userRole()));
+  protected readonly isFlightCrew = computed(() => isInspectorRole(this.userRole()));
+  /** Media upload and the processing view: SystemAdmin, Manager and Inspector. */
+  protected readonly canUpload = computed(() => canUploadMissionMedia(this.userRole()));
+  /** Detection review: SystemAdmin, Manager and Analyst. */
+  protected readonly canReview = computed(() => canReviewDetections(this.userRole()));
+  protected readonly canOpenEmergencyCenter = computed(() => canOpenEmergencyAlerts(this.userRole()));
+  protected readonly canOpenPreMission = computed(() => canOpenPreMissionAssessment(this.userRole()));
+  protected readonly canOpenMaintenance = computed(() => canOpenMaintenanceTicket(this.userRole()));
+  /** The signed-in user's assignment on this mission, if any. */
+  protected readonly myAssignment = computed(() => findMyAssignment(this.mission(), this.auth.user()?.id));
+  /** Start/complete flight: managers, or an Inspector who is on this mission's team. */
+  protected readonly canOperateFlight = computed(() => {
+    if (this.isManager()) return true;
+    if (!this.isFlightCrew()) return false;
+    const m = this.mission();
+    const userId = this.auth.user()?.id;
+    return !!userId && (!!this.myAssignment() || m?.assignedToUserId === userId);
+  });
+  /** The command console is for managers and the flight crew; Analyst/Technician only see the read-only summary. */
+  protected readonly showCommandConsole = computed(() => this.isManager() || this.isFlightCrew());
+  protected readonly consoleTitle = computed(() => roleLabel(this.userRole()));
+  protected readonly consoleSubtitle = computed(() => {
+    switch (roleFamily(this.userRole())) {
+      case 'admin':
+      case 'manager':
+        return 'Giám sát và điều phối tiến độ tiếp nhận, thực hiện bay';
+      case 'inspector':
+        return 'Tiếp nhận, thực hiện chuyến bay và tải dữ liệu';
+      case 'analyst':
+        return 'Theo dõi tiến độ; thẩm định kết quả ở tab Kết quả giám định';
+      case 'technician':
+        return 'Theo dõi tiến độ; xử lý phiếu ở tab Bảo trì';
+      default:
+        return 'Theo dõi tiến độ nhiệm vụ';
+    }
+  });
+  /** Role sent with a new activity message (the backend re-checks it). */
+  protected readonly senderRole = computed(() => activitySenderRole(this.userRole(), this.myAssignment()));
+  protected readonly senderRoleText = computed(() => activitySenderLabel(activitySenderKind(this.senderRole())));
+  protected readonly senderName = computed(() => {
+    const user = this.auth.user();
+    return user?.fullName || user?.email || 'Bạn';
   });
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
@@ -179,12 +243,6 @@ export class MissionDetail {
   protected readonly error = signal('');
   protected readonly mission = signal<Mission | null>(null);
 
-  // MF02 Communication & Lifecycle State
-  protected readonly isManager = computed(() => {
-    const role = (this.auth.user()?.role || '').toLowerCase();
-    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
-  });
-
   protected readonly showPriorityModal = signal(false);
   protected readonly editPriority = signal<MissionPriority>('NORMAL');
   protected readonly editObjective = signal<InspectionObjective>('PERIODIC_INSPECTION');
@@ -192,7 +250,6 @@ export class MissionDetail {
   protected readonly editPriorityDefects = signal<string[]>([]);
   protected readonly priorityDefectCategories = PRIORITY_DEFECT_CATEGORIES;
 
-  protected readonly activeRole = signal<'MANAGER' | 'INSPECTOR'>('MANAGER');
   protected readonly actionBusy = signal(false);
   protected readonly actionMessage = signal('');
   protected readonly showPostponeModal = signal(false);
@@ -223,7 +280,8 @@ export class MissionDetail {
   protected readonly confirmationProgressPct = computed<number>(() => {
     const m = this.mission();
     if (!m) return 0;
-    const total = m.totalRequiredCount || 3;
+    const total = m.totalRequiredCount || 0;
+    if (!total) return 0;
     const count = m.confirmedCount || 0;
     return Math.round((count / Math.max(1, total)) * 100);
   });
@@ -235,21 +293,18 @@ export class MissionDetail {
   protected readonly reassignCandidatePool = computed<readonly UserRecord[]>(() => {
     const assignment = this.selectedAssignmentToReassign();
     if (!assignment) return this.availableUsers();
-    const targetRole = (assignment.assignmentRole || '').toLowerCase();
+    const target = activitySenderKind(assignment.assignmentRole);
     return this.availableUsers().filter((u) => {
-      const userRole = (u.role || '').toLowerCase();
-      if (targetRole.includes('inspector') || targetRole.includes('pilot')) {
-        return userRole.includes('inspector') || userRole.includes('pilot') || userRole.includes('phi công');
-      }
-      if (targetRole.includes('analyst')) {
-        return userRole.includes('analyst') || userRole.includes('phân tích') || userRole.includes('dữ liệu');
-      }
-      if (targetRole.includes('tech')) {
-        return userRole.includes('tech') || userRole.includes('kỹ thuật') || userRole.includes('bảo trì');
-      }
+      if (target === 'INSPECTOR') return isInspectorRole(u.role);
+      if (target === 'ANALYST') return isAnalystRole(u.role);
+      if (target === 'TECHNICIAN') return isTechnicianRole(u.role);
       return true;
     });
   });
+
+  protected roleText(assignmentRole: string): string {
+    return assignmentRoleLabel(assignmentRole);
+  }
 
   protected getMemberDisplayName(member: MissionAssignment): string {
     const users = this.availableUsers();
@@ -294,9 +349,8 @@ export class MissionDetail {
   protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
     const user = this.auth.user();
     if (!user) return false;
-    const userRole = (user.role || '').toLowerCase();
     // Managers or Administrators cannot accept assignments on behalf of assigned roles
-    if (['manager', 'supervisor', 'admin', 'systemadmin', 'administrator'].includes(userRole)) return false;
+    if (isManagerRole(user.role)) return false;
 
     return !!member.userId && user.id === member.userId;
   }
@@ -479,10 +533,77 @@ export class MissionDetail {
   });
   protected readonly towersWithDefectsCount = computed(() => this.missionTowers().filter((t) => t.defectCount > 0).length);
 
+  /** Lifecycle steps derived from the mission's real state (no step is assumed done). */
+  protected readonly milestones = computed<readonly MissionMilestone[]>(() => {
+    const m = this.mission();
+    if (!m) return [];
+    const status = normalizeMissionStatus(m.status);
+    const teamDone = this.allRolesConfirmed() || ['Assigned', 'Preparing', 'Ready', 'InProgress', 'Completed'].includes(status);
+    const detections = this.detections().length;
+    const approved = this.approvedDetectionCount();
+    const step = (key: string, title: string, detail: string, done: boolean, active: boolean): MissionMilestone => ({
+      key,
+      title,
+      detail,
+      state: done ? 'completed' : active ? 'active' : 'pending',
+    });
+
+    let teamDetail = `Đang chờ thành viên phản hồi (${m.confirmedCount ?? 0}/${m.totalRequiredCount ?? 0})`;
+    if (teamDone) teamDetail = 'Các thành viên bắt buộc đã tiếp nhận';
+    else if (this.postponedMember()) teamDetail = 'Có thành viên xin hoãn, chờ Quản lý xử lý';
+    else if (this.isDeadlineOverdue()) teamDetail = 'Đã quá hạn xác nhận';
+
+    return [
+      step(
+        'assessment',
+        'Đánh giá tiền nhiệm vụ',
+        m.sourceAssessmentId ? 'Nhiệm vụ được lập từ hồ sơ đánh giá' : 'Không có hồ sơ đánh giá liên kết',
+        !!m.sourceAssessmentId,
+        false,
+      ),
+      step(
+        'created',
+        'Khởi tạo và giao nhiệm vụ',
+        status === 'Draft' ? 'Chưa giao cho đội' : `Mã ${m.missionCode}`,
+        status !== 'Draft',
+        status === 'Draft',
+      ),
+      step('team', 'Đội ngũ tiếp nhận', teamDetail, teamDone, ['PendingAcceptance', 'Postponed'].includes(status)),
+      step(
+        'flight',
+        'Bay khảo sát hiện trường',
+        status === 'InProgress' ? 'Đang bay ngoài hiện trường' : status === 'Completed' ? 'Chuyến bay đã hoàn tất' : 'Chưa cất cánh',
+        status === 'Completed',
+        status === 'InProgress',
+      ),
+      step(
+        'processing',
+        'Nạp dữ liệu và phát hiện khuyết tật',
+        detections ? `${detections} phát hiện AI` : 'Chưa có dữ liệu được xử lý',
+        detections > 0,
+        status === 'Completed' && detections === 0,
+      ),
+      step(
+        'review',
+        'Thẩm định kết quả',
+        approved ? `Đã xác nhận ${approved} khuyết tật` : 'Chờ chuyên viên phân tích thẩm định',
+        approved > 0,
+        detections > 0 && approved === 0,
+      ),
+    ];
+  });
+
+  /** Share of lifecycle steps completed. */
+  protected readonly progressPct = computed(() => {
+    const steps = this.milestones();
+    if (!steps.length) return 0;
+    return Math.round((steps.filter((s) => s.state === 'completed').length / steps.length) * 100);
+  });
+
   // Emergency Siren and Banner Alert
   protected readonly activeEmergency = signal<{ title: string; message: string; timestamp: string } | null>(null);
   private audioCtx: AudioContext | null = null;
-  private sirenInterval: any = null;
+  private sirenInterval: ReturnType<typeof setInterval> | null = null;
 
   // Mission Maintenance Recommendations (Derived from Approved Detections or Mission Maintenance API)
   protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([]);
@@ -502,15 +623,17 @@ export class MissionDetail {
   constructor() {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     const tab = this.route.snapshot.queryParamMap.get('tab');
-    if (this.isTab(tab)) this.activeTab.set(tab);
+    const requestedTab = this.isTab(tab) ? tab : null;
+    if (requestedTab) this.activeTab.set(this.allowedTab(requestedTab));
 
-    this.usersApi
-      .getAll()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (users) => this.availableUsers.set(users),
-        error: () => {},
-      });
+    // GET /users is SystemAdmin only and GET /users/assignable is SystemAdmin/Manager: other roles use the
+    // names that come with the mission's assignments instead of calling an endpoint that would return 403.
+    const directory = userDirectorySource(this.userRole());
+    const users$: Observable<readonly UserRecord[]> | null =
+      directory === 'all' ? this.usersApi.getAll() : directory === 'assignable' ? this.usersApi.getAssignable() : null;
+    users$?.pipe(takeUntilDestroyed(this.destroyRef), catchError(() => of([] as readonly UserRecord[]))).subscribe((users) =>
+      this.availableUsers.set(users),
+    );
 
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -550,7 +673,7 @@ export class MissionDetail {
         this.sirenInterval = null;
       }
       if (this.audioCtx) {
-        this.audioCtx.close().catch(() => {});
+        this.audioCtx.close().catch(() => undefined);
       }
       this.realtime.leaveMission(id);
       this.stopResultDetailResize();
@@ -568,6 +691,7 @@ export class MissionDetail {
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
+          if (!requestedTab) this.activeTab.set(this.allowedTab(defaultMissionTab(this.userRole(), mission.status)));
           this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
           this.loadAssignmentsOverview(mission.id);
           this.loadDetections(mission.id);
@@ -578,8 +702,13 @@ export class MissionDetail {
       });
   }
 
+  /** Upload and processing are only for roles that may upload media; anyone else lands on the overview. */
+  private allowedTab(tab: MissionDetailTab): MissionDetailTab {
+    return !this.canUpload() && (tab === 'upload' || tab === 'processing') ? 'overview' : tab;
+  }
+
   protected setTab(tab: MissionDetailTab): void {
-    if (!this.isInspector() && (tab === 'upload' || tab === 'processing')) {
+    if (this.allowedTab(tab) !== tab) {
       this.activeTab.set('overview');
       return;
     }
@@ -1013,7 +1142,7 @@ export class MissionDetail {
   protected reviewDetection(decision: DetectionReviewDecision): void {
     const selected = this.selectedDetection();
     const missionId = this.mission()?.id;
-    if (!selected || !missionId) return;
+    if (!selected || !missionId || !this.canReview()) return;
 
     this.reviewBusy.set(true);
     this.resultMessage.set('');
@@ -1050,8 +1179,8 @@ export class MissionDetail {
             missionId,
             type: 'DETECTION_REVIEWED',
             status: backendStatus,
-            actorRole: 'ANALYST',
-            actorName: this.auth.user()?.fullName || 'Chuyên viên phân tích',
+            actorRole: this.senderRole(),
+            actorName: this.senderName(),
             detectionId: selected.id,
             reason: this.reviewNotes() || (backendStatus === 'Approved' ? 'Xác nhận khuyết tật' : 'Bác bỏ khuyết tật'),
             timestamp: new Date().toISOString(),
@@ -1085,51 +1214,6 @@ export class MissionDetail {
     window.addEventListener('pointerup', this.stopResultDetailResize);
   }
 
-  protected switchRole(role: 'MANAGER' | 'INSPECTOR'): void {
-    this.activeRole.set(role);
-  }
-
-  protected confirmMission(): void {
-    const currentMission = this.mission();
-    if (!currentMission) return;
-    this.actionBusy.set(true);
-    this.actionMessage.set('');
-
-    this.api
-      .confirmMission(currentMission.id, 'Inspector xác nhận sẵn sàng tiếp nhận nhiệm vụ.')
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.actionBusy.set(false)),
-      )
-      .subscribe({
-        next: (updated) => {
-          this.mission.set(updated);
-          this.actionMessage.set('Đã xác nhận nhiệm vụ bay thành công!');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.managerId,
-            title: `[MF02] Inspector đã xác nhận nhiệm vụ ${updated.missionCode}`,
-            body: `Phi công ${updated.assignedToUsername || 'Inspector'} đã xác nhận tiếp nhận nhiệm vụ. Sẵn sàng cất cánh theo lịch.`,
-            type: 'MISSION_CONFIRMED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
-          this.realtime.broadcastMissionEvent({
-            missionId: updated.id,
-            type: 'CONFIRMED',
-            status: 'Assigned',
-            actorRole: 'INSPECTOR',
-            actorName: updated.assignedToUsername || 'Inspector',
-            reason: 'Inspector xác nhận tiếp nhận nhiệm vụ.',
-            timestamp: new Date().toISOString(),
-          });
-        },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
-      });
-  }
-
   protected acceptMemberAssignment(assignment: MissionAssignment): void {
     if (!this.canAcceptMemberAssignment(assignment)) {
       this.actionMessage.set('Vai trò Quản lý (Manager) không thể nhận việc thay cho vai trò được phân công.');
@@ -1151,7 +1235,7 @@ export class MissionDetail {
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
-          this.actionMessage.set(`[${assignment.assignmentRole}] ${userName} đã xác nhận tiếp nhận thành công!`);
+          this.actionMessage.set(`${userName} (${assignmentRoleLabel(assignment.assignmentRole)}) đã xác nhận tiếp nhận.`);
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CONFIRMED',
@@ -1205,18 +1289,7 @@ export class MissionDetail {
         next: (updated) => {
           this.mission.set(updated);
           this.showPostponeModal.set(false);
-          this.actionMessage.set(`Đã gửi yêu cầu hoãn nhiệm vụ cho vai trò [${role}] tới Quản lý.`);
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.managerId,
-            title: `[MF02 CẢNH BÁO] Yêu cầu hoãn nhiệm vụ ${updated.missionCode}`,
-            body: `[${role}] ${userName} đề xuất hoãn nhiệm vụ. Lý do: ${reason}`,
-            type: 'MISSION_POSTPONED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
+          this.actionMessage.set(`Đã gửi yêu cầu hoãn vai trò ${assignmentRoleLabel(role)} tới Quản lý.`);
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
@@ -1247,32 +1320,16 @@ export class MissionDetail {
       .subscribe({
         next: () => {
           const now = new Date().toISOString();
-          const newLog: MissionCommunicationLog = {
-            id: `log-${Date.now()}`,
-            senderId: this.auth.user()?.id || 'usr-pilot',
-            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
-            senderRole: 'INSPECTOR',
-            type: 'START',
-            content: 'UAV đã cất cánh. Bắt đầu hành trình bay khảo sát và quét LiDAR/Camera hành lang lưới điện.',
-            timestamp: now,
-          };
-          this.mission.update((curr) =>
-            curr
-              ? {
-                  ...curr,
-                  status: 'InProgress',
-                  actualStart: now,
-                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
-                }
-              : null,
-          );
-          this.actionMessage.set('Đã khởi động chuyến bay khảo sát! Trạng thái: Đang bay.');
+          this.mission.update((curr) => (curr ? { ...curr, status: 'InProgress', actualStart: now } : null));
+          this.loadActivities(currentMission.id);
+          this.actionMessage.set('Đã bắt đầu chuyến bay khảo sát. Trạng thái: Đang bay.');
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'STARTED',
             status: 'InProgress',
-            actorRole: 'INSPECTOR',
-            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            actorRole: this.senderRole(),
+            actorId: this.auth.user()?.id,
+            actorName: this.senderName(),
             reason: 'Bắt đầu hành trình bay khảo sát hiện trường.',
             timestamp: now,
           });
@@ -1296,33 +1353,16 @@ export class MissionDetail {
       .subscribe({
         next: () => {
           const now = new Date().toISOString();
-          const newLog: MissionCommunicationLog = {
-            id: `log-${Date.now()}`,
-            senderId: this.auth.user()?.id || 'usr-pilot',
-            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
-            senderRole: 'INSPECTOR',
-            type: 'COMPLETE',
-            content:
-              'UAV đã hạ cánh an toàn. Chuyến bay khảo sát hoàn tất. Sẵn sàng trích xuất thẻ nhớ SD/dữ liệu để nạp AI.',
-            timestamp: now,
-          };
-          this.mission.update((curr) =>
-            curr
-              ? {
-                  ...curr,
-                  status: 'Completed',
-                  actualCompleted: now,
-                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
-                }
-              : null,
-          );
-          this.actionMessage.set('Chuyến bay khảo sát đã HOÀN TẤT! Cổng nạp dữ liệu ảnh/video UAV đã được mở khóa.');
+          this.mission.update((curr) => (curr ? { ...curr, status: 'Completed', actualCompleted: now } : null));
+          this.loadActivities(currentMission.id);
+          this.actionMessage.set('Chuyến bay khảo sát đã hoàn tất. Có thể tải ảnh/video lên để phân tích.');
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'COMPLETED',
             status: 'Completed',
-            actorRole: 'INSPECTOR',
-            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            actorRole: this.senderRole(),
+            actorId: this.auth.user()?.id,
+            actorName: this.senderName(),
             reason: 'Hoàn tất bay khảo sát hiện trường.',
             timestamp: now,
           });
@@ -1367,17 +1407,6 @@ export class MissionDetail {
           const newName = newUser?.fullName || newUser?.email || 'Thành viên mới';
           this.actionMessage.set(`Đã tái phân công vai trò ${assignment.assignmentRole} cho ${newName}.`);
 
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: newUserId,
-            title: `[MF02 TÁI PHÂN CÔNG] Bạn được chỉ định vai trò ${assignment.assignmentRole}`,
-            body: `Quản lý đã tái phân công bạn cho nhiệm vụ ${currentMission.missionCode}. Vui lòng kiểm tra và xác nhận.`,
-            type: 'MISSION_DISPATCH',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
 
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
@@ -1424,17 +1453,6 @@ export class MissionDetail {
           this.mission.set(updated);
           this.showSuspendModal.set(false);
           this.actionMessage.set('Đã ra lệnh tạm đình chỉ nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 LỆNH ĐÌNH CHỈ] Nhiệm vụ ${updated.missionCode} bị tạm dừng`,
-            body: `Quản lý đã tạm đình chỉ nhiệm vụ bay. Lý do: ${reason}`,
-            type: 'MISSION_SUSPENDED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'SUSPENDED',
@@ -1464,17 +1482,6 @@ export class MissionDetail {
         next: (updated) => {
           this.mission.set(updated);
           this.actionMessage.set('Đã khôi phục nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 KHÔI PHỤC] Nhiệm vụ ${updated.missionCode} được phép tiếp tục`,
-            body: `Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Hãy chuẩn bị cất cánh an toàn.`,
-            type: 'MISSION_RESUMED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'RESUMED',
@@ -1514,17 +1521,6 @@ export class MissionDetail {
           this.mission.set(updated);
           this.showCancelModal.set(false);
           this.actionMessage.set('Đã hủy bỏ nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 HỦY BỎ] Nhiệm vụ ${updated.missionCode} đã bị hủy`,
-            body: `Quản lý đã hủy bỏ nhiệm vụ. Lý do: ${reason}`,
-            type: 'MISSION_CANCELLED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CANCELLED',
@@ -1554,17 +1550,6 @@ export class MissionDetail {
         next: (updated) => {
           this.mission.set(updated);
           this.actionMessage.set('Đã gửi thông báo nhắc nhở tới Inspector!');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 KHẨN] Nhắc nhở xác nhận nhiệm vụ ${updated.missionCode}`,
-            body: `Quản lý yêu cầu xác nhận nhiệm vụ ngay. Hạn chót: ${this.deadlineTimeRemaining() ?? 'Sắp hết hạn'}`,
-            type: 'MISSION_REMINDER',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'REMINDER',
@@ -1583,18 +1568,21 @@ export class MissionDetail {
     const content = this.chatMessage().trim();
     if (!currentMission || !content) return;
 
-    const role = this.activeRole();
-    const senderName =
-      role === 'MANAGER'
-        ? currentMission.managerUsername || 'Quản lý vận hành'
-        : currentMission.assignedToUsername || 'Phi công phụ trách';
+    // The backend resolves the sender's role itself; we send the real one for consistency.
+    const role = this.senderRole();
+    const senderName = this.senderName();
+    // POST /communications is SystemAdmin/Manager/Inspector only, so Analyst/Technician get no fallback.
+    const canFallback = this.isManager() || this.isFlightCrew();
 
     this.actionBusy.set(true);
     this.api
       .addMissionActivity(currentMission.id, content, role)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => this.api.sendCommunication(currentMission.id, content)),
+        catchError((error: unknown) => {
+          if (canFallback) return this.api.sendCommunication(currentMission.id, content);
+          throw error;
+        }),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
@@ -1604,9 +1592,9 @@ export class MissionDetail {
           } else {
             const newLog: MissionCommunicationLog = {
               id: `log-${Date.now()}`,
-              senderId: this.auth.user()?.id || 'usr-me',
+              senderId: this.auth.user()?.id ?? '',
               senderName,
-              senderRole: role,
+              senderRole: activitySenderKind(role),
               type: 'MESSAGE',
               content,
               timestamp: new Date().toISOString(),
@@ -1621,20 +1609,11 @@ export class MissionDetail {
             );
           }
           this.chatMessage.set('');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            title: `[MF02 Tin nhắn] ${senderName} (${role === 'MANAGER' ? 'Quản lý' : 'Inspector'})`,
-            body: content,
-            type: 'MISSION_COMMUNICATION',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'COMMUNICATION',
             actorRole: role,
+            actorId: this.auth.user()?.id,
             actorName: senderName,
             message: content,
             timestamp: new Date().toISOString(),
@@ -1750,17 +1729,6 @@ export class MissionDetail {
           this.mission.set(merged);
           this.closePriorityModal();
           this.actionMessage.set(`Đã cập nhật mức độ ưu tiên nhiệm vụ thành: ${this.priorityLabel(p)}.`);
-          this.notificationsStore.upsert({
-            id: `notif-prio-${Date.now()}`,
-            userId: this.auth.user()?.id,
-            title: `[MF02] Cập nhật mức độ ưu tiên: ${currentMission.missionCode}`,
-            body: `Nhiệm vụ ${currentMission.missionCode} đã được điều chỉnh mức độ ưu tiên sang [${this.priorityLabel(p)}]`,
-            type: 'MISSION_DISPATCH',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updatedMission.id,
             type: 'PRIORITY_UPDATED',
@@ -1785,6 +1753,30 @@ export class MissionDetail {
     if (['Completed', 'Approved', 'Accepted', 'Assigned', 'Ready'].includes(normalized)) return 'success';
     if (['InProgress', 'Preparing', 'PendingAcceptance', 'Postponed'].includes(normalized)) return 'warning';
     return 'neutral';
+  }
+
+  protected towerStatusLabel(status: string): string {
+    return towerInspectionStatusLabel(status);
+  }
+
+  protected isTowerDone(status: string): boolean {
+    return isTowerInspected(status);
+  }
+
+  protected maintenanceStatusText(status: string): string {
+    return maintenanceStatusLabel(status);
+  }
+
+  protected maintenanceStatusTone(status: string): string {
+    return maintenanceStatusTone(status);
+  }
+
+  protected senderBadge(senderRole: string): string {
+    return activitySenderLabel(activitySenderKind(senderRole));
+  }
+
+  protected senderClass(senderRole: string): string {
+    return activitySenderKind(senderRole).toLowerCase();
   }
 
   protected detectionStatusLabel(status: string): string {
@@ -1890,9 +1882,7 @@ export class MissionDetail {
             towerCode: t.towerCode || '—',
             defectDescription: t.defectDescription || '—',
             suggestedAction: t.suggestedAction || '—',
-            status: (t.status === 'Approved' || t.status === 'InProgress' || t.status === 'Completed'
-              ? t.status
-              : 'Pending') as MissionMaintenanceTask['status'],
+            status: t.status || 'Pending',
             assignedTeam: t.assignedTeam || '—',
           }));
           this.maintenanceTasks.set(mapped);
@@ -1915,11 +1905,7 @@ export class MissionDetail {
             id: a.id,
             senderId: a.senderUserId || 'user',
             senderName: a.senderName,
-            senderRole: (a.senderRole?.toUpperCase() === 'MANAGER'
-              ? 'MANAGER'
-              : a.senderRole?.toUpperCase() === 'INSPECTOR'
-              ? 'INSPECTOR'
-              : 'SYSTEM') as 'MANAGER' | 'INSPECTOR' | 'SYSTEM',
+            senderRole: activitySenderKind(a.senderRole),
             type: 'MESSAGE',
             content: a.content,
             timestamp: a.timestamp,
@@ -2042,7 +2028,7 @@ export class MissionDetail {
           (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
           (event.actorId && a.userId === event.actorId);
 
-        let updatedTeam = curr.team
+        const updatedTeam = curr.team
           ? curr.team.map((a) =>
               isMatch(a)
                 ? {
@@ -2074,9 +2060,9 @@ export class MissionDetail {
       this.loadAssignmentsOverview(currentMission.id);
 
       if (event.allConfirmed) {
-        this.actionMessage.set(`[THỰC THỜI] 100% các vai trò (Inspector, Analyst, Technician) đã chấp thuận! Nhiệm vụ ${event.missionId} chính thức SẴN SÀNG BAY.`);
+        this.actionMessage.set(`[THỜI GIAN THỰC] Tất cả thành viên bắt buộc đã tiếp nhận. Nhiệm vụ sẵn sàng bay.`);
       } else {
-        this.actionMessage.set(`[THỰC THỜI] ${event.actorName || 'Thành viên'} (${event.actorRole || 'Thành viên'}) đã xác nhận tiếp nhận. (${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3} đã xác nhận).`);
+        this.actionMessage.set(`[THỜI GIAN THỰC] ${event.actorName || 'Thành viên'} (${assignmentRoleLabel(event.actorRole)}) đã xác nhận tiếp nhận (${event.confirmedCount ?? 0}/${event.totalRequiredCount ?? 0}).`);
       }
     } else if (event.type === 'POSTPONED') {
       this.mission.update((curr) => {
@@ -2086,7 +2072,7 @@ export class MissionDetail {
           (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
           (event.actorId && a.userId === event.actorId);
 
-        let updatedTeam = curr.team
+        const updatedTeam = curr.team
           ? curr.team.map((a) =>
               isMatch(a)
                 ? {
@@ -2108,9 +2094,9 @@ export class MissionDetail {
       });
 
       this.loadAssignmentsOverview(currentMission.id);
-      this.actionMessage.set(`[CẢNH BÁO THỰC THỜI] Thành viên ${event.actorName || 'Đội bay'} (${event.actorRole || ''}) yêu cầu hoãn: "${event.reason || ''}". Quản lý có thể tái phân công ngay vai trò này.`);
+      this.actionMessage.set(`[CẢNH BÁO THỰC THỜI] Thành viên ${event.actorName || 'Đội bay'} (${assignmentRoleLabel(event.actorRole)}) yêu cầu hoãn: "${event.reason || ''}". Quản lý có thể tái phân công ngay vai trò này.`);
     } else if (event.type === 'REASSIGNED') {
-      this.actionMessage.set(`[THỰC THỜI] Quản lý đã tái phân công nhân sự mới cho vai trò ${event.actorRole || 'Đội bay'}.`);
+      this.actionMessage.set(`[THỜI GIAN THỰC] Quản lý đã tái phân công nhân sự mới cho vai trò ${assignmentRoleLabel(event.actorRole)}.`);
       this.api.get(currentMission.id).subscribe({
         next: (fresh) => this.mission.set(fresh),
       });
@@ -2132,8 +2118,8 @@ export class MissionDetail {
         const newLog: MissionCommunicationLog = {
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           senderId: event.actorId || 'user',
-          senderRole: (event.actorRole as 'MANAGER' | 'INSPECTOR') || 'INSPECTOR',
-          senderName: event.actorName || 'Phi công',
+          senderRole: activitySenderKind(event.actorRole),
+          senderName: event.actorName || 'Thành viên',
           type: 'MESSAGE',
           content: event.message,
           timestamp: event.timestamp || new Date().toISOString(),
@@ -2157,7 +2143,7 @@ export class MissionDetail {
       this.loadDetections(currentMission.id);
       this.loadMaintenanceTasks(currentMission.id);
     } else if (event.type === 'MEDIA_UPLOADED') {
-      this.actionMessage.set(`[HIỆN TRƯỜNG] Tệp bay mới đã được Inspector tải lên thành công.`);
+      this.actionMessage.set(`[HIỆN TRƯỜNG] Đã có tệp bay mới được tải lên.`);
       this.loadDetections(currentMission.id);
     } else if (event.type === 'MAINTENANCE_TASK_CREATED' || event.type === 'MAINTENANCE_TASK_STATUS_CHANGED') {
       this.actionMessage.set(`[BẢO TRÌ] Phiếu bảo dưỡng được cập nhật (${event.status || 'Mới'}).`);
@@ -2206,7 +2192,7 @@ export class MissionDetail {
     this.sirenInterval = setInterval(() => {
       count++;
       if (count >= 3) {
-        clearInterval(this.sirenInterval);
+        if (this.sirenInterval) clearInterval(this.sirenInterval);
         this.sirenInterval = null;
       } else {
         this.playWarningBeep();

@@ -10,11 +10,13 @@
       <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
       <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
     </div>
-    <div class="head-actions">
-      <a class="evn-btn primary" routerLink="/pre-mission/new">
-        <span nz-icon nzType="plus"></span>Tạo đánh giá mới
-      </a>
-    </div>
+    @if (canManage()) {
+      <div class="head-actions">
+        <a class="evn-btn primary" routerLink="/pre-mission/new">
+          <span nz-icon nzType="plus" aria-hidden="true"></span>Tạo đánh giá mới
+        </a>
+      </div>
+    }
   </header>
 
     <!-- Feedback Alerts -->
@@ -197,7 +199,7 @@
                       >
                         Mở
                       </a>
-                      @if (item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"
@@ -213,7 +215,7 @@
                           }
                         </button>
                       }
-                      @if (item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"

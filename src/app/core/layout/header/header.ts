@@ -3,8 +3,10 @@ import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
+import { isManagerRole, roleLabel } from '../../auth/roles';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 import { FacilityItem, FacilityStore } from '../../facility/facility-store';
+import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 
 @Component({
   selector: 'app-header',
@@ -32,14 +34,17 @@ export class Header {
 
   protected readonly userDisplayName = computed(() => {
     const u = this.user();
-    if (!u) return 'HieuHV';
-    return u.fullName || u.email?.split('@')[0] || 'HieuHV';
+    return u?.fullName || u?.email?.split('@')[0] || 'Người dùng';
   });
-  protected readonly isInspector = computed(() => ['inspector', 'pilot'].includes((this.user()?.role ?? '').toLowerCase()));
-  protected readonly isOperationalRole = computed(() => {
-    const role = (this.user()?.role ?? '').toLowerCase();
-    return ['inspector', 'pilot', 'analyst', 'technician', 'maintenancetechnician'].includes(role);
+  protected readonly userRoleLabel = computed(() => roleLabel(this.user()?.role));
+  /** The working-area picker is a manager tool; field roles work on what is assigned to them. */
+  protected readonly showFacilitySelector = computed(() => isManagerRole(this.user()?.role));
+  /** Link for the opened notification, or null when the role has no page for it. */
+  protected readonly selectedLink = computed<NotificationLink | null>(() => {
+    const selected = this.notifications.selected();
+    return selected ? notificationLink(selected, this.user()?.role) : null;
   });
+  protected readonly referenceTypeLabel = referenceTypeLabel;
   protected readonly groupedNotifications = computed(() => {
     const list = this.notifications.filteredNotifications();
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
@@ -144,65 +149,5 @@ export class Header {
     if (userId) {
       this.notifications.load(userId);
     }
-  }
-  protected isReplyActionAvailable(item: AppNotification): boolean {
-    const titleLower = (item.title || '').toLowerCase();
-    return titleLower.includes('reply') || titleLower.includes('mention') || item.type === 'Comment' || item.type === 'Mention';
-  }
-  protected parseTitleSegments(title: string): { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] {
-    if (!title) return [];
-    const verbs = [
-      'mention you in comment conversation ticket',
-      'reply your comment in',
-      'assigned in number ticket',
-      'change type ticket to',
-      'mention you in',
-      'reply your comment',
-      'assigned in',
-      'change type',
-      'mention',
-      'reply',
-      'assigned',
-      'change',
-      'added',
-      'created',
-      'updated',
-      'deleted',
-      'completed'
-    ];
-    let actor = '';
-    let action = '';
-    let rest = title;
-    for (const verb of verbs) {
-      const index = title.toLowerCase().indexOf(verb);
-      if (index !== -1) {
-        actor = title.substring(0, index).trim();
-        action = title.substring(index, index + verb.length);
-        rest = title.substring(index + verb.length).trim();
-        break;
-      }
-    }
-    const segments: { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] = [];
-    if (actor) {
-      segments.push({ text: actor, isBold: true });
-      segments.push({ text: ' ' + action + ' ' });
-    } else {
-      rest = title;
-    }
-    const words = rest.split(/(\s+)/);
-    for (const word of words) {
-      if (word.match(/^TC-\d+$/i)) {
-        segments.push({ text: word, isBold: true });
-      } else if (word.toLowerCase() === 'incident') {
-        segments.push({ text: word, isBadge: true, badgeType: 'incident' });
-      } else if (word.toLowerCase() === 'question') {
-        segments.push({ text: word, isBadge: true, badgeType: 'question' });
-      } else if (word.toLowerCase() === 'task') {
-        segments.push({ text: word, isBadge: true, badgeType: 'task' });
-      } else {
-        segments.push({ text: word });
-      }
-    }
-    return segments;
   }
 }

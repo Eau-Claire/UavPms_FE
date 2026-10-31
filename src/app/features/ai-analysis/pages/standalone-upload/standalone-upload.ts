@@ -17,6 +17,7 @@ import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { unwrapApiData } from '../../../../models/api.models';
 import {
   AiAnalysisApi,
@@ -143,10 +144,7 @@ export class StandaloneUpload {
   });
 
   isAuthorized(): boolean {
-    const role = (this.user()?.role || '').toLowerCase();
-    if (!role) return false;
-    const allowed = ['admin', 'systemadmin', 'manager', 'supervisor', 'analyst'];
-    return allowed.includes(role);
+    return canAccess(this.user()?.role, ROUTE_ROLES.aiAnalysis);
   }
 
   onWorkflowModeChange(mode: AnalysisWorkflowMode): void {
@@ -525,10 +523,11 @@ export class StandaloneUpload {
       list.map((item) => (item.id === updated.id ? updated : item)),
     );
 
+    // No backend endpoint stores reviews of standalone uploads: the mark only lives in this page's state.
     this.reviewFeedback.set(
       decision === 'Approved'
-        ? 'Đã xác nhận: Khuyết tật hợp lệ được ghi nhận vào nhật ký kiểm tra.'
-        : 'Đã từ chối: Đánh dấu kết quả không phải khuyết tật thực tế.',
+        ? 'Đã đánh dấu tạm là khuyết tật (chỉ lưu tạm trên trình duyệt, chưa ghi vào hệ thống).'
+        : 'Đã đánh dấu tạm là không phải khuyết tật (chỉ lưu tạm trên trình duyệt, chưa ghi vào hệ thống).',
     );
   }
 

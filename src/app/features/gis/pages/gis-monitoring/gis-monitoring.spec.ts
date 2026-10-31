@@ -34,6 +34,7 @@ interface GisHarness {
   addAllSpatialAssets(): void;
   toggleAsset(asset: SelectableAsset): void;
   canCreateMission(): boolean;
+  canReviewAnomalies(): boolean;
   inspectAsset(asset: SelectableAsset): void;
   selectedEntity(): unknown;
   createMission(): void;
@@ -199,6 +200,18 @@ describe('GisMonitoring tower selection', () => {
 
     authMock.user.set({ id: 'u6', email: 'viewer@evn.vn', role: 'Viewer' });
     expect(component.canCreateMission()).toBe(false);
+  });
+
+  it('offers the AI review link only to roles allowed on /ai-review', () => {
+    const component = fixture.componentInstance as unknown as GisHarness;
+    for (const role of ['Admin', 'Manager', 'Analyst']) {
+      authMock.user.set({ id: 'u', email: 'x@evn.vn', role });
+      expect(component.canReviewAnomalies()).toBe(true);
+    }
+    for (const role of ['Inspector', 'Technician', 'MaintenanceTechnician']) {
+      authMock.user.set({ id: 'u', email: 'x@evn.vn', role });
+      expect(component.canReviewAnomalies()).toBe(false);
+    }
   });
 
   it('createMission opens a pre-mission assessment when towers are selected', () => {

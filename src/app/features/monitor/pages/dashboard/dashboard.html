@@ -1,3 +1,14 @@
+@switch (fieldFamily) {
+  @case ('inspector') {
+    <app-inspector-home />
+  }
+  @case ('analyst') {
+    <app-analyst-home />
+  }
+  @case ('technician') {
+    <app-technician-home />
+  }
+  @default {
 <div class="dashboard-page">
   <section class="page-heading">
     <div class="heading-left">
@@ -117,3 +128,5 @@
     </div>
   }
 </div>
+  }
+}

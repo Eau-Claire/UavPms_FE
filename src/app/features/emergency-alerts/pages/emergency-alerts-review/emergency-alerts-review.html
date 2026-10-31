@@ -491,11 +491,12 @@
             <label class="required" for="escalate-target-id">ID người nhận (Manager):</label>
             <input
               id="escalate-target-id"
+              aria-describedby="escalate-target-hint"
               nz-input
               formControlName="escalatedToUserId"
               placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
             />
-            <small>Bạn không có quyền xem danh sách người dùng; nhập ID tài khoản Manager nhận cảnh báo.</small>
+            <small id="escalate-target-hint">Chỉ Quản trị viên tra cứu được danh sách người dùng. Nhập ID tài khoản Quản lý nhận cảnh báo (hỏi Quản trị viên nếu chưa có).</small>
           } @else {
             <label class="required" for="escalate-target">Người nhận:</label>
             <nz-select

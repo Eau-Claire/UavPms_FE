@@ -1,7 +1,18 @@
 <form [formGroup]="form" (ngSubmit)="apply()">
   <label>
     <span>Mã / Tên nhiệm vụ</span>
-    <input formControlName="missionId" placeholder="Nhập mã hoặc tên nhiệm vụ..." />
+    <input
+      formControlName="mission"
+      list="inspection-mission-options"
+      autocomplete="off"
+      placeholder="Chọn hoặc nhập mã, tên nhiệm vụ..."
+      aria-describedby="inspection-mission-hint"
+    />
+    <datalist id="inspection-mission-options">
+      @for (option of missionOptions(); track option.id) {
+        <option [value]="option.label"></option>
+      }
+    </datalist>
   </label>
   <label>
     <span>Trạng thái sự cố</span>
@@ -23,4 +34,7 @@
     <button type="button" class="button secondary" (click)="clear()">Xóa lọc</button>
     <button type="submit" class="button primary">Áp dụng</button>
   </div>
+  <p id="inspection-mission-hint" class="hint">
+    Chọn nhiệm vụ từ danh sách gợi ý (hoặc dán ID nhiệm vụ) để lọc toàn bộ lịch sử. Nội dung khác chỉ lọc theo tên nhiệm vụ trên trang đang xem.
+  </p>
 </form>

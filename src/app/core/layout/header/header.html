@@ -53,13 +53,13 @@
               @if (selected.referenceType || selected.referenceId) {
                 <dl>
                   <dt>Tham chiếu</dt>
-                  <dd>{{ selected.referenceType || 'Mục' }} @if (selected.referenceId) { <span>{{ selected.referenceId }}</span> }</dd>
+                  <dd>{{ referenceTypeLabel(selected.referenceType) }}</dd>
                 </dl>
               }
               <div class="notification-detail-actions">
-                @if (selected.referenceType === 'MISSION' || (selected.referenceId && selected.referenceId.startsWith('msn-'))) {
-                  <a class="notification-go-mission-btn" [routerLink]="isOperationalRole() ? ['/missions', selected.referenceId, 'inspector'] : ['/missions', selected.referenceId]" (click)="closeNotifications()">
-                    <span nz-icon nzType="arrow-right"></span> Đến trang nhiệm vụ
+                @if (selectedLink(); as link) {
+                  <a class="notification-go-mission-btn" [routerLink]="link.commands" (click)="closeNotifications()">
+                    <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
                   </a>
                 }
                 @if (!selected.isRead) { <button type="button" (click)="notifications.markRead(selected.id)">Đánh dấu đã đọc</button> }
@@ -79,33 +79,13 @@
                   <button type="button" class="notification-item-container" [class.notification-item-unread]="!item.isRead" (click)="selectNotification(item)">
                     <div class="notification-item-content">
                       <div class="notification-item-text">
-                        @for (segment of parseTitleSegments(item.title); track $index) {
-                          @if (segment.isBold) {
-                            <strong class="notification-bold-text">{{ segment.text }}</strong>
-                          } @else if (segment.isBadge) {
-                            <span class="notification-badge" [class]="'notification-badge-' + segment.badgeType">
-                              @if (segment.badgeType === 'incident') {
-                                <span nz-icon nzType="fire" class="badge-icon"></span>
-                              } @else if (segment.badgeType === 'question') {
-                                <span nz-icon nzType="question" class="badge-icon"></span>
-                              } @else if (segment.badgeType === 'task') {
-                                <span nz-icon nzType="check" class="badge-icon"></span>
-                              }
-                              {{ segment.text }}
-                            </span>
-                          } @else {
-                            <span class="notification-normal-text">{{ segment.text }}</span>
-                          }
-                        }
+                        <span [class]="item.isRead ? 'notification-normal-text' : 'notification-bold-text'">{{ item.title }}</span>
                       </div>
                       @if (item.body) {
                         <p class="notification-item-body">{{ item.body }}</p>
                       }
                       <div class="notification-item-meta">
                         <span class="notification-time">{{ formatDate(item.createdAt) }}</span>
-                        @if (isReplyActionAvailable(item)) {
-                          <span class="notification-reply-btn" role="button" tabindex="0" (click)="$event.stopPropagation(); selectNotification(item)" (keydown.enter)="$event.stopPropagation(); selectNotification(item)">Trả lời</span>
-                        }
                       </div>
                     </div>
                     @if (!item.isRead) {
@@ -136,7 +116,7 @@
         <div class="app-profile-menu" role="menu">
           <div class="app-profile-menu-header">
             <strong>{{ userDisplayName() }}</strong>
-            <small>{{ user()?.role || 'Người dùng' }}</small>
+            <small>{{ userRoleLabel() }}</small>
           </div>
           <hr />
           <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
@@ -149,46 +129,48 @@
         </div>
       }
     </div>
-    <div class="app-facility-wrap">
-      <button
-        type="button"
-        class="app-facility-btn"
-        aria-label="Chọn đơn vị cơ sở"
-        [attr.aria-expanded]="facilityMenuOpen()"
-        (click)="toggleFacilityMenu()"
-      >
-        <svg class="facility-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-          <path d="M12 3L2 9V21H22V9L12 3ZM19 19H16V13H14V19H10V13H8V19H5V10.19L12 5.99L19 10.19V19Z"/>
-        </svg>
-        <span class="facility-btn-text">{{ facilityStore.currentFacilityName() }}</span>
-        <span nz-icon nzType="down" class="facility-caret" [class.rotated]="facilityMenuOpen()" aria-hidden="true"></span>
-      </button>
+    @if (showFacilitySelector()) {
+      <div class="app-facility-wrap">
+        <button
+          type="button"
+          class="app-facility-btn"
+          aria-label="Chọn đơn vị cơ sở"
+          [attr.aria-expanded]="facilityMenuOpen()"
+          (click)="toggleFacilityMenu()"
+        >
+          <svg class="facility-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M12 3L2 9V21H22V9L12 3ZM19 19H16V13H14V19H10V13H8V19H5V10.19L12 5.99L19 10.19V19Z"/>
+          </svg>
+          <span class="facility-btn-text">{{ facilityStore.currentFacilityName() }}</span>
+          <span nz-icon nzType="down" class="facility-caret" [class.rotated]="facilityMenuOpen()" aria-hidden="true"></span>
+        </button>
 
-      @if (facilityMenuOpen()) {
-        <div class="facility-dropdown-menu" role="menu">
-          <div class="facility-dropdown-header">
-            <span>CƠ SỞ / ĐƠN VỊ THÀNH VIÊN</span>
-            <small class="facility-count">({{ facilityStore.facilities().length }})</small>
+        @if (facilityMenuOpen()) {
+          <div class="facility-dropdown-menu" role="menu">
+            <div class="facility-dropdown-header">
+              <span>CƠ SỞ / ĐƠN VỊ THÀNH VIÊN</span>
+              <small class="facility-count">({{ facilityStore.facilities().length }})</small>
+            </div>
+            <div class="facility-dropdown-list">
+              @for (fac of facilityStore.facilities(); track fac.id) {
+                <button
+                  type="button"
+                  class="facility-option"
+                  [class.selected]="fac.id === facilityStore.selectedFacility().id"
+                  (click)="chooseFacility(fac)"
+                  role="menuitem"
+                >
+                  <span nz-icon nzType="bank" class="facility-option-icon"></span>
+                  <span class="facility-option-name">{{ fac.name }}</span>
+                  @if (fac.id === facilityStore.selectedFacility().id) {
+                    <span nz-icon nzType="check" class="facility-check"></span>
+                  }
+                </button>
+              }
+            </div>
           </div>
-          <div class="facility-dropdown-list">
-            @for (fac of facilityStore.facilities(); track fac.id) {
-              <button
-                type="button"
-                class="facility-option"
-                [class.selected]="fac.id === facilityStore.selectedFacility().id"
-                (click)="chooseFacility(fac)"
-                role="menuitem"
-              >
-                <span nz-icon nzType="bank" class="facility-option-icon"></span>
-                <span class="facility-option-name">{{ fac.name }}</span>
-                @if (fac.id === facilityStore.selectedFacility().id) {
-                  <span nz-icon nzType="check" class="facility-check"></span>
-                }
-              </button>
-            }
-          </div>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    }
   </div>
 </header>

@@ -7,6 +7,8 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { PreMissionApi } from '../../data-access/pre-mission-api';
+import { Auth } from '../../../../core/auth/auth';
+import { isManagerRole } from '../../../../core/auth/roles';
 
 @Component({
   selector: 'app-assessment-list',
@@ -18,7 +20,11 @@ import { PreMissionApi } from '../../data-access/pre-mission-api';
 export class AssessmentList implements OnDestroy {
   private readonly api = inject(PreMissionApi);
   private readonly realtime = inject(NotificationsRealtime);
+  private readonly auth = inject(Auth);
   private realtimeSub: Subscription | null = null;
+
+  /** Create, re-evaluate and cancel are manager actions; technicians and inspectors read the list. */
+  protected readonly canManage = computed(() => isManagerRole(this.auth.user()?.role));
 
   protected readonly loading = signal(true);
   protected readonly actionBusyId = signal<string | null>(null);

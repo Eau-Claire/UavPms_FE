@@ -115,7 +115,7 @@ export interface MissionCommunicationLog {
   readonly id: string;
   readonly senderId: string;
   readonly senderName: string;
-  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'SYSTEM';
+  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | 'SYSTEM';
   readonly type: 'DISPATCH' | 'CONFIRM' | 'POSTPONE' | 'SUSPEND' | 'RESUME' | 'CANCEL' | 'REMINDER' | 'MESSAGE' | 'START' | 'COMPLETE';
   readonly content: string;
   readonly timestamp: string;

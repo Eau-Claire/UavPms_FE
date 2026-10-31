@@ -34,9 +34,11 @@
         </p>
       </div>
       <div class="head-actions">
-        <button type="button" class="evn-btn secondary" (click)="goBack()" title="Quay lại bước trước">
-          <span nz-icon nzType="arrow-left"></span> Quay lại bước trước
-        </button>
+        @if (canManage()) {
+          <button type="button" class="evn-btn secondary" (click)="goBack()" title="Quay lại bước trước">
+            <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Quay lại bước trước
+          </button>
+        }
         <a class="evn-btn secondary" routerLink="/pre-mission" title="Về danh sách đánh giá">
           <span nz-icon nzType="unordered-list"></span> Danh sách
         </a >
@@ -946,6 +948,12 @@
         </div>
 
         <div class="panel-body">
+          @if (isTechnician()) {
+            <div class="evn-alert" style="background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; margin-bottom: 12px;" role="note">
+              <span>Kỹ thuật viên: chọn UAV, ghép nối Flight Controller nếu cần và chạy kiểm định kỹ thuật. Đánh giá lại, hủy hồ sơ và tạo nhiệm vụ do Quản lý thực hiện.</span>
+            </div>
+          }
+          @if (canInspectDrone()) {
           <!-- BIST Mock Telemetry Quick Action Card -->
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -982,6 +990,7 @@
               </button>
             </div>
           </div>
+          }
 
           <!-- Betaflight Flight Controller Identification & Pairing Card -->
           <div class="fc-card">
@@ -1176,7 +1185,8 @@
                             type="button"
                             class="evn-btn primary"
                             style="height: 26px; padding: 0 10px; font-size: 11px;"
-                            [disabled]="pairingFc()"
+                            [disabled]="pairingFc() || !canInspectDrone()"
+                            [title]="canInspectDrone() ? 'Ghép nối FC với UAV' : 'Chỉ Kỹ thuật viên hoặc Quản lý được ghép nối FC'"
                             (click)="pairFcToDrone()"
                           >
                             @if (pairingFc()) {
@@ -1322,7 +1332,9 @@
           } @else {
             <div style="padding: 24px; text-align: center; color: #64748b;">
               <p>Đang chuẩn bị bảng số liệu kiểm định drone...</p>
-              <button type="button" class="evn-btn primary" (click)="runInspectionNow()">Chạy kiểm định ngay</button>
+              @if (canInspectDrone()) {
+                <button type="button" class="evn-btn primary" (click)="runInspectionNow()">Chạy kiểm định ngay</button>
+              }
             </div>
           }
         </div>
@@ -1338,7 +1350,7 @@
           @if (!canProceedToMf02()) {
             <span style="color: #dc2626; margin-left: 8px;">
               @if (!canManage()) {
-                (Chỉ Quản trị viên hoặc Quản lý mới có quyền tạo nhiệm vụ)
+                (Chế độ xem: đánh giá lại, hủy và tạo nhiệm vụ do Quản trị viên hoặc Quản lý thực hiện)
               } @else if (!roleBreakdown().hasAllThree) {
                 (Chưa đạt định mức: {{ roleBreakdown().missingDetails.join('; ') }})
               } @else if (!isReady()) {
@@ -1382,7 +1394,7 @@
           >
             <span nz-icon nzType="arrow-right"></span> Chuyển sang tạo nhiệm vụ (MF02)
           </a>
-        } @else {
+        } @else if (canManage()) {
           <button
             type="button"
             class="evn-btn primary"

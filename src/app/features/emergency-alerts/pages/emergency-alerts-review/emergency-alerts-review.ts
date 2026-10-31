@@ -13,6 +13,8 @@ import { NzNotificationService } from 'ng-zorro-antd/notification';
 import { NzTableModule } from 'ng-zorro-antd/table';
 
 import { Auth } from '../../../../core/auth/auth';
+import { isAdminRole } from '../../../../core/auth/roles';
+import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
 import {
@@ -33,7 +35,6 @@ interface BoundingBoxStyle {
   readonly height: number;
 }
 
-const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin']);
 const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const DISMISS_REASONS = [
@@ -108,7 +109,8 @@ export class EmergencyAlertsReview {
 
   // --- Permissions ---
   protected readonly user = computed(() => this.auth.user());
-  protected readonly canReview = computed(() => REVIEW_ROLES.has((this.user()?.role ?? '').toLowerCase()));
+  /** `PUT /alerts/{id}/review` and `POST /alerts/{id}/escalate`: SystemAdmin, Manager, Analyst. */
+  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.emergencyAlerts));
 
   // --- Evidence viewer ---
   protected readonly zoomLevel = signal(1);
@@ -345,6 +347,12 @@ export class EmergencyAlertsReview {
   }
 
   private loadEscalationTargets(): void {
+    // `GET /users` is SystemAdmin-only: other roles enter the recipient's ID instead of getting a 403.
+    if (!isAdminRole(this.user()?.role)) {
+      this.escalationTargets.set([]);
+      this.escalationTargetsUnavailable.set(true);
+      return;
+    }
     const selfId = this.user()?.id;
     this.api
       .getEscalationTargets()

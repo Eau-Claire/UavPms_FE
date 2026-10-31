@@ -16,9 +16,13 @@
           <span class="emergency-banner-msg">{{ em.message }}</span>
         </div>
         <div class="emergency-banner-actions">
-          <a routerLink="/emergency-alerts" class="emergency-btn-review">
-            Trung tâm Sự cố &rarr;
-          </a>
+          @if (canOpenEmergencyCenter()) {
+            <a routerLink="/emergency-alerts" class="emergency-btn-review">
+              Trung tâm Sự cố &rarr;
+            </a>
+          } @else {
+            <span class="emergency-banner-note">Quản lý và chuyên viên phân tích đã được thông báo.</span>
+          }
           <button type="button" class="emergency-btn-dismiss" (click)="dismissEmergency()">
             Đóng thông báo
           </button>
@@ -37,7 +41,7 @@
         <p class="header-sub-desc">{{ mission.title || mission.description }}</p>
       </div>
       <div class="mission-live-actions">
-        @if (mission.sourceAssessmentId) {
+        @if (mission.sourceAssessmentId && canOpenPreMission()) {
           <a [routerLink]="['/pre-mission', mission.sourceAssessmentId]" class="btn-back-link">
             <span nz-icon nzType="file-done"></span> Hồ sơ tiền nhiệm vụ
           </a>
@@ -49,31 +53,31 @@
     </header>
 
     <!-- Mission Detail Navigation Tabs -->
-    <nav class="mission-detail-tabs" aria-label="Mission detail sections">
-      <button type="button" [class.active]="activeTab() === 'overview'" (click)="setTab('overview')">
+    <nav class="mission-detail-tabs" aria-label="Các phần của nhiệm vụ">
+      <button type="button" [class.active]="activeTab() === 'overview'" [attr.aria-current]="activeTab() === 'overview' ? 'page' : null" (click)="setTab('overview')">
         Tổng quan
       </button>
-      @if (isInspector()) {
-        <button type="button" [class.active]="activeTab() === 'upload'" (click)="setTab('upload')">
+      @if (canUpload()) {
+        <button type="button" [class.active]="activeTab() === 'upload'" [attr.aria-current]="activeTab() === 'upload' ? 'page' : null" (click)="setTab('upload')">
           Tải dữ liệu
         </button>
-        <button type="button" [class.active]="activeTab() === 'processing'" (click)="setTab('processing')">
+        <button type="button" [class.active]="activeTab() === 'processing'" [attr.aria-current]="activeTab() === 'processing' ? 'page' : null" (click)="setTab('processing')">
           Xử lý dữ liệu
         </button>
       }
-      <button type="button" [class.active]="activeTab() === 'results'" (click)="setTab('results')">
+      <button type="button" [class.active]="activeTab() === 'results'" [attr.aria-current]="activeTab() === 'results' ? 'page' : null" (click)="setTab('results')">
         Kết quả giám định
         <span class="tab-count-bubble">{{ detections().length }}</span>
       </button>
-      <button type="button" [class.active]="activeTab() === 'towers'" (click)="setTab('towers')">
+      <button type="button" [class.active]="activeTab() === 'towers'" [attr.aria-current]="activeTab() === 'towers' ? 'page' : null" (click)="setTab('towers')">
         Cột điện
         <span class="tab-count-bubble">{{ missionTowers().length }}</span>
       </button>
-      <button type="button" [class.active]="activeTab() === 'maintenance'" (click)="setTab('maintenance')">
+      <button type="button" [class.active]="activeTab() === 'maintenance'" [attr.aria-current]="activeTab() === 'maintenance' ? 'page' : null" (click)="setTab('maintenance')">
         Bảo trì
         <span class="tab-count-bubble">{{ maintenanceTasks().length }}</span>
       </button>
-      <button type="button" [class.active]="activeTab() === 'activity'" (click)="setTab('activity')">
+      <button type="button" [class.active]="activeTab() === 'activity'" [attr.aria-current]="activeTab() === 'activity' ? 'page' : null" (click)="setTab('activity')">
         Hoạt động
       </button>
     </nav>
@@ -81,12 +85,12 @@
     <!-- TAB 1: OVERVIEW -->
     @if (activeTab() === 'overview') {
       <!-- MF02 Manager Command & Dispatch Console -->
-      <section class="mf02-manager-dispatch-panel" aria-label="Bảng điều phối & giám sát nhiệm vụ của Quản lý">
+      <section class="mf02-manager-dispatch-panel" [class.readonly-console]="!showCommandConsole()" aria-label="Điều phối và giám sát nhiệm vụ">
         <div class="dispatch-summary-grid">
           <div class="dispatch-info-col">
             <div class="dispatch-label-group">
-              <span class="dispatch-pill-badge manager">QUẢN LÝ VẬN HÀNH (MANAGER)</span>
-              <span class="dispatch-role-desc">Giám sát &amp; Điều phối tiến độ tiếp nhận bay</span>
+              <span class="dispatch-pill-badge manager">{{ consoleTitle() }}</span>
+              <span class="dispatch-role-desc">{{ consoleSubtitle() }}</span>
             </div>
 
             <div class="dispatch-status-meta">
@@ -138,9 +142,9 @@
               <div class="team-matrix-header">
                 <div class="team-matrix-title">
                   <span nz-icon nzType="team"></span>
-                  <strong>Đội ngũ thực thi (3 Vai trò bắt buộc: Inspector, Analyst, Technician)</strong>
+                  <strong>Đội ngũ thực hiện</strong>
                   <span class="confirmed-ratio">
-                    Đã xác nhận: <strong>{{ mission.confirmedCount || 0 }}/{{ mission.totalRequiredCount || 3 }}</strong>
+                    Đã xác nhận: <strong>{{ mission.confirmedCount || 0 }}/{{ mission.totalRequiredCount || 0 }}</strong>
                   </span>
                 </div>
                 <div class="team-matrix-status">
@@ -155,7 +159,7 @@
               </div>
 
               <!-- Progress bar -->
-              <div class="matrix-progress-track">
+              <div class="matrix-progress-track" role="progressbar" aria-label="Tiến độ xác nhận của đội" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="confirmationProgressPct()">
                 <div class="matrix-progress-fill" [style.width.%]="confirmationProgressPct()"></div>
               </div>
 
@@ -165,7 +169,7 @@
                   <div class="matrix-member-card">
                     <div class="member-card-top">
                       <span class="member-role-badge">
-                        {{ member.assignmentRole }}
+                        {{ roleText(member.assignmentRole) }}
                       </span>
                       <span class="member-status-text">
                         @switch (member.responseStatus) {
@@ -234,82 +238,91 @@
             </div>
           </div>
 
-          <div class="dispatch-actions-col">
-            <div class="manager-action-buttons">
-              <!-- Flight Lifecycle Actions (Start & Complete Flight) -->
-              @if (mission.status === 'Assigned' || mission.status === 'Preparing' || mission.status === 'Ready') {
-                <button
-                  type="button"
-                  class="btn-flight-start"
-                  [disabled]="actionBusy()"
-                  (click)="startFlight()">
-                  <span nz-icon nzType="send"></span> Bắt đầu bay (Start Flight)
-                </button>
-              }
+          @if (showCommandConsole()) {
+            <div class="dispatch-actions-col">
+              <div class="manager-action-buttons">
+                <!-- Flight lifecycle: managers and the mission's flight crew -->
+                @if (canOperateFlight()) {
+                  @if (mission.status === 'Assigned' || mission.status === 'Preparing' || mission.status === 'Ready') {
+                    <button
+                      type="button"
+                      class="btn-flight-start"
+                      [disabled]="actionBusy()"
+                      (click)="startFlight()">
+                      <span nz-icon nzType="send" aria-hidden="true"></span> Bắt đầu bay
+                    </button>
+                  }
 
-              @if (mission.status === 'InProgress') {
-                <button
-                  type="button"
-                  class="btn-flight-complete"
-                  [disabled]="actionBusy()"
-                  (click)="completeFlight()">
-                  <span nz-icon nzType="check-square"></span> Hoàn tất chuyến bay (Complete Flight)
-                </button>
-              }
+                  @if (mission.status === 'InProgress') {
+                    <button
+                      type="button"
+                      class="btn-flight-complete"
+                      [disabled]="actionBusy()"
+                      (click)="completeFlight()">
+                      <span nz-icon nzType="check-square" aria-hidden="true"></span> Hoàn tất chuyến bay
+                    </button>
+                  }
+                }
 
-              @if (mission.status === 'PendingAcceptance' || mission.status === 'Draft') {
-                <button
-                  type="button"
-                  class="btn-manager-primary"
-                  [disabled]="actionBusy()"
-                  (click)="sendReminder()">
-                  <span nz-icon nzType="bell"></span> Gửi nhắc nhở tiếp nhận
-                </button>
-              }
+                <!-- Dispatch commands: SystemAdmin and Manager only -->
+                @if (isManager()) {
+                  @if (mission.status === 'PendingAcceptance' || mission.status === 'Draft') {
+                    <button
+                      type="button"
+                      class="btn-manager-primary"
+                      [disabled]="actionBusy()"
+                      (click)="sendReminder()">
+                      <span nz-icon nzType="bell" aria-hidden="true"></span> Gửi nhắc nhở tiếp nhận
+                    </button>
+                  }
 
-              @if (mission.status === 'Suspended') {
-                <button
-                  type="button"
-                  class="btn-manager-resume"
-                  [disabled]="actionBusy()"
-                  (click)="resumeMission()">
-                  <span nz-icon nzType="play-circle"></span> Khôi phục bay
-                </button>
-              } @else if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
-                <button
-                  type="button"
-                  class="btn-manager-suspend"
-                  [disabled]="actionBusy()"
-                  (click)="openSuspendModal()">
-                  <span nz-icon nzType="pause-circle"></span> Tạm đình chỉ bay
-                </button>
-              }
+                  @if (mission.status === 'Suspended') {
+                    <button
+                      type="button"
+                      class="btn-manager-resume"
+                      [disabled]="actionBusy()"
+                      (click)="resumeMission()">
+                      <span nz-icon nzType="play-circle" aria-hidden="true"></span> Khôi phục bay
+                    </button>
+                  } @else if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
+                    <button
+                      type="button"
+                      class="btn-manager-suspend"
+                      [disabled]="actionBusy()"
+                      (click)="openSuspendModal()">
+                      <span nz-icon nzType="pause-circle" aria-hidden="true"></span> Tạm đình chỉ bay
+                    </button>
+                  }
 
-              @if (isManager() && mission.status !== 'Cancelled' && mission.status !== 'Completed') {
-                <button
-                  type="button"
-                  class="btn-manager-priority"
-                  [disabled]="actionBusy()"
-                  (click)="openPriorityModal()">
-                  <span nz-icon nzType="setting"></span> Điều chỉnh mức độ ưu tiên
-                </button>
-              }
+                  @if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
+                    <button
+                      type="button"
+                      class="btn-manager-priority"
+                      [disabled]="actionBusy()"
+                      (click)="openPriorityModal()">
+                      <span nz-icon nzType="setting" aria-hidden="true"></span> Điều chỉnh mức độ ưu tiên
+                    </button>
 
-              @if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
-                <button
-                  type="button"
-                  class="btn-manager-cancel"
-                  [disabled]="actionBusy()"
-                  (click)="openCancelModal()">
-                  <span nz-icon nzType="stop"></span> Hủy bỏ nhiệm vụ
-                </button>
-              }
+                    <button
+                      type="button"
+                      class="btn-manager-cancel"
+                      [disabled]="actionBusy()"
+                      (click)="openCancelModal()">
+                      <span nz-icon nzType="stop" aria-hidden="true"></span> Hủy bỏ nhiệm vụ
+                    </button>
+                  }
+                } @else if (canUpload() && (mission.status === 'InProgress' || mission.status === 'Completed')) {
+                  <button type="button" class="btn-manager-primary" (click)="setTab('upload')">
+                    <span nz-icon nzType="upload" aria-hidden="true"></span> Tải dữ liệu bay
+                  </button>
+                }
+              </div>
             </div>
-          </div>
+          }
         </div>
 
         <!-- Critical Overdue Warning Callout -->
-        @if (isDeadlineOverdue()) {
+        @if (isDeadlineOverdue() && isManager()) {
           <div class="callout-banner overdue-alert" role="alert">
             <div class="callout-icon">
               <span nz-icon nzType="alert" nzTheme="fill"></span>
@@ -346,15 +359,17 @@
                 Toàn bộ phương tiện UAV phải neo giữ tại bãi hoặc chờ lệnh khôi phục từ Quản lý vận hành.
               </p>
             </div>
-            <div class="callout-action">
-              <button
-                type="button"
-                class="btn-resume-mission"
-                [disabled]="actionBusy()"
-                (click)="resumeMission()">
-                <span nz-icon nzType="play-circle"></span> Khôi phục nhiệm vụ bay
-              </button>
-            </div>
+            @if (isManager()) {
+              <div class="callout-action">
+                <button
+                  type="button"
+                  class="btn-resume-mission"
+                  [disabled]="actionBusy()"
+                  (click)="resumeMission()">
+                  <span nz-icon nzType="play-circle" aria-hidden="true"></span> Khôi phục nhiệm vụ bay
+                </button>
+              </div>
+            }
           </div>
         }
 
@@ -365,9 +380,11 @@
               <span nz-icon nzType="info-circle" nzTheme="fill"></span>
             </div>
             <div class="callout-body">
-              <strong>PHI CÔNG ĐÃ GỬI YÊU CẦU HOÃN / ĐIỀU CHỈNH NHIỆM VỤ</strong>
+              <strong>CÓ THÀNH VIÊN YÊU CẦU HOÃN / ĐIỀU CHỈNH NHIỆM VỤ</strong>
               <p>
-                Lý do từ Inspector: <em>"{{ mission.postponeReason || 'Lý do kỹ thuật/khí tượng phát sinh.' }}"</em>.
+                @if (postponedMember()?.responseReason || mission.postponeReason; as reason) {
+                  Lý do: <em>"{{ reason }}"</em>.
+                }
                 Quản lý có thể trao đổi trực tiếp trong kênh <strong>Hoạt động</strong> hoặc ra quyết định tái lập lịch.
               </p>
             </div>
@@ -418,11 +435,11 @@
             <article class="selected-target-card">
               <div class="selected-target-heading">
                 <span class="waypoint-index">{{ target.sequence || 1 }}</span>
-                <div><strong>{{ target.towerCode }}</strong><small>{{ target.inspectionStatus }}</small></div>
+                <div><strong>{{ target.towerCode }}</strong><small>{{ towerStatusLabel(target.inspectionStatus) }}</small></div>
               </div>
               <dl>
                 <div><dt>Vị trí</dt><dd>{{ target.towerCode ? 'Cột ' + target.towerCode : 'Chưa xác định' }}</dd></div>
-                <div><dt>Trạng thái</dt><dd>{{ target.inspectionStatus }}</dd></div>
+                <div><dt>Trạng thái</dt><dd>{{ towerStatusLabel(target.inspectionStatus) }}</dd></div>
                 @if (target.latitude && target.longitude) {
                   <div><dt>Tọa độ</dt><dd>{{ target.latitude.toFixed(5) }}, {{ target.longitude.toFixed(5) }}</dd></div>
                 }
@@ -470,10 +487,10 @@
         <section>
           <h2>Trình tự kiểm tra</h2>
           @for (target of mission.targets; track target.towerId) {
-            <button type="button" class="waypoint" [class.selected]="selectedTargetId() === target.towerId" [class.done]="target.inspectionStatus.toLowerCase() === 'completed'" [attr.aria-pressed]="selectedTargetId() === target.towerId" (click)="selectTarget(target.towerId)">
+            <button type="button" class="waypoint" [class.selected]="selectedTargetId() === target.towerId" [class.done]="isTowerDone(target.inspectionStatus)" [attr.aria-pressed]="selectedTargetId() === target.towerId" (click)="selectTarget(target.towerId)">
               <span class="waypoint-index">{{ target.sequence || ($index + 1) }}</span>
               <strong>{{ target.towerCode }}</strong>
-              <small>{{ target.inspectionStatus }}</small>
+              <small>{{ towerStatusLabel(target.inspectionStatus) }}</small>
             </button>
           } @empty {
             <p class="waypoint-empty">Chưa có điểm kiểm tra.</p>
@@ -486,17 +503,17 @@
           <strong [title]="mission.title || 'Chưa đặt tên nhiệm vụ'">{{ middleEllipsis(mission.title || 'Chưa đặt tên nhiệm vụ', 48) }}</strong>
           <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
         </div>
-        <div class="mission-progress" role="progressbar" [attr.aria-valuenow]="0" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ nhiệm vụ"><span [style.width.%]="0"></span></div>
-        @if (isInspector()) {
-          <button type="button" class="mission-footer-upload" (click)="setTab('upload')"><span nz-icon nzType="upload"></span>Upload media</button>
+        <div class="mission-progress" role="progressbar" [attr.aria-valuenow]="progressPct()" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ nhiệm vụ" [title]="'Tiến độ: ' + progressPct() + '%'"><span [style.width.%]="progressPct()"></span></div>
+        @if (canUpload()) {
+          <button type="button" class="mission-footer-upload" (click)="setTab('upload')"><span nz-icon nzType="upload" aria-hidden="true"></span>Tải dữ liệu bay</button>
         }
       </footer>
 
     } @else {
       <section class="mission-ai-workbench">
         <!-- TAB 2: UPLOAD MEDIA (Inspector Technical Operation) -->
-        @if (activeTab() === 'upload' && isInspector()) {
-          <section class="asset-upload-view mission-tab-upload" aria-label="Upload Media">
+        @if (activeTab() === 'upload' && canUpload()) {
+          <section class="asset-upload-view mission-tab-upload" aria-label="Tải dữ liệu bay">
             <section class="mission-card" aria-label="Thông tin nhiệm vụ">
               <div class="mission-item"><span>Mã nhiệm vụ</span><strong [title]="mission.missionCode">{{ middleEllipsis(mission.missionCode, 28) }}</strong></div>
               <div class="mission-item mission-line"><span>Tuyến đường dây</span><strong [title]="displayValue(mission.routeData)">{{ middleEllipsis(displayValue(mission.routeData), 34) }}</strong></div>
@@ -560,7 +577,7 @@
                   </div>
 
                   <!-- Thumbnails Queue Grid -->
-                  <div class="mission-drop-thumbs" aria-label="Selected media">
+                  <div class="mission-drop-thumbs" aria-label="Tệp đã chọn">
                     @for (media of mediaQueue(); track media.id) {
                       <article class="mission-drop-thumb {{ media.kind }}" [class.active]="selectedMedia()?.id === media.id" tabindex="0" (keydown.enter)="selectMedia(media.id)" (click)="selectMedia(media.id)">
                         @if (media.kind === 'video') {
@@ -570,7 +587,7 @@
                         }
                         <span [title]="media.name">{{ middleEllipsis(media.name, 22) }}</span>
                         <i>{{ media.size }} · {{ media.resolution }}</i>
-                        <button type="button" aria-label="Remove file" (click)="removeMedia(media.id, $event)">×</button>
+                        <button type="button" [attr.aria-label]="'Xóa tệp ' + media.name" (click)="removeMedia(media.id, $event)">×</button>
                       </article>
                     }
                   </div>
@@ -647,7 +664,7 @@
           </section>
 
         <!-- TAB 3: DATA PROCESSING -->
-        } @else if (activeTab() === 'processing' && isInspector()) {
+        } @else if (activeTab() === 'processing' && canUpload()) {
           <div class="mission-ai-card mission-processing-panel">
             <div class="processing-hero-pipeline">
               <div class="proc-header">
@@ -924,18 +941,24 @@
                     <div><span>Mức độ nguy cấp</span><p class="font-semibold">{{ selected.isEmergency ? 'Khẩn cấp' : 'Bình thường' }}</p></div>
                     <div class="field-wide"><span>Trạng thái kiểm duyệt</span><p>{{ detectionStatusLabel(selected.status) }}</p></div>
 
-                    <label class="field-wide note-field">
-                      <span>Ghi chú của phân tích viên</span>
-                      <textarea placeholder="Nhập nhận xét hoặc hướng xử lý bảo dưỡng..." [value]="reviewNotes()" (input)="setReviewNotes($any($event.target).value)"></textarea>
-                    </label>
+                    @if (canReview()) {
+                      <label class="field-wide note-field">
+                        <span>Ghi chú của phân tích viên</span>
+                        <textarea placeholder="Nhập nhận xét hoặc hướng xử lý bảo dưỡng..." [value]="reviewNotes()" (input)="setReviewNotes($any($event.target).value)"></textarea>
+                      </label>
+                    } @else if (selected.notes) {
+                      <div class="field-wide"><span>Ghi chú của phân tích viên</span><p>{{ selected.notes }}</p></div>
+                    }
 
-                    @if (resultMessage()) { <p class="field-wide detail-feedback">{{ resultMessage() }}</p> }
+                    @if (resultMessage()) { <p class="field-wide detail-feedback" role="status">{{ resultMessage() }}</p> }
                   </section>
 
-                  <div class="review-actions">
-                    <button type="button" class="reject-action" [disabled]="reviewBusy()" (click)="reviewDetection('Rejected')">× Từ chối - Dương tính giả</button>
-                    <button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">Xác nhận có lỗi</button>
-                  </div>
+                  @if (canReview()) {
+                    <div class="review-actions">
+                      <button type="button" class="reject-action" [disabled]="reviewBusy()" (click)="reviewDetection('Rejected')">× Từ chối - Dương tính giả</button>
+                      <button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">Xác nhận có lỗi</button>
+                    </div>
+                  }
                 </div>
               </aside>
             }
@@ -971,7 +994,7 @@
                     <tr>
                       <td>{{ tower.sequence }}</td>
                       <td><strong class="font-mono">{{ tower.towerCode }}</strong></td>
-                      <td><span class="status-dot-text"><span class="dot"></span>{{ tower.inspectionStatus }}</span></td>
+                      <td><span class="status-dot-text"><span class="dot" aria-hidden="true"></span>{{ towerStatusLabel(tower.inspectionStatus) }}</span></td>
                       <td>
                         @if (tower.defectCount > 0) {
                           <span class="defect-badge-count">{{ tower.defectCount }} khuyết tật</span>
@@ -980,7 +1003,7 @@
                         }
                       </td>
                       <td class="font-mono">
-                        @if (tower.latitude != null && tower.longitude != null) {
+                        @if (tower.latitude !== undefined && tower.longitude !== undefined) {
                           {{ tower.latitude.toFixed(5) }}, {{ tower.longitude.toFixed(5) }}
                         } @else {
                           —
@@ -1020,17 +1043,28 @@
                       <span class="priority-pill" [class.urgent]="task.priority === 'Urgent'" [class.high]="task.priority === 'High'" [class.medium]="task.priority === 'Medium'">
                         {{ task.priority === 'Urgent' ? 'Ưu tiên khẩn cấp' : task.priority === 'High' ? 'Ưu tiên cao' : 'Ưu tiên trung bình' }}
                       </span>
-                      <span class="task-status-pill {{ task.status.toLowerCase() }}">{{ task.status }}</span>
+                      <span class="task-status-pill {{ maintenanceStatusTone(task.status) }}">{{ maintenanceStatusText(task.status) }}</span>
                     </div>
 
-                    <h3 class="maint-task-title">{{ task.title }}</h3>
+                    <h3 class="maint-task-title">
+                      @if (canOpenMaintenance()) {
+                        <a class="maint-task-link" [routerLink]="['/maintenance', task.id]">{{ task.title }}</a>
+                      } @else {
+                        {{ task.title }}
+                      }
+                    </h3>
 
                     <div class="maint-task-info">
                       <div><strong>Vị trí:</strong> <span>{{ task.towerCode }}</span></div>
-                                            <div><strong>Hiện trạng:</strong> <span>{{ task.defectDescription }}</span></div>
+                      <div><strong>Hiện trạng:</strong> <span>{{ task.defectDescription }}</span></div>
                       <div class="action-box"><strong>Biện pháp:</strong> <p>{{ task.suggestedAction }}</p></div>
                       <div><strong>Đội xử lý:</strong> <span>{{ task.assignedTeam }}</span></div>
                     </div>
+                    @if (canOpenMaintenance()) {
+                      <a class="maint-task-open" [routerLink]="['/maintenance', task.id]" [attr.aria-label]="'Mở phiếu bảo trì ' + task.title">
+                        Mở phiếu bảo trì <span nz-icon nzType="arrow-right" aria-hidden="true"></span>
+                      </a>
+                    }
                   </div>
                 }
               </div>
@@ -1044,8 +1078,8 @@
             <div class="mission-communication-panel">
               <header class="comm-panel-header">
                 <div>
-                  <h2><span nz-icon nzType="message"></span> Luồng Giao tiếp Quản lý &amp; Phi công</h2>
-                  <p>Kênh chỉ đạo, trao đổi hiện trường và xác nhận trạng thái trực tiếp giữa Manager và Inspector.</p>
+                  <h2><span nz-icon nzType="message" aria-hidden="true"></span> Trao đổi nhiệm vụ</h2>
+                  <p>Kênh chỉ đạo và trao đổi giữa Quản lý và các thành viên của nhiệm vụ.</p>
                 </div>
                 <span class="comm-log-count">{{ communicationLogs().length }} bản ghi</span>
               </header>
@@ -1053,16 +1087,10 @@
               <!-- Communication Message Feed -->
               <div class="comm-messages-feed" role="log" aria-label="Lịch sử trao đổi nhiệm vụ">
                 @for (log of communicationLogs(); track log.id) {
-                  <div class="comm-message-item" [class.manager]="log.senderRole === 'MANAGER'" [class.inspector]="log.senderRole === 'INSPECTOR'" [class.system]="log.senderRole === 'SYSTEM'">
+                  <div class="comm-message-item {{ senderClass(log.senderRole) }}">
                     <div class="comm-message-header">
                       <div class="sender-identity">
-                        @if (log.senderRole === 'MANAGER') {
-                          <span class="sender-badge manager"><span nz-icon nzType="safety-certificate"></span> Quản lý</span>
-                        } @else if (log.senderRole === 'INSPECTOR') {
-                          <span class="sender-badge inspector"><span nz-icon nzType="user"></span> Phi công</span>
-                        } @else {
-                          <span class="sender-badge system"><span nz-icon nzType="setting"></span> Hệ thống</span>
-                        }
+                        <span class="sender-badge {{ senderClass(log.senderRole) }}">{{ senderBadge(log.senderRole) }}</span>
                         <strong class="sender-name">{{ log.senderName }}</strong>
                       </div>
                       <time class="message-timestamp">{{ log.timestamp | date:'HH:mm:ss dd/MM/yyyy' }}</time>
@@ -1084,18 +1112,15 @@
               <!-- Quick Communication Composer -->
               <form class="comm-composer-form" (submit)="$event.preventDefault(); sendChatMessage()">
                 <div class="composer-sender-indicator">
-                  <span>Gửi tin nhắn dưới quyền:</span>
-                  @if (activeRole() === 'MANAGER') {
-                    <strong class="font-semibold"><span nz-icon nzType="safety-certificate"></span> {{ mission.managerUsername || 'Quản lý vận hành' }} (Manager)</strong>
-                  } @else {
-                    <strong class="font-semibold"><span nz-icon nzType="user"></span> {{ mission.assignedToUsername || 'Phi công phụ trách' }} (Inspector)</strong>
-                  }
+                  <span>Gửi với tư cách:</span>
+                  <strong class="font-semibold"><span nz-icon nzType="user" aria-hidden="true"></span> {{ senderName() }} ({{ senderRoleText() }})</strong>
                 </div>
                 <div class="composer-input-row">
                   <input
                     type="text"
                     class="comm-input-field"
-                    placeholder="Nhập ý kiến chỉ đạo, xác nhận thời tiết, hoặc báo cáo hiện trường..."
+                    aria-label="Nội dung tin nhắn"
+                    placeholder="Nhập ý kiến, báo cáo hiện trường hoặc câu hỏi cho đội..."
                     [value]="chatMessage()"
                     (input)="chatMessage.set($any($event.target).value)"
                     [disabled]="actionBusy()" />
@@ -1112,67 +1137,22 @@
             <!-- Right: System Milestone Audit Trail -->
             <div class="mission-audit-sidebar">
               <header class="audit-panel-header">
-                <h3><span nz-icon nzType="history"></span> Tiến trình Thực hiện</h3>
-                <small>Hành trình vòng đời MF01 &rarr; MF02</small>
+                <h3><span nz-icon nzType="history" aria-hidden="true"></span> Tiến trình thực hiện</h3>
+                <small>Tiến độ: {{ progressPct() }}%</small>
               </header>
 
-              <div class="audit-milestones-list">
-                <div class="milestone-item completed">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Đánh giá Sẵn sàng (MF01)</strong>
-                    <small>Phê duyệt tĩnh không, khí tượng &amp; drone BIST</small>
-                  </div>
-                </div>
-
-                <div class="milestone-item completed">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Khởi tạo &amp; Ban hành (MF02)</strong>
-                    <small>{{ mission.createdAt | date:'HH:mm dd/MM/yyyy' }} - {{ mission.missionCode }}</small>
-                  </div>
-                </div>
-
-                <div class="milestone-item" [class.completed]="allRolesConfirmed() || mission.status === 'Assigned' || mission.status === 'InProgress' || mission.status === 'Completed'" [class.active]="mission.status === 'PendingAcceptance' || mission.status === 'Draft'">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Đội ngũ 3 Vai trò Tiếp nhận &amp; Xác nhận</strong>
-                    @if (allRolesConfirmed() || mission.status === 'Assigned' || mission.status === 'InProgress' || mission.status === 'Completed') {
-                      <small>Đã đủ 3 vai trò xác nhận sẵn sàng bay</small>
-                    } @else if (postponedMember()) {
-                      <small class="font-semibold">Có thành viên xin hoãn - Đang chờ tái phân công</small>
-                    } @else if (isDeadlineOverdue()) {
-                      <small class="font-semibold">Đã quá hạn xác nhận</small>
-                    } @else {
-                      <small>Đang chờ các thành viên phản hồi ({{ mission.confirmedCount || 0 }}/{{ mission.totalRequiredCount || 3 }})</small>
-                    }
-                  </div>
-                </div>
-
-                <div class="milestone-item" [class.completed]="mission.status === 'Completed'" [class.active]="mission.status === 'InProgress'">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Bay khảo sát &amp; Quét GIS Hiện trường</strong>
-                    <small>{{ mission.status === 'InProgress' ? 'Đang thực hiện bay ngoài hiện trường' : mission.status === 'Completed' ? 'Chuyến bay đã hoàn tất' : 'Chờ hoàn thành thủ tục xuất phát' }}</small>
-                  </div>
-                </div>
-
-                <div class="milestone-item" [class.completed]="detections().length > 0" [class.active]="mission.status === 'Completed' && mediaQueue().length > 0 && detections().length === 0">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Nạp dữ liệu &amp; Xử lý khuyết tật</strong>
-                    <small>{{ detections().length ? detections().length + ' khuyết tật được phát hiện' : 'Chờ nạp ảnh/video bay' }}</small>
-                  </div>
-                </div>
-
-                <div class="milestone-item" [class.completed]="approvedDetectionCount() > 0" [class.active]="detections().length > 0 && approvedDetectionCount() === 0">
-                  <span class="milestone-bullet"></span>
-                  <div class="milestone-text">
-                    <strong>Giám định &amp; Đồng bộ Sức khỏe Tài sản</strong>
-                    <small>{{ approvedDetectionCount() > 0 ? 'Đã duyệt ' + approvedDetectionCount() + ' khuyết tật & cập nhật bảo trì' : 'Chờ phân tích viên thẩm định kết quả' }}</small>
-                  </div>
-                </div>
-              </div>
+              <ol class="audit-milestones-list">
+                @for (step of milestones(); track step.key) {
+                  <li class="milestone-item" [class.completed]="step.state === 'completed'" [class.active]="step.state === 'active'">
+                    <span class="milestone-bullet" aria-hidden="true"></span>
+                    <div class="milestone-text">
+                      <strong>{{ step.title }}</strong>
+                      <small>{{ step.detail }}</small>
+                      <span class="sr-only">{{ step.state === 'completed' ? 'Đã hoàn thành' : step.state === 'active' ? 'Đang thực hiện' : 'Chưa thực hiện' }}</span>
+                    </div>
+                  </li>
+                }
+              </ol>
             </div>
           </div>
         }
@@ -1181,16 +1161,16 @@
 
     <!-- MODAL 1: POSTPONE MISSION (Inspector requests postponement) -->
     @if (showPostponeModal()) {
-      <div class="modal-overlay" (click)="closePostponeModal()">
-        <div class="modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="postpone-modal-title">
+      <div class="modal-overlay" tabindex="-1" (click)="$event.target === $event.currentTarget && closePostponeModal()" (keydown.escape)="closePostponeModal()">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="postpone-modal-title">
           <div class="modal-header">
             <h3 id="postpone-modal-title"><span nz-icon nzType="field-time"></span> Yêu cầu Hoãn / Điều chỉnh Nhiệm vụ</h3>
-            <button type="button" class="btn-modal-close" (click)="closePostponeModal()">&times;</button>
+            <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closePostponeModal()">&times;</button>
           </div>
           <div class="modal-body">
             @if (selectedAssignmentToPostpone(); as asg) {
               <div class="reassign-current-box" style="margin-bottom: 10px;">
-                <div>Vai trò xin hoãn: <strong>[{{ asg.assignmentRole }}] {{ asg.userFullName || asg.userName }}</strong></div>
+                <div>Vai trò xin hoãn: <strong>{{ roleText(asg.assignmentRole) }} – {{ asg.userFullName || asg.userName }}</strong></div>
               </div>
             }
             <p class="modal-desc">
@@ -1223,11 +1203,11 @@
 
     <!-- MODAL 2: SUSPEND MISSION (Manager suspends flight) -->
     @if (showSuspendModal()) {
-      <div class="modal-overlay" (click)="closeSuspendModal()">
-        <div class="modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="suspend-modal-title">
+      <div class="modal-overlay" tabindex="-1" (click)="$event.target === $event.currentTarget && closeSuspendModal()" (keydown.escape)="closeSuspendModal()">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="suspend-modal-title">
           <div class="modal-header">
             <h3 id="suspend-modal-title"><span nz-icon nzType="pause-circle"></span> Ra lệnh Tạm Đình chỉ Bay</h3>
-            <button type="button" class="btn-modal-close" (click)="closeSuspendModal()">&times;</button>
+            <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closeSuspendModal()">&times;</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc font-medium">
@@ -1260,11 +1240,11 @@
 
     <!-- MODAL 3: CANCEL MISSION (Manager cancels flight) -->
     @if (showCancelModal()) {
-      <div class="modal-overlay" (click)="closeCancelModal()">
-        <div class="modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+      <div class="modal-overlay" tabindex="-1" (click)="$event.target === $event.currentTarget && closeCancelModal()" (keydown.escape)="closeCancelModal()">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
           <div class="modal-header">
             <h3 id="cancel-modal-title"><span nz-icon nzType="stop"></span> Xác nhận Hủy bỏ Nhiệm vụ</h3>
-            <button type="button" class="btn-modal-close" (click)="closeCancelModal()">&times;</button>
+            <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closeCancelModal()">&times;</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">
@@ -1297,13 +1277,13 @@
 
     <!-- MODAL 4: REASSIGN ROLE (Manager replaces a member when postponed/overdue) -->
     @if (showReassignModal()) {
-      <div class="modal-overlay" (click)="closeReassignModal()">
-        <div class="modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="reassign-modal-title">
+      <div class="modal-overlay" tabindex="-1" (click)="$event.target === $event.currentTarget && closeReassignModal()" (keydown.escape)="closeReassignModal()">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reassign-modal-title">
           <div class="modal-header">
             <h3 id="reassign-modal-title">
-              <span nz-icon nzType="usergroup-add"></span> Tái phân công vai trò: {{ selectedAssignmentToReassign()?.assignmentRole }}
+              <span nz-icon nzType="usergroup-add"></span> Tái phân công vai trò: {{ roleText(selectedAssignmentToReassign()?.assignmentRole ?? "") }}
             </h3>
-            <button type="button" class="btn-modal-close" (click)="closeReassignModal()">&times;</button>
+            <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closeReassignModal()">&times;</button>
           </div>
           <div class="modal-body">
             @if (selectedAssignmentToReassign(); as currAssign) {
@@ -1360,13 +1340,13 @@
 
     <!-- MODAL: ADJUST MISSION PRIORITY & SCHEDULING (Manager) -->
     @if (showPriorityModal()) {
-      <div class="modal-overlay" (click)="closePriorityModal()">
-        <div class="modal-dialog modal-dialog-lg" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
+      <div class="modal-overlay" tabindex="-1" (click)="$event.target === $event.currentTarget && closePriorityModal()" (keydown.escape)="closePriorityModal()">
+        <div class="modal-dialog modal-dialog-lg" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
           <div class="modal-header">
             <h3 id="priority-modal-title">
               <span nz-icon nzType="setting"></span> Điều chỉnh Mức độ Ưu tiên (MF02)
             </h3>
-            <button type="button" class="btn-modal-close" (click)="closePriorityModal()">&times;</button>
+            <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closePriorityModal()">&times;</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">
@@ -1374,8 +1354,8 @@
             </p>
 
             <div class="form-field-group">
-              <label>Mức độ ưu tiên (Mission Priority) <span class="required">*</span></label>
-              <div class="priority-radio-group">
+              <span class="form-group-label" id="editPriorityLabel">Mức độ ưu tiên (Mission Priority) <span class="required">*</span></span>
+              <div class="priority-radio-group" role="radiogroup" aria-labelledby="editPriorityLabel">
                 <label class="priority-option-card" [class.selected]="editPriority() === 'NORMAL'">
                   <input
                     type="radio"
@@ -1449,8 +1429,8 @@
             </div>
 
             <div class="form-field-group">
-              <label>Danh mục khiếm khuyết trọng tâm (Priority Defects)</label>
-              <div class="defects-checklist">
+              <span class="form-group-label" id="editDefectsLabel">Danh mục khiếm khuyết trọng tâm (Priority Defects)</span>
+              <div class="defects-checklist" role="group" aria-labelledby="editDefectsLabel">
                 @for (cat of priorityDefectCategories; track cat.key) {
                   <label class="defect-checkbox-item">
                     <input

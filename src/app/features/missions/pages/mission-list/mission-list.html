@@ -10,17 +10,19 @@
     }
   </div>
 
-  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dong</button></div> }
+  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
 
   <div class="mission-toolbar-card">
     <div class="mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
-      <div class="mission-scope-tabs" role="tablist" aria-label="Phạm vi nhiệm vụ">
-        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" (click)="setScope('my')">
-          <span nz-icon nzType="user"></span> Được giao cho tôi
+      <div class="mission-scope-tabs" role="group" aria-label="Phạm vi nhiệm vụ">
+        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" [attr.aria-pressed]="scope() === 'my'" (click)="setScope('my')">
+          <span nz-icon nzType="user" aria-hidden="true"></span> Nhiệm vụ của tôi
         </button>
-        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" (click)="setScope('all')">
-          <span nz-icon nzType="appstore"></span> Tất cả nhiệm vụ
-        </button>
+        @if (canViewAll()) {
+          <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" [attr.aria-pressed]="scope() === 'all'" (click)="setScope('all')">
+            <span nz-icon nzType="appstore" aria-hidden="true"></span> Tất cả nhiệm vụ
+          </button>
+        }
       </div>
 
       <div class="mission-search-wrap">
@@ -58,7 +60,7 @@
           <span nz-icon nzType="thunderbolt"></span> Xếp theo ưu tiên
         </button>
         <button type="button" class="button secondary mission-action-btn" [disabled]="loading()" (click)="refreshList()" title="Tải lại danh sách">
-          <span nz-icon nzType="reload"></span> Refresh
+          <span nz-icon nzType="reload" aria-hidden="true"></span> Tải lại
         </button>
       </div>
     </div>
@@ -87,8 +89,9 @@
             <tr><td colspan="8">Không có nhiệm vụ phù hợp.</td></tr>
           }
           @for (mission of response().items; track mission.id) {
+            @let link = rowLink(mission);
             <tr>
-              <td><a [routerLink]="isOperationalRole() ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id]" class="mission-code">{{ mission.missionCode }}</a></td>
+              <td><a [routerLink]="link.commands" [queryParams]="link.queryParams" class="mission-code">{{ mission.missionCode }}</a></td>
               <td>
                 <span class="mission-priority-badge {{ priorityClass(mission.priority) }}">
                   {{ priorityLabel(mission.priority) }}
@@ -104,7 +107,7 @@
               <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
               <td>
                 <div class="mission-row-actions">
-                  <a class="mission-row-action" [routerLink]="isOperationalRole() ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id]">Xem</a>
+                  <a class="mission-row-action" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Xem nhiệm vụ ' + mission.missionCode">{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Xem' }}</a>
                 </div>
               </td>
             </tr>

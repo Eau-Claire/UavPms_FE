@@ -25,7 +25,7 @@
         </nav>
         <h1 class="page-title">Kiểm tra dữ liệu hình ảnh &amp; video độc lập</h1>
         <p class="page-subtitle">
-          Tải lên tệp hình ảnh hoặc video khảo sát hiện trường để kiểm tra và ghi nhận khuyết tật thiết bị lưới điện.
+          Tải lên tệp hình ảnh hoặc video khảo sát hiện trường để AI kiểm tra nhanh khuyết tật thiết bị lưới điện. Kết quả ở trang này chỉ để tham khảo và không được lưu vào hệ thống.
         </p>
       </div>
 
@@ -480,7 +480,7 @@
                               [class.approved]="det.status === 'Approved'"
                               [class.rejected]="det.status === 'Rejected'"
                             >
-                              {{ det.status === 'Approved' ? 'Đã duyệt' : det.status === 'Rejected' ? 'Từ chối' : 'Chờ duyệt' }}
+                              {{ det.status === 'Approved' ? 'Lỗi (tạm)' : det.status === 'Rejected' ? 'Không lỗi (tạm)' : 'Chưa đánh dấu' }}
                             </span>
                           </div>
                         </div>
@@ -560,7 +560,7 @@
                   [class.approved]="det.status === 'Approved'"
                   [class.rejected]="det.status === 'Rejected'"
                 >
-                  {{ det.status === 'Approved' ? 'ĐÃ XÁC NHẬN' : det.status === 'Rejected' ? 'ĐÃ TỪ CHỐI' : 'CHỜ PHÊ DUYỆT' }}
+                  {{ det.status === 'Approved' ? 'LỖI (TẠM)' : det.status === 'Rejected' ? 'KHÔNG LỖI (TẠM)' : 'CHƯA ĐÁNH DẤU' }}
                 </span>
               }
             </div>
@@ -640,6 +640,10 @@
                     class="inspector-notes-textarea"
                   ></textarea>
 
+                  <small id="localReviewHint" class="local-review-hint">
+                    Đánh dấu ở đây chỉ lưu tạm trên trình duyệt và mất khi tải lại trang. Để ghi nhận chính thức, thẩm định ảnh của nhiệm vụ ở mục "Duyệt khuyết tật".
+                  </small>
+
                   @if (reviewFeedback()) {
                     <div class="review-feedback-msg" role="status">{{ reviewFeedback() }}</div>
                   }
@@ -648,19 +652,21 @@
                     <button
                       type="button"
                       class="btn-reject-defect"
+                      aria-describedby="localReviewHint"
                       (click)="reviewDetection('Rejected')"
                     >
                       <span nz-icon nzType="close" aria-hidden="true"></span>
-                      <span>Từ chối</span>
+                      <span>Không phải lỗi (tạm)</span>
                     </button>
 
                     <button
                       type="button"
                       class="btn-approve-defect"
+                      aria-describedby="localReviewHint"
                       (click)="reviewDetection('Approved')"
                     >
                       <span nz-icon nzType="check" aria-hidden="true"></span>
-                      <span>Xác nhận lỗi</span>
+                      <span>Đánh dấu lỗi (tạm)</span>
                     </button>
                   </div>
                 </div>

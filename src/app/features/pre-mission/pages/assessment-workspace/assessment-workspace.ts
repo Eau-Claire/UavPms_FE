@@ -16,6 +16,7 @@ import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import {
   BetaflightSerialService,
   SIMULATED_FC_PROFILES,
@@ -64,39 +65,22 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly siteMapContainer = viewChild<ElementRef<HTMLDivElement>>('siteMapContainer');
 
   protected readonly currentUser = this.auth.user;
-  protected readonly canManage = computed(() => {
-    const role = (this.currentUser()?.role || '').toLowerCase();
-    return (
-      !role ||
-      role === 'admin' ||
-      role === 'systemadmin' ||
-      role === 'administrator' ||
-      role === 'manager' ||
-      role === 'supervisor'
-    );
-  });
-  protected readonly canInspectDrone = computed(() => {
-    const role = (this.currentUser()?.role || '').toLowerCase();
-    return (
-      !role ||
-      role === 'admin' ||
-      role === 'systemadmin' ||
-      role === 'administrator' ||
-      role === 'technician' ||
-      role === 'maintenancetechnician' ||
-      role === 'inspector' ||
-      role === 'pilot' ||
-      role === 'manager' ||
-      role === 'supervisor'
-    );
-  });
+  /** Re-evaluate, cancel and create mission (MF02): SystemAdmin/Manager. */
+  protected readonly canManage = computed(() => isManagerRole(this.currentUser()?.role));
+  /** Technicians open the workspace for the drone technical inspection (MF01) only. */
+  protected readonly isTechnician = computed(() => isTechnicianRole(this.currentUser()?.role));
+  /**
+   * `POST /drone-technical-inspections`, `POST /drones/{id}/flight-controller`: MaintenanceTechnician, Technician,
+   * Manager, SystemAdmin. Inspectors get 403, so they only read the results.
+   */
+  protected readonly canInspectDrone = computed(() => this.canManage() || this.isTechnician());
 
   protected readonly item = signal<PreMissionAssessment | null>(null);
   protected readonly error = signal('');
   protected readonly actionMessage = signal('');
   protected readonly isStaleConflict = signal(false);
   protected readonly busy = signal(false);
-  protected readonly activeTab = signal<WorkspaceTab>('overview');
+  protected readonly activeTab = signal<WorkspaceTab>(isTechnicianRole(this.auth.user()?.role) ? 'technical' : 'overview');
 
   // Bộ lọc ứng viên nhân sự
   protected readonly personnelSearch = signal('');
@@ -386,6 +370,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         if (res.uavCandidates.length > 0 && !this.selectedDroneId()) {
           this.selectedDroneId.set(res.uavCandidates[0].id);
         }
+        // Technicians land on the technical tab: show the latest inspection of the selected drone right away.
+        const droneId = this.selectedDroneId();
+        if (this.activeTab() === 'technical' && droneId && !this.inspectionResult()) this.loadLatestInspection(droneId);
         this.loadRegionTowers(res);
         this.busy.set(false);
       },

@@ -6,8 +6,10 @@ import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { isManagerRole } from '../../../../core/auth/roles';
 import { MISSION_STATUSES, Mission, MissionPage, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { MissionLink, MissionListScope, canViewAllMissions, missionRowLink } from '../../data-access/mission-access';
 import { MissionsApi } from '../../data-access/missions-api';
 
 @Component({
@@ -26,16 +28,9 @@ export class MissionList {
   private readonly searchInput = new Subject<string>();
 
   protected readonly user = computed(() => this.auth.user());
-  protected readonly canCreateMission = computed(() => {
-    const role = (this.user()?.role || '').toLowerCase();
-    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
-  });
-
-  protected readonly isInspector = computed(() => ['inspector', 'pilot'].includes((this.user()?.role ?? '').toLowerCase()));
-  protected readonly isOperationalRole = computed(() => {
-    const role = (this.user()?.role ?? '').toLowerCase();
-    return ['inspector', 'pilot', 'analyst', 'technician', 'maintenancetechnician'].includes(role);
-  });
+  protected readonly canCreateMission = computed(() => isManagerRole(this.user()?.role));
+  /** `GET /missions` (all missions) is only open to SystemAdmin, Manager and Analyst. */
+  protected readonly canViewAll = computed(() => canViewAllMissions(this.user()?.role));
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
@@ -46,7 +41,7 @@ export class MissionList {
   protected readonly priority = signal<string>('');
   protected readonly sortBy = signal<string>('priority');
   protected readonly sortDescending = signal<boolean>(true);
-  protected readonly scope = signal<'my' | 'all'>(this.isOperationalRole() ? 'my' : 'all');
+  protected readonly scope = signal<MissionListScope>(isManagerRole(this.auth.user()?.role) ? 'all' : 'my');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
   protected readonly statsItems = signal<readonly Mission[]>([]);
@@ -116,8 +111,9 @@ export class MissionList {
     this.load();
   }
 
-  protected setScope(scope: 'my' | 'all'): void {
+  protected setScope(scope: MissionListScope): void {
     if (this.scope() === scope) return;
+    if (scope === 'all' && !this.canViewAll()) return;
     this.scope.set(scope);
     this.page.set(1);
     this.load();
@@ -137,11 +133,11 @@ export class MissionList {
       sortDescending: this.sortDescending(),
     };
 
-    if (this.scope() === 'my') {
+    if (this.scope() === 'my' || !this.canViewAll()) {
       this.api.my().pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false))).subscribe({
         next: (missions) => {
           const query = filters.search.trim().toLowerCase();
-          let items = missions.filter((mission) => {
+          const items = missions.filter((mission) => {
             const matchesStatus = !filters.status || mission.status === filters.status;
             const matchesPriority = !filters.priority || (mission.priority || 'NORMAL').toUpperCase() === filters.priority.toUpperCase();
             const matchesSearch = !query || `${mission.title} ${mission.missionCode} ${mission.description}`.toLowerCase().includes(query);
@@ -248,6 +244,11 @@ export class MissionList {
     return 'neutral';
   }
 
+  /** Row target depends on the role and on whether the user still has to answer their assignment. */
+  protected rowLink(mission: Mission): MissionLink {
+    return missionRowLink(mission, this.user()?.role, this.user()?.id, this.scope());
+  }
+
   protected routeLabel(mission: Mission): string {
     return mission.routeData || mission.description || 'Chưa có tuyến';
   }
@@ -306,8 +307,12 @@ export class MissionList {
   }
 
   private errorMessage(error: unknown): string {
-    if (!(error instanceof HttpErrorResponse)) return 'Không thể tải danh sách nhiệm vụ.';
-    const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {};
-    return String(body['message'] ?? error.message ?? 'Không thể tải danh sách nhiệm vụ.');
+    const fallback = 'Không thể tải danh sách nhiệm vụ.';
+    if (!(error instanceof HttpErrorResponse)) return fallback;
+    if (error.status === 0) return 'Không kết nối được máy chủ. Vui lòng thử lại.';
+    if (error.status === 401 || error.status === 403) return 'Bạn không có quyền xem danh sách nhiệm vụ này.';
+    const body = error.error && typeof error.error === 'object' ? (error.error as Record<string, unknown>) : {};
+    const message = typeof body['message'] === 'string' ? body['message'].trim() : '';
+    return message || fallback;
   }
 }

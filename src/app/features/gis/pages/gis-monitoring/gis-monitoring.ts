@@ -21,6 +21,8 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
+import { isManagerRole } from '../../../../core/auth/roles';
+import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { MissionTargetSelection, MissionTargetTower } from '../../../missions/data-access/mission-target-selection';
 import { anomalyStatusLabel } from '../../../towers/data-access/tower-labels';
 import {
@@ -62,17 +64,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly targetSelection = inject(MissionTargetSelection);
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
 
-  // Permission check for creating missions based on existing user role
-  protected readonly canCreateMission = computed(() => {
-    const role = (this.auth.user()?.role || '').toLowerCase();
-    return (
-      role === 'admin' ||
-      role === 'systemadmin' ||
-      role === 'administrator' ||
-      role === 'manager' ||
-      role === 'supervisor'
-    );
-  });
+  /** Area selection / target towers is a manager planning tool (it feeds `/pre-mission/new`). */
+  protected readonly canCreateMission = computed(() => isManagerRole(this.auth.user()?.role));
+  /** The anomaly drawer links to `/ai-review/:id` only for roles that route allows. */
+  protected readonly canReviewAnomalies = computed(() => canAccess(this.auth.user()?.role, ROUTE_ROLES.aiReview));
 
   private map: L.Map | null = null;
   private currentTileLayer: L.TileLayer | null = null;

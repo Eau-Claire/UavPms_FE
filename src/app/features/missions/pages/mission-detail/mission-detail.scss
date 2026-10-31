@@ -4926,3 +4926,78 @@
     background: #ffffff;
   }
 }
+
+/* Role-aware additions (field roles: Inspector, Analyst, Technician) */
+.mission-live-page {
+  ol.audit-milestones-list {
+    list-style: none;
+    margin: 0;
+  }
+
+  .emergency-banner-note {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .comm-message-item.analyst {
+    background: #faf5ff;
+    border: 1px solid #e9d5ff;
+  }
+
+  .comm-message-item.technician {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+  }
+
+  .sender-badge.analyst {
+    background: #7e22ce;
+    color: #ffffff;
+  }
+
+  .sender-badge.technician {
+    background: #c2410c;
+    color: #ffffff;
+  }
+
+  .task-status-pill {
+    &.pending { color: #b45309; }
+    &.inprogress { color: #1d4ed8; }
+    &.completed { color: #15803d; }
+  }
+
+  .maint-task-link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+  }
+
+  .maint-task-open {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+}
+
+.mission-live-page .form-field-group .form-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+
+  .required { color: #ef4444; }
+}

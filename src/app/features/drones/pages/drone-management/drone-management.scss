@@ -904,3 +904,42 @@
     }
   }
 }
+
+/* Technical inspection history modal */
+.history-state {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  color: #475569;
+  font-size: 13px;
+}
+
+.history-error {
+  color: #b91c1c;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th,
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: top;
+    color: #1e293b;
+  }
+
+  th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+  }
+}

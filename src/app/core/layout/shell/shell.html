@@ -16,11 +16,11 @@
                 <strong>TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM (EVN)</strong>
                 <span>HỆ THỐNG QUẢN LÝ KỸ THUẬT & GIÁM SÁT LƯỚI ĐIỆN UAV</span>
               </div>
-              <div class="app-footer-links">
-                <a routerLink="/system/audit-logs" class="footer-link"><span nz-icon nzType="history" aria-hidden="true"></span> Nhật ký hệ thống</a>
-                <a routerLink="/system" class="footer-link"><span nz-icon nzType="setting" aria-hidden="true"></span> Cấu hình hệ thống</a>
-                <a routerLink="/inspections" class="footer-link"><span nz-icon nzType="question-circle" aria-hidden="true"></span> Hỗ trợ & Hướng dẫn</a>
-              </div>
+              @if (canViewAuditLogs()) {
+                <div class="app-footer-links">
+                  <a routerLink="/system/audit-logs" class="footer-link"><span nz-icon nzType="history" aria-hidden="true"></span> Nhật ký hệ thống</a>
+                </div>
+              }
               <div class="app-footer-meta">
                 <small>© 2026 EVN. Bản quyền thuộc về Tập đoàn Điện lực Việt Nam.</small>
               </div>

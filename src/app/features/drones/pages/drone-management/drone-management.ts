@@ -16,6 +16,7 @@ import { DroneManagementApi } from '../../data-access/drone-management-api';
 import {
   BasicTechnicalCheckRequest,
   CreateUavRequest,
+  DroneTechnicalInspectionSummaryDto,
   GisDroneCapabilityItemDto,
   GisDroneEstimationResult,
   UAV_OPERATIONAL_STATUSES,
@@ -26,6 +27,8 @@ import {
   UpdateUavRequest,
 } from '../../../../models/drone-management.models';
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
+import { Auth } from '../../../../core/auth/auth';
+import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 
 @Component({
   selector: 'app-drone-management',
@@ -40,6 +43,18 @@ export class DroneManagement {
   private readonly fcSerial = inject(BetaflightSerialService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly auth = inject(Auth);
+
+  /** `DELETE /drones/{id}` and the GIS load estimate (fleet planning) are for SystemAdmin/Manager. */
+  protected readonly canManageFleet = computed(() => isManagerRole(this.auth.user()?.role));
+  /** `POST/PUT /drones` and `POST /drones/{id}/basic-technical-check`: managers and technicians. Others read only. */
+  protected readonly canEditDrone = computed(() => this.canManageFleet() || isTechnicianRole(this.auth.user()?.role));
+
+  // Technical-inspection history (`GET /drones/{id}/technical-inspections`, every role)
+  protected readonly historyDrone = signal<UavRecord | null>(null);
+  protected readonly historyItems = signal<readonly DroneTechnicalInspectionSummaryDto[]>([]);
+  protected readonly historyLoading = signal(false);
+  protected readonly historyError = signal('');
 
   protected readonly operationalStatuses = UAV_OPERATIONAL_STATUSES;
   protected readonly technicalHealths = UAV_TECHNICAL_HEALTHS;
@@ -143,7 +158,7 @@ export class DroneManagement {
     notes: ['Kiểm định tiền bay đạt điều kiện khai thác an toàn.'],
   });
 
-  // GIS Drone Scope Estimation Form (Issue Note #152)
+  // GIS Drone Scope Estimation Form
   protected readonly gisForm = this.fb.nonNullable.group({
     corridorLengthKm: [5.0, [Validators.required, Validators.min(0.1)]],
     assetCount: [12, [Validators.required, Validators.min(1)]],
@@ -318,6 +333,28 @@ export class DroneManagement {
       });
   }
 
+  // --- Technical inspection history ---
+  protected openHistory(drone: UavRecord): void {
+    this.historyDrone.set(drone);
+    this.historyItems.set([]);
+    this.historyError.set('');
+    this.historyLoading.set(true);
+    this.api
+      .getTechnicalInspections(drone.id, 1, 20)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.historyLoading.set(false)),
+      )
+      .subscribe({
+        next: (items) => this.historyItems.set(items),
+        error: () => this.historyError.set('Không thể tải lịch sử kiểm định của UAV này.'),
+      });
+  }
+
+  protected closeHistory(): void {
+    this.historyDrone.set(null);
+  }
+
   // --- Basic Technical Check Modal ---
   protected openTechCheck(drone: UavRecord): void {
     this.targetDroneForCheck.set(drone);
@@ -432,7 +469,7 @@ export class DroneManagement {
       });
   }
 
-  // --- GIS Scope & Drone Estimation (Note #152) ---
+  // --- GIS Scope & Drone Estimation ---
   protected openGisModal(): void {
     this.gisModalOpen.set(true);
     this.runGisEstimation();

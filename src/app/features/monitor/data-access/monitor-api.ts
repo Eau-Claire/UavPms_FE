@@ -7,6 +7,8 @@ import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord
 
 export const LOCAL_STORAGE_READ_ALERTS_KEY = 'uav_pms_read_alerts_v1';
 
+export const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function getReadAlertIds(): Set<string> {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_READ_ALERTS_KEY);
@@ -69,7 +71,24 @@ export class MonitorApi {
     }));
   }
 
+  /** `GET /monitor/alerts`: the signed-in user's own unread notifications, newest first. */
+  getAlerts() {
+    return this.get<unknown>('alerts').pipe(map((value) => {
+      const readSet = getReadAlertIds();
+      return itemsOf(value)
+        .map((item, index) => normalizeAlert(item, index, readSet))
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    }));
+  }
+
+  /** `GET /monitor/recent-defects?page&pageSize` (system-wide). */
+  getRecentDefects(page = 1, pageSize = 5) {
+    return this.get<unknown>('recent-defects', { page, pageSize }).pipe(map((value) => normalizePage(value, page, pageSize, normalizeDefect)));
+  }
+
   getInspections(filters: InspectionFilters) {
+    // The backend binds `missionId` as a Guid; anything else would be a 400.
+    if (filters.missionId && !GUID_PATTERN.test(filters.missionId)) filters = { ...filters, missionId: '' };
     const query: Record<string, string | number | boolean> = { page: filters.page, pageSize: filters.pageSize };
     if (filters.missionId) query['missionId'] = filters.missionId;
     if (filters.isDefect !== null) query['isDefect'] = filters.isDefect;

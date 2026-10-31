@@ -9,14 +9,16 @@
       </p>
     </div>
     <div class="header-actions">
-      <button
-        type="button"
-        class="button secondary"
-        (click)="openGisModal()"
-        title="Ước tính tải Drone theo hành lang GIS (Issue Note #152)"
-      >
-        <span nz-icon nzType="calculator"></span> Ước tính tải GIS
-      </button>
+      @if (canManageFleet()) {
+        <button
+          type="button"
+          class="button secondary"
+          (click)="openGisModal()"
+          title="Ước tính tải Drone theo hành lang GIS"
+        >
+          <span nz-icon nzType="calculator" aria-hidden="true"></span> Ước tính tải GIS
+        </button>
+      }
       <button
         type="button"
         class="button secondary"
@@ -26,13 +28,15 @@
       >
         <span nz-icon nzType="reload" [nzSpin]="loading()"></span> Làm mới
       </button>
-      <button
-        type="button"
-        class="button primary"
-        (click)="openCreate()"
-      >
-        <span nz-icon nzType="plus"></span> Thêm UAV mới
-      </button>
+      @if (canEditDrone()) {
+        <button
+          type="button"
+          class="button primary"
+          (click)="openCreate()"
+        >
+          <span nz-icon nzType="plus" aria-hidden="true"></span> Thêm UAV mới
+        </button>
+      }
     </div>
   </header>
 
@@ -273,29 +277,44 @@
                 <div class="actions-cell">
                   <button
                     type="button"
-                    class="action-btn check"
-                    (click)="openTechCheck(drone)"
-                    title="Kiểm định kỹ thuật an toàn (Checklist)"
+                    class="action-btn"
+                    (click)="openHistory(drone)"
+                    title="Lịch sử kiểm định kỹ thuật"
+                    [attr.aria-label]="'Lịch sử kiểm định kỹ thuật của ' + drone.code"
                   >
-                    <span nz-icon nzType="safety-certificate"></span> Kiểm tra
+                    <span nz-icon nzType="history" aria-hidden="true"></span>
                   </button>
-                  <button
-                    type="button"
-                    class="action-btn edit"
-                    (click)="openEdit(drone)"
-                    title="Chỉnh sửa thông số UAV"
-                  >
-                    <span nz-icon nzType="edit"></span>
-                  </button>
-                  <button
-                    type="button"
-                    class="action-btn delete"
-                    (click)="deleteDrone(drone)"
-                    [disabled]="drone.operationalStatus === 'InUse'"
-                    title="Xóa UAV"
-                  >
-                    <span nz-icon nzType="delete"></span>
-                  </button>
+                  @if (canEditDrone()) {
+                    <button
+                      type="button"
+                      class="action-btn check"
+                      (click)="openTechCheck(drone)"
+                      title="Kiểm định kỹ thuật an toàn (Checklist)"
+                    >
+                      <span nz-icon nzType="safety-certificate" aria-hidden="true"></span> Kiểm tra
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn edit"
+                      (click)="openEdit(drone)"
+                      title="Chỉnh sửa thông số UAV"
+                      [attr.aria-label]="'Chỉnh sửa ' + drone.code"
+                    >
+                      <span nz-icon nzType="edit" aria-hidden="true"></span>
+                    </button>
+                  }
+                  @if (canManageFleet()) {
+                    <button
+                      type="button"
+                      class="action-btn delete"
+                      (click)="deleteDrone(drone)"
+                      [disabled]="drone.operationalStatus === 'InUse'"
+                      title="Xóa UAV"
+                      [attr.aria-label]="'Xóa ' + drone.code"
+                    >
+                      <span nz-icon nzType="delete" aria-hidden="true"></span>
+                    </button>
+                  }
                 </div>
               </td>
             </tr>
@@ -623,14 +642,73 @@
   </div>
 }
 
-<!-- ================= MODAL: GIS SCOPE ESTIMATION (NOTE #152) ================= -->
-@if (gisModalOpen()) {
+<!-- ================= MODAL: TECHNICAL INSPECTION HISTORY ================= -->
+@if (historyDrone(); as hd) {
+  <div class="modal-backdrop" tabindex="-1" (click)="closeHistory()" (keydown.escape)="closeHistory()">
+    <div class="modal-dialog modal-lg" role="dialog" aria-modal="true" aria-labelledby="drone-history-title" (click)="$event.stopPropagation()" (keydown.escape)="closeHistory()">
+      <div class="modal-header">
+        <h3 id="drone-history-title">
+          <span nz-icon nzType="history" aria-hidden="true"></span>
+          Lịch sử kiểm định kỹ thuật: {{ hd.code }}
+        </h3>
+        <button type="button" class="close-x" aria-label="Đóng" (click)="closeHistory()">
+          <span nz-icon nzType="close" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        @if (historyLoading()) {
+          <p class="history-state" role="status"><span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span> Đang tải lịch sử kiểm định...</p>
+        } @else if (historyError()) {
+          <p class="history-state history-error" role="alert">{{ historyError() }}</p>
+        } @else if (!historyItems().length) {
+          <p class="history-state">UAV này chưa có lần kiểm định kỹ thuật nào.</p>
+        } @else {
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <caption class="sr-only">Các lần kiểm định kỹ thuật gần nhất của {{ hd.code }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Hoàn thành</th>
+                  <th scope="col">Kết quả</th>
+                  <th scope="col">Sức khỏe</th>
+                  <th scope="col">Kỹ thuật viên</th>
+                  <th scope="col">Hiệu lực đến</th>
+                  <th scope="col">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (insp of historyItems(); track insp.id) {
+                  <tr>
+                    <td>{{ insp.completedAt ? (insp.completedAt | date:'dd/MM/yyyy HH:mm') : 'Chưa hoàn thành' }}</td>
+                    <td>{{ insp.status }}</td>
+                    <td><span class="badge" [class]="healthBadgeClass(insp.health)">{{ insp.health }}</span></td>
+                    <td>{{ insp.technicianName || '—' }}</td>
+                    <td>{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                    <td>{{ insp.notes || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="button secondary" (click)="closeHistory()">Đóng</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= MODAL: GIS SCOPE ESTIMATION ================= -->
+@if (canManageFleet() && gisModalOpen()) {
   <div class="modal-backdrop" (click)="closeGisModal()">
     <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>
           <span nz-icon nzType="calculator"></span>
-          Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS (Issue Note #152)
+          Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS
         </h3>
         <button type="button" class="close-x" (click)="closeGisModal()">
           <span nz-icon nzType="close"></span>

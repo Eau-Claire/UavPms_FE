@@ -26,12 +26,12 @@
       </div>
       <div class="status-sep" aria-hidden="true"></div>
       <div class="status-item">
-        <span class="status-label">Phát hiện sự cố</span>
+        <span class="status-label">Phát hiện sự cố (trên trang này)</span>
         <strong class="status-value text-defect">{{ defectCount() }}</strong>
       </div>
       <div class="status-sep" aria-hidden="true"></div>
       <div class="status-item">
-        <span class="status-label">Bình thường (Không lỗi)</span>
+        <span class="status-label">Bình thường (trên trang này)</span>
         <strong class="status-value text-normal">{{ normalCount() }}</strong>
       </div>
       <div class="status-sep" aria-hidden="true"></div>
@@ -45,6 +45,15 @@
   <section class="filter-toolbar">
     <app-inspection-filters (filtersChanged)="apply($event)" />
   </section>
+
+  @if (missionSearch()) {
+    <p class="filter-notice" role="status">
+      Không tìm thấy nhiệm vụ trùng khớp với “{{ missionSearch() }}”. Đang lọc theo tên nhiệm vụ trên trang hiện tại:
+      {{ visibleItems().length }}/{{ pageItems().length }} bản ghi. Chọn nhiệm vụ trong danh sách gợi ý để lọc toàn bộ lịch sử.
+    </p>
+  } @else if (missionLabel()) {
+    <p class="filter-notice is-info" role="status">Đang lọc theo nhiệm vụ: <strong>{{ missionLabel() }}</strong></p>
+  }
 
   <section class="table-container">
     <div class="table-header">
@@ -62,7 +71,7 @@
     } @else if (store.error()) {
       <app-data-state kind="error" [message]="store.error() || ''" (retry)="retry()" />
     } @else if (store.inspections(); as data) {
-      @if (data.items.length) {
+      @if (visibleItems().length) {
         <div class="table-scroll">
           <table class="inspection-table">
             <caption class="sr-only">Hồ sơ lịch sử kiểm tra</caption>
@@ -76,7 +85,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of data.items; track item.id) {
+              @for (item of visibleItems(); track item.id) {
                 <tr>
                   <td>
                     <div class="mission-cell">
@@ -116,11 +125,15 @@
             </tbody>
           </table>
         </div>
+      } @else if (data.items.length) {
+        <app-data-state kind="empty" title="Không có bản ghi nào trên trang này khớp tên nhiệm vụ" message="Chuyển sang trang khác hoặc chọn nhiệm vụ trong danh sách gợi ý để lọc toàn bộ lịch sử." />
+      } @else {
+        <app-data-state kind="empty" title="Không tìm thấy bản ghi kiểm tra" message="Thử xóa bộ lọc hoặc thay đổi khoảng thời gian đã chọn." />
+      }
+      @if (data.items.length) {
         <div class="pagination-wrap">
           <app-pagination [page]="data.page" [totalPages]="data.totalPages" [totalCount]="data.totalCount" (pageChanged)="changePage($event)" />
         </div>
-      } @else {
-        <app-data-state kind="empty" title="Không tìm thấy bản ghi kiểm tra" message="Thử xóa bộ lọc hoặc thay đổi khoảng thời gian đã chọn." />
       }
     }
   </section>

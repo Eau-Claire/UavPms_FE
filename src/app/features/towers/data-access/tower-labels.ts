@@ -1,5 +1,7 @@
 import { AnomalyValidationStatus } from '../../../models/assets.models';
 import { UserRole } from '../../../models/auth.models';
+import { canAccess, ROUTE_ROLES } from '../../../core/auth/route-access';
+import { isManagerRole } from '../../../core/auth/roles';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -38,9 +40,10 @@ export const ticketPriorityLabel = (priority: string): string => PRIORITY_LABELS
 export const ticketPriorityTone = (priority: string): Tone => PRIORITY_TONES[priority] ?? 'neutral';
 
 /** Backend rule (UserRoles.AdminAndManager): only SystemAdmin and Manager may create/update/delete/import towers. */
-export const canManageInfrastructure = (role: UserRole | string | null | undefined): boolean =>
-  ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes((role ?? '').toLowerCase());
+export const canManageInfrastructure = (role: UserRole | string | null | undefined): boolean => isManagerRole(role);
 
 /** Roles that may open the AI review screen (/ai-review/:id). */
-export const canReviewAnomalies = (role: UserRole | string | null | undefined): boolean =>
-  ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor', 'analyst'].includes((role ?? '').toLowerCase());
+export const canReviewAnomalies = (role: UserRole | string | null | undefined): boolean => canAccess(role, ROUTE_ROLES.aiReview);
+
+/** Roles that may open a maintenance ticket (/maintenance/:id). */
+export const canOpenMaintenance = (role: UserRole | string | null | undefined): boolean => canAccess(role, ROUTE_ROLES.maintenance);

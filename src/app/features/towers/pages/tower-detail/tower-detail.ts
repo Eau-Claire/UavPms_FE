@@ -13,6 +13,7 @@ import {
   ANOMALY_STATUSES,
   anomalyStatusLabel,
   anomalyStatusTone,
+  canOpenMaintenance,
   canReviewAnomalies,
   ticketPriorityLabel,
   ticketPriorityTone,
@@ -58,6 +59,7 @@ export class TowerDetail {
   protected readonly ticketPriorityLabel = ticketPriorityLabel;
   protected readonly ticketPriorityTone = ticketPriorityTone;
   protected readonly canReview = computed(() => canReviewAnomalies(this.auth.user()?.role));
+  protected readonly canOpenTicket = computed(() => canOpenMaintenance(this.auth.user()?.role));
 
   protected readonly history = signal<TowerHistory | null>(null);
   protected readonly loading = signal(true);
