@@ -1337,8 +1337,16 @@
           <strong style="color: #003f99; text-transform: uppercase;">{{ statusLabel(a.status) }}</strong>
           @if (!canProceedToMf02()) {
             <span style="color: #dc2626; margin-left: 8px;">
-              @if (!roleBreakdown().hasAllThree) {
+              @if (!canManage()) {
+                (Chỉ Quản trị viên hoặc Quản lý mới có quyền tạo nhiệm vụ)
+              } @else if (!roleBreakdown().hasAllThree) {
                 (Chưa đạt định mức: {{ roleBreakdown().missingDetails.join('; ') }})
+              } @else if (!isReady()) {
+                (Cần đạt trạng thái READY/SẴN SÀNG)
+              } @else if (isCompleted()) {
+                (Hồ sơ đã được dùng tạo nhiệm vụ)
+              } @else if (isExpired()) {
+                (Hồ sơ đã hết hạn hiệu lực)
               } @else {
                 (Cần đạt trạng thái READY, chưa hoàn thành tạo nhiệm vụ và còn hạn hiệu lực)
               }
@@ -1380,7 +1388,7 @@
             class="evn-btn primary"
             style="opacity: 0.5; cursor: not-allowed;"
             disabled
-            [title]="!roleBreakdown().hasAllThree ? ('Chưa đủ định mức nhân sự: ' + roleBreakdown().missingDetails.join('; ')) : 'Hồ sơ chưa đạt trạng thái READY hoặc đã hết hạn'"
+            [title]="!canManage() ? 'Chỉ Quản trị viên hoặc Quản lý mới có quyền tạo nhiệm vụ' : (!roleBreakdown().hasAllThree ? ('Chưa đủ định mức nhân sự: ' + roleBreakdown().missingDetails.join('; ')) : 'Hồ sơ chưa đạt trạng thái READY hoặc đã hết hạn')"
           >
             <span nz-icon nzType="arrow-right"></span> Chuyển sang tạo nhiệm vụ (MF02)
           </button>

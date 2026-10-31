@@ -65,12 +65,30 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
   protected readonly currentUser = this.auth.user;
   protected readonly canManage = computed(() => {
-    const role = this.currentUser()?.role;
-    return !role || role === 'SystemAdmin' || role === 'Manager';
+    const role = (this.currentUser()?.role || '').toLowerCase();
+    return (
+      !role ||
+      role === 'admin' ||
+      role === 'systemadmin' ||
+      role === 'administrator' ||
+      role === 'manager' ||
+      role === 'supervisor'
+    );
   });
   protected readonly canInspectDrone = computed(() => {
-    const role = this.currentUser()?.role;
-    return !role || role === 'SystemAdmin' || role === 'Technician' || role === 'Inspector' || role === 'Manager';
+    const role = (this.currentUser()?.role || '').toLowerCase();
+    return (
+      !role ||
+      role === 'admin' ||
+      role === 'systemadmin' ||
+      role === 'administrator' ||
+      role === 'technician' ||
+      role === 'maintenancetechnician' ||
+      role === 'inspector' ||
+      role === 'pilot' ||
+      role === 'manager' ||
+      role === 'supervisor'
+    );
   });
 
   protected readonly item = signal<PreMissionAssessment | null>(null);
@@ -162,7 +180,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly currentMapType = signal<'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'>('google-streets');
 
   protected readonly status = computed(() => (this.item()?.status ?? '').toUpperCase());
-  protected readonly isReady = computed(() => this.status() === 'READY');
+  protected readonly isReady = computed(() => this.status() === 'READY' || this.item()?.isReady === true);
   protected readonly isEvaluating = computed(() => this.status() === 'EVALUATING');
   protected readonly isCancelled = computed(() => this.status() === 'CANCELLED');
   protected readonly isCompleted = computed(() => this.status() === 'COMPLETED' || !!this.item()?.completedMissionId);
