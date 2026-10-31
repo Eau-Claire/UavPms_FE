@@ -1,0 +1,414 @@
+@use '../../towers-shared' as shared;
+
+@include shared.page;
+
+/* =============================================================
+   Streamlined Unified Overview Card (Tower Metadata + KPI Chips)
+   ============================================================= */
+.tower-overview-bar {
+  margin-bottom: 12px;
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px 18px;
+}
+
+.tower-overview-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tower-meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  flex: 1 1 520px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-label {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.meta-val {
+  color: #0f2952;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.tower-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    color: #1e3a5f;
+  }
+}
+
+.meta-address {
+  max-width: 260px;
+
+  .meta-val {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+}
+
+/* 4 Compact Metric Chips */
+.tower-stats-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-left: 1px solid #e2e8f0;
+  padding-left: 16px;
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd8e5;
+  background: #ffffff;
+  min-width: 116px;
+
+  .stat-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .stat-label {
+    color: #526b82;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .stat-count {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    color: #0f2952;
+  }
+
+  .stat-sub {
+    color: #64748b;
+    font-size: 10.5px;
+    white-space: nowrap;
+  }
+
+  &.tone-danger {
+    border-left: 3.5px solid #dc2626;
+    .stat-count { color: #dc2626; }
+  }
+
+  &.tone-warning {
+    border-left: 3.5px solid #d97706;
+    .stat-count { color: #b45309; }
+  }
+
+  &.tone-info {
+    border-left: 3.5px solid #0284c7;
+    .stat-count { color: #0284c7; }
+  }
+
+  &.tone-neutral {
+    border-left: 3.5px solid #64748b;
+    .stat-count { color: #334155; }
+  }
+}
+
+/* =============================================================
+   Card Header: Tabs + Inline Filter Strip
+   ============================================================= */
+.tower-detail-table-card {
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.tower-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid #cbd8e5;
+  background: #f8fafc;
+  padding: 0 12px;
+}
+
+.tower-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: none;
+  background: transparent;
+  padding: 0;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #526b82;
+    padding: 0 14px;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+
+    &.active {
+      border-bottom-color: #10387d;
+      color: #10387d;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #1d4f91;
+      outline-offset: -2px;
+    }
+  }
+}
+
+.tower-tab-count {
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #17324d;
+  padding: 1px 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.tower-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+
+  .filter-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    &.is-hidden {
+      display: none !important;
+    }
+  }
+
+  .date-label {
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  input,
+  select {
+    height: 32px;
+    min-height: 32px;
+    border: 1px solid #cbd8e5;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #17324d;
+    padding: 2px 8px;
+    font: inherit;
+    font-size: 12.5px;
+
+    &:focus-visible {
+      outline: 2px solid #1d4f91;
+      outline-offset: 1px;
+    }
+  }
+
+  .btn-compact {
+    min-height: 32px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+
+  .filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.tower-range-error {
+  margin: 0;
+  padding: 6px 12px;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 12px;
+}
+
+/* =============================================================
+   Scrollable Table Viewport with Sticky Header & Footer
+   ============================================================= */
+.tower-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 275px);
+  min-height: 240px;
+  scrollbar-gutter: stable;
+}
+
+.tower-table {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f8fafc;
+    box-shadow: 0 1px 0 #cbd8e5;
+  }
+}
+
+/* Anomalies Table Column Locks */
+.table-anomalies {
+  th.th-thumb, td.td-thumb { width: 72px; text-align: center; }
+  th.th-category, td.td-category { width: 220px; }
+  th.th-confidence, td.td-confidence { width: 105px; }
+  th.th-status, td.td-status { width: 135px; }
+  th.th-source, td.td-source { width: 95px; }
+  th.th-time, td.td-time { width: 160px; }
+  th.th-actions, td.td-actions {
+    width: 95px;
+    text-align: right;
+
+    .tower-row-actions {
+      display: inline-flex;
+      justify-content: flex-end;
+    }
+  }
+}
+
+/* Maintenance Table Column Locks */
+.table-maintenance {
+  th.th-ticket-code, td.td-ticket-code { width: 140px; }
+  th.th-ticket-desc, td.td-ticket-desc {
+    width: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  th.th-ticket-priority, td.td-ticket-priority { width: 110px; }
+  th.th-ticket-status, td.td-ticket-status { width: 130px; }
+  th.th-ticket-created, td.td-ticket-created { width: 110px; }
+  th.th-ticket-due, td.td-ticket-due { width: 110px; }
+  th.th-ticket-resolved, td.td-ticket-resolved { width: 110px; }
+  th.th-ticket-materials, td.td-ticket-materials { width: 220px; }
+}
+
+.tower-thumb {
+  display: block;
+  width: 56px;
+  height: 42px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  object-fit: cover;
+  margin-inline: auto;
+}
+
+.tower-description {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tower-ticket-details {
+  font-size: 12.5px;
+
+  summary {
+    color: #17324d;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  summary:focus-visible {
+    outline: 2px solid #1d4f91;
+  }
+
+  ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+
+  a {
+    color: #10387d;
+  }
+}
+
+.tower-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-top: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  background: #ffffff;
+}
+
+/* =============================================================
+   Responsive Adjustments
+   ============================================================= */
+@media (max-width: 1050px) {
+  .tower-stats-strip {
+    border-left: none;
+    border-top: 1px solid #e2e8f0;
+    padding-left: 0;
+    padding-top: 10px;
+    width: 100%;
+  }
+
+  .stat-chip {
+    flex: 1 1 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .tower-overview-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tower-meta-list {
+    width: 100%;
+  }
+
+  .tower-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tower-filter-strip {
+    width: 100%;
+  }
+}

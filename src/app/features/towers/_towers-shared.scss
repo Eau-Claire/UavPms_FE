@@ -1,0 +1,478 @@
+// Shared look for the tower pages and dialogs (component styles are encapsulated, so each one includes what it needs).
+
+@mixin dialog {
+  :host {
+    display: contents;
+  }
+
+  .tower-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    border: 1px solid #cbd8e5;
+    border-radius: 8px;
+    padding: 0;
+    color: #17324d;
+    background: #ffffff;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
+    overflow: auto;
+    z-index: 1050;
+  }
+
+  .tower-dialog::backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+  }
+
+  .tower-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 16px 20px;
+
+    h2 {
+      margin: 0;
+      color: #0f2952;
+      font-size: 18px;
+      font-weight: 700;
+    }
+  }
+
+  .tower-dialog-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #334155;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+      background: #f1f5f9;
+    }
+    &:focus-visible {
+      outline: 2px solid #1d4f91;
+    }
+  }
+
+  .tower-dialog-body {
+    padding: 18px 20px 4px;
+  }
+
+  .tower-dialog-body p {
+    margin: 0 0 12px;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .tower-dialog-error {
+    margin: 0 0 14px;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    background: #fef2f2;
+    color: #991b1b !important;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .tower-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 20px;
+
+    .button {
+      cursor: pointer;
+    }
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+    .button.danger {
+      border-color: #991b1b;
+      background: #991b1b;
+      color: #ffffff;
+    }
+  }
+}
+
+@mixin page {
+  :host {
+    display: block;
+    max-width: 100rem;
+    margin-inline: auto;
+    padding: 0;
+    color: #17324d;
+  }
+
+  .page-heading,
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+
+    .heading-left,
+    .page-heading-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 2px 0;
+      color: #64748b;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+
+      span {
+        color: #64748b;
+      }
+
+      strong {
+        color: #10387d;
+        font-weight: 700;
+      }
+
+      a {
+        color: #64748b;
+        text-decoration: none;
+
+        &:hover {
+          color: #10387d;
+          text-decoration: underline;
+        }
+      }
+    }
+
+    h1,
+    .page-title {
+      margin: 0 0 2px 0;
+      color: #0f2952;
+      font-size: 19px;
+      font-weight: 700;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      font-family: inherit;
+    }
+
+    p,
+    .review-subtitle,
+    .page-subtitle {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 400;
+    }
+  }
+
+  .tower-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+    border: 1px solid #cbd8e5;
+    border-radius: 6px;
+    background: #ffffff;
+    padding: 14px 16px;
+  }
+
+  .tower-filter {
+    display: grid;
+    gap: 4px;
+    min-width: 160px;
+
+    label {
+      color: #526b82;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    input,
+    select {
+      min-height: 38px;
+      border: 1px solid #cbd8e5;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #17324d;
+      padding: 6px 10px;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid #1d4f91;
+      outline-offset: 1px;
+    }
+  }
+
+  .tower-filter-grow {
+    flex: 1 1 240px;
+  }
+
+  .tower-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  .button:focus-visible {
+    outline: 2px solid #1d4f91;
+    outline-offset: 2px;
+  }
+
+  .tower-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+
+    button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
+
+  .tower-banner-error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+  }
+  .tower-banner-success {
+    border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  }
+
+  .tower-card {
+    overflow: hidden;
+    border: 1px solid #cbd8e5;
+    border-radius: 6px;
+    background: #ffffff;
+  }
+
+  .tower-table-wrap {
+    overflow-x: auto;
+  }
+
+  .tower-table {
+    width: 100%;
+    min-width: 960px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 14px;
+
+    caption {
+      padding: 0;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #526b82;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-align: left;
+      text-transform: uppercase;
+      white-space: nowrap;
+      border-bottom: 1px solid #cbd8e5;
+    }
+
+    td {
+      border-top: 1px solid #e2e8f0;
+      color: #17324d;
+      padding: 10px 14px;
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    // Explicit column width locks to prevent layout jitter between page sizes (10 vs 50 rows)
+    th.th-code,
+    td.td-code {
+      width: 180px;
+      min-width: 180px;
+    }
+
+    th.th-region,
+    td.td-region {
+      width: 140px;
+      min-width: 140px;
+    }
+
+    th.th-type,
+    td.td-type {
+      width: 140px;
+      min-width: 140px;
+    }
+
+    th.th-coords,
+    td.td-coords {
+      width: 210px;
+      min-width: 210px;
+      white-space: nowrap;
+    }
+
+    th.th-actions,
+    td.td-actions {
+      width: 120px;
+      min-width: 120px;
+      text-align: right;
+
+      .tower-row-actions {
+        display: inline-flex;
+        justify-content: flex-end;
+      }
+    }
+
+    th.th-address,
+    td.td-address {
+      width: auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .tower-code-link {
+    color: #10387d;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .tower-code-link:hover {
+    text-decoration: underline;
+  }
+  .tower-code-link:focus-visible {
+    outline: 2px solid #1d4f91;
+    outline-offset: 2px;
+  }
+
+  .tower-muted {
+    color: #526b82;
+  }
+  .tower-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+
+  .tower-row-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tower-icon-button {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #17324d;
+    cursor: pointer;
+    text-decoration: none;
+
+    &:hover {
+      background: #f1f5f9;
+    }
+    &:focus-visible {
+      outline: 2px solid #1d4f91;
+    }
+    &.danger {
+      color: #991b1b;
+    }
+    &.danger:hover {
+      background: #fef2f2;
+    }
+  }
+
+  .tower-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid #cbd8e5;
+
+    &.tone-success {
+      background: #f0fdf4;
+    color: #166534;
+      border-color: #94a3b8;
+    }
+    &.tone-warning {
+      background: #f1f5f9;
+      color: #334155;
+      border-color: #cbd8e5;
+    }
+    &.tone-danger {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+    &.tone-info {
+      background: #1d4f91;
+      color: #ffffff;
+      border-color: #1d4f91;
+    }
+    &.tone-neutral {
+      background: #f8fafc;
+      color: #526b82;
+      border-color: #e2e8f0;
+    }
+  }
+
+  .tower-footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 14px;
+  }
+}

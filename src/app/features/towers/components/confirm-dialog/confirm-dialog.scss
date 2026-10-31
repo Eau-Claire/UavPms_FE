@@ -1,0 +1,5 @@
+@use '../../towers-shared' as shared;
+
+@include shared.dialog;
+
+.tower-dialog { width: min(440px, calc(100vw - 32px)); }

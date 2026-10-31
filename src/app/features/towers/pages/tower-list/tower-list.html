@@ -1,0 +1,133 @@
+<header class="page-heading">
+  <div class="heading-left">
+    <div class="page-breadcrumb"><span>HẠ TẦNG</span><span>/</span><strong>CỘT ĐIỆN</strong></div>
+    <h1>Quản lý cột điện</h1>
+    <p class="review-subtitle">Danh mục cột điện theo khu vực, tọa độ và lịch sử kiểm tra.</p>
+  </div>
+  @if (canManage()) {
+    <div class="tower-actions">
+      <label class="button secondary tower-import" [class.is-busy]="importing()">
+        <span nz-icon nzType="file-excel" aria-hidden="true"></span>
+        <span>{{ importing() ? 'Đang nhập...' : 'Nhập Excel' }}</span>
+        <input type="file" class="sr-only" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" [disabled]="importing()" aria-describedby="tower-import-hint" (change)="importFile($event)" />
+      </label>
+      <button type="button" class="button primary" (click)="openCreate()">
+        <span nz-icon nzType="plus" aria-hidden="true"></span><span>Thêm cột điện</span>
+      </button>
+    </div>
+  }
+</header>
+
+@if (canManage()) {
+  <p id="tower-import-hint" class="tower-import-hint">
+    Tệp Excel (.xlsx), dòng 1 là tiêu đề. Cột: mã khu vực (hoặc RegionId), mã cột, vĩ độ, kinh độ, loại cột, địa chỉ.
+  </p>
+}
+
+@if (notice(); as message) {
+  <div class="tower-banner" [class.tower-banner-success]="message.tone === 'success'" [class.tower-banner-error]="message.tone === 'error'" [attr.role]="message.tone === 'error' ? 'alert' : 'status'">
+    <span>{{ message.text }}</span>
+    <button type="button" (click)="notice.set(null)">Đóng</button>
+  </div>
+}
+
+<form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc cột điện" (ngSubmit)="goToPage(1)">
+  <div class="tower-filter tower-filter-grow">
+    <label for="tower-search">Tìm kiếm</label>
+    <input id="tower-search" type="search" formControlName="search" placeholder="Mã cột hoặc địa chỉ" autocomplete="off" />
+  </div>
+  <div class="tower-filter">
+    <label for="tower-region-filter">Khu vực</label>
+    <select id="tower-region-filter" formControlName="regionId">
+      <option value="">Tất cả khu vực</option>
+      @for (region of regions(); track region.id) {
+        <option [value]="region.id">{{ region.name }}</option>
+      }
+    </select>
+  </div>
+  <div class="tower-filter">
+    <label for="tower-page-size">Số dòng / trang</label>
+    <select id="tower-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
+      @for (size of pageSizes; track size) {
+        <option [value]="size">{{ size }}</option>
+      }
+    </select>
+  </div>
+  <div class="tower-actions">
+    <button type="button" class="button secondary" (click)="resetFilters()">Đặt lại</button>
+    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
+      <span nz-icon nzType="reload" aria-hidden="true"></span>
+    </button>
+  </div>
+</form>
+
+<section class="tower-card" aria-labelledby="tower-table-caption">
+  @if (loading() && !result().items.length) {
+    <app-data-state kind="loading" title="Đang tải danh sách cột điện" />
+  } @else if (loadError()) {
+    <app-data-state kind="error" [message]="loadError()" (retry)="load()" />
+  } @else if (!result().items.length) {
+    <app-data-state kind="empty" title="Không có cột điện" message="Không tìm thấy cột điện phù hợp với bộ lọc." />
+  } @else {
+    <div class="tower-table-wrap" [attr.aria-busy]="loading()">
+      <table class="tower-table">
+        <caption id="tower-table-caption" class="sr-only">Danh sách cột điện</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="th-code">Mã cột</th>
+            <th scope="col" class="th-region">Khu vực</th>
+            <th scope="col" class="th-type">Loại cột</th>
+            <th scope="col" class="th-address">Địa chỉ</th>
+            <th scope="col" class="th-coords">Tọa độ (vĩ độ, kinh độ)</th>
+            <th scope="col" class="th-actions"><span class="sr-only">Thao tác</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tower of result().items; track tower.id) {
+            <tr>
+              <td class="td-code"><a class="tower-code-link" [routerLink]="['/towers', tower.id]">{{ tower.towerCode }}</a></td>
+              <td class="td-region">{{ regionName(tower) }}</td>
+              <td class="td-type">{{ tower.poleType || '—' }}</td>
+              <td class="tower-muted td-address" [title]="tower.address || ''">{{ tower.address || '—' }}</td>
+              <td class="tower-mono td-coords">{{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}</td>
+              <td class="td-actions">
+                <div class="tower-row-actions">
+                  <a class="tower-icon-button" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Xem lịch sử cột ' + tower.towerCode">
+                    <span nz-icon nzType="history" aria-hidden="true"></span>
+                  </a>
+                  @if (canManage()) {
+                    <button type="button" class="tower-icon-button" [attr.aria-label]="'Sửa cột ' + tower.towerCode" (click)="openEdit(tower)">
+                      <span nz-icon nzType="edit" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="tower-icon-button danger" [attr.aria-label]="'Xóa cột ' + tower.towerCode" (click)="askDelete(tower)">
+                      <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="tower-footer">
+      <app-pagination [page]="result().pagination.page" [totalPages]="result().pagination.totalPages" [totalCount]="result().pagination.totalItems" (pageChanged)="goToPage($event)" />
+    </div>
+  }
+</section>
+
+@if (formOpen()) {
+  <app-tower-form-dialog [tower]="editing()" [regions]="regions()" [busy]="saving()" [errorMessage]="formError()" (submitted)="save($event)" (closed)="closeForm()" />
+}
+
+@if (deleting(); as tower) {
+  <app-tower-confirm-dialog
+    title="Xóa cột điện"
+    [message]="'Xóa cột ' + tower.towerCode + '? Thao tác này không thể hoàn tác.'"
+    confirmLabel="Xóa"
+    [busy]="deleteBusy()"
+    [errorMessage]="deleteError()"
+    (confirmed)="confirmDelete()"
+    (closed)="deleting.set(null)"
+  />
+}

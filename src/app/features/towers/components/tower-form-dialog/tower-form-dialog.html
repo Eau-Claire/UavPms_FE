@@ -1,0 +1,59 @@
+<dialog #dialog class="tower-dialog" aria-labelledby="tower-form-title" (cancel)="onCancel($event)" (click)="onBackdropClick($event)">
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <header class="tower-dialog-head">
+      <h2 id="tower-form-title">{{ tower() ? 'Cập nhật cột điện' : 'Thêm cột điện' }}</h2>
+      <button type="button" class="tower-dialog-close" aria-label="Đóng" [disabled]="busy()" (click)="close()">×</button>
+    </header>
+
+    <div class="tower-dialog-body">
+      @if (errorMessage()) {
+        <p class="tower-dialog-error" role="alert">{{ errorMessage() }}</p>
+      }
+
+      <div class="tower-field">
+        <label for="tower-region">Khu vực <span aria-hidden="true">*</span></label>
+        <select id="tower-region" formControlName="regionId" required [attr.aria-invalid]="hasError('regionId')" [attr.aria-describedby]="hasError('regionId') ? 'tower-region-error' : null">
+          <option value="" disabled>Chọn khu vực</option>
+          @for (region of regions(); track region.id) {
+            <option [value]="region.id">{{ region.name }}</option>
+          }
+        </select>
+        @if (hasError('regionId')) { <small id="tower-region-error" class="tower-field-error">Vui lòng chọn khu vực.</small> }
+      </div>
+
+      <div class="tower-field">
+        <label for="tower-code">Mã cột <span aria-hidden="true">*</span></label>
+        <input id="tower-code" type="text" formControlName="towerCode" maxlength="50" autocomplete="off" required [attr.aria-invalid]="hasError('towerCode')" [attr.aria-describedby]="hasError('towerCode') ? 'tower-code-error' : null" />
+        @if (hasError('towerCode')) { <small id="tower-code-error" class="tower-field-error">Mã cột là bắt buộc (tối đa 50 ký tự).</small> }
+      </div>
+
+      <div class="tower-field-row">
+        <div class="tower-field">
+          <label for="tower-lat">Vĩ độ <span aria-hidden="true">*</span></label>
+          <input id="tower-lat" type="number" step="any" inputmode="decimal" formControlName="latitude" required [attr.aria-invalid]="hasError('latitude')" [attr.aria-describedby]="hasError('latitude') ? 'tower-lat-error' : null" />
+          @if (hasError('latitude')) { <small id="tower-lat-error" class="tower-field-error">Vĩ độ trong khoảng -90 đến 90.</small> }
+        </div>
+        <div class="tower-field">
+          <label for="tower-lng">Kinh độ <span aria-hidden="true">*</span></label>
+          <input id="tower-lng" type="number" step="any" inputmode="decimal" formControlName="longitude" required [attr.aria-invalid]="hasError('longitude')" [attr.aria-describedby]="hasError('longitude') ? 'tower-lng-error' : null" />
+          @if (hasError('longitude')) { <small id="tower-lng-error" class="tower-field-error">Kinh độ trong khoảng -180 đến 180.</small> }
+        </div>
+      </div>
+
+      <div class="tower-field">
+        <label for="tower-pole-type">Loại cột</label>
+        <input id="tower-pole-type" type="text" formControlName="poleType" maxlength="100" autocomplete="off" />
+      </div>
+
+      <div class="tower-field">
+        <label for="tower-address">Địa chỉ</label>
+        <textarea id="tower-address" rows="2" formControlName="address" maxlength="500"></textarea>
+      </div>
+    </div>
+
+    <footer class="tower-dialog-actions">
+      <button type="button" class="button secondary" [disabled]="busy()" (click)="close()">Hủy</button>
+      <button type="submit" class="button primary" [disabled]="busy()">{{ busy() ? 'Đang lưu...' : 'Lưu' }}</button>
+    </footer>
+  </form>
+</dialog>
