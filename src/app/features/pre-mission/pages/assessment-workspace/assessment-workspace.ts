@@ -749,7 +749,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: isCritical,
         severity: isCritical ? 'Critical' : isWarning ? 'Medium' : 'Low',
         passed: !isCritical && battery >= 40,
-        valueText: `Dung lượng pin ${battery}%, điện áp cell 4.20V cân bằng`,
       },
       {
         metricCode: 'IMU_CALIBRATION',
@@ -759,9 +758,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: true,
         severity: isCritical ? 'Critical' : 'Medium',
         passed: !isCritical,
-        valueText: isCritical
-          ? 'Lệch cảm biến con quay hồi chuyển Gyro > 1.8°/s'
-          : 'IMU kép 3 trục cân bằng động đạt chuẩn (Sai số < 0.05°)',
       },
       {
         metricCode: 'GPS_RTK_FIX',
@@ -771,9 +767,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: true,
         severity: isCritical ? 'Critical' : 'Medium',
         passed: !isCritical,
-        valueText: isCritical
-          ? `Mất khóa RTK định vị (${gpsSats} vệ tinh, HDOP 3.5)`
-          : `3D RTK Fixed (${gpsSats} vệ tinh, HDOP 0.65, sai số định vị cm)`,
       },
       {
         metricCode: 'PROP_INTEGRITY',
@@ -783,9 +776,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: true,
         severity: isCritical ? 'Critical' : 'Medium',
         passed: !isCritical,
-        valueText: isCritical
-          ? 'Rung chấn rotor 3 vượt ngưỡng cho phép (> 2.5G)'
-          : 'Động cơ ESC 1-6 đồng bộ 100%, cánh quạt nguyên vẹn',
       },
       {
         metricCode: 'FLIGHT_CONTROLLER',
@@ -795,7 +785,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: true,
         severity: 'Medium',
         passed: true,
-        valueText: 'Vi điều khiển CPU load 18%, I2C/SPI bus OK, MSP active',
       },
       {
         metricCode: 'RF_LINK_TELEMETRY',
@@ -806,7 +795,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         critical: true,
         severity: isCritical ? 'Critical' : 'Medium',
         passed: !isCritical && rfQuality >= 60,
-        valueText: `${rfQuality}% RSSI viễn trắc (-42 dBm, 150Hz)`,
       },
     ];
 
@@ -858,6 +846,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
                 this.actionMessage.set(
                   `Biên bản BIST cho ${code} đã lưu về DB! Hồ sơ MF01 đã được cập nhật: Trạng thái [${updated.status}].`,
                 );
+              },
+              error: (err) => {
+                console.warn('Could not re-evaluate automatically:', err);
               },
             });
           }

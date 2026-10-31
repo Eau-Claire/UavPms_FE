@@ -230,7 +230,12 @@ export class PreMissionApi {
       preMissionAssessmentId: options?.preMissionAssessmentId || null,
       notes: options?.notes || 'Kiểm định kỹ thuật trước nhiệm vụ',
       policyVersion: options?.policyVersion || 'v2.0',
-      metrics: options?.metrics ?? null,
+      metrics: options?.metrics
+        ? options.metrics.map((m) => {
+            const { valueText, ...rest } = m;
+            return rest;
+          })
+        : null,
     };
     return this.http
       .post<unknown>(`${this.baseUrl}/drone-technical-inspections`, payload)
@@ -457,10 +462,18 @@ export const normalizeInspectionResult = (value: unknown, droneId: string): Dron
   const metrics: TechnicalMetric[] = arrayOf(x['metrics']).map((item) => {
     const m = objectOf(item);
     const raw = m['numericValue'] ?? m['boolValue'] ?? m['valueText'];
+    let formattedVal: string | number = '-';
+    if (typeof raw === 'number') {
+      formattedVal = raw;
+    } else if (typeof raw === 'boolean') {
+      formattedVal = raw ? 'Đạt chuẩn' : 'Không đạt';
+    } else if (raw != null) {
+      formattedVal = String(raw);
+    }
     return {
       subsystem: stringOf(m['subsystem']),
       metric: stringOf(m['metricCode']),
-      value: typeof raw === 'number' ? raw : stringOf(raw, '-'),
+      value: formattedVal,
       unit: optionalStringOf(m['unit']),
       required: m['isRequired'] === true,
       severity: optionalStringOf(m['severity']),
