@@ -1,6 +1,6 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, input, output, viewChild } from '@angular/core';
 
-/** Small modal confirmation used before destructive tower actions. */
+/** Small modal confirmation used before destructive tower actions (also reused by the maintenance pages). */
 @Component({
   selector: 'app-tower-confirm-dialog',
   template: `
@@ -17,7 +17,7 @@ import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, input,
       </div>
       <footer class="tower-dialog-actions">
         <button #cancelButton type="button" class="button secondary" [disabled]="busy()" (click)="close()">Hủy</button>
-        <button type="button" class="button danger" [disabled]="busy()" (click)="confirmed.emit()">{{ busy() ? 'Đang xử lý...' : confirmLabel() }}</button>
+        <button type="button" class="button" [class.danger]="tone() === 'danger'" [class.primary]="tone() === 'primary'" [disabled]="busy()" (click)="confirmed.emit()">{{ busy() ? 'Đang xử lý...' : confirmLabel() }}</button>
       </footer>
     </dialog>
   `,
@@ -31,6 +31,8 @@ export class ConfirmDialog {
   readonly title = input.required<string>();
   readonly message = input.required<string>();
   readonly confirmLabel = input('Xác nhận');
+  /** Red for destructive actions (default), the primary colour for workflow confirmations. */
+  readonly tone = input<'danger' | 'primary'>('danger');
   readonly busy = input(false);
   readonly errorMessage = input('');
   readonly confirmed = output<void>();

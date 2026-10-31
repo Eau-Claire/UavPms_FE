@@ -14,7 +14,7 @@ import {
   PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
   InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
   HistoryOutline, FilePdfOutline, FileExcelOutline, InboxOutline,
-  ArrowUpOutline, ArrowDownOutline, CloseOutline, SwapOutline, GlobalOutline, OrderedListOutline, HolderOutline,
+  ArrowUpOutline, ArrowDownOutline, CloseOutline, SwapOutline, GlobalOutline, OrderedListOutline, HolderOutline, ToolOutline,
 } from '@ant-design/icons-angular/icons';
 
 export const appConfig: ApplicationConfig = {
@@ -33,7 +33,7 @@ export const appConfig: ApplicationConfig = {
       PictureOutline, BorderOutline, MinusOutline, TagOutline, CloseCircleOutline,
       InfoCircleOutline, SafetyCertificateOutline, ExperimentOutline, AuditOutline, LoadingOutline,
       HistoryOutline, FilePdfOutline, FileExcelOutline, InboxOutline,
-      ArrowUpOutline, ArrowDownOutline, CloseOutline, SwapOutline, GlobalOutline, OrderedListOutline, HolderOutline,
+      ArrowUpOutline, ArrowDownOutline, CloseOutline, SwapOutline, GlobalOutline, OrderedListOutline, HolderOutline, ToolOutline,
     ]),
   ],
 };

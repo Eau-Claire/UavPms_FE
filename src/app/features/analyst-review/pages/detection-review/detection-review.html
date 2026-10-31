@@ -33,6 +33,9 @@
       <div style="display: flex; align-items: center; gap: 8px;">
         <span nz-icon [nzType]="feedbackType() === 'success' ? 'check-circle' : 'exclamation-circle'"></span>
         <span>{{ feedbackMessage() }}</span>
+        @if (maintenanceLinkVisible() && canOpenMaintenance()) {
+          <a routerLink="/maintenance" style="color: inherit; font-weight: 700; text-decoration: underline;">Xem phiếu bảo trì</a>
+        }
       </div>
       <button type="button" (click)="feedbackMessage.set('')">Đóng</button>
     </div>

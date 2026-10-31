@@ -15,6 +15,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
 import {
   AnalysisRunInfo,
@@ -71,6 +72,9 @@ export class DetectionReview {
   protected readonly feedbackType = signal<'success' | 'error' | 'info'>('info');
   /** Set when confirming failed with `TOWER_REQUIRED`. */
   protected readonly towerRequired = signal(false);
+  /** After a confirmation the backend opens a maintenance ticket (MF04): managers get a link to it. */
+  protected readonly maintenanceLinkVisible = signal(false);
+  protected readonly canOpenMaintenance = computed(() => isMaintenanceManager(this.auth.user()?.role));
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
   // Viewer controls
@@ -108,6 +112,7 @@ export class DetectionReview {
       this.towerRequired.set(false);
       this.error.set('');
       this.feedbackMessage.set('');
+      this.maintenanceLinkVisible.set(false);
       this.zoomLevel.set(1);
       this.initData();
     });
@@ -204,6 +209,7 @@ export class DetectionReview {
     const notes = this.generalNotes().trim() || 'Xác nhận khuyết tật chính xác bởi Analyst.';
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
 
     this.api
       .validate(item.id, { status: 'Confirmed', analystNotes: notes })
@@ -217,6 +223,7 @@ export class DetectionReview {
           this.towerRequired.set(false);
           this.feedbackType.set('success');
           this.feedbackMessage.set('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận vào hệ thống.');
+          this.maintenanceLinkVisible.set(true);
         },
         error: (err: unknown) => {
           if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
@@ -248,6 +255,7 @@ export class DetectionReview {
 
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
 
     this.api
       .validate(item.id, { status: 'Rejected', analystNotes: fullNotes })
@@ -281,6 +289,7 @@ export class DetectionReview {
 
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
     this.alertsApi
       .triggerAlert({ anomalyId: item.id, towerId: item.towerId ?? undefined, priority: 'Critical' })
       .pipe(

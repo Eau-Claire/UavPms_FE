@@ -1,0 +1,65 @@
+@use '../../maintenance-shared' as shared;
+
+@include shared.form;
+
+.proof-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  cursor: pointer;
+
+  &:focus-within {
+    outline: 2px solid #1d4f91;
+    outline-offset: 2px;
+  }
+
+  &.is-busy {
+    cursor: progress;
+    opacity: 0.7;
+  }
+}
+
+.proof-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proof-preview {
+  display: grid;
+  gap: 2px;
+  width: 132px;
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 12px;
+
+  img,
+  .proof-preview-placeholder {
+    display: grid;
+    place-items: center;
+    width: 120px;
+    height: 90px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #526b82;
+    object-fit: cover;
+  }
+
+  .mt-link-button {
+    justify-self: start;
+    padding: 0;
+    color: #991b1b;
+  }
+}
+
+.proof-preview-name {
+  overflow: hidden;
+  color: #17324d;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

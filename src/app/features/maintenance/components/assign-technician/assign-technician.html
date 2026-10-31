@@ -1,0 +1,64 @@
+<form class="mt-form" [formGroup]="form" aria-labelledby="assign-title" (ngSubmit)="submit()">
+  <h3 id="assign-title" class="mt-form-title">{{ isReassign() ? 'Đổi kỹ thuật viên' : 'Giao kỹ thuật viên' }}</h3>
+
+  @if (error()) {
+    <p class="mt-form-error" role="alert">{{ error() }}</p>
+  }
+
+  <div class="mt-field">
+    <label for="assign-technician">Kỹ thuật viên <span aria-hidden="true">*</span></label>
+    @if (loadError()) {
+      <p class="mt-form-error" role="alert">
+        {{ loadError() }}
+        <button type="button" class="mt-link-button" (click)="loadTechnicians()">Thử lại</button>
+      </p>
+    }
+    <select
+      id="assign-technician"
+      formControlName="technicianId"
+      required
+      [attr.aria-busy]="loadingTechnicians()"
+      [attr.aria-invalid]="form.controls.technicianId.invalid && form.controls.technicianId.touched"
+      [attr.aria-describedby]="form.controls.technicianId.invalid && form.controls.technicianId.touched ? 'assign-technician-error' : null"
+    >
+      <option value="">{{ loadingTechnicians() ? 'Đang tải...' : '— Chọn kỹ thuật viên —' }}</option>
+      @for (technician of technicians(); track technician.id) {
+        <option [value]="technician.id">{{ technicianLabel(technician) }}</option>
+      }
+    </select>
+    @if (form.controls.technicianId.invalid && form.controls.technicianId.touched) {
+      <span id="assign-technician-error" class="mt-field-error">Vui lòng chọn kỹ thuật viên.</span>
+    }
+    @if (!loadingTechnicians() && !loadError() && !technicians().length) {
+      <span class="mt-field-hint">Chưa có kỹ thuật viên đang hoạt động.</span>
+    }
+  </div>
+
+  <div class="mt-field">
+    <label for="assign-due-date">Hạn xử lý</label>
+    <input
+      id="assign-due-date"
+      type="date"
+      formControlName="dueDate"
+      [min]="minDate"
+      aria-describedby="assign-due-hint"
+      [attr.aria-invalid]="form.controls.dueDate.invalid"
+    />
+    <span id="assign-due-hint" class="mt-field-hint">
+      @if (ticket().dueDate) {
+        Hạn hiện tại: {{ ticket().dueDate | date: 'dd/MM/yyyy' }}. Để trống để giữ nguyên.
+      } @else {
+        Không bắt buộc.
+      }
+    </span>
+    @if (form.controls.dueDate.invalid) {
+      <span class="mt-field-error" role="alert">Hạn xử lý không được ở trong quá khứ.</span>
+    }
+  </div>
+
+  <div class="mt-form-actions">
+    <button type="submit" class="button primary" [disabled]="busy() || loadingTechnicians()">
+      {{ busy() ? 'Đang giao...' : isReassign() ? 'Đổi kỹ thuật viên' : 'Giao phiếu' }}
+    </button>
+  </div>
+</form>

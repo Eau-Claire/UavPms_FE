@@ -225,7 +225,9 @@
               <tbody>
                 @for (ticket of maintenance(); track ticket.id) {
                   <tr>
-                    <td class="td-ticket-code tower-mono"><strong>{{ ticket.ticketCode }}</strong></td>
+                    <td class="td-ticket-code tower-mono">
+                      <a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Mở phiếu bảo trì ' + ticket.ticketCode">{{ ticket.ticketCode }}</a>
+                    </td>
                     <td class="td-ticket-desc tower-description" [title]="ticket.description || ''">{{ ticket.description || '—' }}</td>
                     <td class="td-ticket-priority"><span class="tower-pill tone-{{ ticketPriorityTone(ticket.priority) }}">{{ ticketPriorityLabel(ticket.priority) }}</span></td>
                     <td class="td-ticket-status"><span class="tower-pill tone-{{ ticketStatusTone(ticket.status) }}">{{ ticketStatusLabel(ticket.status) }}</span></td>

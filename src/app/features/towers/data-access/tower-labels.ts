@@ -14,11 +14,12 @@ const ANOMALY_LABELS: Record<string, string> = {
 
 const ANOMALY_TONES: Record<string, Tone> = { Pending: 'warning', Confirmed: 'danger', Rejected: 'neutral', Resolved: 'success' };
 
+/** Same wording as the maintenance pages (features/maintenance/data-access/maintenance-labels.ts). */
 const TICKET_STATUS_LABELS: Record<string, string> = {
-  Open: 'Mới mở',
-  InProgress: 'Đang xử lý',
+  Open: 'Chờ xử lý',
+  InProgress: 'Đang sửa chữa',
   PendingVerification: 'Chờ nghiệm thu',
-  Resolved: 'Đã khắc phục',
+  Resolved: 'Đã đóng',
   Closed: 'Đã đóng',
 };
 

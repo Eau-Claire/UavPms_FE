@@ -1,0 +1,58 @@
+@use '../../../towers/towers-shared' as shared;
+
+@include shared.page;
+
+.maintenance-banner-warning {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #78350f;
+}
+
+.maintenance-table {
+  th.th-m-code { width: 170px; }
+  th.th-m-desc { width: auto; }
+  th.th-m-priority { width: 120px; }
+  th.th-m-status { width: 150px; }
+  th.th-m-tech { width: 180px; }
+  th.th-m-date { width: 120px; }
+  th.th-m-actions { width: 64px; }
+
+  td.td-m-desc {
+    overflow: hidden;
+  }
+
+  td.td-m-actions {
+    text-align: right;
+  }
+
+  tbody tr.row-unassigned {
+    background: #fffbeb;
+    box-shadow: inset 3px 0 0 #d97706;
+  }
+
+  tbody tr.row-unassigned:hover {
+    background: #fef3c7;
+  }
+}
+
+.maintenance-desc {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-sub {
+  display: block;
+  font-size: 12px;
+}
+
+.maintenance-unassigned {
+  color: #92400e;
+  font-weight: 700;
+}
+
+.maintenance-overdue {
+  color: #991b1b;
+  font-weight: 600;
+}

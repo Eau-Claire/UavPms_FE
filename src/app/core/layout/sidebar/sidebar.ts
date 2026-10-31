@@ -44,6 +44,7 @@ export class Sidebar {
         { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
         { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
         { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
+        { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì' },
         { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
         { path: '/admin/users', icon: 'team', label: 'Người dùng' },
@@ -60,6 +61,7 @@ export class Sidebar {
         { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
         { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
         { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
+        { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì' },
         { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
         { path: '/admin/users', icon: 'team', label: 'Phân quyền khu vực' },
@@ -99,7 +101,7 @@ export class Sidebar {
         { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
         { path: '/towers', icon: 'thunderbolt', label: 'Cột điện' },
         { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
-        { path: '/inspections', icon: 'file-text', label: 'Công việc & Sự cố' },
+        { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì của tôi' },
         { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
       ];
     }
