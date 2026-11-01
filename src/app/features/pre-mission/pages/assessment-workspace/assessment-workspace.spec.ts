@@ -165,4 +165,30 @@ describe('AssessmentWorkspace technical inspection', () => {
     expect((c['error'] as unknown as () => string)()).toContain('đã bị hủy');
     expect((c['error'] as unknown as () => string)()).not.toContain('ASSESSMENT_CANCELLED');
   });
+
+  it('updates drone candidate eligibility and eligible count in real time on mock inspection', () => {
+    const c = create();
+    expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(1);
+
+    // Mock healthy inspection for d1
+    api['runTechnicalInspection'].mockReturnValue(
+      of({ id: 'i1', droneId: 'd1', status: 'Passed', overallHealth: 'HEALTHY', eligibility: 'ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
+    );
+    c['submitMockBistTelemetry']('healthy');
+    expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(2);
+    const d1 = (c['item'] as unknown as () => PreMissionAssessment)().uavCandidates.find((d) => d.id === 'd1');
+    expect(d1?.isEligible).toBe(true);
+    expect(d1?.technicalHealth).toBe('HEALTHY');
+
+    // Mock critical inspection for d1
+    api['runTechnicalInspection'].mockReturnValue(
+      of({ id: 'i2', droneId: 'd1', status: 'Failed', overallHealth: 'CRITICAL', eligibility: 'NOT_ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
+    );
+    c['submitMockBistTelemetry']('critical');
+    expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(1);
+    const d1After = (c['item'] as unknown as () => PreMissionAssessment)().uavCandidates.find((d) => d.id === 'd1');
+    expect(d1After?.isEligible).toBe(false);
+    expect(d1After?.technicalHealth).toBe('CRITICAL');
+    expect(d1After?.reasonCode).toBe('TECHNICAL_HEALTH_CRITICAL');
+  });
 });

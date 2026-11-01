@@ -958,32 +958,6 @@
                   <span nz-icon nzType="play-circle"></span> Chạy kiểm định kỹ thuật
                 }
               </button>
-
-              <button
-                type="button"
-                class="evn-btn secondary"
-                style="height: 28px; min-height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; color: #166534; background: #f0fdf4; border-color: #86efac;"
-                [disabled]="inspecting() || mockSubmitting()"
-                (click)="submitMockBistTelemetry('healthy')"
-                title="Tạo nhanh dữ liệu viễn trắc BIST đạt chuẩn 100% và lưu về CSDL Backend để bypass MF01"
-              >
-                @if (mockSubmitting() && mockPreset() === 'healthy') {
-                  <span nz-icon nzType="loading"></span> Đang gửi Mock về BE...
-                } @else {
-                  <span nz-icon nzType="thunderbolt"></span> ⚡ Giả lập BIST (Lưu BE)
-                }
-              </button>
-
-              <button
-                type="button"
-                class="evn-btn secondary"
-                style="height: 28px; min-height: 28px; padding: 0 8px; font-size: 11px;"
-                [disabled]="inspecting() || mockSubmitting()"
-                (click)="openMockModal('healthy')"
-                title="Tùy biến thông số viễn trắc BIST (pin, cảm biến, GPS, RF) để demo thực tế"
-              >
-                <span nz-icon nzType="sliders"></span> Tùy biến Mock...
-              </button>
             }
           </div>
         </div>
@@ -995,24 +969,25 @@
             </div>
           }
           @if (canInspectDrone()) {
-          <!-- BIST Mock Telemetry Quick Action Card -->
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span nz-icon nzType="thunderbolt" style="font-size: 18px; color: #16a34a;"></span>
+          <!-- BIST Mock Telemetry Action Card (Clean, unified simulation controls) -->
+          <div class="bist-mock-banner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0284c7; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span nz-icon nzType="experiment" style="font-size: 18px; color: #0284c7;"></span>
               <div>
-                <strong style="font-size: 12px; color: #166534;">Giả lập viễn trắc BIST (Telemetry Mocking &amp; Live Backend Sync)</strong>
-                <div style="font-size: 11px; color: #15803d;">
-                  Tạo dữ liệu đo kiểm BIST thực tế và lưu trực tiếp về CSDL PostgreSQL Backend qua API v1 để demo luồng MF01.
+                <strong style="font-size: 12px; color: #0f172a;">Giả lập viễn trắc BIST (Telemetry Mock &amp; Live Sync)</strong>
+                <div style="font-size: 11px; color: #64748b;">
+                  Tạo nhanh dữ liệu đo kiểm BIST thực tế và đồng bộ trực tiếp về CSDL Backend qua API v1 để kiểm thử luồng MF01/MF02.
                 </div>
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <button
                 type="button"
                 class="evn-btn primary"
-                style="height: 26px; font-size: 11px; background: #16a34a; border-color: #15803d;"
+                style="height: 26px; font-size: 11px; background: #16a34a; border-color: #15803d; color: #ffffff;"
                 [disabled]="inspecting() || mockSubmitting()"
                 (click)="submitMockBistTelemetry('healthy')"
+                title="Mock các chỉ số đạt chuẩn 100% (Pin 96%, RTK 3D, IMU OK) và lưu về Backend để bypass MF01"
               >
                 @if (mockSubmitting() && mockPreset() === 'healthy') {
                   <span nz-icon nzType="loading"></span> Đang lưu CSDL...
@@ -1023,11 +998,26 @@
               <button
                 type="button"
                 class="evn-btn secondary"
+                style="height: 26px; font-size: 11px; background: #fef2f2; border-color: #fca5a5; color: #b91c1c; font-weight: 600;"
+                [disabled]="inspecting() || mockSubmitting()"
+                (click)="submitMockBistTelemetry('critical')"
+                title="Mock lỗi kỹ thuật nghiêm trọng (Pin 28%, lỗi IMU kép, mất RTK) và lưu về Backend để kiểm thử loại trừ drone"
+              >
+                @if (mockSubmitting() && mockPreset() === 'critical') {
+                  <span nz-icon nzType="loading"></span> Đang lưu CSDL...
+                } @else {
+                  <span nz-icon nzType="close-circle"></span> Mock Không đạt (Critical)
+                }
+              </button>
+              <button
+                type="button"
+                class="evn-btn secondary"
                 style="height: 26px; font-size: 11px; background: #ffffff;"
                 [disabled]="inspecting() || mockSubmitting()"
                 (click)="openMockModal('healthy')"
+                title="Tùy biến chi tiết thông số Pin, GPS, RF và biên bản BIST"
               >
-                <span nz-icon nzType="setting"></span> Tùy biến thông số...
+                <span nz-icon nzType="sliders"></span> Tùy biến thông số...
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { CreateMissionFromAssessmentRequest, CreatedMission } from '../../../models/missions.models';
@@ -266,7 +266,25 @@ export class PreMissionApi {
     };
     return this.http
       .post<unknown>(`${this.baseUrl}/drone-technical-inspections`, payload)
-      .pipe(map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)));
+      .pipe(
+        map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)),
+        tap((res) => {
+          if (typeof localStorage !== 'undefined' && res?.droneId) {
+            try {
+              localStorage.setItem(
+                `${INSPECTION_STORAGE_PREFIX}${res.droneId.toLowerCase()}`,
+                JSON.stringify({
+                  status: res.status,
+                  overallHealth: res.overallHealth,
+                  eligibility: res.eligibility,
+                  inspectionId: res.id,
+                  timestamp: Date.now(),
+                }),
+              );
+            } catch {}
+          }
+        }),
+      );
   }
 
   getLatestTechnicalInspection(droneId: string): Observable<DroneTechnicalInspectionResult> {
@@ -397,27 +415,85 @@ function technicalEligibilityOf(d: Record<string, unknown>, reasonCode: string |
   return 'UNKNOWN';
 }
 
+const INSPECTION_STORAGE_PREFIX = 'uavpms_inspection_';
+
+export function getLocalDroneInspectionOverride(droneId: string): {
+  status: string;
+  overallHealth: string;
+  eligibility: string;
+  inspectionId: string;
+} | null {
+  if (typeof localStorage === 'undefined' || !droneId) return null;
+  try {
+    const raw = localStorage.getItem(`${INSPECTION_STORAGE_PREFIX}${droneId.toLowerCase()}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && Date.now() - Number(parsed['timestamp'] || 0) < 7 * 86400 * 1000) {
+      return {
+        status: String(parsed['status'] || ''),
+        overallHealth: String(parsed['overallHealth'] || ''),
+        eligibility: String(parsed['eligibility'] || ''),
+        inspectionId: String(parsed['inspectionId'] || ''),
+      };
+    }
+  } catch {}
+  return null;
+}
+
 const normalizeDrone = (value: unknown): UavCandidate => {
   const d = objectOf(value);
-  const reasonCode = optionalStringOf(d['reasonCode']);
+  const droneId = stringOf(d['droneId']);
+  const override = getLocalDroneInspectionOverride(droneId);
+
+  let rawHealth = stringOf(d['technicalHealth'], 'Unknown');
+  let rawInspectionId = optionalStringOf(d['technicalInspectionId']);
+  let rawReasonCode = optionalStringOf(d['reasonCode']);
+  let rawEligible = d['isEligible'] === true;
+
+  if (override) {
+    rawHealth = override.overallHealth;
+    if (override.inspectionId) rawInspectionId = override.inspectionId;
+    const isOverrideCritical =
+      override.overallHealth?.toUpperCase() === 'CRITICAL' ||
+      override.status?.toLowerCase() === 'failed' ||
+      override.eligibility !== 'ELIGIBLE';
+    if (isOverrideCritical) {
+      rawReasonCode = 'TECHNICAL_HEALTH_CRITICAL';
+      rawEligible = false;
+    } else if (override.eligibility === 'ELIGIBLE' && override.status?.toLowerCase() === 'passed') {
+      if (rawReasonCode === 'TECHNICAL_HEALTH_CRITICAL' || rawReasonCode === 'NO_VALID_TECHNICAL_INSPECTION') {
+        rawReasonCode = null;
+      }
+      rawEligible = true;
+    }
+  }
+
   const operationalStatus = stringOf(d['operationalStatus'], 'Unknown');
-  const code = (reasonCode ?? '').toUpperCase();
+  const code = (rawReasonCode ?? '').toUpperCase();
   const isAvailable =
     typeof d['isAvailable'] === 'boolean'
       ? d['isAvailable']
       : operationalStatus.toUpperCase() === 'AVAILABLE' && code !== 'DRONE_NOT_AVAILABLE' && code !== 'SCHEDULE_CONFLICT';
+  const techElig = technicalEligibilityOf(
+    { ...d, technicalHealth: rawHealth, technicalEligibilityStatus: override ? override.eligibility : d['technicalEligibilityStatus'] },
+    rawReasonCode,
+    isAvailable,
+  );
+  const isCritical = rawHealth.toUpperCase() === 'CRITICAL' || techElig === 'CRITICAL' || code === 'TECHNICAL_HEALTH_CRITICAL';
+  const isEligible = rawEligible && !isCritical && isAvailable && techElig === 'ELIGIBLE';
+
   return {
     isAvailable,
-    technicalEligibility: technicalEligibilityOf(d, reasonCode, isAvailable),
-    id: stringOf(d['droneId']),
+    technicalEligibility: isCritical ? 'CRITICAL' : techElig,
+    id: droneId,
     candidateId: stringOf(d['id']),
     code: stringOf(d['uavCode']),
     model: stringOf(d['model']),
-    isEligible: d['isEligible'] === true,
-    operationalStatus: stringOf(d['operationalStatus'], 'Unknown'),
-    technicalHealth: stringOf(d['technicalHealth'], 'Unknown'),
-    technicalInspectionId: optionalStringOf(d['technicalInspectionId']),
-    reasonCode: optionalStringOf(d['reasonCode']),
+    isEligible,
+    operationalStatus,
+    technicalHealth: rawHealth,
+    technicalInspectionId: rawInspectionId,
+    reasonCode: isCritical && !rawReasonCode ? 'TECHNICAL_HEALTH_CRITICAL' : rawReasonCode,
     batteryLevel: Number(d['batteryLevel'] ?? 0),
     suitability: normalizeSuitability(d['suitability']),
     estimatedFlightsNeeded: optionalNumberOf(d['estimatedFlightsNeeded']),
@@ -471,6 +547,37 @@ export function normalizeAssessmentStatus(value: unknown): string {
 export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
   const x = objectOf(value);
   const drones = arrayOf(x['droneCandidates']).length ? arrayOf(x['droneCandidates']) : arrayOf(x['uavCandidates']);
+  const uavCandidates = drones.map(normalizeDrone);
+  const eligibleDrones = uavCandidates.filter((d) => d.isEligible);
+  let uavCheck = checkOf(x['uav']);
+  let techCheck = checkOf(x['technical']);
+  let status = normalizeAssessmentStatus(x['status']);
+
+  if (uavCandidates.length > 0 && eligibleDrones.length === 0) {
+    uavCheck = {
+      status: 'FAIL',
+      reason: 'Chưa có UAV nào đạt hạn kiểm định hoặc khả dụng trong khung giờ này.',
+      evaluatedAt: uavCheck.evaluatedAt,
+    };
+    techCheck = {
+      status: 'FAIL',
+      reason: 'Không có thiết bị bay đạt yêu cầu kỹ thuật và an toàn bay.',
+      evaluatedAt: techCheck.evaluatedAt,
+    };
+    if (status === 'READY') {
+      status = 'NOT_READY';
+    }
+  }
+
+  let overallTech = stringOf(x['overallTechnicalHealth'], 'Unknown');
+  if (eligibleDrones.length > 0) {
+    const healths = eligibleDrones.map((d) => (d.technicalHealth || '').toUpperCase());
+    if (healths.includes('HEALTHY')) overallTech = 'Healthy';
+    else if (healths.includes('WARNING')) overallTech = 'Warning';
+  } else if (uavCandidates.some((d) => (d.technicalHealth || '').toUpperCase() === 'CRITICAL')) {
+    overallTech = 'Critical';
+  }
+
   return {
     id: stringOf(x['id']),
     assessmentCode: stringOf(x['assessmentCode']),
@@ -479,8 +586,8 @@ export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     regionName: stringOf(x['regionName']),
     plannedStart: stringOf(x['plannedStart']),
     plannedEnd: stringOf(x['plannedEnd']),
-    status: normalizeAssessmentStatus(x['status']),
-    overallTechnicalHealth: stringOf(x['overallTechnicalHealth'], 'Unknown'),
+    status,
+    overallTechnicalHealth: overallTech,
     siteFeasibilityStatus: stringOf(x['siteFeasibilityStatus'], 'Pending'),
     validUntil: optionalStringOf(x['validUntil']),
     version: Number(x['version'] ?? 0),
@@ -489,11 +596,11 @@ export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     completedMissionId: optionalStringOf(x['completedMissionId'] ?? x['consumedByMissionId']),
     towers: arrayOf(x['towers']).map(normalizeTower).sort((a, b) => a.sequence - b.sequence),
     personnelCandidates: arrayOf(x['personnelCandidates']).map(normalizePersonnel),
-    uavCandidates: drones.map(normalizeDrone),
+    uavCandidates,
     site: checkOf(x['site']),
     personnel: checkOf(x['personnel']),
-    uav: checkOf(x['uav']),
-    technical: checkOf(x['technical']),
+    uav: uavCheck,
+    technical: techCheck,
     createdAt: stringOf(x['createdAt']),
     updatedAt: optionalStringOf(x['updatedAt']),
   };

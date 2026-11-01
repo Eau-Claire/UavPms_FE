@@ -28,8 +28,10 @@ import {
   DroneTechnicalInspectionResult,
   PersonnelCandidate,
   PreMissionAssessment,
+  ReadinessCheck,
   SiteCheckItem,
   UavCandidate,
+  UavTechnicalEligibility,
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
@@ -381,7 +383,20 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       if (!current || (evt.assessmentId && evt.assessmentId !== current.id)) return;
 
       switch (evt.type) {
-        case 'DroneInspectionCompleted':
+        case 'DroneInspectionCompleted': {
+          if (evt.droneId) {
+            this.loadLatestInspection(evt.droneId);
+          }
+          if (this.canManage()) {
+            this.api.reEvaluate(current.id).subscribe({
+              next: (updated) => {
+                this.item.set(updated);
+                if (evt.message) this.actionMessage.set(evt.message);
+              },
+            });
+          }
+          break;
+        }
         case 'AssessmentStatusChanged':
         case 'AssessmentCompleted': {
           // Luôn tải lại hồ sơ từ backend để hiển thị kết quả chính thức.
@@ -391,9 +406,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
               if (evt.message) this.actionMessage.set(evt.message);
             },
           });
-          if (evt.type === 'DroneInspectionCompleted' && evt.droneId) {
-            this.loadLatestInspection(evt.droneId);
-          }
           break;
         }
       }
@@ -582,6 +594,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       next: (res) => {
         this.inspectionResult.set(res);
         this.inspecting.set(false);
+        this.applyInspectionResultToAssessment(res);
       },
       error: () => {
         this.inspectionResult.set(null);
@@ -756,6 +769,90 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
   }
 
+  /** Cập nhật tức thời kết quả kiểm định kỹ thuật vào hồ sơ hiển thị (realtime phản ánh số lượng đủ điều kiện). */
+  protected applyInspectionResultToAssessment(res: DroneTechnicalInspectionResult): void {
+    this.item.update((current) => {
+      if (!current) return current;
+
+      const statusLower = (res.status || '').toLowerCase();
+      const healthUpper = (res.overallHealth || '').toUpperCase();
+      const isPassed = res.eligibility === 'ELIGIBLE' && statusLower === 'passed';
+      const isCritical = healthUpper === 'CRITICAL' || statusLower === 'failed';
+
+      const updatedCandidates: readonly UavCandidate[] = current.uavCandidates.map((c) => {
+        if (c.id.toLowerCase() === res.droneId.toLowerCase()) {
+          const techEligibility: UavTechnicalEligibility = isPassed
+            ? 'ELIGIBLE'
+            : isCritical
+              ? 'CRITICAL'
+              : 'REQUIRES_INSPECTION';
+          const isEligible = isPassed && c.isAvailable !== false && c.suitability !== 'UNSUITABLE';
+          const reasonCode = isPassed
+            ? (c.isAvailable === false ? c.reasonCode : null)
+            : isCritical
+              ? 'TECHNICAL_HEALTH_CRITICAL'
+              : 'NO_VALID_TECHNICAL_INSPECTION';
+
+          return {
+            ...c,
+            technicalHealth: res.overallHealth,
+            technicalInspectionId: res.id,
+            technicalEligibility: techEligibility,
+            isEligible,
+            reasonCode,
+          };
+        }
+        return c;
+      });
+
+      const eligibleCount = updatedCandidates.filter((d) => d.isEligible).length;
+
+      const uavCheck: ReadinessCheck = {
+        ...current.uav,
+        status: eligibleCount > 0 ? 'PASS' : 'FAIL',
+        reason: eligibleCount > 0
+          ? null
+          : 'Chưa có UAV nào đạt hạn kiểm định hoặc khả dụng trong khung giờ này.',
+        evaluatedAt: new Date().toISOString(),
+      };
+
+      const eligibleDrones = updatedCandidates.filter((d) => d.isEligible);
+      const eligibleHealths = eligibleDrones.map((d) => (d.technicalHealth || '').toUpperCase());
+      const overallTech = eligibleHealths.includes('HEALTHY')
+        ? 'Healthy'
+        : eligibleHealths.includes('WARNING')
+          ? 'Warning'
+          : eligibleCount === 0 || isCritical
+            ? (healthUpper === 'CRITICAL' ? 'Critical' : 'Unknown')
+            : 'Healthy';
+
+      const isTechPass = (overallTech === 'Healthy' || overallTech === 'Warning') && eligibleCount > 0;
+      const techCheck: ReadinessCheck = {
+        ...current.technical,
+        status: isTechPass ? 'PASS' : 'FAIL',
+        reason: isTechPass
+          ? null
+          : (isCritical
+              ? 'Phát hiện hỏng hóc kỹ thuật nghiêm trọng (Critical). Cần khắc phục trước khi bay.'
+              : 'Cần thực hiện kiểm định kỹ thuật tự động (BIST/Telemetry) trước khi bay.'),
+        evaluatedAt: new Date().toISOString(),
+      };
+
+      const isSitePass = current.site.status === 'PASS' || current.site.status === 'FEASIBLE';
+      const hasAllRoles = this.roleBreakdown().hasAllThree;
+      const isReady = isSitePass && hasAllRoles && eligibleCount > 0 && isTechPass;
+
+      return {
+        ...current,
+        uavCandidates: updatedCandidates,
+        uav: uavCheck,
+        technical: techCheck,
+        overallTechnicalHealth: overallTech,
+        status: isReady ? 'READY' : 'NOT_READY',
+      };
+    });
+  }
+
   /**
    * Submits the checklist from the modal (or a BIST preset) as a technical inspection. The payload always has
    * readings for every critical item; the `droneId` in the body is the inspected UAV.
@@ -813,8 +910,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           this.mockSubmitting.set(false);
           this.inspecting.set(false);
           this.showMockModal.set(false);
+          this.applyInspectionResultToAssessment(res);
           const code = drone?.code || droneId;
-          const passed = res.eligibility === 'ELIGIBLE';
+          const passed = res.eligibility === 'ELIGIBLE' && (res.status || '').toLowerCase() === 'passed';
           this.actionMessage.set(
             `Đã lưu biên bản kiểm định cho ${code}. Kết quả: ${passed ? 'Đạt' : 'Không đạt'} (sức khỏe ${res.overallHealth}).`,
           );
