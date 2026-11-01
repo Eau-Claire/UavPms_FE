@@ -206,6 +206,10 @@ export interface AssessmentCreateRequest {
   readonly towerIds: readonly string[];
   readonly boundaryWkt?: string | null;
   readonly idempotencyKey?: string | null;
+  readonly requiredInspectors?: number;
+  readonly requiredAnalysts?: number;
+  readonly requiredTechnicians?: number;
+  readonly maxDronesLimit?: number;
 }
 
 /** Khu vực chọn khi lập hồ sơ (`RegionDto`). */

@@ -123,6 +123,10 @@ export class PreMissionApi {
       towerIds: request.towerIds,
       boundaryWkt: request.boundaryWkt || null,
       idempotencyKey: request.idempotencyKey || null,
+      requiredInspectors: request.requiredInspectors ?? 1,
+      requiredAnalysts: request.requiredAnalysts ?? 1,
+      requiredTechnicians: request.requiredTechnicians ?? 1,
+      maxDronesLimit: request.maxDronesLimit ?? 1,
     };
     return this.http.post<unknown>(this.url, payload).pipe(map((response) => normalizeAssessment(unwrapApiData(response))));
   }

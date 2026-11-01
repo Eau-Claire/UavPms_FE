@@ -173,10 +173,14 @@
 
   .quota-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
 
-    @media (max-width: 640px) {
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 500px) {
       grid-template-columns: 1fr;
     }
   }
@@ -187,6 +191,11 @@
     border-radius: 4px;
     padding: 6px 8px;
     margin: 0;
+
+    &.quota-drone-item {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
 
     .quota-label-wrapper {
       display: flex;
@@ -216,10 +225,42 @@
       align-items: center;
       gap: 5px;
 
+      .quota-stepper-btn {
+        width: 22px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #cbd5e1;
+        background: #f1f5f9;
+        border-radius: 3px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #334155;
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.15s ease;
+
+        &:hover:not(:disabled) {
+          background: #e2e8f0;
+          color: #0f172a;
+          border-color: #94a3b8;
+        }
+
+        &:active:not(:disabled) {
+          background: #cbd5e1;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+
       .quota-input {
-        width: 64px;
-        height: 26px;
-        min-height: 26px;
+        width: 48px;
+        height: 24px;
+        min-height: 24px;
         text-align: center;
         font-weight: 700;
         font-size: 12px;
@@ -264,6 +305,10 @@
 
     &.dot-technician {
       background: #16a34a;
+    }
+
+    &.dot-drone {
+      background: #ea580c;
     }
   }
 
@@ -811,7 +856,7 @@
 }
 
 
-/* Box Sequence (Thứ tự kiểm tra tuyến cột) */
+/* Box Sequence (Thá»© tá»± kiá»ƒm tra tuyáº¿n cá»™t) */
 .box-sequence {
   border: 1px solid #9fc3e4;
   background: #ffffff;

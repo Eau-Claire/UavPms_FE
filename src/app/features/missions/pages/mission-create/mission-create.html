@@ -237,7 +237,8 @@
           <fieldset class="candidate-group">
             <legend class="field-label">Nhân sự thực hiện <span class="req">*</span></legend>
             <p class="field-hint">
-              Thành viên <strong>bắt buộc xác nhận</strong> phải chấp nhận trước khi nhiệm vụ được bắt đầu; cần ít nhất một người.
+              Định mức yêu cầu: <strong>{{ assessmentConfig().reqInspectors }} Inspector</strong> (đã chọn: {{ selectedInspectorCount() }}), <strong>{{ assessmentConfig().reqAnalysts }} Analyst</strong> (đã chọn: {{ selectedAnalystCount() }}), <strong>{{ assessmentConfig().reqTechnicians }} Technician</strong> (đã chọn: {{ selectedTechnicianCount() }}).
+              Thành viên <strong>bắt buộc xác nhận</strong> phải chấp nhận trước khi nhiệm vụ được bắt đầu.
             </p>
             @for (p of eligiblePersonnel(); track p.id) {
               <div class="candidate-row" [class.selected]="isPersonnelSelected(p.id)">
@@ -261,7 +262,7 @@
               <p class="field-hint">{{ ineligiblePersonnelCount() }} ứng viên không đủ điều kiện đã bị ẩn.</p>
             }
             @if (selectedPersonnel().length && !hasSelectedInspector()) {
-              <p class="field-error">Cần ít nhất một Phi công / Inspector.</p>
+              <p class="field-error">Cần ít nhất một Phi công / Inspector phụ trách nhiệm vụ.</p>
             }
             @if (selectedPersonnel().length && !requiredSelectedCount()) {
               <p class="field-error">Cần ít nhất một thành viên bắt buộc xác nhận.</p>
@@ -269,12 +270,25 @@
           </fieldset>
 
           <fieldset class="candidate-group">
-            <legend class="field-label">UAV thực hiện (chọn 1) <span class="req">*</span></legend>
-            <p class="field-hint">Mỗi nhiệm vụ chỉ bay một UAV; chỉ UAV này được giữ chỗ trong khung giờ bay.</p>
+            <legend class="field-label">
+              UAV thực hiện (chọn tối đa {{ maxDronesLimit() }}) <span class="req">*</span>
+            </legend>
+            <p class="field-hint">
+              Giới hạn theo hồ sơ đánh giá: <strong>tối đa {{ maxDronesLimit() }} UAV</strong> cho mỗi chuyến bay. Đã chọn: <strong>{{ selectedDroneIds().length }}/{{ maxDronesLimit() }} UAV</strong>.
+            </p>
             @for (d of eligibleDrones(); track d.id) {
               <div class="candidate-row" [class.selected]="isDroneSelected(d.id)">
                 <label class="candidate-check">
-                  <input type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
+                  @if (maxDronesLimit() === 1) {
+                    <input type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
+                  } @else {
+                    <input
+                      type="checkbox"
+                      [checked]="isDroneSelected(d.id)"
+                      [disabled]="!isDroneSelected(d.id) && selectedDroneIds().length >= maxDronesLimit()"
+                      (change)="toggleDrone(d.id)"
+                    />
+                  }
                   <span class="candidate-name">{{ d.code }}</span>
                   <span class="candidate-meta">{{ d.model }}</span>
                 </label>

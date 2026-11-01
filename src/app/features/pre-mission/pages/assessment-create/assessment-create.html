@@ -135,6 +135,124 @@
           </div>
         </section>
 
+        <!-- 3. Cấu hình định mức nhân sự & Giới hạn thiết bị bay -->
+        <section class="evn-panel box-quotas" aria-labelledby="quotas-title">
+          <div class="panel-header">
+            <div class="quota-header-title">
+              <span nz-icon nzType="control" aria-hidden="true"></span>
+              <h2 id="quotas-title" style="font-size: 11.5px; font-weight: 700; color: #174f83; margin: 0; text-transform: uppercase;">
+                3. Định mức nhân sự & Giới hạn thiết bị bay (MF01 &rarr; MF02)
+              </h2>
+            </div>
+            <span class="panel-badge optional" style="background: #eff6ff; color: #0284c7; border-color: #bfdbfe;">Thiết lập định mức</span>
+          </div>
+          <div class="panel-body">
+            <p class="quota-guide-text">
+              Quy định số lượng nhân sự tối thiểu cho từng vai trò và <strong>giới hạn số lượng UAV tối đa</strong> mà người quản lý có thể huy động cho mỗi chuyến bay ở bước tạo nhiệm vụ (MF02).
+            </p>
+            <div class="quota-grid">
+              <!-- Inspector -->
+              <div class="quota-item">
+                <div class="quota-label-wrapper">
+                  <label for="requiredInspectors" class="quota-role-title">
+                    <span class="role-dot dot-inspector" aria-hidden="true"></span> Phi công / Inspector
+                  </label>
+                  <span class="quota-role-hint">Điều khiển UAV, quan sát trực quan</span>
+                </div>
+                <div class="quota-input-wrapper">
+                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredInspectors', 1)" aria-label="Giảm Inspector">-</button>
+                  <input
+                    id="requiredInspectors"
+                    type="number"
+                    min="1"
+                    max="10"
+                    class="quota-input"
+                    formControlName="requiredInspectors"
+                  />
+                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredInspectors', 10)" aria-label="Tăng Inspector">+</button>
+                  <span class="unit-suffix">người</span>
+                </div>
+              </div>
+
+              <!-- Analyst -->
+              <div class="quota-item">
+                <div class="quota-label-wrapper">
+                  <label for="requiredAnalysts" class="quota-role-title">
+                    <span class="role-dot dot-analyst" aria-hidden="true"></span> Chuyên viên phân tích
+                  </label>
+                  <span class="quota-role-hint">Phân tích hình ảnh, AI khiếm khuyết</span>
+                </div>
+                <div class="quota-input-wrapper">
+                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredAnalysts', 1)" aria-label="Giảm Analyst">-</button>
+                  <input
+                    id="requiredAnalysts"
+                    type="number"
+                    min="1"
+                    max="10"
+                    class="quota-input"
+                    formControlName="requiredAnalysts"
+                  />
+                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredAnalysts', 10)" aria-label="Tăng Analyst">+</button>
+                  <span class="unit-suffix">người</span>
+                </div>
+              </div>
+
+              <!-- Technician -->
+              <div class="quota-item">
+                <div class="quota-label-wrapper">
+                  <label for="requiredTechnicians" class="quota-role-title">
+                    <span class="role-dot dot-technician" aria-hidden="true"></span> Kỹ thuật viên bảo trì
+                  </label>
+                  <span class="quota-role-hint">Kiểm tra BIST, pin, cảm biến</span>
+                </div>
+                <div class="quota-input-wrapper">
+                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredTechnicians', 1)" aria-label="Giảm Technician">-</button>
+                  <input
+                    id="requiredTechnicians"
+                    type="number"
+                    min="1"
+                    max="10"
+                    class="quota-input"
+                    formControlName="requiredTechnicians"
+                  />
+                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredTechnicians', 10)" aria-label="Tăng Technician">+</button>
+                  <span class="unit-suffix">người</span>
+                </div>
+              </div>
+
+              <!-- Max Drones Limit -->
+              <div class="quota-item quota-drone-item">
+                <div class="quota-label-wrapper">
+                  <label for="maxDronesLimit" class="quota-role-title">
+                    <span class="role-dot dot-drone" aria-hidden="true"></span> Giới hạn UAV tối đa
+                  </label>
+                  <span class="quota-role-hint">Số drone tối đa chọn tại MF02</span>
+                </div>
+                <div class="quota-input-wrapper">
+                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('maxDronesLimit', 1)" aria-label="Giảm giới hạn UAV">-</button>
+                  <input
+                    id="maxDronesLimit"
+                    type="number"
+                    min="1"
+                    max="5"
+                    class="quota-input"
+                    formControlName="maxDronesLimit"
+                  />
+                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('maxDronesLimit', 5)" aria-label="Tăng giới hạn UAV">+</button>
+                  <span class="unit-suffix">UAV</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="quota-summary-bar">
+              <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+              <span>
+                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ form.controls.requiredInspectors.value }} Inspector, {{ form.controls.requiredAnalysts.value }} Analyst, {{ form.controls.requiredTechnicians.value }} Technician) · Giới hạn: <strong>tối đa {{ form.controls.maxDronesLimit.value }} UAV/chuyến bay</strong>
+              </span>
+            </div>
+          </div>
+        </section>
+
         <div class="form-actions-bar">
           <a class="evn-btn secondary" routerLink="/pre-mission">Hủy</a>
           <button type="submit" class="evn-btn primary" [disabled]="busy() || !selectedTowerIds().length">
@@ -326,6 +444,16 @@
                 <dd class="summary-value">
                   {{ plannedStartValue() | date: 'dd/MM/yyyy HH:mm' }} – {{ plannedEndValue() | date: 'dd/MM/yyyy HH:mm' }}
                 </dd>
+              </div>
+              <div class="summary-row">
+                <dt class="summary-label">Định mức nhân sự</dt>
+                <dd class="summary-value">
+                  {{ totalRequiredPersonnel() }} người ({{ form.controls.requiredInspectors.value }} Insp / {{ form.controls.requiredAnalysts.value }} Ana / {{ form.controls.requiredTechnicians.value }} Tech)
+                </dd>
+              </div>
+              <div class="summary-row">
+                <dt class="summary-label">Giới hạn drone</dt>
+                <dd class="summary-value highlight">Tối đa {{ form.controls.maxDronesLimit.value }} UAV/chuyến</dd>
               </div>
             </dl>
             @if (selectedTowers().length) {

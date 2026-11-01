@@ -186,6 +186,25 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     return !!a.validUntil && new Date(a.validUntil).getTime() < Date.now();
   });
 
+  /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
+  protected readonly assessmentConfig = computed(() => {
+    const raw = this.item()?.findings;
+    let reqInspectors = 1;
+    let reqAnalysts = 1;
+    let reqTechnicians = 1;
+    let maxDronesLimit = 1;
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (typeof parsed?.requiredInspectors === 'number') reqInspectors = Math.max(1, parsed.requiredInspectors);
+        if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
+        if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
+        if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
+      } catch {}
+    }
+    return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
+  });
+
   /** Thống kê ứng viên đủ điều kiện theo vai trò (đúng quy tắc của backend). */
   protected readonly roleBreakdown = computed(() => {
     const candidates = this.item()?.personnelCandidates ?? [];
@@ -194,31 +213,32 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     const analysts = eligible.filter((c) => c.role === 'ANALYST');
     const technicians = eligible.filter((c) => c.role === 'TECHNICIAN');
 
+    const cfg = this.assessmentConfig();
     const missingDetails: string[] = [];
     const missingRoles: string[] = [];
-    const check = (label: string, count: number) => {
-      if (count < REQUIRED_PER_ROLE) {
-        missingDetails.push(`${label}: thiếu ${REQUIRED_PER_ROLE - count} người đủ điều kiện`);
-        missingRoles.push(`${label} (${count}/${REQUIRED_PER_ROLE})`);
+    const check = (label: string, count: number, required: number) => {
+      if (count < required) {
+        missingDetails.push(`${label}: thiếu ${required - count} người đủ điều kiện`);
+        missingRoles.push(`${label} (${count}/${required})`);
       }
     };
-    check('Inspector', inspectors.length);
-    check('Analyst', analysts.length);
-    check('Technician', technicians.length);
+    check('Inspector', inspectors.length, cfg.reqInspectors);
+    check('Analyst', analysts.length, cfg.reqAnalysts);
+    check('Technician', technicians.length, cfg.reqTechnicians);
 
     return {
       inspectors,
       analysts,
       technicians,
       allAvailable: eligible,
-      reqInspectors: REQUIRED_PER_ROLE,
-      reqAnalysts: REQUIRED_PER_ROLE,
-      reqTechnicians: REQUIRED_PER_ROLE,
+      reqInspectors: cfg.reqInspectors,
+      reqAnalysts: cfg.reqAnalysts,
+      reqTechnicians: cfg.reqTechnicians,
       hasAllThree: missingDetails.length === 0,
       missingDetails,
       missingRoles,
       totalEligible: inspectors.length + analysts.length + technicians.length,
-      totalRequired: REQUIRED_PER_ROLE * 3,
+      totalRequired: cfg.reqInspectors + cfg.reqAnalysts + cfg.reqTechnicians,
     };
   });
 

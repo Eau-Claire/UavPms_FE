@@ -63,8 +63,10 @@ export class MissionCreate {
   protected readonly selectedPersonnelIds = signal<readonly string[]>([]);
   /** Members who must accept before the mission can start (`isRequired: true`). */
   protected readonly requiredPersonnelIds = signal<readonly string[]>([]);
-  /** The single UAV flown by the mission (backend: `MULTIPLE_DRONES_NOT_SUPPORTED`). */
-  protected readonly selectedDroneId = signal('');
+  /** The UAVs selected for the mission (limited by maxDronesLimit from assessment findings). */
+  protected readonly selectedDroneIds = signal<readonly string[]>([]);
+  /** Backward-compatible getter for primary drone ID */
+  protected readonly selectedDroneId = computed(() => this.selectedDroneIds()[0] ?? '');
   protected readonly selectedPriorityDefects = signal<readonly string[]>([]);
   private readonly priority = signal<MissionPriority>('NORMAL');
 
@@ -87,6 +89,27 @@ export class MissionCreate {
     const a = this.assessment();
     return !!a && a.status === 'READY' && !a.completedMissionId && !isExpired(a);
   });
+
+  /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
+  protected readonly assessmentConfig = computed(() => {
+    const raw = this.assessment()?.findings;
+    let reqInspectors = 1;
+    let reqAnalysts = 1;
+    let reqTechnicians = 1;
+    let maxDronesLimit = 1;
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (typeof parsed?.requiredInspectors === 'number') reqInspectors = Math.max(1, parsed.requiredInspectors);
+        if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
+        if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
+        if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
+      } catch {}
+    }
+    return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
+  });
+
+  protected readonly maxDronesLimit = computed(() => this.assessmentConfig().maxDronesLimit);
 
   protected readonly eligiblePersonnel = computed<readonly PersonnelCandidate[]>(() =>
     [...(this.assessment()?.personnelCandidates ?? [])]
@@ -111,6 +134,16 @@ export class MissionCreate {
     return this.eligiblePersonnel().filter((p) => ids.has(p.id));
   });
 
+  protected readonly selectedInspectorCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'INSPECTOR').length,
+  );
+  protected readonly selectedAnalystCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'ANALYST').length,
+  );
+  protected readonly selectedTechnicianCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'TECHNICIAN').length,
+  );
+
   protected readonly hasSelectedInspector = computed(() => this.selectedPersonnel().some((p) => p.role === 'INSPECTOR'));
 
   protected readonly requiredSelectedCount = computed(() => {
@@ -118,8 +151,13 @@ export class MissionCreate {
     return this.selectedPersonnel().filter((p) => required.has(p.id)).length;
   });
 
+  protected readonly selectedDrones = computed<readonly UavCandidate[]>(() => {
+    const ids = new Set(this.selectedDroneIds());
+    return this.eligibleDrones().filter((d) => ids.has(d.id));
+  });
+
   protected readonly primaryDrone = computed(
-    () => this.eligibleDrones().find((d) => d.id === this.selectedDroneId()) ?? null,
+    () => this.selectedDrones()[0] ?? null,
   );
 
   protected readonly isEmergency = computed(() => this.priority() === 'EMERGENCY');
@@ -172,7 +210,21 @@ export class MissionCreate {
   }
 
   protected selectDrone(id: string): void {
-    this.selectedDroneId.set(id);
+    const limit = this.maxDronesLimit();
+    if (limit <= 1) {
+      this.selectedDroneIds.set([id]);
+    } else {
+      const current = this.selectedDroneIds();
+      if (current.includes(id)) {
+        this.selectedDroneIds.set(current.filter((x) => x !== id));
+      } else if (current.length < limit) {
+        this.selectedDroneIds.set([...current, id]);
+      }
+    }
+  }
+
+  protected toggleDrone(id: string): void {
+    this.selectDrone(id);
   }
 
   protected toggleDefect(key: string): void {
@@ -188,7 +240,7 @@ export class MissionCreate {
   }
 
   protected isDroneSelected(id: string): boolean {
-    return this.selectedDroneId() === id;
+    return this.selectedDroneIds().includes(id);
   }
 
   protected isDefectSelected(key: string): boolean {
@@ -266,9 +318,16 @@ export class MissionCreate {
       this.error.set('Cần ít nhất một thành viên được đánh dấu "Bắt buộc xác nhận".');
       return;
     }
-    const drone = this.primaryDrone();
-    if (!drone) {
-      this.error.set('Vui lòng chọn một UAV từ danh sách ứng viên của hồ sơ.');
+    const droneIds = [...this.selectedDroneIds()];
+    if (!droneIds.length) {
+      this.error.set('Vui lòng chọn ít nhất một UAV từ danh sách ứng viên của hồ sơ.');
+      return;
+    }
+    const cfg = this.assessmentConfig();
+    if (droneIds.length > cfg.maxDronesLimit) {
+      this.error.set(
+        `Số lượng UAV được chọn (${droneIds.length}) vượt quá giới hạn tối đa (${cfg.maxDronesLimit}) theo hồ sơ đánh giá.`,
+      );
       return;
     }
     const deadline = this.resolveDeadline(f.confirmationDeadline, a);
@@ -285,7 +344,7 @@ export class MissionCreate {
       title: f.title.trim(),
       description: f.description.trim() || null,
       personnel: orderedPersonnel,
-      droneIds: [drone.id],
+      droneIds: droneIds,
       priority: f.priority,
       objective: f.objective,
       priorityDefects: this.selectedPriorityDefects().length ? [...this.selectedPriorityDefects()] : null,
@@ -389,29 +448,40 @@ export class MissionCreate {
       });
   }
 
-  /** Chọn sẵn mỗi vai trò một người (đều bắt buộc xác nhận) và UAV đầu tiên đủ điều kiện để người dùng chỉnh lại. */
+  /** Chọn sẵn mỗi vai trò theo định mức (đều bắt buộc xác nhận) và UAV đầu tiên đủ điều kiện để người dùng chỉnh lại. */
   private preselectDefaults(): void {
-    const byRole = new Map<string, string>();
+    const byRole = new Map<string, string[]>();
     for (const p of this.eligiblePersonnel()) {
-      if (!byRole.has(p.role) && p.role in ROLE_ORDER) byRole.set(p.role, p.id);
+      if (p.role in ROLE_ORDER) {
+        const list = byRole.get(p.role) ?? [];
+        list.push(p.id);
+        byRole.set(p.role, list);
+      }
     }
-    this.selectedPersonnelIds.set([...byRole.values()]);
-    this.requiredPersonnelIds.set([...byRole.values()]);
+    const cfg = this.assessmentConfig();
+    const initialSelected: string[] = [
+      ...(byRole.get('INSPECTOR')?.slice(0, cfg.reqInspectors) ?? []),
+      ...(byRole.get('ANALYST')?.slice(0, cfg.reqAnalysts) ?? []),
+      ...(byRole.get('TECHNICIAN')?.slice(0, cfg.reqTechnicians) ?? []),
+    ];
+    this.selectedPersonnelIds.set(initialSelected);
+    this.requiredPersonnelIds.set(initialSelected);
     const firstDrone = this.eligibleDrones().find((d) => d.isAvailable !== false) ?? this.eligibleDrones()[0];
-    this.selectedDroneId.set(firstDrone?.id ?? '');
+    this.selectedDroneIds.set(firstDrone ? [firstDrone.id] : []);
   }
 
   private pruneSelections(): void {
     const personnelIds = new Set(this.eligiblePersonnel().map((p) => p.id));
     this.selectedPersonnelIds.update((ids) => ids.filter((id) => personnelIds.has(id)));
     this.requiredPersonnelIds.update((ids) => ids.filter((id) => personnelIds.has(id)));
-    if (!this.eligibleDrones().some((d) => d.id === this.selectedDroneId())) this.selectedDroneId.set('');
+    const droneIds = new Set(this.eligibleDrones().map((d) => d.id));
+    this.selectedDroneIds.update((ids) => ids.filter((id) => droneIds.has(id)));
   }
 
   private resetSelections(): void {
     this.selectedPersonnelIds.set([]);
     this.requiredPersonnelIds.set([]);
-    this.selectedDroneId.set('');
+    this.selectedDroneIds.set([]);
   }
 
   private onPriorityChange(value: MissionPriority): void {

@@ -200,6 +200,9 @@
           @if (uavNeedingInspectionCount() > 0) {
             · {{ uavNeedingInspectionCount() }} UAV cần Kỹ thuật viên kiểm định
           }
+          <span style="color: #64748b; font-size: 10.5px; display: block; margin-top: 2px;">
+            (Giới hạn nhiệm vụ: tối đa {{ assessmentConfig().maxDronesLimit }} UAV/chuyến bay)
+          </span>
         </p>
         @if (a.uav.evaluatedAt) {
           <span class="card-time">Đánh giá: {{ a.uav.evaluatedAt | date:'HH:mm dd/MM' }}</span>
@@ -303,6 +306,18 @@
             <div class="prop-item">
               <span class="prop-label">Người khởi tạo:</span>
               <span class="prop-value">{{ a.managerId || 'Quản lý vận hành (Manager)' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Định mức nhân sự yêu cầu:</span>
+              <span class="prop-value">
+                {{ assessmentConfig().reqInspectors }} Inspector · {{ assessmentConfig().reqAnalysts }} Analyst · {{ assessmentConfig().reqTechnicians }} Technician
+              </span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Giới hạn UAV nhiệm vụ (MF02):</span>
+              <span class="prop-value" style="color: #003f99; font-weight: 700;">
+                Tối đa {{ assessmentConfig().maxDronesLimit }} UAV / chuyến bay
+              </span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Nhiệm vụ bay đã tạo (MF02):</span>

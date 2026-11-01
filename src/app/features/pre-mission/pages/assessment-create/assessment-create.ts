@@ -91,11 +91,20 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       regionId: ['', [Validators.required]],
       plannedStart: [formatDatetimeLocal(new Date(Date.now() + 60 * 60 * 1000)), [Validators.required]],
       plannedEnd: [formatDatetimeLocal(new Date(Date.now() + 4 * 60 * 60 * 1000)), [Validators.required]],
+      requiredInspectors: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      requiredAnalysts: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      requiredTechnicians: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      maxDronesLimit: [1, [Validators.required, Validators.min(1), Validators.max(5)]],
     },
     { validators: [dateWindowValidator, notInPastValidator] },
   );
 
   private readonly formValue = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+
+  protected readonly totalRequiredPersonnel = computed(() => {
+    const v = this.formValue();
+    return (v.requiredInspectors ?? 1) + (v.requiredAnalysts ?? 1) + (v.requiredTechnicians ?? 1);
+  });
 
   protected readonly selectedRegion = computed(() => {
     const id = this.formValue().regionId;
@@ -247,6 +256,26 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     this.renderMap(false);
   }
 
+  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max: number = 10): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const current = Number(control.value) || 1;
+    if (current < max) {
+      control.setValue(current + 1);
+      control.markAsDirty();
+    }
+  }
+
+  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min: number = 1): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const current = Number(control.value) || 1;
+    if (current > min) {
+      control.setValue(current - 1);
+      control.markAsDirty();
+    }
+  }
+
   protected submit(): void {
     this.error.set('');
     if (this.form.invalid) {
@@ -260,7 +289,16 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }
     const raw = this.form.getRawValue();
     // `datetime-local` values are local time; the API sends them as ISO-8601 UTC (`toISOString()`, with `Z`).
-    const scope = { regionId: raw.regionId, plannedStart: raw.plannedStart, plannedEnd: raw.plannedEnd, towerIds };
+    const scope = {
+      regionId: raw.regionId,
+      plannedStart: raw.plannedStart,
+      plannedEnd: raw.plannedEnd,
+      towerIds,
+      requiredInspectors: raw.requiredInspectors,
+      requiredAnalysts: raw.requiredAnalysts,
+      requiredTechnicians: raw.requiredTechnicians,
+      maxDronesLimit: raw.maxDronesLimit,
+    };
     this.busy.set(true);
     this.api
       .create({ ...scope, idempotencyKey: this.idempotency.keyFor(scope) })
@@ -389,6 +427,23 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       .subscribe({
         next: (a) => {
           this.form.controls.regionId.setValue(a.regionId);
+          if (a.findings) {
+            try {
+              const findingsObj = typeof a.findings === 'string' ? JSON.parse(a.findings) : a.findings;
+              if (typeof findingsObj?.requiredInspectors === 'number') {
+                this.form.controls.requiredInspectors.setValue(findingsObj.requiredInspectors);
+              }
+              if (typeof findingsObj?.requiredAnalysts === 'number') {
+                this.form.controls.requiredAnalysts.setValue(findingsObj.requiredAnalysts);
+              }
+              if (typeof findingsObj?.requiredTechnicians === 'number') {
+                this.form.controls.requiredTechnicians.setValue(findingsObj.requiredTechnicians);
+              }
+              if (typeof findingsObj?.maxDronesLimit === 'number') {
+                this.form.controls.maxDronesLimit.setValue(findingsObj.maxDronesLimit);
+              }
+            } catch {}
+          }
           this.loadTowers(
             a.regionId,
             a.towers.map((t) => t.towerId),
