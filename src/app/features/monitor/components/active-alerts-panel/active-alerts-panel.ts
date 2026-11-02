@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MonitorAlert } from '../../../../models/monitor.models';
 import { NotificationsApi } from '../../../notifications/data-access/notifications-api';
 import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../data-access/monitor-api';
@@ -14,7 +15,7 @@ export interface DailySummaryMetrics {
 
 @Component({
   selector: 'app-active-alerts-panel',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './active-alerts-panel.html',
   styleUrl: './active-alerts-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,6 +29,8 @@ export class ActiveAlertsPanel {
 
   readonly selectedAlert = signal<MonitorAlert | null>(null);
   readonly filterMode = signal<'all' | 'unread'>('all');
+  readonly showAll = signal<boolean>(false);
+  readonly defaultLimit = 5;
 
   readonly unreadCount = computed(() => this.alerts().filter((a) => !a.isRead).length);
 
@@ -38,6 +41,23 @@ export class ActiveAlertsPanel {
     }
     return list;
   });
+
+  readonly displayedAlerts = computed(() => {
+    const list = this.filteredAlerts();
+    if (this.showAll()) {
+      return list;
+    }
+    return list.slice(0, this.defaultLimit);
+  });
+
+  readonly remainingCount = computed(() => {
+    const total = this.filteredAlerts().length;
+    return Math.max(0, total - this.defaultLimit);
+  });
+
+  toggleShowAll(): void {
+    this.showAll.update((v) => !v);
+  }
 
   cleanTitle(title: string): string {
     if (!title) return 'Cảnh báo hệ thống';

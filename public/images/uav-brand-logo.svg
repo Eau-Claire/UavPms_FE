@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none">
+  <circle cx="160" cy="115" r="95" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <circle cx="160" cy="115" r="68" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <circle cx="160" cy="115" r="54" fill="#0f2952" stroke="#1d4ed8" stroke-width="3"/>
+  <circle cx="160" cy="115" r="50" fill="none" stroke="#60a5fa" stroke-width="1" opacity="0.5"/>
+  <line x1="126" y1="81" x2="194" y2="149" stroke="#93c5fa" stroke-width="6" stroke-linecap="round"/>
+  <line x1="126" y1="149" x2="194" y2="81" stroke="#93c5fa" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="124" cy="79" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="3"/>
+  <ellipse cx="124" cy="79" rx="19" ry="5" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="196" cy="79" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="3"/>
+  <ellipse cx="196" cy="79" rx="19" ry="5" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="124" cy="151" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="3"/>
+  <ellipse cx="124" cy="151" rx="19" ry="5" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="196" cy="151" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="3"/>
+  <ellipse cx="196" cy="151" rx="19" ry="5" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="160" cy="115" r="22" fill="#ffffff" stroke="#0f2952" stroke-width="2.5"/>
+  <path d="M162.5 100L150 116H160L157 129L170 113H159.5L162.5 100Z" fill="#f59e0b" stroke="#b45309" stroke-width="0.8"/>
+  <text x="160" y="202" font-family="'Be Vietnam Pro', system-ui, -apple-system, sans-serif" font-size="22" font-weight="800" fill="#0f2952" text-anchor="middle" letter-spacing="3">UAV-PMS</text>
+  <text x="160" y="222" font-family="'Be Vietnam Pro', system-ui, -apple-system, sans-serif" font-size="10.5" font-weight="600" fill="#64748b" text-anchor="middle" letter-spacing="1.5">POWERLINE MONITORING SYSTEM</text>
+</svg>
+

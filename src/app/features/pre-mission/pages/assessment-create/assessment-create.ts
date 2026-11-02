@@ -369,7 +369,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     const selectedIds = this.selectedTowerIds();
     const allTowers = this.towers();
     if (!allTowers.length) {
-      this.map.setView([16.0, 107.5], 6);
+      this.map.setView([10.7769, 106.7009], 12);
       return;
     }
 
@@ -385,7 +385,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     if (points.length) {
       this.map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 16 });
     } else {
-      this.map.setView([16.0, 107.5], 6);
+      this.map.setView([10.7769, 106.7009], 12);
     }
   }
 
@@ -472,8 +472,8 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }
 
     this.map = L.map(container, {
-      center: [16.0, 107.5],
-      zoom: 6,
+      center: [10.7769, 106.7009],
+      zoom: 12,
       zoomControl: true,
     });
     this.polylineLayer = L.layerGroup().addTo(this.map);
@@ -510,8 +510,8 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     const allTowers = this.towers();
 
     // Determine region anchor coordinates for towers with missing coordinates
-    let baseLat = 16.0544;
-    let baseLng = 108.2022;
+    let baseLat = 10.7769;
+    let baseLng = 106.7009;
     const regionName = (this.selectedRegion()?.name || '').toLowerCase();
     if (regionName.includes('bắc') || regionName.includes('hà nội')) {
       baseLat = 21.0285;

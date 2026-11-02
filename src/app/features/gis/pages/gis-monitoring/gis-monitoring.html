@@ -47,6 +47,19 @@
       </button>
     </div>
 
+    <!-- Quick Map Search Bar in pre-mission format -->
+    <div class="gis-hud-search" role="search" aria-label="Tìm kiếm nhanh trên bản đồ">
+      <div class="search-input-wrap">
+        <span nz-icon nzType="search" class="search-icon"></span>
+        <input
+          type="search"
+          placeholder="Tìm mã cột, loại bất thường..."
+          [ngModel]="searchCode()"
+          (ngModelChange)="searchCode.set($event); applyFilters()"
+        />
+      </div>
+    </div>
+
     <!-- Quick Metrics Counter -->
     <div class="gis-metrics-bar">
       <div class="metric-item metric-towers" title="Số lượng cột điện trong vùng quan sát">
@@ -339,13 +352,16 @@
 
       <div class="filter-group">
         <label for="search-asset-input">Tìm bất thường theo mã cột / loại:</label>
-        <input
-          id="search-asset-input"
-          type="text"
-          placeholder="Mã cột hoặc loại bất thường"
-          [ngModel]="searchCode()"
-          (ngModelChange)="searchCode.set($event); applyFilters()"
-        />
+        <div class="search-input-wrap">
+          <span nz-icon nzType="search" class="search-icon"></span>
+          <input
+            id="search-asset-input"
+            type="search"
+            placeholder="Tìm theo mã cột hoặc loại bất thường..."
+            [ngModel]="searchCode()"
+            (ngModelChange)="searchCode.set($event); applyFilters()"
+          />
+        </div>
       </div>
 
       <div class="filter-group">
@@ -583,6 +599,7 @@
         } @else if (selected.type === 'anomaly' && selected.data.towerId) {
           <a
             [routerLink]="['/towers', selected.data.towerId]"
+            [queryParams]="{ from: 'gis' }"
             class="btn-primary"
           >
             <span nz-icon nzType="history" aria-hidden="true"></span>
@@ -591,6 +608,7 @@
         } @else if (selected.type === 'tower') {
           <a
             [routerLink]="['/towers', selected.data.id]"
+            [queryParams]="{ from: 'gis' }"
             class="btn-primary"
           >
             <span nz-icon nzType="history" aria-hidden="true"></span>
@@ -599,6 +617,7 @@
         } @else if (selected.type === 'alert' && selected.data.towerId) {
           <a
             [routerLink]="['/towers', selected.data.towerId]"
+            [queryParams]="{ from: 'gis' }"
             class="btn-primary"
           >
             <span nz-icon nzType="history" aria-hidden="true"></span>

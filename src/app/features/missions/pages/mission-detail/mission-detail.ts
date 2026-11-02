@@ -826,7 +826,7 @@ export class MissionDetail {
 
     const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     if (!targets.length) {
-      this.map.setView([16.0, 107.5], 6);
+      this.map.setView([10.7769, 106.7009], 12);
       return;
     }
 

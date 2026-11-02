@@ -25,7 +25,7 @@
         }
       </div>
 
-      <div class="mission-search-wrap">
+      <div class="search-input-wrap mission-search-wrap">
         <span nz-icon nzType="search" class="search-icon"></span>
         <input type="search" class="mission-search-input" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" />
       </div>

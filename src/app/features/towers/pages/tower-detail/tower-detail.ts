@@ -50,6 +50,9 @@ export class TowerDetail {
   /** Route parameter (bound through withComponentInputBinding). */
   readonly id = input.required<string>();
 
+  /** Optional query parameter (bound through withComponentInputBinding) indicating originating page (e.g. 'gis'). */
+  readonly from = input<string>();
+
   protected readonly statuses = ANOMALY_STATUSES;
   protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly anomalyStatusLabel = anomalyStatusLabel;
@@ -77,11 +80,34 @@ export class TowerDetail {
   });
 
   protected readonly dateRangeInvalid = signal(false);
+  protected readonly historySearch = signal('');
 
   protected readonly tower = computed(() => this.history()?.tower ?? null);
   protected readonly stats = computed(() => this.history()?.stats ?? null);
   protected readonly anomalies = computed(() => this.history()?.anomalies ?? []);
   protected readonly maintenance = computed(() => this.history()?.maintenanceHistory ?? []);
+
+  protected readonly filteredAnomalies = computed(() => {
+    const list = this.anomalies();
+    const q = this.historySearch().trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((a) =>
+      (a.categoryName && a.categoryName.toLowerCase().includes(q)) ||
+      (a.categoryCode && a.categoryCode.toLowerCase().includes(q)) ||
+      (a.aiSource && a.aiSource.toLowerCase().includes(q))
+    );
+  });
+
+  protected readonly filteredMaintenance = computed(() => {
+    const list = this.maintenance();
+    const q = this.historySearch().trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((m) =>
+      (m.ticketCode && m.ticketCode.toLowerCase().includes(q)) ||
+      (m.description && m.description.toLowerCase().includes(q)) ||
+      (m.status && m.status.toLowerCase().includes(q))
+    );
+  });
 
   constructor() {
     this.request$
@@ -142,6 +168,7 @@ export class TowerDetail {
   }
 
   protected resetFilters(): void {
+    this.historySearch.set('');
     this.filters.reset({ validationStatus: '', from: '', to: '' });
     this.applyFilters();
   }

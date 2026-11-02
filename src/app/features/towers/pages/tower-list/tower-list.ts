@@ -100,6 +100,31 @@ export class TowerList {
     return tower.regionName || this.regionNames().get(tower.regionId) || '—';
   }
 
+  protected displayRegion(tower: TowerSummary): string {
+    const name = this.regionName(tower);
+    return name
+      .replace(/^Phường\s+/i, 'P. ')
+      .replace(/,\s*Quận\s+/i, ', Q. ')
+      .replace(/,\s*TP\.\s*/i, ', ');
+  }
+
+  protected displayPoleType(type?: string | null): string {
+    if (!type) return '—';
+    const lower = type.toLowerCase();
+    if (lower.includes('bu-lông') || lower.includes('bu lông')) {
+      return 'Thép bu-lông';
+    }
+    if (lower.includes('đơn thân')) {
+      return 'Thép đơn thân';
+    }
+    return type;
+  }
+
+  protected displayAddress(address?: string | null): string {
+    if (!address) return '—';
+    return address.replace(/,\s*(TP\.\s*Hồ Chí Minh|TP\.HCM|Thành phố Hồ Chí Minh)$/i, '');
+  }
+
   protected load(): void {
     const value = this.filters.getRawValue();
     this.reload$.next({ page: this.page(), pageSize: this.pageSize(), regionId: value.regionId || undefined, search: value.search.trim() || undefined });

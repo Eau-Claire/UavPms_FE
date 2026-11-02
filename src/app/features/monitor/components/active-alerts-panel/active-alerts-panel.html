@@ -37,7 +37,7 @@
 
   <!-- Alerts Scrollable List -->
   <div class="alerts-list" role="list">
-    @for (alert of filteredAlerts(); track alert.id) {
+    @for (alert of displayedAlerts(); track alert.id) {
       <article
         class="alert-card"
         [class.unread]="!alert.isRead"
@@ -78,6 +78,40 @@
       </div>
     }
   </div>
+
+  <!-- Footer: Row 1 = Status & Xem them, Row 2 = Trung tam Canh bao (can le phai) -->
+  @if (filteredAlerts().length > defaultLimit) {
+    <footer class="alerts-footer">
+      <div class="footer-row-main">
+        <span class="footer-status">
+          @if (!showAll()) {
+            Hiển thị <strong>{{ displayedAlerts().length }}</strong>/{{ filteredAlerts().length }} mới nhất
+          } @else {
+            Đang hiển thị tất cả <strong>{{ filteredAlerts().length }}</strong> cảnh báo
+          }
+        </span>
+        <button
+          type="button"
+          class="toggle-expand-btn"
+          (click)="toggleShowAll()"
+        >
+          {{ showAll() ? 'Thu gọn' : 'Xem thêm' }}
+        </button>
+      </div>
+
+      <div class="footer-row-bottom">
+        <a routerLink="/emergency-alerts" class="emergency-center-link" title="Xem tất cả cảnh báo khẩn cấp">
+          Trung tâm Cảnh báo →
+        </a>
+      </div>
+    </footer>
+  } @else if (filteredAlerts().length > 0) {
+    <footer class="alerts-footer-compact">
+      <a routerLink="/emergency-alerts" class="emergency-center-link" title="Xem tất cả cảnh báo khẩn cấp">
+        Trung tâm Cảnh báo →
+      </a>
+    </footer>
+  }
 
   <!-- Detail Modal Window -->
   @if (selectedAlert(); as alert) {

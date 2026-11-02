@@ -306,7 +306,7 @@
           <div>
             <h2 id="user-modal-title">{{ editing() ? 'Cập nhật người dùng' : 'Thêm người dùng mới' }}</h2>
             <p class="modal-subtitle">
-              {{ editing() ? 'Chỉnh sửa thông tin liên hệ, vai trò và trạng thái hoạt động' : 'Điền thông tin tài khoản người dùng mới trong hệ thống EVN' }}
+              {{ editing() ? 'Chỉnh sửa thông tin liên hệ, vai trò và trạng thái hoạt động' : 'Điền thông tin tài khoản người dùng mới trong hệ thống UAV-PMS' }}
             </p>
           </div>
           <button type="button" class="modal-close" aria-label="Đóng cửa sổ" (click)="closeModal()">×</button>
@@ -324,7 +324,7 @@
               <input
                 type="email"
                 formControlName="email"
-                placeholder="VD: user@evn.vn"
+                placeholder="VD: user@uavpms.vn"
                 [readonly]="editing() !== null"
                 [class.readonly-input]="editing() !== null"
               />

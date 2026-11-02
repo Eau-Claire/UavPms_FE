@@ -128,7 +128,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly mockBatteryLevel = signal<number>(96);
   protected readonly mockGpsSats = signal<number>(28);
   protected readonly mockRfQuality = signal<number>(98);
-  protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN (Mô phỏng thực tế)');
+  protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
 
   // Khí tượng (tham khảo, không thay đổi kết quả đánh giá của backend)
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
@@ -755,7 +755,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.mockBatteryLevel.set(96);
       this.mockGpsSats.set(28);
       this.mockRfQuality.set(98);
-      this.mockNotes.set('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN (Mô phỏng thực tế)');
+      this.mockNotes.set('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
     } else if (preset === 'warning') {
       this.mockBatteryLevel.set(68);
       this.mockGpsSats.set(14);
@@ -888,7 +888,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     });
     const manual = this.checklistManual();
     const notes =
-      this.mockNotes().trim() || (manual ? 'Kiểm định kỹ thuật trước nhiệm vụ' : 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 EVN');
+      this.mockNotes().trim() || (manual ? 'Kiểm định kỹ thuật trước nhiệm vụ' : 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01');
 
     this.mockSubmitting.set(true);
     this.inspecting.set(true);
@@ -998,7 +998,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     if (this.map && this.map.getContainer() !== container) this.cleanupMap();
 
     if (!this.map) {
-      this.map = L.map(container, { center: [16.0, 107.5], zoom: 6, zoomControl: true });
+      this.map = L.map(container, { center: [10.7769, 106.7009], zoom: 12, zoomControl: true });
       this.polylineLayer = L.layerGroup().addTo(this.map);
       this.markersLayer = L.layerGroup().addTo(this.map);
       this.setMapType(this.currentMapType());

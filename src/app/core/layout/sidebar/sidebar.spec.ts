@@ -83,4 +83,10 @@ describe('Sidebar', () => {
     const { fixture } = setup('Technician', true);
     expect((fixture.nativeElement as HTMLElement).querySelector('.app-sidebar-nav-secondary')).toBeNull();
   });
+
+  it('does not render any icons in nav items', () => {
+    const { fixture } = setup('Manager');
+    const icons = (fixture.nativeElement as HTMLElement).querySelectorAll('a.app-nav-item .app-nav-icon');
+    expect(icons.length).toBe(0);
+  });
 });

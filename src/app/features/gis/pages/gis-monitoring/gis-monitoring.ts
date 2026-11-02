@@ -252,8 +252,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     const vietnamBounds = L.latLngBounds([8.15, 102.0], [23.5, 110.0]);
     this.map = L.map(container, {
-      center: [16.2, 106.2],
-      zoom: 5,
+      center: [10.7769, 106.7009],
+      zoom: 12,
       zoomControl: false,
       maxBounds: vietnamBounds,
       maxBoundsViscosity: 1,

@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
-import { CloseCircleOutline, EditOutline, FileExcelOutline, HistoryOutline, PlusOutline, ReloadOutline } from '@ant-design/icons-angular/icons';
+import { CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, PlusOutline, ReloadOutline, SearchOutline } from '@ant-design/icons-angular/icons';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -34,7 +34,7 @@ describe('TowerList', () => {
       imports: [TowerList],
       providers: [
         provideRouter([]),
-        provideNzIcons([CloseCircleOutline, EditOutline, FileExcelOutline, HistoryOutline, PlusOutline, ReloadOutline]),
+        provideNzIcons([CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, PlusOutline, ReloadOutline, SearchOutline]),
         { provide: TowersApi, useValue: api },
         { provide: RegionsApi, useValue: { getAll: () => of([{ id: 'r1', name: 'Hải Phòng' }]) } },
         { provide: Auth, useValue: { user: () => ({ id: 'u1', role: role() }) } },

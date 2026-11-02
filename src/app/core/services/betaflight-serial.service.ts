@@ -21,7 +21,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'S7X2',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.5',
-    deviceName: 'EVN-UAV-HN-01',
+    deviceName: 'UAV-HCM-01',
   },
   {
     id: 'uav-hn-02',
@@ -30,7 +30,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.1',
-    deviceName: 'EVN-UAV-HN-02',
+    deviceName: 'UAV-HCM-02',
   },
   {
     id: 'uav-hn-03',
@@ -39,7 +39,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'MATEKF405-TE',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.2',
-    deviceName: 'EVN-UAV-HN-03',
+    deviceName: 'UAV-HCM-03',
   },
   {
     id: 'uav-hn-04',
@@ -48,7 +48,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.0',
-    deviceName: 'EVN-UAV-HN-04',
+    deviceName: 'UAV-HCM-04',
   },
   {
     id: 'uav-hn-05',
@@ -57,7 +57,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'IFLIGHT_BLITZ_F7',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.1',
-    deviceName: 'EVN-UAV-HN-05',
+    deviceName: 'UAV-HN-05',
   },
   {
     id: 'uav-hn-06',
@@ -66,7 +66,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'KAKUTEF7',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.3',
-    deviceName: 'EVN-UAV-HN-06',
+    deviceName: 'UAV-HN-06',
   },
   {
     id: 'uav-hn-07',
@@ -75,7 +75,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.5',
-    deviceName: 'EVN-UAV-HN-07',
+    deviceName: 'UAV-HN-07',
   },
   {
     id: 'uav-dn-01',
@@ -84,7 +84,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'MATEKF405-TE',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.1',
-    deviceName: 'EVN-UAV-DN-01',
+    deviceName: 'UAV-DN-01',
   },
   {
     id: 'uav-dn-02',
@@ -93,7 +93,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.2',
-    deviceName: 'EVN-UAV-DN-02',
+    deviceName: 'UAV-DN-02',
   },
   {
     id: 'uav-hcm-01',
@@ -102,7 +102,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.4',
-    deviceName: 'EVN-UAV-HCM-01',
+    deviceName: 'UAV-HCM-01',
   },
   {
     id: 'uav-hcm-02',
@@ -111,7 +111,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'MATEKF405-TE',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.1',
-    deviceName: 'EVN-UAV-HCM-02',
+    deviceName: 'UAV-HCM-02',
   },
   {
     id: 'f405-speedybee',
@@ -120,7 +120,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'SPEEDYBEEF405V3',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.1',
-    deviceName: 'EVN-Survey-Hexa-01',
+    deviceName: 'UAV-Survey-Hexa-01',
   },
   {
     id: 'f722-matek',
@@ -129,7 +129,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'MATEKF722',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.0',
-    deviceName: 'EVN-LineInspector-02',
+    deviceName: 'UAV-LineInspector-02',
   },
   {
     id: 'h743-kakute',
@@ -138,7 +138,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
     boardIdentifier: 'KAKUTEH7',
     firmwareName: 'Betaflight',
     firmwareVersion: '4.5.2',
-    deviceName: 'EVN-Thermal-Drone-03',
+    deviceName: 'UAV-Thermal-Drone-03',
   },
   {
     id: 'unregistered-new-fc',

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
-import { AppstoreOutline, ArrowLeftOutline, AuditOutline } from '@ant-design/icons-angular/icons';
+import { AppstoreOutline, ArrowLeftOutline, AuditOutline, EnvironmentOutline, FilterOutline, ReloadOutline, SearchOutline } from '@ant-design/icons-angular/icons';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
@@ -34,7 +34,7 @@ describe('TowerDetail', () => {
       imports: [TowerDetail],
       providers: [
         provideRouter([]),
-        provideNzIcons([AppstoreOutline, ArrowLeftOutline, AuditOutline]),
+        provideNzIcons([AppstoreOutline, ArrowLeftOutline, AuditOutline, EnvironmentOutline, FilterOutline, ReloadOutline, SearchOutline]),
         { provide: TowersApi, useValue: api },
         { provide: Auth, useValue: { user: () => ({ id: 'u1', role: 'Analyst' }) } },
       ],
@@ -93,5 +93,28 @@ describe('TowerDetail', () => {
     api.history.mockReturnValue(throwError(() => ({ status: 404, error: { message: 'Tower not found' } })));
     await setup();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Không tìm thấy cột điện');
+  });
+
+  it('renders "Quay lại Bản đồ GIS" button when from="gis"', async () => {
+    TestBed.configureTestingModule({
+      imports: [TowerDetail],
+      providers: [
+        provideRouter([]),
+        provideNzIcons([AppstoreOutline, ArrowLeftOutline, AuditOutline, EnvironmentOutline, FilterOutline, ReloadOutline, SearchOutline]),
+        { provide: TowersApi, useValue: api },
+        { provide: Auth, useValue: { user: () => ({ id: 'u1', role: 'Analyst' }) } },
+      ],
+    });
+    fixture = TestBed.createComponent(TowerDetail);
+    fixture.componentRef.setInput('id', 't1');
+    fixture.componentRef.setInput('from', 'gis');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const actions = (fixture.nativeElement as HTMLElement).querySelector('.tower-actions');
+    expect(actions?.textContent).toContain('Quay lại Bản đồ GIS');
+    const gisLink = actions?.querySelector('a[href="/gis"]');
+    expect(gisLink).not.toBeNull();
   });
 });

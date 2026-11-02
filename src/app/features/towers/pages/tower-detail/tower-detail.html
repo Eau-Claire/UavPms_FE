@@ -1,15 +1,32 @@
 <header class="page-heading">
   <div class="heading-left">
     <nav class="page-breadcrumb" aria-label="Breadcrumb">
-      <a routerLink="/towers">CỘT ĐIỆN</a><span>/</span><strong>{{ tower()?.towerCode || 'CHI TIẾT' }}</strong>
+      @if (from() === 'gis') {
+        <a routerLink="/gis">BẢN ĐỒ GIS</a><span>/</span>
+      } @else {
+        <a routerLink="/towers">CỘT ĐIỆN</a><span>/</span>
+      }
+      <strong>{{ tower()?.towerCode || 'CHI TIẾT' }}</strong>
     </nav>
     <h1>{{ tower() ? 'Cột ' + tower()!.towerCode : 'Chi tiết cột điện' }}</h1>
     <p class="review-subtitle">Bất thường do AI phát hiện và lịch sử bảo trì của cột điện.</p>
   </div>
   <div class="tower-actions">
-    <a class="button secondary" routerLink="/towers">
-      <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Danh sách cột</span>
-    </a>
+    @if (from() === 'gis') {
+      <a class="button secondary" routerLink="/gis">
+        <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Quay lại Bản đồ GIS</span>
+      </a>
+      <a class="button secondary" routerLink="/towers">
+        <span>Danh sách cột</span>
+      </a>
+    } @else {
+      <a class="button secondary" routerLink="/gis" title="Xem vị trí trên bản đồ GIS">
+        <span nz-icon nzType="environment" aria-hidden="true"></span><span>Bản đồ GIS</span>
+      </a>
+      <a class="button secondary" routerLink="/towers">
+        <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Danh sách cột</span>
+      </a>
+    }
   </div>
 </header>
 
@@ -105,8 +122,19 @@
       </div>
 
       <form class="tower-filter-strip" [formGroup]="filters" aria-label="Lọc lịch sử" (ngSubmit)="applyFilters()">
+        <div class="search-input-wrap">
+          <span nz-icon nzType="search" class="search-icon"></span>
+          <input
+            id="history-search"
+            type="search"
+            placeholder="Tìm theo sự cố, nội dung..."
+            [value]="historySearch()"
+            (input)="historySearch.set($any($event.target).value)"
+          />
+        </div>
+
         <div class="filter-group" [class.is-hidden]="activeTab() !== 'anomalies'">
-          <label for="history-status" class="sr-only">Trạng thái bất thường</label>
+          <label for="history-status" class="filter-lbl">Trạng thái:</label>
           <select id="history-status" formControlName="validationStatus" title="Trạng thái bất thường">
             <option value="">Tất cả trạng thái</option>
             @for (status of statuses; track status) {
@@ -115,15 +143,15 @@
           </select>
         </div>
         <div class="filter-group filter-date">
-          <label for="history-from" class="date-label">Từ:</label>
+          <label for="history-from" class="date-label">Từ ngày:</label>
           <input id="history-from" type="date" formControlName="from" [attr.aria-invalid]="dateRangeInvalid()" title="Từ ngày" />
         </div>
         <div class="filter-group filter-date">
-          <label for="history-to" class="date-label">Đến:</label>
+          <label for="history-to" class="date-label">Đến ngày:</label>
           <input id="history-to" type="date" formControlName="to" [attr.aria-invalid]="dateRangeInvalid()" [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null" title="Đến ngày" />
         </div>
         <div class="filter-group filter-size">
-          <label for="history-page-size" class="sr-only">Số dòng / trang</label>
+          <label for="history-page-size" class="filter-lbl">Hiển thị:</label>
           <select id="history-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)" title="Số dòng mỗi trang">
             @for (size of pageSizes; track size) {
               <option [value]="size">{{ size }} dòng</option>
@@ -131,8 +159,12 @@
           </select>
         </div>
         <div class="filter-actions">
-          <button type="submit" class="button primary btn-compact">Áp dụng</button>
-          <button type="button" class="button secondary btn-compact" (click)="resetFilters()">Đặt lại</button>
+          <button type="submit" class="button primary btn-compact">
+            <span nz-icon nzType="filter" aria-hidden="true"></span> Áp dụng
+          </button>
+          <button type="button" class="button secondary btn-compact" (click)="resetFilters()">
+            <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
+          </button>
         </div>
       </form>
     </div>
@@ -143,7 +175,7 @@
 
     @if (activeTab() === 'anomalies') {
       <div id="tower-panel-anomalies" role="tabpanel" aria-labelledby="tower-tab-anomalies" [attr.aria-busy]="loading()">
-        @if (!anomalies().length) {
+        @if (!filteredAnomalies().length) {
           <app-data-state kind="empty" title="Không có bất thường" message="Không có bất thường phù hợp với bộ lọc." />
         } @else {
           <div class="tower-table-wrap">
@@ -161,7 +193,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (anomaly of anomalies(); track anomaly.id) {
+                @for (anomaly of filteredAnomalies(); track anomaly.id) {
                   <tr>
                     <td class="td-thumb">
                       @if (anomaly.cropUrl || anomaly.imageUrl; as src) {
@@ -204,7 +236,7 @@
       </div>
     } @else {
       <div id="tower-panel-maintenance" role="tabpanel" aria-labelledby="tower-tab-maintenance" [attr.aria-busy]="loading()">
-        @if (!maintenance().length) {
+        @if (!filteredMaintenance().length) {
           <app-data-state kind="empty" title="Chưa có phiếu bảo trì" message="Không có phiếu bảo trì trong khoảng thời gian đã chọn." />
         } @else {
           <div class="tower-table-wrap">
@@ -223,7 +255,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (ticket of maintenance(); track ticket.id) {
+                @for (ticket of filteredMaintenance(); track ticket.id) {
                   <tr>
                     <td class="td-ticket-code tower-mono">
                       @if (canOpenTicket()) {

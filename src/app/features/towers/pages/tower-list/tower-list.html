@@ -32,12 +32,12 @@
 }
 
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc cột điện" (ngSubmit)="goToPage(1)">
-  <div class="tower-filter tower-filter-grow">
-    <label for="tower-search">Tìm kiếm</label>
-    <input id="tower-search" type="search" formControlName="search" placeholder="Mã cột hoặc địa chỉ" autocomplete="off" />
+  <div class="search-input-wrap">
+    <span nz-icon nzType="search" class="search-icon"></span>
+    <input id="tower-search" type="search" formControlName="search" placeholder="Tìm theo mã cột, địa chỉ..." autocomplete="off" />
   </div>
   <div class="tower-filter">
-    <label for="tower-region-filter">Khu vực</label>
+    <label for="tower-region-filter"><span>Khu vực:</span></label>
     <select id="tower-region-filter" formControlName="regionId">
       <option value="">Tất cả khu vực</option>
       @for (region of regions(); track region.id) {
@@ -46,17 +46,22 @@
     </select>
   </div>
   <div class="tower-filter">
-    <label for="tower-page-size">Số dòng / trang</label>
+    <label for="tower-page-size"><span>Hiển thị:</span></label>
     <select id="tower-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
       @for (size of pageSizes; track size) {
-        <option [value]="size">{{ size }}</option>
+        <option [value]="size">{{ size }} dòng</option>
       }
     </select>
   </div>
   <div class="tower-actions">
+    <button type="submit" class="button primary">
+      <span nz-icon nzType="filter" aria-hidden="true"></span>
+      <span>Lọc</span>
+    </button>
     <button type="button" class="button secondary" (click)="resetFilters()">Đặt lại</button>
     <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
       <span nz-icon nzType="reload" aria-hidden="true"></span>
+      <span>Làm mới</span>
     </button>
   </div>
 </form>
@@ -78,7 +83,7 @@
             <th scope="col" class="th-region">Khu vực</th>
             <th scope="col" class="th-type">Loại cột</th>
             <th scope="col" class="th-address">Địa chỉ</th>
-            <th scope="col" class="th-coords">Tọa độ (vĩ độ, kinh độ)</th>
+            <th scope="col" class="th-coords">Tọa độ</th>
             <th scope="col" class="th-actions"><span class="sr-only">Thao tác</span></th>
           </tr>
         </thead>
@@ -86,9 +91,9 @@
           @for (tower of result().items; track tower.id) {
             <tr>
               <td class="td-code"><a class="tower-code-link" [routerLink]="['/towers', tower.id]">{{ tower.towerCode }}</a></td>
-              <td class="td-region">{{ regionName(tower) }}</td>
-              <td class="td-type">{{ tower.poleType || '—' }}</td>
-              <td class="tower-muted td-address" [title]="tower.address || ''">{{ tower.address || '—' }}</td>
+              <td class="td-region" [title]="regionName(tower)">{{ displayRegion(tower) }}</td>
+              <td class="td-type" [title]="tower.poleType || ''">{{ displayPoleType(tower.poleType) }}</td>
+              <td class="tower-muted td-address" [title]="tower.address || ''">{{ displayAddress(tower.address) }}</td>
               <td class="tower-mono td-coords">{{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}</td>
               <td class="td-actions">
                 <div class="tower-row-actions">
