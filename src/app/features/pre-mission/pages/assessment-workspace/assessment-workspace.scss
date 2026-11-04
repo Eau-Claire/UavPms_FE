@@ -720,3 +720,57 @@
   font-weight: 600;
   color: #92400e;
 }
+
+.personnel-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+
+  .p-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 14px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+
+    span[nz-icon] {
+      font-size: 11px;
+    }
+
+    &.cert-pilot {
+      background: #eef2ff;
+      color: #3730a3;
+      border-color: #c7d2fe;
+    }
+
+    &.cert-tech {
+      background: #f0fdf4;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
+    &.cert-analyst {
+      background: #faf5ff;
+      color: #6b21a8;
+      border-color: #e9d5ff;
+    }
+
+    &.ok {
+      background: #f0fdf4;
+      color: #15803d;
+      border-color: #bbf7d0;
+    }
+
+    &.fail {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+  }
+}

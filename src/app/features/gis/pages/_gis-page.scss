@@ -491,15 +491,26 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: #334155;
       cursor: pointer;
 
       input[type="checkbox"] {
-        accent-color: #1d4f91;
-        width: 15px;
-        height: 15px;
+        accent-color: #174f83;
+        width: 14px;
+        height: 14px;
         cursor: pointer;
+      }
+
+      .layer-outline-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #174f83;
+        font-size: 14px;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
       }
     }
   }
@@ -571,12 +582,12 @@
         border-radius: 50%;
         flex-shrink: 0;
 
-        &.sym-tower { background: #1d4f91; border: 2px solid #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        &.sym-tower { background: #ffffff; border: 2px solid #10387d; box-shadow: 0 1px 3px rgba(16, 56, 125, 0.2); }
         &.sym-line-220 { width: 18px; height: 4px; border-radius: 2px; background: #1d4f91; }
         &.sym-line-500 { width: 18px; height: 5px; border-radius: 2px; background: #dc2626; }
-        &.sym-critical { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
-        &.sym-high { background: #f59e0b; }
-        &.sym-alert { background: #dc2626; border: 2px solid #fee2e2; }
+        &.sym-critical { background: #ffffff; border: 2px solid #dc2626; }
+        &.sym-high { background: #ffffff; border: 2px solid #ea580c; }
+        &.sym-alert { background: #ffffff; border: 2px solid #dc2626; }
       }
     }
   }
@@ -765,44 +776,61 @@
 }
 
 .custom-tower-marker {
-  width: 30px;
-  height: 30px;
-  background: #0284c7;
-  border: 2px solid #ffffff;
+  width: 26px;
+  height: 26px;
+  background: #ffffff;
+  border: 2px solid #10387d;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  font-size: 14px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  color: #10387d;
+  box-shadow: 0 2px 6px rgba(16, 56, 125, 0.25);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+
+  .tower-node-icon {
+    display: block;
+    stroke: #10387d;
+  }
 
   &:hover {
-    transform: scale(1.2);
-    background: #0369a1;
+    transform: scale(1.25);
+    border-color: #0284c7;
+    color: #0284c7;
+
+    .tower-node-icon {
+      stroke: #0284c7;
+    }
   }
 }
 
 .custom-defect-marker {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  background: #ffffff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 800;
-  border: 2px solid #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: transform 0.15s ease;
 
-  &.sev-5, &.sev-critical { background: #dc2626; }
-  &.sev-4, &.sev-high { background: #ea580c; }
-  &.sev-3, &.sev-med { background: #d97706; }
+  &.sev-5, &.sev-critical {
+    border: 2px solid #dc2626;
+    color: #dc2626;
+  }
+  &.sev-4, &.sev-high {
+    border: 2px solid #ea580c;
+    color: #ea580c;
+  }
+  &.sev-3, &.sev-med {
+    border: 2px solid #d97706;
+    color: #d97706;
+  }
 
   &:hover {
     transform: scale(1.25);
@@ -811,25 +839,29 @@
 
 .custom-alert-marker {
   position: relative;
-  width: 34px;
-  height: 34px;
-  background: #dc2626;
+  width: 28px;
+  height: 28px;
+  background: #ffffff;
   border-radius: 50%;
-  border: 2px solid #ffffff;
-  color: #ffffff;
+  border: 2px solid #dc2626;
+  color: #dc2626;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.6);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
   cursor: pointer;
+
+  svg {
+    display: block;
+    stroke: #dc2626;
+  }
 
   &::after {
     content: '';
     position: absolute;
-    inset: -6px;
+    inset: -5px;
     border-radius: 50%;
-    border: 2px solid #ef4444;
+    border: 1.5px solid #ef4444;
     animation: radarPulse 1.5s infinite ease-out;
   }
 }

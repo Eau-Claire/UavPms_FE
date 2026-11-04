@@ -406,15 +406,15 @@
     // Explicit column width locks to prevent layout jitter between page sizes (10 vs 50 rows)
     th.th-code,
     td.td-code {
-      width: 125px;
-      min-width: 125px;
+      width: 11%;
+      min-width: 110px;
       white-space: nowrap;
     }
 
     th.th-region,
     td.td-region {
-      width: 160px;
-      min-width: 160px;
+      width: 17%;
+      min-width: 145px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -422,39 +422,40 @@
 
     th.th-type,
     td.td-type {
-      width: 140px;
-      min-width: 140px;
+      width: 15%;
+      min-width: 130px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
+    th.th-address,
+    td.td-address {
+      width: 27%;
+      min-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     th.th-coords,
     td.td-coords {
-      width: 175px;
-      min-width: 175px;
+      width: 17%;
+      min-width: 160px;
       white-space: nowrap;
     }
 
     th.th-actions,
     td.td-actions {
-      width: 96px;
-      min-width: 96px;
-      text-align: right;
+      width: 13%;
+      min-width: 115px;
+      text-align: center;
       white-space: nowrap;
 
       .tower-row-actions {
         display: inline-flex;
-        justify-content: flex-end;
+        justify-content: center;
       }
-    }
-
-    th.th-address,
-    td.td-address {
-      width: auto;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
   }
 

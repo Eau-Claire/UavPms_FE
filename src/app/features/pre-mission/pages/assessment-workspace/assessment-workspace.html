@@ -8,7 +8,7 @@
           <span class="separator">/</span>
           <a routerLink="/pre-mission" style="color: #64748b; text-decoration: none;">DANH SÁCH</a>
           <span class="separator">/</span>
-          <strong>KHÔNG GIAN ĐÁNH GIÁ MỨC SẴN SÀNG (MF01)</strong>
+          <strong>KHÔNG GIAN ĐÁNH GIÁ MỨC SẴN SÀNG</strong>
         </div>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <h1>{{ a.assessmentCode }}</h1>
@@ -41,35 +41,7 @@
         }
         <a class="evn-btn secondary" routerLink="/pre-mission" title="Về danh sách đánh giá">
           <span nz-icon nzType="unordered-list"></span> Danh sách
-        </a >
-        @if (!isCancelled() && !isCompleted() && canManage()) {
-          <button
-            type="button"
-            class="evn-btn secondary"
-            style="color: #dc2626;"
-            [disabled]="busy()"
-            (click)="openCancelModal()"
-          >
-            <span nz-icon nzType="close"></span> Hủy đánh giá
-          </button>
-          <button
-            type="button"
-            class="evn-btn secondary"
-            [disabled]="busy() || isEvaluating()"
-            (click)="reevaluate()"
-          >
-            <span nz-icon [nzType]="busy() ? 'loading' : 'reload'"></span> Đánh giá lại
-          </button>
-        }
-        @if (canProceedToMf02()) {
-          <a
-            class="evn-btn primary"
-            [routerLink]="['/missions/new']"
-            [queryParams]="{ assessmentId: a.id }"
-          >
-            <span nz-icon nzType="thunderbolt"></span> Tạo nhiệm vụ (MF02)
-          </a>
-        }
+        </a>
       </div>
     </header>
 
@@ -437,9 +409,22 @@
           @if (realtimeWeather(); as w) {
             <div class="live-weather-card">
               <div class="weather-card-header">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span nz-icon nzType="cloud" style="color: #0284c7; font-size: 15px;"></span>
-                  <strong>Trạm quan trắc khí tượng & Sức gió thời gian thực (Live Weather Station)</strong>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span nz-icon nzType="cloud" style="color: #0284c7; font-size: 16px;"></span>
+                  <div>
+                    <strong style="display: block; font-size: 12px; color: #0f2952;">
+                      {{ w.stationName || 'Trạm quan trắc khí tượng bề mặt' }}
+                    </strong>
+                    <span style="font-size: 11px; color: #64748b;">
+                      Khu vực: <strong>{{ w.regionName }}</strong>
+                      @if (w.referenceTowerCode) {
+                        · Cột mốc đối chiếu: <strong>{{ w.referenceTowerCode }}</strong>
+                      }
+                      @if (w.latitude != null && w.longitude != null) {
+                        · Tọa độ: {{ w.latitude | number:'1.4-4' }}°B, {{ w.longitude | number:'1.4-4' }}°Đ
+                      }
+                    </span>
+                  </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span class="weather-time">Thời điểm quan trắc: {{ w.time | date:'HH:mm dd/MM/yyyy' }}</span>
@@ -454,7 +439,7 @@
                   <strong class="w-val" [style.color]="w.windSpeed > 10 ? '#7f1d1d' : '#0f172a'">
                     {{ w.windSpeed.toFixed(1) }} m/s
                   </strong>
-                  <span class="w-sub">Ngưỡng cho phép: &le; 10.0 m/s</span>
+                  <span class="w-sub">Ngưỡng an toàn bay EVN: &le; 10.0 m/s</span>
                 </div>
                 <div class="w-metric-item">
                   <span class="w-label">Gió giật (Wind Gusts):</span>
@@ -471,7 +456,7 @@
                 <div class="w-metric-item">
                   <span class="w-label">Hiện trạng thời tiết:</span>
                   <strong class="w-val" style="font-size: 12px; color: #1e3a5f;">{{ w.weatherDescription }}</strong>
-                  <span class="w-sub">Dữ liệu trực tuyến Open-Meteo</span>
+                  <span class="w-sub">API Open-Meteo (Đúng tọa độ khu vực)</span>
                 </div>
               </div>
             </div>
@@ -590,7 +575,6 @@
         <div class="panel-header" style="flex-wrap: wrap; gap: 8px;">
           <div class="header-title-group">
             <h3>Đánh giá sẵn sàng nhân sự (Tối thiểu 3 vai trò: Inspector, Analyst, Technician)</h3>
-            <span class="panel-subinfo">MF01 kiểm tra nguồn ứng viên đáp ứng đồng thời 5 tiêu chuẩn bắt buộc (Logic AND) từ CSDL</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
             <!-- Filter Role Buttons -->
@@ -706,10 +690,6 @@
               }
             </span>
           </div>
-
-          <div style="font-size: 10.5px; color: #78350f;">
-            Tiêu chí lọc AND: <strong>Eligible</strong> &bull; <strong>Active</strong> &bull; <strong>Scope</strong> &bull; <strong>Available (Rảnh)</strong> &bull; <strong>Role/Qual</strong>
-          </div>
         </div>
 
         @if (!roleBreakdown().hasAllThree) {
@@ -719,7 +699,7 @@
               <strong style="color: #991b1b; font-size: 12px;">KHÔNG ĐỦ NHÂN SỰ ĐẠT ĐỊNH MỨC:</strong>
               <span style="color: #7f1d1d; font-size: 11.5px; margin-left: 6px;">{{ roleBreakdown().missingDetails.join('; ') }}.</span>
               <div style="font-size: 11px; color: #991b1b; margin-top: 4px;">
-                Hệ thống chỉ tính các nhân sự đang rảnh trong CSDL (không bị trùng lịch nhiệm vụ bay). Bạn có thể điều chỉnh lại định mức hoặc bổ sung nhân sự trước khi chuyển sang MF02.
+                Hệ thống chỉ tính các nhân sự đang rảnh trong CSDL (không bị trùng lịch nhiệm vụ bay). Bạn có thể điều chỉnh lại định mức hoặc bổ sung nhân sự trước khi tạo nhiệm vụ bay.
               </div>
             </div>
           </div>
@@ -786,9 +766,50 @@
                         }
                       </td>
                       <td>
-                        <span style="font-size: 11px; color: #174f83;">
-                          {{ person.findings || 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành' }}
-                        </span>
+                        @let f = parseFindings(person.findings, person.role);
+                        <div class="personnel-chips-wrap">
+                          @if (f.isJson) {
+                            @if (f.hasInspectorRole || person.role === 'INSPECTOR') {
+                              <span class="p-chip cert-pilot" title="Có chứng chỉ phi công điều khiển UAV theo quy định">
+                                <span nz-icon nzType="safety-certificate"></span> CC Bay UAV
+                              </span>
+                            } @else if (person.role === 'TECHNICIAN' || f.role === 'Technician' || f.role === 'MaintenanceTechnician') {
+                              <span class="p-chip cert-tech" title="Kỹ thuật viên bảo trì thiết bị bay & pin đạt chuẩn">
+                                <span nz-icon nzType="tool"></span> KTV Bảo trì UAV
+                              </span>
+                            } @else if (person.role === 'ANALYST' || f.role === 'Analyst') {
+                              <span class="p-chip cert-analyst" title="Chuyên viên phân tích ảnh & khiếm khuyết AI đạt chuẩn">
+                                <span nz-icon nzType="fund-projection-screen"></span> CV Phân tích AI
+                              </span>
+                            }
+
+                            @if (!f.hasValidRole) {
+                              <span class="p-chip fail" title="Chưa đạt tiêu chuẩn vai trò chuyên môn">
+                                <span nz-icon nzType="close-circle"></span> Thiếu chuẩn vai trò
+                              </span>
+                            }
+
+                            <span class="p-chip" [class.ok]="f.inScope" [class.fail]="!f.inScope" [title]="f.inScope ? 'Thuộc địa bàn quản lý' : 'Khác địa bàn quản lý'">
+                              <span nz-icon [nzType]="f.inScope ? 'compass' : 'close-circle'"></span>
+                              {{ f.inScope ? 'Đúng địa bàn' : 'Khác địa bàn' }}
+                            </span>
+
+                            <span class="p-chip" [class.ok]="f.isActive" [class.fail]="!f.isActive" [title]="f.isActive ? 'Hồ sơ nhân sự đang hoạt động' : 'Hồ sơ nhân sự chưa kích hoạt'">
+                              <span nz-icon [nzType]="f.isActive ? 'check-circle' : 'close-circle'"></span>
+                              {{ f.isActive ? 'Hồ sơ hợp lệ' : 'Chưa kích hoạt' }}
+                            </span>
+
+                            @if (f.hasBookingConflict) {
+                              <span class="p-chip fail" title="Trùng lịch nhiệm vụ bay khác">
+                                <span nz-icon nzType="warning"></span> Trùng lịch bay
+                              </span>
+                            }
+                          } @else {
+                            <span class="p-chip ok">
+                              <span nz-icon nzType="check-circle"></span> {{ f.rawText || 'Đạt đầy đủ 5 tiêu chuẩn sẵn sàng vận hành' }}
+                            </span>
+                          }
+                        </div>
                       </td>
                     </tr>
                   }
@@ -1406,7 +1427,7 @@
             [disabled]="busy()"
             (click)="openCancelModal()"
           >
-            Hủy đánh giá
+            <span nz-icon nzType="close"></span> Hủy đánh giá
           </button>
           <button
             type="button"
@@ -1423,7 +1444,7 @@
             [routerLink]="['/missions/new']"
             [queryParams]="{ assessmentId: a.id }"
           >
-            <span nz-icon nzType="arrow-right"></span> Chuyển sang tạo nhiệm vụ (MF02)
+            <span nz-icon nzType="thunderbolt"></span> Tạo nhiệm vụ bay
           </a>
         } @else if (canManage()) {
           <button
@@ -1433,7 +1454,7 @@
             disabled
             [title]="!canManage() ? 'Chỉ Quản trị viên hoặc Quản lý mới có quyền tạo nhiệm vụ' : (!roleBreakdown().hasAllThree ? ('Chưa đủ định mức nhân sự: ' + roleBreakdown().missingDetails.join('; ')) : 'Hồ sơ chưa đạt trạng thái READY hoặc đã hết hạn')"
           >
-            <span nz-icon nzType="arrow-right"></span> Chuyển sang tạo nhiệm vụ (MF02)
+            <span nz-icon nzType="thunderbolt"></span> Tạo nhiệm vụ bay
           </button>
         }
       </div>

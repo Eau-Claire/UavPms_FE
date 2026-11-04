@@ -191,4 +191,45 @@ describe('AssessmentWorkspace technical inspection', () => {
     expect(d1After?.technicalHealth).toBe('CRITICAL');
     expect(d1After?.reasonCode).toBe('TECHNICAL_HEALTH_CRITICAL');
   });
+
+  it('correctly parses candidate findings JSON and falls back for plain text', () => {
+    const c = create() as unknown as {
+      parseFindings: (findings: string, role?: string) => {
+        isJson: boolean;
+        inScope: boolean;
+        isActive: boolean;
+        hasValidRole: boolean;
+        hasInspectorRole: boolean;
+        hasBookingConflict: boolean;
+        rawText?: string;
+      };
+    };
+    const jsonFindings = JSON.stringify({
+      role: 'Inspector',
+      userId: 'u-1',
+      fullName: 'Nguyen Nhat An',
+      inScope: true,
+      isActive: true,
+      hasValidRole: true,
+      hasInspectorRole: true,
+      hasBookingConflict: false,
+    });
+
+    const parsedJson = c.parseFindings(jsonFindings, 'INSPECTOR');
+    expect(parsedJson.isJson).toBe(true);
+    expect(parsedJson.inScope).toBe(true);
+    expect(parsedJson.isActive).toBe(true);
+    expect(parsedJson.hasValidRole).toBe(true);
+    expect(parsedJson.hasInspectorRole).toBe(true);
+    expect(parsedJson.hasBookingConflict).toBe(false);
+
+    const parsedEmpty = c.parseFindings('', 'TECHNICIAN');
+    expect(parsedEmpty.isJson).toBe(false);
+    expect(parsedEmpty.inScope).toBe(true);
+    expect(parsedEmpty.hasInspectorRole).toBe(false);
+
+    const parsedPlainText = c.parseFindings('Đạt yêu cầu vận hành', 'TECHNICIAN');
+    expect(parsedPlainText.isJson).toBe(false);
+    expect(parsedPlainText.rawText).toBe('Đạt yêu cầu vận hành');
+  });
 });

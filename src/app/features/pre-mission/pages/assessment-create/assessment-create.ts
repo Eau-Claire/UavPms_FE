@@ -101,9 +101,13 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
 
   private readonly formValue = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
 
+  protected readonly cleanInspectors = computed(() => Math.max(1, Number(this.formValue().requiredInspectors) || 1));
+  protected readonly cleanAnalysts = computed(() => Math.max(1, Number(this.formValue().requiredAnalysts) || 1));
+  protected readonly cleanTechnicians = computed(() => Math.max(1, Number(this.formValue().requiredTechnicians) || 1));
+  protected readonly cleanMaxDrones = computed(() => Math.max(1, Number(this.formValue().maxDronesLimit) || 1));
+
   protected readonly totalRequiredPersonnel = computed(() => {
-    const v = this.formValue();
-    return (v.requiredInspectors ?? 1) + (v.requiredAnalysts ?? 1) + (v.requiredTechnicians ?? 1);
+    return this.cleanInspectors() + this.cleanAnalysts() + this.cleanTechnicians();
   });
 
   protected readonly selectedRegion = computed(() => {
@@ -256,6 +260,31 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     this.renderMap(false);
   }
 
+  protected blockInvalidNumberKeys(event: KeyboardEvent): void {
+    if (['-', '+', 'e', 'E', '.'].includes(event.key)) {
+      event.preventDefault();
+    }
+  }
+
+  protected onQuotaInput(
+    name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit',
+    min: number = 1,
+    max: number = 10,
+  ): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const raw = control.value;
+    const num = parseInt(String(raw), 10);
+    if (Number.isNaN(num) || num < min) {
+      control.setValue(min);
+    } else if (num > max) {
+      control.setValue(max);
+    } else {
+      control.setValue(num);
+    }
+    control.markAsDirty();
+  }
+
   protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max: number = 10): void {
     const control = this.form.get(name);
     if (!control) return;
@@ -280,6 +309,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     this.error.set('');
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.error.set('Thông tin biểu mẫu không hợp lệ. Vui lòng kiểm tra lại khung giờ và định mức nhân sự / UAV (tối thiểu 1).');
       return;
     }
     const towerIds = [...this.selectedTowerIds()];

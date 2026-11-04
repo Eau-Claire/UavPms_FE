@@ -112,7 +112,7 @@
               <th style="width: 110px;">Hiệu lực đến</th>
               <th style="width: 110px;">Ngày tạo</th>
               <th style="width: 110px;">Cập nhật</th>
-              <th style="width: 120px;">Thao tác</th>
+              <th style="width: 120px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -189,8 +189,8 @@
                       {{ item.updatedAt ? (item.updatedAt | date:'dd/MM HH:mm') : '—' }}
                     </span>
                   </td>
-                  <td>
-                    <div style="display: inline-flex; align-items: center; gap: 4px;">
+                  <td class="text-center">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                       <a
                         [routerLink]="['/pre-mission', item.id]"
                         class="evn-btn secondary"

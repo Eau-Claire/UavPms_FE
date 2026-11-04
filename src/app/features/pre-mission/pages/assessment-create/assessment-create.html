@@ -168,10 +168,15 @@
                     max="10"
                     class="quota-input"
                     formControlName="requiredInspectors"
+                    (keydown)="blockInvalidNumberKeys($event)"
+                    (input)="onQuotaInput('requiredInspectors', 1, 10)"
                   />
                   <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredInspectors', 10)" aria-label="Tăng Inspector">+</button>
                   <span class="unit-suffix">người</span>
                 </div>
+                @if (form.controls.requiredInspectors.invalid && (form.controls.requiredInspectors.touched || form.controls.requiredInspectors.dirty)) {
+                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
+                }
               </div>
 
               <!-- Analyst -->
@@ -191,10 +196,15 @@
                     max="10"
                     class="quota-input"
                     formControlName="requiredAnalysts"
+                    (keydown)="blockInvalidNumberKeys($event)"
+                    (input)="onQuotaInput('requiredAnalysts', 1, 10)"
                   />
                   <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredAnalysts', 10)" aria-label="Tăng Analyst">+</button>
                   <span class="unit-suffix">người</span>
                 </div>
+                @if (form.controls.requiredAnalysts.invalid && (form.controls.requiredAnalysts.touched || form.controls.requiredAnalysts.dirty)) {
+                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
+                }
               </div>
 
               <!-- Technician -->
@@ -214,10 +224,15 @@
                     max="10"
                     class="quota-input"
                     formControlName="requiredTechnicians"
+                    (keydown)="blockInvalidNumberKeys($event)"
+                    (input)="onQuotaInput('requiredTechnicians', 1, 10)"
                   />
                   <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredTechnicians', 10)" aria-label="Tăng Technician">+</button>
                   <span class="unit-suffix">người</span>
                 </div>
+                @if (form.controls.requiredTechnicians.invalid && (form.controls.requiredTechnicians.touched || form.controls.requiredTechnicians.dirty)) {
+                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
+                }
               </div>
 
               <!-- Max Drones Limit -->
@@ -237,17 +252,22 @@
                     max="5"
                     class="quota-input"
                     formControlName="maxDronesLimit"
+                    (keydown)="blockInvalidNumberKeys($event)"
+                    (input)="onQuotaInput('maxDronesLimit', 1, 5)"
                   />
                   <button type="button" class="quota-stepper-btn" (click)="incrementQuota('maxDronesLimit', 5)" aria-label="Tăng giới hạn UAV">+</button>
                   <span class="unit-suffix">UAV</span>
                 </div>
+                @if (form.controls.maxDronesLimit.invalid && (form.controls.maxDronesLimit.touched || form.controls.maxDronesLimit.dirty)) {
+                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 5 UAV.</span>
+                }
               </div>
             </div>
 
             <div class="quota-summary-bar">
               <span nz-icon nzType="info-circle" aria-hidden="true"></span>
               <span>
-                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ form.controls.requiredInspectors.value }} Inspector, {{ form.controls.requiredAnalysts.value }} Analyst, {{ form.controls.requiredTechnicians.value }} Technician) · Giới hạn: <strong>tối đa {{ form.controls.maxDronesLimit.value }} UAV/chuyến bay</strong>
+                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ cleanInspectors() }} Inspector, {{ cleanAnalysts() }} Analyst, {{ cleanTechnicians() }} Technician) · Giới hạn: <strong>tối đa {{ cleanMaxDrones() }} UAV/chuyến bay</strong>
               </span>
             </div>
           </div>
@@ -255,7 +275,7 @@
 
         <div class="form-actions-bar">
           <a class="evn-btn secondary" routerLink="/pre-mission">Hủy</a>
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || !selectedTowerIds().length">
+          <button type="submit" class="evn-btn primary" [disabled]="busy() || !selectedTowerIds().length || form.invalid">
             <span nz-icon [nzType]="busy() ? 'loading' : 'check-circle'" aria-hidden="true"></span>
             {{ busy() ? 'Đang tạo hồ sơ...' : 'Tạo hồ sơ đánh giá' }}
           </button>

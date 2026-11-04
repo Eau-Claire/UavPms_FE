@@ -109,221 +109,7 @@
       <span nz-icon nzType="environment"></span>
     </button>
 
-    <!-- Tower Selection / Drawing Tool (managers only) -->
-    @if (canCreateMission()) {
-      <button
-        type="button"
-        class="tool-btn tool-btn-selection"
-        [class.active]="showSelectionPopup()"
-        title="Khoanh vùng & chọn cột điện"
-        aria-label="Khoanh vùng & chọn cột điện"
-        (click)="toggleSelectionTool()"
-      >
-        <svg class="tool-svg-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-          <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-          <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-          <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-          <path d="M15.5 8.5l2 2-7.5 7.5H8v-2l7.5-7.5z" fill="currentColor" fill-opacity="0.2" />
-          <path d="M14 10l2 2" />
-        </svg>
-      </button>
-    }
   </aside>
-
-  <!-- Compact Selection Popup (bottom-left) -->
-  @if (canCreateMission() && showSelectionPopup()) {
-    <section
-      class="gis-selection-popup"
-      aria-label="Chọn cột điện theo vùng"
-      (click)="$event.stopPropagation()"
-      (mousedown)="$event.stopPropagation()"
-    >
-      <header class="popup-head">
-        <div class="popup-title-group">
-          <span class="popup-icon" nz-icon nzType="gateway"></span>
-          <strong>{{ popupTitle() }}</strong>
-        </div>
-        <button type="button" class="popup-close" aria-label="Đóng" (click)="closeSelectionPopup()">✕</button>
-      </header>
-
-      <!-- State: choosing shape OR drawing -->
-      @if (uxState() === 'choosing' || uxState() === 'idle' || uxState() === 'drawing-rectangle' || uxState() === 'drawing-polygon') {
-        <div class="popup-body">
-          <div class="popup-shapes" role="toolbar" aria-label="Chọn cách khoanh vùng">
-            <button
-              type="button"
-              title="Vẽ vùng chữ nhật"
-              aria-label="Vẽ vùng chữ nhật"
-              [class.active]="drawMode() === 'rectangle'"
-              (click)="startDrawing('rectangle')"
-            >
-              <span nz-icon nzType="border"></span>
-              <span>Chữ nhật</span>
-            </button>
-            <button
-              type="button"
-              title="Vẽ vùng đa giác"
-              aria-label="Vẽ vùng đa giác"
-              [class.active]="drawMode() === 'polygon'"
-              (click)="startDrawing('polygon')"
-            >
-              <span nz-icon nzType="node-index"></span>
-              <span>Đa giác</span>
-            </button>
-          </div>
-
-          @if (drawMode() === 'none') {
-            <p class="popup-hint">Chọn cách bạn muốn khoanh vùng</p>
-          } @else {
-            <div class="popup-drawing-status" role="status">
-              <p class="popup-instruction">{{ drawingInstruction() }}</p>
-              @if (drawMode() === 'polygon' && polygonVertices().length > 0) {
-                <div class="popup-polygon-counter">
-                  <span>Đã đặt: <strong>{{ polygonVertices().length }}</strong> điểm</span>
-                  @if (polygonVertices().length >= 3) {
-                    <button type="button" class="popup-btn primary small" (click)="completePolygon()">
-                      ✓ Hoàn tất vùng ({{ polygonVertices().length }} điểm)
-                    </button>
-                  }
-                </div>
-              }
-              <div class="popup-drawing-actions">
-                <button type="button" class="popup-btn small" (click)="cancelActiveTool()">Hủy vẽ</button>
-                <small class="popup-esc">Bấm ESC để hủy</small>
-              </div>
-            </div>
-          }
-        </div>
-      }
-
-      <!-- State: editing -->
-      @if (uxState() === 'editing') {
-        <div class="popup-body" role="status">
-          <div class="popup-edit-banner">
-            <span nz-icon nzType="edit"></span>
-            <p class="popup-instruction">Kéo các điểm để điều chỉnh vùng.</p>
-          </div>
-          <div class="popup-actions">
-            <button type="button" class="popup-btn primary" (click)="finishEditing()">Lưu chỉnh sửa</button>
-            <button type="button" class="popup-btn secondary" (click)="cancelActiveTool()">Hủy</button>
-          </div>
-          <small class="popup-esc">Bấm ESC để hủy chỉnh sửa</small>
-        </div>
-      }
-
-      <!-- State: querying -->
-      @if (uxState() === 'querying' || spatialLoading()) {
-        <div class="popup-body" role="status">
-          <div class="popup-loading">
-            <span nz-icon nzType="loading" [nzSpin]="true"></span>
-            <span>Đang tìm cột điện trong vùng...</span>
-          </div>
-        </div>
-      }
-
-      <!-- State: error -->
-      @if (uxState() === 'error') {
-        <div class="popup-body">
-          <div class="popup-error-card">
-            <span nz-icon nzType="warning" class="error-icon"></span>
-            <p class="popup-error">{{ spatialMessage() }}</p>
-          </div>
-          <div class="popup-actions">
-            <button type="button" class="popup-btn primary" (click)="retrySpatialQuery()">
-              <span nz-icon nzType="reload"></span> Thử lại
-            </button>
-            <button type="button" class="popup-btn secondary" (click)="redraw()">
-              <span nz-icon nzType="redo"></span> Vẽ lại
-            </button>
-          </div>
-        </div>
-      }
-
-      <!-- State: empty result (success with 0 towers) -->
-      @if (uxState() === 'empty') {
-        <div class="popup-body">
-          <div class="popup-empty-card">
-            <span nz-icon nzType="inbox" class="empty-icon"></span>
-            <p class="popup-empty">Không có cột điện trong vùng này.</p>
-          </div>
-          <div class="popup-actions">
-            <button type="button" class="popup-btn" (click)="startEditing()">
-              <span nz-icon nzType="edit"></span> Chỉnh vùng
-            </button>
-            <button type="button" class="popup-btn" (click)="redraw()">
-              <span nz-icon nzType="redo"></span> Vẽ lại
-            </button>
-          </div>
-        </div>
-      }
-
-      <!-- State: success with towers -->
-      @if (uxState() === 'success') {
-        <div class="popup-body">
-          <div class="popup-toolbar">
-            <button type="button" class="popup-btn small" title="Chỉnh sửa vùng" aria-label="Chỉnh sửa vùng" (click)="startEditing()">
-              <span nz-icon nzType="edit"></span> Chỉnh vùng
-            </button>
-            <button type="button" class="popup-btn small" title="Vẽ lại vùng" aria-label="Vẽ lại vùng" (click)="redraw()">
-              <span nz-icon nzType="redo"></span> Vẽ lại
-            </button>
-            <button type="button" class="popup-btn small danger" title="Xóa vùng" aria-label="Xóa vùng" (click)="clearBoundary()">
-              <span nz-icon nzType="delete"></span> Xóa
-            </button>
-          </div>
-
-          <div class="popup-list-header">
-            <span class="list-label">Danh sách cột điện ({{ spatialAssets().length }})</span>
-            <button type="button" class="popup-link-btn" (click)="toggleSelectAllSpatial()">
-              {{ isAllSpatialSelected() ? 'Bỏ chọn tất cả' : 'Chọn tất cả' }}
-            </button>
-          </div>
-
-          <ul class="popup-asset-list">
-            @for (asset of spatialAssets(); track asset.towerId) {
-              <li [class.selected]="targetSelection.has(asset.towerId)">
-                <label class="asset-checkbox-label">
-                  <input type="checkbox" [checked]="targetSelection.has(asset.towerId)" (change)="toggleAsset(asset)" />
-                  <span class="asset-info">
-                    <strong>{{ asset.code }}</strong>
-                    <small>{{ asset.latitude.toFixed(5) }}, {{ asset.longitude.toFixed(5) }}</small>
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  class="btn-inspect-asset"
-                  title="Xem chi tiết cột điện"
-                  [attr.aria-label]="'Xem chi tiết cột ' + asset.code"
-                  (click)="$event.stopPropagation(); inspectAsset(asset)"
-                >
-                  <span nz-icon nzType="info-circle"></span>
-                </button>
-              </li>
-            }
-          </ul>
-
-          <div class="popup-footer-row">
-            <div class="popup-selected-count">
-              <span class="count-badge">{{ targetSelection.count() }}</span>
-              <span>cột điện đã chọn làm mục tiêu</span>
-            </div>
-          </div>
-
-          @if (canCreateMission()) {
-            <button
-              type="button"
-              class="popup-cta"
-              [disabled]="!targetSelection.count()"
-              (click)="createMission()"
-            >
-              {{ missionCtaLabel() }}
-            </button>
-          }
-        </div>
-      }
-    </section>
-  }
 
   <!-- Filter Floating Panel -->
   @if (showFilterPanel()) {
@@ -400,7 +186,12 @@
               [checked]="showTowersLayer()"
               (change)="toggleLayer('towers')"
             />
-            <span>⚡ Cột điện</span>
+            <svg class="layer-outline-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2l6.5 19H5.5L12 2z"/>
+              <path d="M7.5 14h9"/>
+              <path d="M9.5 9h5"/>
+            </svg>
+            <span>Cột điện</span>
           </label>
           <label class="checkbox-row">
             <input
@@ -408,7 +199,8 @@
               [checked]="showDefectsLayer()"
               (change)="toggleLayer('defects')"
             />
-            <span>⚠️ Điểm khuyết tật AI phát hiện</span>
+            <span nz-icon nzType="exclamation-circle" class="layer-outline-icon" aria-hidden="true"></span>
+            <span>Điểm khuyết tật AI phát hiện</span>
           </label>
           <label class="checkbox-row">
             <input
@@ -416,7 +208,8 @@
               [checked]="showAlertsLayer()"
               (change)="toggleLayer('alerts')"
             />
-            <span>🔥 Cảnh báo khẩn cấp</span>
+            <span nz-icon nzType="bell" class="layer-outline-icon" aria-hidden="true"></span>
+            <span>Cảnh báo khẩn cấp</span>
           </label>
         </div>
       </div>

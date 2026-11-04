@@ -1,7 +1,9 @@
 /* Owned layout styles - Unified EVN Technical Management Design System */
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--color-surface-app, #f0f4f9);

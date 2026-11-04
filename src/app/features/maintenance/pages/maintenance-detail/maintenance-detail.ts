@@ -193,7 +193,15 @@ export class MaintenanceDetail {
   }
 
   protected onProofUploaded(proof: MaintenanceProof): void {
-    this.ticket.update((ticket) => (ticket ? { ...ticket, proofs: [...ticket.proofs, proof] } : ticket));
+    this.ticket.update((ticket) =>
+      ticket
+        ? {
+            ...ticket,
+            proofs: [...ticket.proofs, proof],
+            status: ticket.status === 'Open' ? 'InProgress' : ticket.status,
+          }
+        : ticket,
+    );
   }
 
   protected onMaterialLogged(material: MaterialLog): void {

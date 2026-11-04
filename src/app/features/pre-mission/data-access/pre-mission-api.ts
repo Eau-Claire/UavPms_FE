@@ -34,6 +34,11 @@ export interface RealtimeWeatherSnapshot {
   isSafeToFly: boolean;
   warningLevel: 'low' | 'medium' | 'high';
   time: string;
+  stationName?: string;
+  regionName?: string;
+  referenceTowerCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 /** Một chỉ số trong biên bản kiểm định (`DroneInspectionMetricRequest`). */
@@ -293,8 +298,13 @@ export class PreMissionApi {
       .pipe(map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)));
   }
 
-  /** Khí tượng thời gian thực (Open-Meteo) tại tọa độ cột đầu tiên của hồ sơ. Chỉ mang tính tham khảo. */
-  getRealtimeWeather(lat: number, lng: number): Observable<RealtimeWeatherSnapshot> {
+  /** Khí tượng thời gian thực từ API Open-Meteo phân giải cao theo đúng tọa độ GPS của cột/khu vực được phân công. */
+  getRealtimeWeather(
+    lat: number,
+    lng: number,
+    regionName?: string,
+    towerCode?: string,
+  ): Observable<RealtimeWeatherSnapshot> {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=ms&timezone=Asia%2FBangkok`;
     return this.http.get<unknown>(url).pipe(
       map((res) => {
@@ -305,6 +315,10 @@ export class PreMissionApi {
         const isSafeToFly = windSpeed <= 10.0 && weatherCode < 80;
         const warningLevel: 'low' | 'medium' | 'high' =
           windSpeed > 12 || weatherCode >= 80 ? 'high' : windSpeed > 8 || weatherCode >= 51 ? 'medium' : 'low';
+
+        const stationLabel = regionName
+          ? `Trạm quan trắc ${regionName}`
+          : `Trạm quan trắc lưới điện (${lat.toFixed(4)}°B, ${lng.toFixed(4)}°Đ)`;
 
         return {
           temperature: Number(current['temperature_2m'] ?? 0),
@@ -317,6 +331,11 @@ export class PreMissionApi {
           isSafeToFly,
           warningLevel,
           time: stringOf(current['time']),
+          stationName: stationLabel,
+          regionName: regionName || 'Khu vực quản lý lưới điện',
+          referenceTowerCode: towerCode,
+          latitude: lat,
+          longitude: lng,
         };
       }),
     );
@@ -349,9 +368,9 @@ function toIsoString(value: string): string {
 export const weatherSiteChecks = (weather: RealtimeWeatherSnapshot): readonly SiteCheckItem[] => [
   {
     code: 'METEO_WIND',
-    name: 'Điều kiện khí tượng & sức gió bề mặt (thời gian thực)',
+    name: `Quan trắc khí tượng bề mặt - ${weather.regionName || 'Khu vực kiểm tra'}`,
     status: weather.isSafeToFly ? 'PASS' : weather.warningLevel === 'high' ? 'FAIL' : 'WARNING',
-    details: `Sức gió ${weather.windSpeed.toFixed(1)} m/s (gió giật ${weather.windGust.toFixed(1)} m/s), nhiệt độ ${weather.temperature.toFixed(1)}°C, độ ẩm ${weather.humidity}%, ${weather.weatherDescription}. Ngưỡng an toàn bay: gió bề mặt <= 10 m/s, không mưa dông.`,
+    details: `${weather.stationName || 'Trạm quan trắc tự động'}${weather.referenceTowerCode ? ` [Cột đối chiếu: ${weather.referenceTowerCode}]` : ''} (${weather.latitude ? weather.latitude.toFixed(4) : '--'}°B, ${weather.longitude ? weather.longitude.toFixed(4) : '--'}°Đ). Sức gió ${weather.windSpeed.toFixed(1)} m/s (gió giật ${weather.windGust.toFixed(1)} m/s), nhiệt độ ${weather.temperature.toFixed(1)}°C, độ ẩm ${weather.humidity}%, ${weather.weatherDescription}. Ngưỡng an toàn bay EVN: gió <= 10 m/s, không mưa dông.`,
     severity: weather.warningLevel,
   },
 ];

@@ -3,7 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, catchError, finalize, timer } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { DashboardSnapshot, InspectionFilters, PagedResponse, InspectionRecord } from '../../../models/monitor.models';
-import { MonitorApi, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from './monitor-api';
+import { NotificationsStore } from '../../notifications/data-access/notifications-store';
+import { MonitorApi, getReadAlertIds, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from './monitor-api';
 
 @Injectable({
   providedIn: 'root',
@@ -11,6 +12,7 @@ import { MonitorApi, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } fr
 export class MonitorStore {
   private readonly api = inject(MonitorApi);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly notificationsStore = inject(NotificationsStore);
   private readonly dashboardState = signal<DashboardSnapshot | null>(null);
   private readonly inspectionsState = signal<PagedResponse<InspectionRecord> | null>(null);
   private readonly loadingState = signal(false);
@@ -27,7 +29,18 @@ export class MonitorStore {
   readonly recentDefects = computed(() => this.dashboardState()?.recentDefects);
   readonly defectStatistics = computed(() => this.dashboardState()?.defectStatistics ?? []);
   readonly missionStatus = computed(() => this.dashboardState()?.missionStatus ?? []);
-  readonly alerts = computed(() => this.dashboardState()?.alerts ?? []);
+  readonly alerts = computed(() => {
+    const rawAlerts = this.dashboardState()?.alerts ?? [];
+    const notifs = this.notificationsStore.notifications();
+    const notifReadMap = new Map(notifs.map((n) => [n.id, n.isRead]));
+    const readSet = getReadAlertIds();
+
+    return rawAlerts.map((alert) => {
+      const isReadInNotifs = notifReadMap.get(alert.id);
+      const isRead = alert.isRead || isReadInNotifs === true || readSet.has(alert.id);
+      return isRead === alert.isRead ? alert : { ...alert, isRead };
+    });
+  });
 
   startDashboardPolling(): void {
     timer(0, environment.dashboardPollIntervalMs)
@@ -70,6 +83,7 @@ export class MonitorStore {
 
   markAlertRead(id: string): void {
     markAlertIdAsReadLocally(id);
+    this.notificationsStore.markRead(id);
     this.dashboardState.update((curr) => {
       if (!curr) return curr;
       return {
@@ -83,6 +97,7 @@ export class MonitorStore {
     const alerts = this.alerts();
     const ids = alerts.map((a) => a.id);
     markAllAlertIdsAsReadLocally(ids);
+    this.notificationsStore.markAllAsRead();
     this.dashboardState.update((curr) => {
       if (!curr) return curr;
       return {

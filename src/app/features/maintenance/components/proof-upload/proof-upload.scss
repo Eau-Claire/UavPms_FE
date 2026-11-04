@@ -3,6 +3,8 @@
 @include shared.form;
 
 .proof-picker {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-self: start;

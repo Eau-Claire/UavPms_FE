@@ -6,7 +6,7 @@ import { AppNotification, NotificationFilters, NotificationReadFilter, Notificat
 import { NotificationsApi } from './notifications-api';
 import { MissionLifecycleRealtimeEvent, NotificationsRealtime } from './notifications-realtime';
 
-import { markAlertIdAsReadLocally } from '../../monitor/data-access/monitor-api';
+import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../monitor/data-access/monitor-api';
 
 const LOCAL_STORAGE_NOTIFS_KEY = 'uav_pms_notifications_v1';
 
@@ -172,17 +172,16 @@ export class NotificationsStore {
   readonly filters = signal<NotificationFilters>({ read: 'all', type: '', sort: 'newest' });
   readonly notifications = this.notificationsState.asReadonly();
   readonly selected = this.selectedState.asReadonly();
-  readonly unreadCount = computed(() => this.filteredNotifications().filter((item) => !item.isRead).length);
   readonly types = computed(() => Array.from(new Set(this.notificationsState().map((item) => item.type).filter(Boolean))).sort() as string[]);
-  readonly filteredNotifications = computed(() => {
-    const filters = this.filters();
+
+  readonly userNotifications = computed(() => {
     const currentUser = this.auth.user();
     const currentUserId = currentUser?.id?.toLowerCase();
     const currentUserEmail = currentUser?.email?.toLowerCase();
     const currentRole = (currentUser?.role || '').toLowerCase();
     const isManagerOrAdmin = currentRole.includes('manager') || currentRole.includes('admin') || currentRole.includes('quản lý');
 
-    const items = this.notificationsState().filter((item) => {
+    return this.notificationsState().filter((item) => {
       if (isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && (item.body?.includes('Bạn được phân công') || item.title?.includes('Yêu cầu xác nhận'))) {
         return false;
       }
@@ -198,6 +197,15 @@ export class NotificationsStore {
           (currentUserEmail && target === currentUserEmail);
         if (!matches) return false;
       }
+      return true;
+    });
+  });
+
+  readonly unreadCount = computed(() => this.userNotifications().filter((item) => !item.isRead).length);
+
+  readonly filteredNotifications = computed(() => {
+    const filters = this.filters();
+    const items = this.userNotifications().filter((item) => {
       const readMatch =
         filters.read === 'all' ||
         (filters.read === 'read' && item.isRead) ||
@@ -207,8 +215,8 @@ export class NotificationsStore {
     });
     return sortNotifications(items, filters.sort);
   });
-  readonly unreadNotifications = computed(() => this.filteredNotifications().filter((item) => !item.isRead));
-  readonly readNotifications = computed(() => this.filteredNotifications().filter((item) => item.isRead));
+  readonly unreadNotifications = computed(() => this.userNotifications().filter((item) => !item.isRead));
+  readonly readNotifications = computed(() => this.userNotifications().filter((item) => item.isRead));
 
   constructor() {
     this.realtime.notifications$
@@ -252,6 +260,10 @@ export class NotificationsStore {
           const merged = sortNotifications(items, this.filters().sort);
           this.notificationsState.set(merged);
           saveLocalNotifications(merged);
+          const readIds = merged.filter((item) => item.isRead).map((item) => item.id);
+          if (readIds.length > 0) {
+            markAllAlertIdsAsReadLocally(readIds);
+          }
         },
         error: () => {
           const local = getLocalNotifications();
@@ -308,6 +320,15 @@ export class NotificationsStore {
         next: () => this.patch(id, { isRead: true }),
         error: () => this.patch(id, { isRead: true }),
       });
+  }
+
+  markAllAsRead(): void {
+    const unread = this.userNotifications().filter((item) => !item.isRead);
+    const ids = unread.map((item) => item.id);
+    if (ids.length > 0) {
+      markAllAlertIdsAsReadLocally(ids);
+      ids.forEach((id) => this.markRead(id));
+    }
   }
 
   delete(id: string): void {

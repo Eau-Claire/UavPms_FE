@@ -116,22 +116,34 @@
 
   &.tone-danger {
     border-left: 3.5px solid #dc2626;
-    .stat-count { color: #dc2626; }
+
+    .stat-count {
+      color: #dc2626;
+    }
   }
 
   &.tone-warning {
     border-left: 3.5px solid #d97706;
-    .stat-count { color: #b45309; }
+
+    .stat-count {
+      color: #b45309;
+    }
   }
 
   &.tone-info {
     border-left: 3.5px solid #0284c7;
-    .stat-count { color: #0284c7; }
+
+    .stat-count {
+      color: #0284c7;
+    }
   }
 
   &.tone-neutral {
     border-left: 3.5px solid #64748b;
-    .stat-count { color: #334155; }
+
+    .stat-count {
+      color: #334155;
+    }
   }
 }
 
@@ -369,38 +381,95 @@
 
 /* Anomalies Table Column Locks */
 .table-anomalies {
-  th.th-thumb, td.td-thumb { width: 72px; text-align: center; }
-  th.th-category, td.td-category { width: 220px; }
-  th.th-confidence, td.td-confidence { width: 105px; }
-  th.th-status, td.td-status { width: 135px; }
-  th.th-source, td.td-source { width: 95px; }
-  th.th-time, td.td-time { width: 160px; }
-  th.th-actions, td.td-actions {
+
+  th.th-thumb,
+  td.td-thumb {
+    width: 72px;
+    text-align: center;
+  }
+
+  th.th-category,
+  td.td-category {
+    width: 220px;
+  }
+
+  th.th-confidence,
+  td.td-confidence {
+    width: 105px;
+  }
+
+  th.th-status,
+  td.td-status {
+    width: 135px;
+  }
+
+  th.th-source,
+  td.td-source {
     width: 95px;
-    text-align: right;
+  }
+
+  th.th-time,
+  td.td-time {
+    width: 160px;
+  }
+
+  th.th-actions,
+  td.td-actions {
+    width: 105px;
+    text-align: center;
 
     .tower-row-actions {
       display: inline-flex;
-      justify-content: flex-end;
+      justify-content: center;
     }
   }
 }
 
 /* Maintenance Table Column Locks */
 .table-maintenance {
-  th.th-ticket-code, td.td-ticket-code { width: 140px; }
-  th.th-ticket-desc, td.td-ticket-desc {
+
+  th.th-ticket-code,
+  td.td-ticket-code {
+    width: 140px;
+  }
+
+  th.th-ticket-desc,
+  td.td-ticket-desc {
     width: auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  th.th-ticket-priority, td.td-ticket-priority { width: 110px; }
-  th.th-ticket-status, td.td-ticket-status { width: 130px; }
-  th.th-ticket-created, td.td-ticket-created { width: 110px; }
-  th.th-ticket-due, td.td-ticket-due { width: 110px; }
-  th.th-ticket-resolved, td.td-ticket-resolved { width: 110px; }
-  th.th-ticket-materials, td.td-ticket-materials { width: 220px; }
+
+  th.th-ticket-priority,
+  td.td-ticket-priority {
+    width: 110px;
+  }
+
+  th.th-ticket-status,
+  td.td-ticket-status {
+    width: 130px;
+  }
+
+  th.th-ticket-created,
+  td.td-ticket-created {
+    width: 110px;
+  }
+
+  th.th-ticket-due,
+  td.td-ticket-due {
+    width: 110px;
+  }
+
+  th.th-ticket-resolved,
+  td.td-ticket-resolved {
+    width: 110px;
+  }
+
+  th.th-ticket-materials,
+  td.td-ticket-materials {
+    width: 220px;
+  }
 }
 
 .tower-thumb {

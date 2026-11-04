@@ -2,6 +2,14 @@
 @use './app/features/pre-mission/pages/pre-mission-page';
 
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--color-surface-app, #f3f7fb);
+}
+
 html, body, button, input, select, textarea {
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }

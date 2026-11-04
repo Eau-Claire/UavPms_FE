@@ -60,9 +60,15 @@
       @if (canUpload()) {
         <button type="button" [class.active]="activeTab() === 'upload'" [attr.aria-current]="activeTab() === 'upload' ? 'page' : null" (click)="setTab('upload')">
           Tải dữ liệu
+          @if (mediaQueue().length) {
+            <span class="tab-count-bubble">{{ mediaQueue().length }}</span>
+          }
         </button>
         <button type="button" [class.active]="activeTab() === 'processing'" [attr.aria-current]="activeTab() === 'processing' ? 'page' : null" (click)="setTab('processing')">
           Xử lý dữ liệu
+          @if (mediaQueue().length) {
+            <span class="tab-count-bubble">{{ mediaQueue().length }}</span>
+          }
         </button>
       }
       <button type="button" [class.active]="activeTab() === 'results'" [attr.aria-current]="activeTab() === 'results' ? 'page' : null" (click)="setTab('results')">
@@ -658,7 +664,7 @@
                 </select>
               </label>
               <div>
-                <button type="button" class="ghost-action" (click)="mediaQueue.set([])">Xóa tất cả</button>
+                <button type="button" class="ghost-action" (click)="clearMediaQueue()">Xóa tất cả</button>
                 <button type="button" class="primary-action" [disabled]="uploadBusy() || !mediaQueue().length || isLinearUploadBlocked()" (click)="uploadSelectedMedia()">
                   {{ uploadBusy() ? 'Đang tải lên...' : 'Bắt đầu gửi phân tích' }} <span nz-icon nzType="arrow-right" aria-hidden="true"></span>
                 </button>
@@ -673,14 +679,34 @@
               <div class="proc-header">
                 <div>
                   <h2>Tiến trình xử lý dữ liệu hình ảnh &amp; video</h2>
-                  <p>Hệ thống đang trích xuất khung hình và phân tích khuyết tật thiết bị</p>
+                  <p>{{ aiPipelineStatusText() }}</p>
+                </div>
+                <div class="proc-actions">
+                  @if (isAiProcessing()) {
+                    <span class="ai-processing-pill">
+                      <span nz-icon nzType="loading"></span> AI Worker đang phân tích...
+                    </span>
+                  } @else {
+                    <button type="button" class="btn-ai-worker-trigger" (click)="runAiWorkerMock()">
+                      <span nz-icon nzType="thunderbolt"></span>
+                      {{ detections().length ? 'Chạy lại AI Worker Mock' : 'Kích hoạt AI Worker Mock' }}
+                    </button>
+                  }
                 </div>
               </div>
               <div class="proc-pipeline-flow">
-                <div class="step done"><span class="num">1</span><span>Tải dữ liệu</span></div>
-                <div class="step active"><span class="num">2</span><span>Trích xuất khung hình</span></div>
-                <div class="step"><span class="num">3</span><span>Phát hiện khuyết tật</span></div>
-                <div class="step"><span class="num">4</span><span>Lập báo cáo rủi ro</span></div>
+                <div class="step" [class.done]="aiPipelineStep() >= 1" [class.active]="aiPipelineStep() === 1">
+                  <span class="num">1</span><span>Tải dữ liệu</span>
+                </div>
+                <div class="step" [class.done]="aiPipelineStep() > 2" [class.active]="aiPipelineStep() === 2">
+                  <span class="num">2</span><span>Trích xuất khung hình</span>
+                </div>
+                <div class="step" [class.done]="aiPipelineStep() > 3" [class.active]="aiPipelineStep() === 3">
+                  <span class="num">3</span><span>Phát hiện khuyết tật</span>
+                </div>
+                <div class="step" [class.done]="isAiProcessingComplete()" [class.active]="aiPipelineStep() === 4 && !isAiProcessingComplete()">
+                  <span class="num">4</span><span>Lập báo cáo rủi ro</span>
+                </div>
               </div>
             </div>
 
@@ -771,7 +797,7 @@
                       (click)="jumpToDetection(item)"
                     >
                       <div class="defect-image">
-                        <img [src]="item.cropImageUrl || item.imageUrl" [alt]="item.title" />
+                        <img [src]="item.cropImageUrl || item.imageUrl" [alt]="item.title" (error)="handleDefectImageError($event, item.categoryCode)" />
                         @if (item.boundingBox; as box) {
                           <span class="detection-bbox" [style.left.%]="box.x" [style.top.%]="box.y" [style.width.%]="box.width" [style.height.%]="box.height"></span>
                         }
@@ -906,7 +932,7 @@
                                 (click)="seekVideoDetection(frame, $event)"
                               >
                                 <span class="frame-thumb-box">
-                                  <img [src]="frame.cropImageUrl || frame.imageUrl" [alt]="frame.title" />
+                                  <img [src]="frame.cropImageUrl || frame.imageUrl" [alt]="frame.title" (error)="handleDefectImageError($event, frame.categoryCode)" />
                                   <b>{{ frame.confidence }}%</b>
                                 </span>
                                 <strong>{{ frame.title }}</strong>
@@ -922,11 +948,11 @@
                     <div class="detail-image-comparison">
                       <div class="comp-box">
                         <span>Ảnh Crop Vùng Lỗi</span>
-                        <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" />
+                        <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" (error)="handleDefectImageError($event, selected.categoryCode)" />
                       </div>
                       <div class="comp-box">
                         <span>Khung hình Gốc</span>
-                        <img [src]="selected.imageUrl" [alt]="selected.title" />
+                        <img [src]="selected.imageUrl" [alt]="selected.title" (error)="handleDefectImageError($event, selected.categoryCode)" />
                       </div>
                     </div>
                   }
@@ -960,6 +986,15 @@
                     <div class="review-actions">
                       <button type="button" class="reject-action" [disabled]="reviewBusy()" (click)="reviewDetection('Rejected')">× Từ chối - Dương tính giả</button>
                       <button type="button" class="confirm-action" [disabled]="reviewBusy()" (click)="reviewDetection('Approved')">Xác nhận có lỗi</button>
+                      <button
+                        type="button"
+                        class="create-ticket-action"
+                        [disabled]="isTicketCreatedFor(selected.id)"
+                        (click)="createMaintenanceTaskFromDetection(selected)"
+                      >
+                        <span nz-icon [nzType]="isTicketCreatedFor(selected.id) ? 'check' : 'tool'"></span>
+                        {{ isTicketCreatedFor(selected.id) ? 'Đã lập phiếu bảo trì' : 'Lập phiếu bảo trì (MF04)' }}
+                      </button>
                     </div>
                   }
                 </div>
@@ -1029,6 +1064,13 @@
                 <h2>Khuyến nghị &amp; Lệnh Công tác Bảo dưỡng</h2>
                 <p>Kế hoạch sửa chữa, thay thế linh kiện đề xuất từ các phát hiện khuyết tật đã duyệt.</p>
               </div>
+              @if (detections().length > 0) {
+                <div class="maint-header-actions">
+                  <button type="button" class="btn-batch-create-tickets" (click)="createTicketsForAllDetections()">
+                    <span nz-icon nzType="plus-circle"></span> Lập phiếu bảo trì từ tất cả khuyết tật
+                  </button>
+                </div>
+              }
             </header>
 
             @if (!maintenanceTasks().length) {
@@ -1037,6 +1079,11 @@
                 <h3>Chưa có Khuyến nghị Bảo dưỡng</h3>
                 <p>Chưa có khuyết tật nào được Phân tích viên (Analyst) xác nhận lỗi để lập phiếu công tác sửa chữa.</p>
                 <small>Khuyến nghị bảo dưỡng sẽ tự động đề xuất từ các phát hiện có trạng thái <strong>Đã duyệt (Approved)</strong>.</small>
+                @if (detections().length > 0) {
+                  <button type="button" class="btn-batch-create-tickets" style="margin-top: 14px;" (click)="createTicketsForAllDetections()">
+                    <span nz-icon nzType="thunderbolt"></span> Lập phiếu bảo trì tự động từ {{ detections().length }} khuyết tật đã phát hiện
+                  </button>
+                }
               </div>
             } @else {
               <div class="maint-tasks-grid">

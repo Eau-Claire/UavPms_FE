@@ -1,3 +1,15 @@
+
+function resolveRegionCoordinates(regionName: string): { lat: number; lng: number } {
+  const norm = (regionName || '').toLowerCase();
+  if (norm.includes('an phú') || norm.includes('thủ đức')) return { lat: 10.8015, lng: 106.7455 };
+  if (norm.includes('bình thạnh') || norm.includes('phường 25')) return { lat: 10.8012, lng: 106.7148 };
+  if (norm.includes('linh trung')) return { lat: 10.8642, lng: 106.7765 };
+  if (norm.includes('quận 1') || norm.includes('bến nghé')) return { lat: 10.7812, lng: 106.7005 };
+  if (norm.includes('gò vấp')) return { lat: 10.8385, lng: 106.6657 };
+  if (norm.includes('tân bình')) return { lat: 10.7981, lng: 106.6543 };
+  return { lat: 10.7769, lng: 106.7009 };
+}
+
 import { DatePipe, DecimalPipe, Location } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -49,6 +61,17 @@ import { PreMissionApi, RealtimeWeatherSnapshot, weatherSiteChecks } from '../..
 import { describeHttpError, isStaleDataError } from '../../../../shared/errors/business-error-messages';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
+
+export interface ParsedPersonnelFindings {
+  readonly isJson: boolean;
+  readonly role?: string;
+  readonly inScope: boolean;
+  readonly isActive: boolean;
+  readonly hasValidRole: boolean;
+  readonly hasInspectorRole: boolean;
+  readonly hasBookingConflict: boolean;
+  readonly rawText?: string;
+}
 
 /** Backend yêu cầu ít nhất 1 Inspector, 1 Analyst, 1 Technician đủ điều kiện để trụ cột Nhân sự đạt. */
 const REQUIRED_PER_ROLE = 1;
@@ -332,6 +355,49 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   // MF01 candidate reasons: `suitability` only describes scope; availability/technical come from separate fields.
   protected readonly uavReason = uavReasonLabel;
   protected readonly personnelReason = personnelReasonLabel;
+
+  protected parseFindings(findings: string | undefined | null, operationalRole?: string): ParsedPersonnelFindings {
+    if (!findings || !findings.trim()) {
+      return {
+        isJson: false,
+        inScope: true,
+        isActive: true,
+        hasValidRole: true,
+        hasInspectorRole: operationalRole === 'INSPECTOR',
+        hasBookingConflict: false,
+        rawText: 'Đạt chuẩn vai trò và căn cứ sẵn sàng',
+      };
+    }
+
+    const trimmed = findings.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const obj = JSON.parse(trimmed) as Record<string, unknown>;
+        return {
+          isJson: true,
+          role: typeof obj['role'] === 'string' ? obj['role'] : undefined,
+          inScope: obj['inScope'] !== false,
+          isActive: obj['isActive'] !== false,
+          hasValidRole: obj['hasValidRole'] !== false,
+          hasInspectorRole: obj['hasInspectorRole'] === true || operationalRole === 'INSPECTOR',
+          hasBookingConflict: obj['hasBookingConflict'] === true,
+          rawText: trimmed,
+        };
+      } catch {
+        // Fall back to plain text
+      }
+    }
+
+    return {
+      isJson: false,
+      inScope: true,
+      isActive: true,
+      hasValidRole: true,
+      hasInspectorRole: operationalRole === 'INSPECTOR',
+      hasBookingConflict: false,
+      rawText: trimmed,
+    };
+  }
   protected readonly technicalLabel = technicalEligibilityLabel;
   protected readonly technicalTone = technicalEligibilityTone;
   protected readonly suitabilityText = suitabilityLabel;
@@ -465,10 +531,22 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   }
 
   private loadWeather(): void {
+    const a = this.item();
+    const regionName = a?.regionName || 'Khu vực quản lý lưới điện';
     const first = this.scopeTowers().find((t) => t.latitude != null && t.longitude != null);
-    if (!first || first.latitude == null || first.longitude == null) return;
+
+    let lat = first?.latitude ?? null;
+    let lng = first?.longitude ?? null;
+    const towerCode = first?.towerCode;
+
+    if (lat == null || lng == null) {
+      const coords = resolveRegionCoordinates(regionName);
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+
     this.loadingWeather.set(true);
-    this.api.getRealtimeWeather(first.latitude, first.longitude).subscribe({
+    this.api.getRealtimeWeather(lat, lng, regionName, towerCode).subscribe({
       next: (weather) => {
         this.realtimeWeather.set(weather);
         this.loadingWeather.set(false);
@@ -970,12 +1048,15 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     if (type === 'google-hybrid') {
       tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
     } else if (type === 'google-terrain') {
-      tileUrl = 'https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}';
-    } else if (type === 'carto') {
-      tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      subdomains = ['a', 'b', 'c'];
+      tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
+      subdomains = [];
       maxZoom = 19;
-      attribution = '© OpenStreetMap contributors';
+      attribution = '© Esri Topographic | UAV-PMS GIS';
+    } else if (type === 'carto') {
+      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      subdomains = ['a', 'b', 'c', 'd'];
+      maxZoom = 20;
+      attribution = '© OpenStreetMap contributors, © CARTO';
     }
 
     const tileLayer = L.tileLayer(tileUrl, { maxZoom, subdomains, attribution, keepBuffer: 6 });
@@ -983,7 +1064,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     tileLayer.on('tileerror', () => {
       if (!hasFallenBack) {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
       }
     });
     this.currentTileLayer = tileLayer;
