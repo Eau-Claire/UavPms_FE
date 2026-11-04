@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,10 +16,24 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { Mission, MissionAssignment, MissionOperationalRole } from '../../../../models/missions.models';
+import { Mission, MissionAssignment, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 import { Auth } from '../../../../core/auth/auth';
+import { isAnalystRole, isInspectorRole, isTechnicianRole, roleLabel } from '../../../../core/auth/roles';
+import {
+  AcceptanceState,
+  acceptanceState,
+  activitySenderKind,
+  assignmentRoleLabel,
+  findMyAssignment,
+  missionPriorityLabel,
+  towerInspectionStatusLabel,
+} from '../../data-access/mission-access';
+import { describeHttpError, readBackendError } from '../../../../shared/errors/business-error-messages';
+
+/** Which role-specific panel the summary column shows. */
+type InspectorFocus = 'flight' | 'analysis' | 'maintenance' | 'other';
 
 @Component({
   selector: 'app-mission-inspector',
@@ -54,61 +69,60 @@ export class MissionInspector {
   protected readonly selectedTargetId = signal('');
   protected readonly mapType = signal<'satellite' | 'streets'>('satellite');
 
-  // Multi-Role Assignment for the current logged in user
-  protected readonly myAssignment = computed<MissionAssignment | null>(() => {
-    const m = this.mission();
-    const u = this.currentUser();
-    if (!m || !m.team || m.team.length === 0) return null;
-    if (u?.id) {
-      const match = m.team.find((a) => a.userId === u.id);
-      if (match) return match;
-    }
-    const uRole = (u?.role || '').toLowerCase();
-    if (uRole.includes('analyst') || uRole.includes('phân tích')) {
-      return m.team.find((a) => a.assignmentRole === 'ANALYST') || null;
-    }
-    if (uRole.includes('tech') || uRole.includes('kỹ thuật') || uRole.includes('bảo trì')) {
-      return m.team.find((a) => a.assignmentRole === 'TECHNICIAN') || null;
-    }
-    return m.team.find((a) => a.assignmentRole === 'INSPECTOR') || m.team[0] || null;
-  });
+  /** The signed-in user's assignment on this mission (null when they are not part of the team). */
+  protected readonly myAssignment = computed<MissionAssignment | null>(() =>
+    findMyAssignment(this.mission(), this.currentUser()?.id),
+  );
 
+  /** Drives which banner shows: accept/postpone only while the mission is still before execution. */
+  protected readonly state = computed<AcceptanceState>(() => acceptanceState(this.mission(), this.myAssignment()));
+
+  /** Vietnamese label of the user's assignment role, or of their account role when they have no assignment. */
   protected readonly currentRoleTitle = computed<string>(() => {
     const a = this.myAssignment();
+    return a ? assignmentRoleLabel(a.assignmentRole) : roleLabel(this.currentUser()?.role);
+  });
+
+  /** Flight crew sees the pre-flight checklist; Analyst and Technician get links to their own work. */
+  protected readonly focus = computed<InspectorFocus>(() => {
+    const a = this.myAssignment();
     if (a) {
-      if (a.assignmentRole === 'ANALYST') return 'Chuyên viên phân tích ảnh (Analyst)';
-      if (a.assignmentRole === 'TECHNICIAN') return 'Kỹ thuật viên bảo trì lưới (Technician)';
-      return 'Phi công phụ trách (Inspector / Pilot)';
+      const kind = activitySenderKind(a.assignmentRole);
+      if (kind === 'INSPECTOR') return 'flight';
+      if (kind === 'ANALYST') return 'analysis';
+      if (kind === 'TECHNICIAN') return 'maintenance';
     }
-    return 'Thành viên đội bay (Inspector)';
+    const role = this.currentUser()?.role;
+    if (isInspectorRole(role)) return 'flight';
+    if (isAnalystRole(role)) return 'analysis';
+    if (isTechnicianRole(role)) return 'maintenance';
+    return 'other';
   });
 
-  protected readonly isMyAssignmentAccepted = computed<boolean>(() => {
-    const a = this.myAssignment();
-    return a ? a.responseStatus === 'ACCEPTED' : this.mission()?.status === 'CONFIRMED';
+  protected readonly priorityText = computed(() => missionPriorityLabel(this.mission()?.priority));
+
+  /** Team confirmation progress from the real assignment list. */
+  protected readonly teamProgress = computed(() => {
+    const m = this.mission();
+    return { confirmed: m?.confirmedCount ?? 0, total: m?.totalRequiredCount ?? 0 };
   });
 
-  protected readonly isMyAssignmentPostponed = computed<boolean>(() => {
-    const a = this.myAssignment();
-    return a ? a.responseStatus === 'POSTPONED' : this.mission()?.status === 'POSTPONED';
+  protected readonly isReadyToFly = computed(() => {
+    const status = normalizeMissionStatus(this.mission()?.status);
+    return status === 'Assigned' || status === 'Preparing' || status === 'Ready';
   });
 
   protected readonly confirmationDeadlineDate = computed(() => {
     const m = this.mission();
     if (!m) return null;
-    if (m.confirmationDeadline) return new Date(m.confirmationDeadline);
-    if (m.plannedStart) {
-      return new Date(new Date(m.plannedStart).getTime() - 2 * 3600 * 1000);
-    }
-    return null;
+    return m.confirmationDeadline ? new Date(m.confirmationDeadline) : null;
   });
 
   protected readonly isDeadlineOverdue = computed(() => {
     const deadline = this.confirmationDeadlineDate();
     const m = this.mission();
     if (!deadline || !m) return false;
-    const pending = m.status === 'PENDING_CONFIRMATION' || m.status === 'Assigned' || m.status === 'Pending';
-    return pending && this.currentTime() > deadline.getTime();
+    return m.status === 'PendingAcceptance' && this.currentTime() > deadline.getTime();
   });
 
   protected readonly deadlineRemainingText = computed(() => {
@@ -136,7 +150,7 @@ export class MissionInspector {
 
   protected readonly selectedTarget = computed(() => {
     const targets = this.mission()?.targets ?? [];
-    return targets.find((t) => t.assetId === this.selectedTargetId()) ?? targets[0] ?? null;
+    return targets.find((t) => t.towerId === this.selectedTargetId()) ?? targets[0] ?? null;
   });
 
   private readonly mapEffect = effect(() => {
@@ -167,21 +181,23 @@ export class MissionInspector {
         if (event.type === 'SUSPENDED') {
           this.mission.update((curr) => curr ? {
             ...curr,
-            status: 'SUSPENDED',
+            status: 'Suspended',
             suspendedReason: event.reason || curr.suspendedReason,
           } : null);
           this.actionMessage.set(`[CẢNH BÁO KHẨN CẤP] Quản lý đã tạm đình chỉ bay: ${event.reason || 'Kiểm tra an toàn.'}`);
         } else if (event.type === 'RESUMED') {
-          this.mission.update((curr) => curr ? { ...curr, status: 'CONFIRMED' } : null);
+          this.mission.update((curr) => curr ? { ...curr, status: event.status ? normalizeMissionStatus(event.status) : 'Assigned' } : null);
           this.actionMessage.set('[THÔNG BÁO] Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Bạn có thể tiếp tục nhiệm vụ.');
         } else if (event.type === 'CANCELLED') {
           this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
           this.actionMessage.set(`[HỦY BỎ] Nhiệm vụ đã bị hủy bởi Quản lý: ${event.reason || ''}`);
         } else if (event.type === 'REMINDER') {
-          this.actionMessage.set('[NHẮC NHỞ KHẨN] Quản lý yêu cầu bạn xác nhận nhiệm vụ ngay lập tức!');
+          if (this.state() === 'awaiting') {
+            this.actionMessage.set('[NHẮC NHỞ] Quản lý yêu cầu bạn xác nhận tiếp nhận nhiệm vụ.');
+          }
         } else if (event.type === 'COMMUNICATION') {
-          if (event.message && event.actorRole !== 'INSPECTOR') {
-            this.actionMessage.set(`[TIN NHẮN TỪ QUẢN LÝ] ${event.actorName}: ${event.message}`);
+          if (event.message && event.actorId !== this.currentUser()?.id) {
+            this.actionMessage.set(`[TIN NHẮN] ${event.actorName || 'Thành viên'}: ${event.message}`);
           }
         }
       });
@@ -193,33 +209,42 @@ export class MissionInspector {
         next: (mission) => {
           this.mission.set(mission);
           this.loading.set(false);
-          this.selectedTargetId.set(mission.targets[0]?.assetId ?? '');
+          this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
         },
         error: (err: unknown) => {
           this.loading.set(false);
-          this.error.set(err instanceof Error ? err.message : 'Không thể tải thông tin nhiệm vụ.');
+          const status = err instanceof HttpErrorResponse ? err.status : -1;
+          this.error.set(
+            status === 403 || status === 401
+              ? 'Bạn không có quyền xem nhiệm vụ này.'
+              : status === 404
+                ? 'Không tìm thấy nhiệm vụ.'
+                : 'Không thể tải thông tin nhiệm vụ.',
+          );
         },
       });
   }
 
   protected confirmMission(): void {
     const m = this.mission();
-    if (!m || this.actionBusy()) return;
+    const assign = this.myAssignment();
+    if (!m || !assign || this.state() !== 'awaiting' || this.actionBusy()) return;
     this.actionBusy.set(true);
 
-    const assign = this.myAssignment();
-    const role: MissionOperationalRole = assign?.assignmentRole || 'INSPECTOR';
+    const role = assign.assignmentRole;
     const note = `${this.currentRoleTitle()} xác nhận sẵn sàng tham gia thực hiện nhiệm vụ.`;
 
-    this.api.acceptAssignment(m.id, assign?.id, note, role)
+    this.api.acceptAssignment(m.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
           this.actionBusy.set(false);
-          const total = updated.totalRequiredCount || 3;
-          const conf = updated.confirmedCount || 1;
-          this.actionMessage.set(`Đã xác nhận tiếp nhận vai trò ${role} thành công! (${conf}/${total} vai trò đã xác nhận).`);
+          const total = updated.totalRequiredCount ?? 0;
+          const conf = updated.confirmedCount ?? 0;
+          this.actionMessage.set(
+            `Đã xác nhận tiếp nhận vai trò ${assignmentRoleLabel(role)} (${conf}/${total} thành viên đã xác nhận).`,
+          );
 
           // Broadcast real-time event to Manager console & Mission lists
           this.realtime.broadcastMissionEvent({
@@ -227,9 +252,9 @@ export class MissionInspector {
             type: 'CONFIRMED',
             status: updated.status,
             actorRole: role,
-            assignmentId: assign?.id,
+            assignmentId: assign.id,
             actorId: this.currentUser()?.id,
-            actorName: this.currentUser()?.fullName || this.currentUser()?.email || updated.assignedToUsername || 'Thành viên đội bay',
+            actorName: this.currentUser()?.fullName || this.currentUser()?.email || 'Thành viên đội bay',
             reason: note,
             allConfirmed: updated.allConfirmed,
             confirmedCount: conf,
@@ -238,11 +263,25 @@ export class MissionInspector {
             timestamp: new Date().toISOString(),
           });
         },
-        error: () => {
+        error: (err: unknown) => {
           this.actionBusy.set(false);
-          this.actionMessage.set('Lỗi khi gửi xác nhận. Vui lòng thử lại.');
+          this.actionMessage.set(describeHttpError(err, 'Lỗi khi gửi xác nhận. Vui lòng thử lại.'));
+          this.reloadAfterConflict(m.id, err);
         },
       });
+  }
+
+  /**
+   * After `409 INVALID_MISSION_STATE` (the mission left PendingAcceptance/Assigned/Preparing/Ready) or
+   * `403 USER_NOT_ASSIGNED` (removed from the team), reload so the page shows the current state.
+   */
+  private reloadAfterConflict(missionId: string, err: unknown): void {
+    const { status } = readBackendError(err);
+    if (status !== 409 && status !== 403) return;
+    this.api
+      .get(missionId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (mission) => this.mission.set(mission), error: () => undefined });
   }
 
   protected openPostponeModal(): void {
@@ -257,44 +296,45 @@ export class MissionInspector {
   protected submitPostpone(): void {
     const m = this.mission();
     const reason = this.postponeReason().trim();
-    if (!m || !reason || this.actionBusy()) return;
+    const assign = this.myAssignment();
+    if (!m || !assign || !reason || this.state() !== 'awaiting' || this.actionBusy()) return;
 
     this.actionBusy.set(true);
-    const assign = this.myAssignment();
-    const role: MissionOperationalRole = assign?.assignmentRole || 'INSPECTOR';
+    const role = assign.assignmentRole;
 
-    this.api.postponeAssignment(m.id, reason, assign?.id, role)
+    this.api.postponeAssignment(m.id, reason)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
           this.actionBusy.set(false);
           this.showPostponeModal.set(false);
-          this.actionMessage.set(`Đã gửi yêu cầu dời lịch / hoãn tiếp nhận vai trò ${role} tới Quản lý vận hành.`);
+          this.actionMessage.set(`Đã gửi yêu cầu hoãn vai trò ${assignmentRoleLabel(role)} tới Quản lý vận hành.`);
 
           // Broadcast real-time event to Manager console
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'POSTPONED',
+            status: updated.status,
             reason,
             actorRole: role,
-            assignmentId: assign?.id,
+            assignmentId: assign.id,
             actorId: this.currentUser()?.id,
-            actorName: this.currentUser()?.fullName || this.currentUser()?.email || updated.assignedToUsername || 'Thành viên đội bay',
+            actorName: this.currentUser()?.fullName || this.currentUser()?.email || 'Thành viên đội bay',
             timestamp: new Date().toISOString(),
           });
         },
-        error: () => {
+        error: (err: unknown) => {
           this.actionBusy.set(false);
-          this.actionMessage.set('Không thể gửi yêu cầu dời lịch. Vui lòng thử lại.');
+          this.actionMessage.set(describeHttpError(err, 'Không thể gửi yêu cầu dời lịch. Vui lòng thử lại.'));
+          this.reloadAfterConflict(m.id, err);
         },
       });
   }
 
-  protected selectTarget(assetId: string): void {
-    this.selectedTargetId.set(assetId);
-    const target = this.mission()?.targets.find((t) => t.assetId === assetId);
+  protected selectTarget(towerId: string): void {
+    this.selectedTargetId.set(towerId);
+    const target = this.mission()?.targets.find((t) => t.towerId === towerId);
     if (!target || !target.latitude || !target.longitude || !this.map) return;
     this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
   }
@@ -369,7 +409,7 @@ export class MissionInspector {
 
     const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     if (!targets.length) {
-      this.map.setView([16.0, 107.5], 6);
+      this.map.setView([10.7769, 106.7009], 12);
       return;
     }
 
@@ -381,7 +421,7 @@ export class MissionInspector {
       latLngs.push([lat, lng]);
 
       const sequence = target.sequence || index + 1;
-      const code = target.towerCode || target.assetCode || `Cột ${sequence}`;
+      const code = target.towerCode || `Cột ${sequence}`;
 
       const icon = L.divIcon({
         className: 'custom-tower-marker',
@@ -397,9 +437,9 @@ export class MissionInspector {
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(this.map!)
-        .bindPopup(`<strong>${code}</strong><br/>${target.assetName || ''}<br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        .bindPopup(`<strong>${code}</strong><br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
-      marker.on('click', () => this.selectTarget(target.assetId));
+      marker.on('click', () => this.selectTarget(target.towerId));
       this.markers.push(marker);
     });
 
@@ -434,25 +474,29 @@ export class MissionInspector {
   }
 
   protected statusLabel(status: string): string {
-    switch (status) {
-      case 'PENDING_CONFIRMATION': return 'Chờ tiếp nhận';
-      case 'CONFIRMED': return 'Đã tiếp nhận';
-      case 'POSTPONED': return 'Yêu cầu hoãn';
-      case 'SUSPENDED': return 'Tạm đình chỉ';
-      case 'Completed': return 'Đã hoàn thành';
-      case 'Cancelled': return 'Đã hủy';
-      default: return status;
-    }
+    return missionStatusLabel(status);
+  }
+
+  protected towerStatusLabel(status: string): string {
+    return towerInspectionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
     switch (status) {
-      case 'PENDING_CONFIRMATION': return 'status-pending';
-      case 'CONFIRMED': return 'status-confirmed';
-      case 'POSTPONED': return 'status-postponed';
-      case 'SUSPENDED': return 'status-suspended';
-      case 'Completed': return 'status-completed';
-      default: return 'status-default';
+      case 'PendingAcceptance':
+        return 'status-pending';
+      case 'Assigned':
+      case 'Preparing':
+      case 'Ready':
+        return 'status-confirmed';
+      case 'Postponed':
+        return 'status-postponed';
+      case 'Suspended':
+        return 'status-suspended';
+      case 'Completed':
+        return 'status-completed';
+      default:
+        return 'status-default';
     }
   }
 }

@@ -1,6 +1,7 @@
 .mission-page {
-  display: grid;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   color: #0b1c30;
 }
 
@@ -10,7 +11,7 @@
   justify-content: space-between;
   gap: 16px;
   min-width: 0;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .mission-page-head > div { min-width: 0; }
@@ -970,43 +971,6 @@
   border-radius: 10px;
   overflow: auto;
   padding: 12px;
-}
-
-.mission-camera-feed {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  border: 2px solid #fea619;
-  max-height: 210px;
-  border-radius: 8px;
-  background: #000;
-}
-
-.mission-camera-feed img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.mission-camera-feed span {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  border-radius: 999px;
-  background: #111827;
-  color: #fff;
-  padding: 4px 8px;
-  font-size: 10px;
-  font-weight: 900;
-}
-
-.mission-camera-empty {
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: #e5e7eb;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .waypoint {
@@ -2017,7 +1981,6 @@
 .mission-live-page .mission-media-meta .text-primary { color: var(--color-primary); }
 .mission-live-page .mission-progress span,
 .mission-live-page .mission-upload-progress span { background: var(--color-primary); }
-.mission-live-page .mission-camera-feed { border-color: var(--color-primary); }
 
 @media (max-width: 1100px) {
   .mission-stats,

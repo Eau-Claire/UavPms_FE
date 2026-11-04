@@ -1,5 +1,4 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,10 +14,19 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
+import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
+import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
 import {
+  AnalysisRunInfo,
   AnomalyApi,
   AnomalyBoundingBox,
+  anomalyErrorMessage,
   AnomalyItem,
+  AnomalyTowerAssignment,
+  apiErrorCode,
+  EXECUTION_LOCATION_LABELS,
+  groupSuperseded,
   REJECT_REASONS,
 } from '../../data-access/anomaly-api';
 
@@ -29,9 +37,16 @@ interface ComputedBoxStyle {
   readonly height: string;
 }
 
+interface ReviewNavigationState {
+  readonly anomaly?: AnomalyItem;
+  readonly superseded?: readonly AnomalyItem[];
+}
+
+const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'administrator']);
+
 @Component({
   selector: 'app-detection-review',
-  imports: [DatePipe, RouterLink, FormsModule, NzIconModule],
+  imports: [DatePipe, RouterLink, FormsModule, NzIconModule, AnomalyTowerAssignmentPanel],
   templateUrl: './detection-review.html',
   styleUrl: './detection-review.scss',
   encapsulation: ViewEncapsulation.None,
@@ -41,16 +56,26 @@ export class DetectionReview {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(AnomalyApi);
+  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly detectionId = signal<string>(this.route.snapshot.paramMap.get('id') ?? '');
+  protected readonly detectionId = signal('');
   protected readonly detection = signal<AnomalyItem | null>(null);
+  /** Edge results that this (cloud) anomaly replaced. */
+  protected readonly supersededItems = signal<readonly AnomalyItem[]>([]);
+  protected readonly analysisRun = signal<AnalysisRunInfo | null>(null);
   protected readonly loading = signal(true);
   protected readonly actionBusy = signal(false);
   protected readonly error = signal('');
   protected readonly feedbackMessage = signal('');
   protected readonly feedbackType = signal<'success' | 'error' | 'info'>('info');
+  /** Set when confirming failed with `TOWER_REQUIRED`. */
+  protected readonly towerRequired = signal(false);
+  /** After a confirmation the backend opens a maintenance ticket (MF04): managers get a link to it. */
+  protected readonly maintenanceLinkVisible = signal(false);
+  protected readonly canOpenMaintenance = computed(() => isMaintenanceManager(this.auth.user()?.role));
+  protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
   // Viewer controls
   protected readonly zoomLevel = signal(1);
@@ -58,47 +83,55 @@ export class DetectionReview {
   protected readonly imgNaturalWidth = signal(0);
   protected readonly imgNaturalHeight = signal(0);
 
-  // Review Form state
+  // Review form state
   protected readonly generalNotes = signal('');
   protected readonly showRejectModal = signal(false);
   protected readonly selectedRejectReason = signal<string>(REJECT_REASONS[0].value);
   protected readonly rejectDetailNotes = signal('');
   protected readonly rejectReasons = REJECT_REASONS;
 
-  // Role permissions
-  protected readonly userRole = computed(() => this.auth.user()?.role?.toLowerCase() ?? '');
-  protected readonly canReview = computed(() => {
-    const role = this.userRole();
-    return role === 'analyst' || role === 'admin' || role === 'systemadmin' || role === 'administrator';
-  });
+  protected readonly canReview = computed(() => REVIEW_ROLES.has(this.auth.user()?.role?.toLowerCase() ?? ''));
+
+  protected readonly executionLocation = computed(
+    () => this.analysisRun()?.executionLocation ?? this.detection()?.executionLocation ?? null,
+  );
 
   protected readonly boundingBoxStyle = computed<ComputedBoxStyle | null>(() => {
-    const item = this.detection();
-    const box = item?.boundingBox;
+    const box = this.detection()?.boundingBox;
     if (!box) return null;
-
     return this.calculateBoxStyle(box, this.imgNaturalWidth(), this.imgNaturalHeight());
   });
 
   constructor() {
-    this.initData();
+    // The page is reused when navigating between an edge result and its cloud replacement.
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.detectionId.set(params.get('id') ?? '');
+      this.detection.set(null);
+      this.supersededItems.set([]);
+      this.analysisRun.set(null);
+      this.towerRequired.set(false);
+      this.error.set('');
+      this.feedbackMessage.set('');
+      this.maintenanceLinkVisible.set(false);
+      this.zoomLevel.set(1);
+      this.initData();
+    });
   }
 
   private initData(): void {
-    const navState = history.state as { anomaly?: AnomalyItem } | undefined;
+    const navState = history.state as ReviewNavigationState | undefined;
     const currentId = this.detectionId();
 
     if (navState?.anomaly && navState.anomaly.id === currentId) {
-      this.detection.set(navState.anomaly);
-      this.generalNotes.set(navState.anomaly.analystNotes || '');
+      this.setDetection(navState.anomaly, navState.superseded ?? []);
       this.loading.set(false);
       return;
     }
 
-    // Fallback: Fetch from pending list API
+    // No GET /anomalies/{id} exists: look the anomaly up in the pending queue.
     this.loading.set(true);
     this.api
-      .listPending({ pageIndex: 1, pageSize: 50 })
+      .listPending({ pageIndex: 1, pageSize: 100 })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
@@ -107,16 +140,25 @@ export class DetectionReview {
         next: (res) => {
           const found = res.items.find((it) => it.id === currentId);
           if (found) {
-            this.detection.set(found);
-            this.generalNotes.set(found.analystNotes || '');
+            this.setDetection(found, groupSuperseded(res.items).supersededByReplacement.get(found.id) ?? []);
           } else {
-            this.error.set(`Không tìm thấy sự cố với mã #${currentId}. Có thể sự cố đã được thẩm định.`);
+            this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi. Có thể sự cố đã được thẩm định.`);
           }
         },
-        error: (err: unknown) => {
-          this.error.set(this.getErrorMessage(err));
-        },
+        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải dữ liệu sự cố.')),
       });
+  }
+
+  private setDetection(item: AnomalyItem, superseded: readonly AnomalyItem[]): void {
+    this.detection.set(item);
+    this.supersededItems.set(superseded);
+    this.generalNotes.set(item.analystNotes);
+    if (item.analysisRunId) {
+      this.api
+        .getAnalysisRun(item.analysisRunId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((run) => this.analysisRun.set(run));
+    }
   }
 
   protected onImageLoaded(event: Event): void {
@@ -127,7 +169,7 @@ export class DetectionReview {
 
   protected onImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
-    img.src = '/images/defect-insulator-crack.png';
+    img.src = '/images/defect-preview-frame.png';
   }
 
   protected zoomIn(): void {
@@ -146,44 +188,47 @@ export class DetectionReview {
     this.showBoundingBox.update((v) => !v);
   }
 
+  protected onTowerAssigned(result: AnomalyTowerAssignment): void {
+    this.detection.update((current) =>
+      current ? { ...current, towerId: result.towerId, towerCode: result.towerCode || current.towerCode } : null,
+    );
+    this.towerRequired.set(false);
+    this.feedbackType.set('success');
+    this.feedbackMessage.set(`Đã gán cột ${result.towerCode} cho bất thường. Bạn có thể phê duyệt ngay bây giờ.`);
+  }
+
   // --- APPROVE FLOW ---
   protected approveDetection(): void {
     const item = this.detection();
-    if (!item || this.actionBusy()) return;
+    if (!item || this.actionBusy() || item.supersededById) return;
 
     if (!confirm(`Xác nhận phê duyệt sự cố "${item.categoryName}" thành sự cố kỹ thuật chính thức?`)) {
       return;
     }
 
+    const notes = this.generalNotes().trim() || 'Xác nhận khuyết tật chính xác bởi Analyst.';
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
 
     this.api
-      .validate(item.id, {
-        status: 'Confirmed',
-        analystNotes: this.generalNotes().trim() || 'Xác nhận khuyết tật chính xác bởi Analyst.',
-      })
+      .validate(item.id, { status: 'Confirmed', analystNotes: notes })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
         next: () => {
-          this.detection.update((current) =>
-            current
-              ? {
-                  ...current,
-                  validationStatus: 'Confirmed',
-                  analystNotes: this.generalNotes().trim() || 'Xác nhận khuyết tật chính xác bởi Analyst.',
-                }
-              : null,
-          );
+          this.detection.update((current) => (current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null));
+          this.towerRequired.set(false);
           this.feedbackType.set('success');
           this.feedbackMessage.set('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận vào hệ thống.');
+          this.maintenanceLinkVisible.set(true);
         },
         error: (err: unknown) => {
+          if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
           this.feedbackType.set('error');
-          this.feedbackMessage.set(this.getErrorMessage(err));
+          this.feedbackMessage.set(anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.'));
         },
       });
   }
@@ -210,12 +255,10 @@ export class DetectionReview {
 
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
 
     this.api
-      .validate(item.id, {
-        status: 'Rejected',
-        analystNotes: fullNotes,
-      })
+      .validate(item.id, { status: 'Rejected', analystNotes: fullNotes })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -226,13 +269,7 @@ export class DetectionReview {
       .subscribe({
         next: () => {
           this.detection.update((current) =>
-            current
-              ? {
-                  ...current,
-                  validationStatus: 'Rejected',
-                  analystNotes: fullNotes,
-                }
-              : null,
+            current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null,
           );
           this.generalNotes.set(fullNotes);
           this.feedbackType.set('success');
@@ -240,7 +277,33 @@ export class DetectionReview {
         },
         error: (err: unknown) => {
           this.feedbackType.set('error');
-          this.feedbackMessage.set(this.getErrorMessage(err));
+          this.feedbackMessage.set(anomalyErrorMessage(err, 'Không thể từ chối phát hiện.'));
+        },
+      });
+  }
+
+  // --- EMERGENCY ALERT ---
+  protected triggerEmergencyAlert(): void {
+    const item = this.detection();
+    if (!item || this.actionBusy() || item.supersededById) return;
+
+    this.actionBusy.set(true);
+    this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
+    this.alertsApi
+      .triggerAlert({ anomalyId: item.id, towerId: item.towerId ?? undefined, priority: 'Critical' })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.feedbackType.set('success');
+          this.feedbackMessage.set('Đã kích hoạt cảnh báo khẩn cấp. Cảnh báo đã xuất hiện ở trang Cảnh báo khẩn cấp.');
+        },
+        error: (err: unknown) => {
+          this.feedbackType.set('error');
+          this.feedbackMessage.set(alertErrorMessage(err, 'Không thể kích hoạt cảnh báo khẩn cấp.'));
         },
       });
   }
@@ -249,56 +312,36 @@ export class DetectionReview {
     void this.router.navigate(['/ai-review']);
   }
 
-  private calculateBoxStyle(
-    box: AnomalyBoundingBox,
-    naturalW: number,
-    naturalH: number,
-  ): ComputedBoxStyle {
-    // If box coordinates are in percentage (0..100) or normalized
+  private calculateBoxStyle(box: AnomalyBoundingBox, naturalW: number, naturalH: number): ComputedBoxStyle | null {
+    // Percentages of the image (normalized boxes are converted to 0..100 by the API layer).
     if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) {
-      return {
-        left: `${box.x}%`,
-        top: `${box.y}%`,
-        width: `${box.width}%`,
-        height: `${box.height}%`,
-      };
+      return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
     }
 
-    // If box coordinates are in absolute pixels on the original image
+    // Absolute pixels on the original image: wait for the image size.
     if (naturalW > 0 && naturalH > 0) {
-      const leftPct = (box.x / naturalW) * 100;
-      const topPct = (box.y / naturalH) * 100;
-      const widthPct = (box.width / naturalW) * 100;
-      const heightPct = (box.height / naturalH) * 100;
-
       return {
-        left: `${Math.max(0, Math.min(95, leftPct))}%`,
-        top: `${Math.max(0, Math.min(95, topPct))}%`,
-        width: `${Math.min(100, widthPct)}%`,
-        height: `${Math.min(100, heightPct)}%`,
+        left: `${Math.max(0, Math.min(95, (box.x / naturalW) * 100))}%`,
+        top: `${Math.max(0, Math.min(95, (box.y / naturalH) * 100))}%`,
+        width: `${Math.min(100, (box.width / naturalW) * 100)}%`,
+        height: `${Math.min(100, (box.height / naturalH) * 100)}%`,
       };
     }
-
-    // Default fallback percentage
-    return {
-      left: '30%',
-      top: '25%',
-      width: '35%',
-      height: '40%',
-    };
+    return null;
   }
 
-  protected statusClass(status: string): string {
-    const s = status.toLowerCase();
-    if (s === 'confirmed' || s === 'approved') return 'status-confirmed';
-    if (s === 'rejected' || s === 'dismissed') return 'status-rejected';
+  protected statusClass(item: AnomalyItem): string {
+    if (item.supersededById) return 'status-rejected';
+    if (item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved') return 'status-confirmed';
+    if (item.validationStatus === 'Rejected') return 'status-rejected';
     return 'status-pending';
   }
 
-  protected statusText(status: string): string {
-    const s = status.toLowerCase();
-    if (s === 'confirmed' || s === 'approved') return 'Đã xác nhận (Official Defect)';
-    if (s === 'rejected' || s === 'dismissed') return 'Đã từ chối (Rejected)';
+  protected statusText(item: AnomalyItem): string {
+    if (item.supersededById) return 'Đã bị kết quả Cloud thay thế';
+    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận (Official Defect)';
+    if (item.validationStatus === 'Resolved') return 'Đã xử lý xong';
+    if (item.validationStatus === 'Rejected') return 'Đã từ chối (Rejected)';
     return 'Chờ thẩm định (Pending)';
   }
 
@@ -306,15 +349,5 @@ export class DetectionReview {
     if (score >= 90) return 'conf-high';
     if (score >= 75) return 'conf-med';
     return 'conf-low';
-  }
-
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse) {
-      if (error.status === 401) return 'Phiên đăng nhập đã hết hạn.';
-      if (error.status === 403) return 'Bạn không có quyền thực hiện thao tác thẩm định này.';
-      const body = error.error as Record<string, unknown> | null;
-      return String(body?.['message'] || error.message || 'Lỗi xử lý yêu cầu thẩm định.');
-    }
-    return 'Đã xảy ra lỗi không xác định.';
   }
 }

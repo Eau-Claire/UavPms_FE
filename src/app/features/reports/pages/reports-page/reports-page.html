@@ -1,341 +1,302 @@
-<section class="page-heading">
-  <div>
-    <div class="page-breadcrumb"><span>BÁO CÁO</span><span>/</span><strong>BÁO CÁO & PHÂN TÍCH</strong></div>
-    <h1>Báo cáo và phân tích</h1>
-    <p class="review-subtitle">Tổng hợp báo cáo kiểm tra định kỳ, thống kê khuyết tật thiết bị và xuất dữ liệu báo cáo vận hành.</p>
-  </div>
-  <div class="actions">
-    <button type="button" class="button secondary" (click)="refreshReports()" [disabled]="isLoading()">
-      <span nz-icon [nzType]="isLoading() ? 'loading' : 'reload'"></span> Làm mới
-    </button>
-    <button type="button" class="button primary" (click)="openCreateModal()">
-      <span nz-icon nzType="plus"></span> Lập báo cáo mới
-    </button>
-  </div>
-</section>
-
-@if (toastMessage(); as msg) {
-  <div class="toast-alert" [class]="toastType()" role="status">
-    <span nz-icon [nzType]="toastType() === 'error' ? 'close-circle' : toastType() === 'info' ? 'info-circle' : 'check-circle'" class="toast-icon"></span>
-    <span>{{ msg }}</span>
-  </div>
-}
-
-<!-- Thanh thống kê số liệu tổng hợp từ API -->
-<section class="reports-status-bar" aria-label="Thống kê báo cáo">
-  <div class="status-item">
-    <span class="status-label">Tổng số báo cáo</span>
-    <strong class="status-value">{{ stats().total }}</strong>
-  </div>
-  <div class="status-sep" aria-hidden="true"></div>
-  <div class="status-item">
-    <span class="status-label">Khuyết tật AI</span>
-    <strong class="status-value">{{ stats().byType.defect }}</strong>
-  </div>
-  <div class="status-sep" aria-hidden="true"></div>
-  <div class="status-item">
-    <span class="status-label">Kiểm tra định kỳ UAV</span>
-    <strong class="status-value">{{ stats().byType.periodic }}</strong>
-  </div>
-  <div class="status-sep" aria-hidden="true"></div>
-  <div class="status-item">
-    <span class="status-label">Nhiệt & Hành lang</span>
-    <strong class="status-value">{{ (stats().byType.thermal || 0) + (stats().byType.corridor || 0) }}</strong>
-  </div>
-</section>
-
-<!-- Bộ lọc và tìm kiếm Server-side -->
-<section class="panel filters-panel">
-  <div class="filters-grid">
-    <div class="filter-group search-group">
-      <label for="report-search">Tìm kiếm báo cáo</label>
-      <div class="search-box">
-        <span nz-icon nzType="search" class="search-icon"></span>
-        <input
-          id="report-search"
-          type="search"
-          placeholder="Tìm theo tiêu đề, mã số báo cáo..."
-          [value]="searchQuery()"
-          (input)="onSearchInput($any($event.target).value)"
-        />
-      </div>
+<div class="reports-page-container">
+  <!-- Header Banner -->
+  <header class="page-heading">
+    <div class="heading-left">
+      <div class="page-breadcrumb"><span>BÁO CÁO</span><span>/</span><strong>BÁO CÁO & PHÂN TÍCH</strong></div>
+      <h1 class="page-title">Báo cáo và phân tích vận hành</h1>
+      <p class="review-subtitle">Tổng hợp báo cáo kiểm tra theo khu vực, thống kê khuyết tật và xuất dữ liệu báo cáo vận hành.</p>
     </div>
-
-    <div class="filter-group">
-      <label for="report-type">Loại báo cáo</label>
-      <select
-        id="report-type"
-        [value]="selectedType()"
-        (change)="onTypeChange($any($event.target).value)"
+    <div class="header-actions">
+      <button
+        type="button"
+        class="button secondary"
+        (click)="refreshReports()"
+        [disabled]="isLoading()"
+        title="Làm mới danh sách"
       >
-        <option value="all">Tất cả loại báo cáo</option>
-        <option value="defect">Khuyết tật AI</option>
-        <option value="periodic">Kiểm tra định kỳ UAV</option>
-        <option value="thermal">Nhiệt hồng ngoại</option>
-        <option value="corridor">Hành lang tuyến</option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <label for="report-status">Trạng thái phê duyệt</label>
-      <select
-        id="report-status"
-        [value]="selectedStatus()"
-        (change)="onStatusChange($any($event.target).value)"
+        <span nz-icon [nzType]="isLoading() ? 'loading' : 'reload'" [nzSpin]="isLoading()"></span> Làm mới
+      </button>
+      <button
+        type="button"
+        class="button primary"
+        (click)="openCreateModal()"
       >
-        <option value="all">Tất cả trạng thái</option>
-        <option value="approved">Đã duyệt</option>
-        <option value="pending">Chờ duyệt</option>
-        <option value="draft">Bản nháp</option>
-      </select>
+        <span nz-icon nzType="plus"></span> Lập báo cáo mới
+      </button>
     </div>
-  </div>
-</section>
-
-<!-- Danh sách báo cáo kết nối API -->
-<section class="panel table-panel">
-  <header class="table-header">
-    <div>
-      <p class="kicker">HỒ SƠ VẬN HÀNH</p>
-      <h2>Danh mục báo cáo phân tích lưới điện</h2>
-    </div>
-    <span class="record-badge">{{ totalItems() }} báo cáo</span>
   </header>
 
-  @if (isLoading()) {
-    <div class="loading-state" aria-live="polite">
-      <span nz-icon nzType="loading" class="loading-spinner"></span>
-      <p>Đang đồng bộ dữ liệu báo cáo từ máy chủ...</p>
-    </div>
-  } @else if (reports().length) {
-    <div class="table-scroll">
-      <table>
-        <caption class="sr-only">Danh sách báo cáo phân tích</caption>
-        <thead>
-          <tr>
-            <th>Mã & Tiêu đề báo cáo</th>
-            <th>Phân loại</th>
-            <th>Tuyến / Trạm điện</th>
-            <th>Ngày lập</th>
-            <th>Người thực hiện</th>
-            <th>Trạng thái</th>
-            <th class="actions-col">Xuất dữ liệu</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of reports(); track item.id) {
-            <tr>
-              <td>
-                <div class="report-title-cell">
-                  <strong>{{ item.title }}</strong>
-                  <div class="report-meta-line">
-                    <span class="code-badge">{{ item.code }}</span>
-                    @if (item.defectCount > 0) {
-                      <span class="defect-indicator">{{ item.defectCount }} sự cố ghi nhận</span>
-                    }
-                  </div>
-                </div>
-              </td>
-              <td>
-                <span class="badge-type" [class]="item.type">{{ item.typeName }}</span>
-              </td>
-              <td>
-                <span class="line-name">{{ item.lineOrSubstation }}</span>
-              </td>
-              <td>
-                <span class="date-text">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-              </td>
-              <td>
-                <span class="creator-name">{{ item.creatorName }}</span>
-              </td>
-              <td>
-                <span class="status-badge" [class]="item.status">{{ item.statusName }}</span>
-              </td>
-              <td class="actions-col">
-                <div class="btn-group">
-                  <button
-                    type="button"
-                    class="btn-action-download pdf"
-                    [title]="'Tải tệp PDF (' + item.fileSizePdfFormatted + ')'"
-                    (click)="downloadReport(item, 'PDF')"
-                    [disabled]="isDownloading() === item.id + '-PDF'"
-                  >
-                    @if (isDownloading() === item.id + '-PDF') {
-                      <span nz-icon nzType="loading"></span>
-                    } @else {
-                      <span nz-icon nzType="file-pdf"></span>
-                    }
-                    <span>PDF</span>
-                    <span class="file-size-tag">{{ item.fileSizePdfFormatted }}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-action-download excel"
-                    [title]="'Tải tệp Excel (' + item.fileSizeExcelFormatted + ')'"
-                    (click)="downloadReport(item, 'EXCEL')"
-                    [disabled]="isDownloading() === item.id + '-EXCEL'"
-                  >
-                    @if (isDownloading() === item.id + '-EXCEL') {
-                      <span nz-icon nzType="loading"></span>
-                    } @else {
-                      <span nz-icon nzType="file-excel"></span>
-                    }
-                    <span>Excel</span>
-                    <span class="file-size-tag">{{ item.fileSizeExcelFormatted }}</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Thanh phân trang Server-side -->
-    <footer class="pagination-bar">
-      <div class="pagination-info">
-        Hiển thị trang <strong>{{ currentPage() }}</strong> / <strong>{{ totalPages() }}</strong> (Tổng cộng <strong>{{ totalItems() }}</strong> bản ghi)
-      </div>
-      <div class="pagination-controls">
-        <button
-          type="button"
-          class="btn-page"
-          [disabled]="currentPage() <= 1"
-          (click)="goToPage(currentPage() - 1)"
-          aria-label="Trang trước"
-        >
-          <span nz-icon nzType="left"></span> Trước
-        </button>
-        <span class="current-page-display">{{ currentPage() }}</span>
-        <button
-          type="button"
-          class="btn-page"
-          [disabled]="currentPage() >= totalPages()"
-          (click)="goToPage(currentPage() + 1)"
-          aria-label="Trang tiếp theo"
-        >
-          Sau <span nz-icon nzType="right"></span>
-        </button>
-      </div>
-    </footer>
-  } @else {
-    <div class="empty-state">
-      <span nz-icon nzType="inbox" class="empty-icon"></span>
-      <h3>Không tìm thấy báo cáo phù hợp</h3>
-      <p>Vui lòng điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các tiêu chí lọc.</p>
+  <!-- Notice Alert Banner -->
+  @if (toastMessage(); as msg) {
+    <div class="alert-banner" [class.success]="toastType() === 'info' || toastType() === 'success'" [class.error]="toastType() === 'error'" role="status">
+      <span nz-icon [nzType]="toastType() === 'error' ? 'close-circle' : 'check-circle'"></span>
+      <span>{{ msg }}</span>
     </div>
   }
-</section>
 
-<!-- Modal Lập báo cáo mới với Tuyến/Trạm từ API thật -->
-@if (isCreateModalOpen()) {
-  <div class="modal-backdrop" (click)="closeCreateModal()">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
-      <header class="modal-header">
-        <h3>Lập báo cáo vận hành mới</h3>
-        <button type="button" class="btn-close" (click)="closeCreateModal()" [disabled]="isSubmitting()">✕</button>
-      </header>
-      <div class="modal-body">
-        <div class="modal-field">
-          <label for="new-title">Tiêu đề báo cáo *</label>
-          <input
-            id="new-title"
-            type="text"
-            placeholder="Ví dụ: Báo cáo kiểm tra khuyết tật định kỳ đợt 9..."
-            [value]="newReportTitle()"
-            (input)="newReportTitle.set($any($event.target).value)"
-          />
-        </div>
-
-        <div class="modal-field">
-          <label for="new-type">Phân loại báo cáo</label>
-          <select
-            id="new-type"
-            [value]="newReportType()"
-            (change)="newReportType.set($any($event.target).value)"
-          >
-            <option value="defect">Khuyết tật AI</option>
-            <option value="periodic">Kiểm tra định kỳ UAV</option>
-            <option value="thermal">Nhiệt hồng ngoại</option>
-            <option value="corridor">Hành lang tuyến</option>
-          </select>
-        </div>
-
-        <div class="modal-field">
-          <label id="target-category-label">Đối tượng kiểm tra</label>
-          <div class="target-category-switch" role="radiogroup" aria-labelledby="target-category-label">
-            <button
-              type="button"
-              class="switch-btn"
-              [class.active]="targetCategory() === 'line'"
-              (click)="targetCategory.set('line')"
-            >
-              Đường dây truyền tải
-            </button>
-            <button
-              type="button"
-              class="switch-btn"
-              [class.active]="targetCategory() === 'substation'"
-              (click)="targetCategory.set('substation')"
-            >
-              Trạm biến áp
-            </button>
-          </div>
-        </div>
-
-        @if (targetCategory() === 'line') {
-          <div class="modal-field">
-            <label for="new-line">Chọn đường dây truyền tải</label>
-            <select
-              id="new-line"
-              [value]="selectedLineId()"
-              (change)="selectedLineId.set($any($event.target).value)"
-            >
-              @for (line of powerLines(); track line.id) {
-                <option [value]="line.id">
-                  {{ line.lineName }} @if (line.voltageLevel) { ({{ line.voltageLevel }}) }
-                </option>
-              }
-            </select>
-          </div>
-        } @else {
-          <div class="modal-field">
-            <label for="new-substation">Chọn trạm biến áp</label>
-            <select
-              id="new-substation"
-              [value]="selectedSubstationId()"
-              (change)="selectedSubstationId.set($any($event.target).value)"
-            >
-              @for (sub of substations(); track sub.id) {
-                <option [value]="sub.id">
-                  {{ sub.substationName }} @if (sub.voltageLevel) { ({{ sub.voltageLevel }}) }
-                </option>
-              }
-            </select>
-          </div>
-        }
-
-        <div class="modal-field">
-          <label for="new-desc">Ghi chú / Mô tả đợt kiểm tra</label>
-          <textarea
-            id="new-desc"
-            rows="2"
-            placeholder="Nội dung tóm tắt, phạm vi khoảng cột kiểm tra..."
-            [value]="newReportDescription()"
-            (input)="newReportDescription.set($any($event.target).value)"
-          ></textarea>
-        </div>
-      </div>
-      <footer class="modal-footer">
-        <button type="button" class="button secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">Hủy</button>
-        <button type="button" class="button primary" (click)="createReport()" [disabled]="isSubmitting()">
-          @if (isSubmitting()) {
-            <span nz-icon nzType="loading"></span> Đang tạo...
-          } @else {
-            <span nz-icon nzType="plus"></span> Tạo báo cáo
-          }
-        </button>
-      </footer>
+  <!-- KPI Status Summary Bar -->
+  <section class="reports-status-bar" aria-label="Thống kê báo cáo">
+    <div class="status-item">
+      <span class="status-label">Tổng số báo cáo</span>
+      <strong class="status-value">{{ stats().total }}</strong>
     </div>
-  </div>
-}
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Đã duyệt</span>
+      <strong class="status-value text-approved">{{ stats().byStatus.approved }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Chờ duyệt</span>
+      <strong class="status-value text-pending">{{ stats().byStatus.pending }}</strong>
+    </div>
+    <div class="status-sep" aria-hidden="true"></div>
+    <div class="status-item">
+      <span class="status-label">Bản nháp</span>
+      <strong class="status-value text-draft">{{ stats().byStatus.draft }}</strong>
+    </div>
+  </section>
+
+  <!-- Filter Toolbar Card -->
+  <section class="filter-toolbar">
+    <div class="search-box">
+      <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
+      <input
+        id="report-search"
+        type="search"
+        placeholder="Tìm theo tiêu đề, mã số báo cáo..."
+        [value]="searchQuery()"
+        (input)="onSearchInput($any($event.target).value)"
+      />
+    </div>
+
+    <div class="select-group">
+      <div class="select-field">
+        <label for="report-region">Khu vực:</label>
+        <select id="report-region" [value]="selectedRegionId()" (change)="onRegionChange($any($event.target).value)">
+          <option value="">Tất cả khu vực</option>
+          @for (region of regions(); track region.id) {
+            <option [value]="region.id">{{ region.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="select-field">
+        <label for="report-type">Loại:</label>
+        <select id="report-type" [value]="selectedType()" (change)="onTypeChange($any($event.target).value)">
+          <option value="all">Tất cả loại báo cáo</option>
+          @for (type of reportTypes; track type) {
+            <option [value]="type">{{ typeLabels[type] }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="select-field">
+        <label for="report-status">Trạng thái:</label>
+        <select id="report-status" [value]="selectedStatus()" (change)="onStatusChange($any($event.target).value)">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="approved">Đã duyệt</option>
+          <option value="pending">Chờ duyệt</option>
+          <option value="draft">Bản nháp</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Table Container Card -->
+  <section class="table-container">
+    <div class="table-header">
+      <div>
+        <p class="kicker">HỒ SƠ VẬN HÀNH</p>
+        <h2>Danh mục báo cáo</h2>
+      </div>
+      <span class="record-badge">{{ totalItems() }} báo cáo</span>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-state" aria-live="polite">
+        <span nz-icon nzType="loading" class="loading-spinner" aria-hidden="true"></span>
+        <p>Đang tải dữ liệu báo cáo...</p>
+      </div>
+    } @else if (reports().length) {
+      <div class="table-scroll">
+        <table class="report-table">
+          <caption class="sr-only">Danh sách báo cáo</caption>
+          <thead>
+            <tr>
+              <th scope="col" style="width: 30%;">Mã &amp; Tiêu đề báo cáo</th>
+              <th scope="col" style="width: 14%;">Phân loại</th>
+              <th scope="col" style="width: 16%;">Khu vực</th>
+              <th scope="col" style="width: 14%;">Ngày lập</th>
+              <th scope="col" style="width: 12%;">Người lập</th>
+              <th scope="col" style="width: 14%;">Trạng thái</th>
+              <th scope="col" class="actions-col" style="width: 14%; text-align: right;">Tải xuống</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of reports(); track item.id) {
+              <tr>
+                <td>
+                  <div class="report-title-cell">
+                    <strong>{{ item.title }}</strong>
+                    <div class="report-meta-line">
+                      <span class="code-badge">{{ item.code }}</span>
+                      <span class="defect-indicator">{{ item.defectCount }} khuyết tật</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge-type" [class]="item.type">{{ item.typeName }}</span>
+                </td>
+                <td>
+                  <span class="line-name">{{ item.region?.name || 'Không giới hạn khu vực' }}</span>
+                </td>
+                <td>
+                  <span class="date-text">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                </td>
+                <td>
+                  <span class="creator-name">{{ item.creator?.fullName || '—' }}</span>
+                </td>
+                <td>
+                  <div class="status-cell">
+                    <span class="status-badge" [class]="item.status">
+                      <span class="status-dot"></span>
+                      {{ item.statusName }}
+                    </span>
+                    @if (item.hasSnapshot) {
+                      <span
+                        class="snapshot-badge"
+                        title="Số liệu và tệp tải xuống được lấy từ bản chốt lúc phê duyệt, không thay đổi theo dữ liệu mới."
+                      >
+                        <span nz-icon nzType="lock" aria-hidden="true"></span> Đã chốt số liệu
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td class="actions-col">
+                  <div class="btn-group">
+                    <button
+                      type="button"
+                      class="btn-action-download pdf"
+                      [attr.aria-label]="'Tải PDF báo cáo ' + item.code"
+                      (click)="downloadReport(item, 'pdf')"
+                      [disabled]="isDownloading() !== null"
+                      title="Tải tệp PDF"
+                    >
+                      <span nz-icon [nzType]="isDownloading() === item.id + '-pdf' ? 'loading' : 'file-pdf'" aria-hidden="true"></span>
+                      <span>PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-action-download excel"
+                      [attr.aria-label]="'Tải Excel báo cáo ' + item.code"
+                      (click)="downloadReport(item, 'excel')"
+                      [disabled]="isDownloading() !== null"
+                      title="Tải tệp Excel"
+                    >
+                      <span nz-icon [nzType]="isDownloading() === item.id + '-excel' ? 'loading' : 'file-excel'" aria-hidden="true"></span>
+                      <span>Excel</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="pagination-bar">
+        <div class="pagination-info">
+          Trang <strong>{{ currentPage() }}</strong> / <strong>{{ totalPages() }}</strong> (tổng <strong>{{ totalItems() }}</strong> báo cáo)
+        </div>
+        <div class="pagination-controls">
+          <button type="button" class="btn-page" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)" aria-label="Trang trước">
+            <span nz-icon nzType="left" aria-hidden="true"></span> Trước
+          </button>
+          <span class="current-page-display">{{ currentPage() }}</span>
+          <button type="button" class="btn-page" [disabled]="currentPage() >= totalPages()" (click)="goToPage(currentPage() + 1)" aria-label="Trang tiếp theo">
+            Sau <span nz-icon nzType="right" aria-hidden="true"></span>
+          </button>
+        </div>
+      </footer>
+    } @else {
+      <div class="empty-state">
+        <span nz-icon nzType="inbox" class="empty-icon" aria-hidden="true"></span>
+        <h3>Không tìm thấy báo cáo phù hợp</h3>
+        <p>Vui lòng điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các tiêu chí lọc.</p>
+      </div>
+    }
+  </section>
+
+  <!-- Create Report Centered Modal -->
+  @if (isCreateModalOpen()) {
+    <div class="modal-backdrop" (click)="closeCreateModal()">
+      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="create-report-title" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <h3 id="create-report-title">Lập báo cáo mới</h3>
+            <p class="modal-subtitle">Nhập thông tin thiết lập báo cáo phân tích khuyết tật và vận hành</p>
+          </div>
+          <button type="button" class="btn-close" aria-label="Đóng" (click)="closeCreateModal()" [disabled]="isSubmitting()">×</button>
+        </header>
+
+        <form class="modal-body" [formGroup]="createForm" (ngSubmit)="createReport()">
+          <div class="modal-field full-width">
+            <label for="new-title">Tiêu đề báo cáo <span class="required">*</span></label>
+            <input id="new-title" type="text" formControlName="title" placeholder="Ví dụ: Báo cáo khuyết tật tháng 10 - Hải Phòng" />
+            @if (createForm.controls.title.touched && createForm.controls.title.invalid) {
+              <small class="field-error" role="alert">Tiêu đề bắt buộc, tối đa 255 ký tự.</small>
+            }
+          </div>
+
+          <div class="modal-grid-2">
+            <div class="modal-field">
+              <label for="new-type">Phân loại báo cáo</label>
+              <select id="new-type" formControlName="type">
+                @for (type of reportTypes; track type) {
+                  <option [value]="type">{{ typeLabels[type] }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="modal-field">
+              <label for="new-region">Khu vực</label>
+              <select id="new-region" formControlName="regionId">
+                <option value="">Không giới hạn khu vực</option>
+                @for (region of regions(); track region.id) {
+                  <option [value]="region.id">{{ region.name }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="modal-field">
+              <label for="new-date-from">Từ ngày</label>
+              <input id="new-date-from" type="date" formControlName="dateFrom" />
+            </div>
+
+            <div class="modal-field">
+              <label for="new-date-to">Đến ngày</label>
+              <input id="new-date-to" type="date" formControlName="dateTo" />
+            </div>
+          </div>
+
+          <div class="modal-field full-width">
+            <label for="new-desc">Ghi chú / Mô tả</label>
+            <textarea id="new-desc" rows="2" formControlName="description" placeholder="Nội dung tóm tắt, phạm vi kiểm tra..."></textarea>
+          </div>
+        </form>
+
+        <footer class="modal-footer">
+          <button type="button" class="button secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">Hủy</button>
+          <button type="button" class="button primary" (click)="createReport()" [disabled]="isSubmitting()">
+            @if (isSubmitting()) {
+              <span nz-icon nzType="loading" aria-hidden="true"></span> Đang tạo...
+            } @else {
+              <span nz-icon nzType="plus" aria-hidden="true"></span> Tạo báo cáo
+            }
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>

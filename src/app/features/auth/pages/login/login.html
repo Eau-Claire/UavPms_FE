@@ -1,8 +1,8 @@
 <main class="auth-split">
-  <section class="auth-brand-panel" aria-label="EVN">
-    <img ngSrc="/images/Logo.png" width="412" height="310" priority alt="EVN Logo" class="auth-brand-logo" />
-    <div class="auth-brand-vi">TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM</div>
-    <div class="auth-brand-en">VIETNAM ELECTRICITY</div>
+  <section class="auth-brand-panel" aria-label="UAV-PMS">
+    <img ngSrc="/images/uav-brand-logo.svg" width="360" height="260" priority alt="UAV-PMS Logo" class="auth-brand-logo" />
+    <div class="auth-brand-vi">HỆ THỐNG GIÁM SÁT LƯỚI ĐIỆN UAV</div>
+    <div class="auth-brand-en">UAV POWERLINE MONITORING SYSTEM</div>
   </section>
 
   <section class="auth-form-panel">
@@ -18,7 +18,7 @@
         <nz-form-item class="auth-username-item" [class.ant-form-item-has-error]="form.controls.username.touched && form.controls.username.invalid">
           <nz-form-control>
             <nz-input-group nzSize="large" nzPrefixIcon="user" class="auth-input">
-              <input nz-input type="email" autocomplete="username" formControlName="username" placeholder="nguyenvana@evn.com.vn" />
+              <input nz-input type="email" autocomplete="username" formControlName="username" placeholder="nguyenvana@uavpms.vn" />
             </nz-input-group>
             @if (form.controls.username.touched && form.controls.username.invalid) {
               <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ usernameError() }}</span></div>
@@ -68,7 +68,7 @@
 
       <nz-divider class="auth-divider"></nz-divider>
       <p class="auth-support">Cần hỗ trợ? Liên hệ bộ phận quản trị hệ thống</p>
-      <p class="auth-copyright">© 2024 Tập đoàn Điện lực Việt Nam (EVN).</p>
+      <p class="auth-copyright">© 2026 UAV-PMS. Hệ thống Quản trị & Giám sát Lưới điện.</p>
     </div>
   </section>
 </main>

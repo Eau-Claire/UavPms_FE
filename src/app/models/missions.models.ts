@@ -16,41 +16,118 @@ export const PRIORITY_DEFECT_CATEGORIES = [
   { key: 'Other', label: 'Khác (Other)' },
 ] as const;
 
+/** Trạng thái nhiệm vụ đúng như backend trả về (`MissionStatus.ToString()`). */
 export type MissionStatus =
   | 'Draft'
-  | 'PENDING_CONFIRMATION'
-  | 'CONFIRMED'
+  | 'PendingAcceptance'
   | 'Assigned'
   | 'Preparing'
   | 'Ready'
   | 'InProgress'
-  | 'POSTPONED'
-  | 'SUSPENDED'
+  | 'Suspended'
+  | 'Postponed'
   | 'Completed'
   | 'Cancelled'
   | string;
+
+export const MISSION_STATUSES: readonly MissionStatus[] = [
+  'Draft',
+  'PendingAcceptance',
+  'Assigned',
+  'Preparing',
+  'Ready',
+  'InProgress',
+  'Suspended',
+  'Postponed',
+  'Completed',
+  'Cancelled',
+];
+
+const MISSION_STATUS_LABELS: Record<string, string> = {
+  Draft: 'Bản nháp',
+  PendingAcceptance: 'Chờ thành viên tiếp nhận',
+  Assigned: 'Đã tiếp nhận',
+  Preparing: 'Đang chuẩn bị',
+  Ready: 'Sẵn sàng bay',
+  InProgress: 'Đang bay khảo sát',
+  Suspended: 'Tạm đình chỉ',
+  Postponed: 'Tạm hoãn',
+  Completed: 'Đã hoàn thành',
+  Cancelled: 'Đã hủy',
+};
+
+export function missionStatusLabel(status: string | null | undefined): string {
+  const normalized = normalizeMissionStatus(status);
+  return MISSION_STATUS_LABELS[normalized] ?? normalized;
+}
+
+/**
+ * Chuẩn hóa trạng thái nhiệm vụ về giá trị của backend.
+ * Một số sự kiện realtime vẫn gửi dạng `PENDING_CONFIRMATION`, `CONFIRMED`, `Executing`...
+ */
+export function normalizeMissionStatus(status: string | null | undefined): MissionStatus {
+  const raw = String(status ?? '').trim();
+  const key = raw.replace(/[\s_-]/g, '').toUpperCase();
+  switch (key) {
+    case '':
+    case 'DRAFT':
+    case 'PENDING':
+      return 'Draft';
+    case 'PENDINGACCEPTANCE':
+    case 'PENDINGCONFIRMATION':
+      return 'PendingAcceptance';
+    case 'ASSIGNED':
+    case 'CONFIRMED':
+    case 'RESUMED':
+      return 'Assigned';
+    case 'PREPARING':
+      return 'Preparing';
+    case 'READY':
+      return 'Ready';
+    case 'INPROGRESS':
+    case 'EXECUTING':
+    case 'STARTED':
+      return 'InProgress';
+    case 'SUSPENDED':
+      return 'Suspended';
+    case 'POSTPONED':
+      return 'Postponed';
+    case 'COMPLETED':
+      return 'Completed';
+    case 'CANCELLED':
+    case 'CANCELED':
+      return 'Cancelled';
+    default:
+      return raw;
+  }
+}
+
+/** Ánh xạ mục tiêu kiểm tra từ backend (`PeriodicInspection`) sang mã FE (`PERIODIC_INSPECTION`). */
+export function normalizeObjective(value: unknown): InspectionObjective {
+  const key = String(value ?? '').replace(/[\s_-]/g, '').toUpperCase();
+  if (key.includes('TARGETED') || key.includes('REINSPECTION')) return 'TARGETED_REINSPECTION';
+  if (key.includes('INCIDENT') || key.includes('FOLLOWUP')) return 'INCIDENT_FOLLOW_UP';
+  if (key.includes('EMERGENCY')) return 'EMERGENCY_INSPECTION';
+  return 'PERIODIC_INSPECTION';
+}
 
 export interface MissionCommunicationLog {
   readonly id: string;
   readonly senderId: string;
   readonly senderName: string;
-  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'SYSTEM';
+  readonly senderRole: 'MANAGER' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | 'SYSTEM';
   readonly type: 'DISPATCH' | 'CONFIRM' | 'POSTPONE' | 'SUSPEND' | 'RESUME' | 'CANCEL' | 'REMINDER' | 'MESSAGE' | 'START' | 'COMPLETE';
   readonly content: string;
   readonly timestamp: string;
   readonly metadata?: Record<string, unknown>;
 }
 
-export type MissionOperationalRole = 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | string;
+/** Vai trò phân công trong nhiệm vụ (`assignmentRole`). */
+export type MissionOperationalRole = 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' | 'PILOT' | 'CO_PILOT' | 'OBSERVER' | string;
 
 export type AssignmentResponseStatus = 'PENDING' | 'ACCEPTED' | 'POSTPONED' | 'REPLACED' | 'CANCELLED' | string;
 
-export interface MissionMemberAssignmentItem {
-  readonly userId: string;
-  readonly role: MissionOperationalRole;
-  readonly isRequired?: boolean;
-}
-
+/** `GET /missions/{id}/assignments` (`MissionAssignmentsOverviewDto`). */
 export interface MissionAssignmentsOverview {
   readonly missionId: string;
   readonly totalRequiredCount: number;
@@ -60,6 +137,7 @@ export interface MissionAssignmentsOverview {
   readonly assignments: readonly MissionAssignment[];
 }
 
+/** `GET /missions/{id}/detections` (`MissionDetectionDto`). */
 export interface MissionBackendDetection {
   readonly id: string;
   readonly missionId: string;
@@ -81,7 +159,7 @@ export interface MissionBackendDetection {
   readonly frameIndex?: number | null;
   readonly imageUrl?: string;
   readonly sourceUrl?: string;
-  readonly assetId?: string;
+  readonly towerId?: string;
   readonly tower?: string;
   readonly gps?: string;
   readonly description?: string;
@@ -91,6 +169,7 @@ export interface MissionBackendDetection {
   readonly reviewNotes?: string | null;
 }
 
+/** `GET /missions/{id}/maintenance-tasks` (`MissionMaintenanceTaskDto`). */
 export interface MissionBackendMaintenanceTask {
   readonly id: string;
   readonly missionId: string;
@@ -98,7 +177,6 @@ export interface MissionBackendMaintenanceTask {
   readonly title: string;
   readonly priority: 'Urgent' | 'High' | 'Medium' | 'Low' | string;
   readonly towerCode?: string;
-  readonly assetCode?: string;
   readonly defectDescription?: string;
   readonly suggestedAction?: string;
   readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | string;
@@ -106,6 +184,7 @@ export interface MissionBackendMaintenanceTask {
   readonly createdAt?: string;
 }
 
+/** `GET /missions/{id}/activities` (`MissionActivityDto`). */
 export interface MissionBackendActivity {
   readonly id: string;
   readonly missionId: string;
@@ -132,6 +211,18 @@ export interface MissionAssignment {
   readonly checkedInAt?: string | null;
 }
 
+/** Cột điện thuộc phạm vi nhiệm vụ (`MissionTargetDto`). */
+export interface MissionTarget {
+  readonly towerId: string;
+  readonly towerCode: string;
+  readonly sequence: number | null;
+  readonly inspectionStatus: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
+  readonly regionId?: string;
+}
+
+/** `GET /missions/{id}` (`MissionDto`). */
 export interface Mission {
   readonly id: string;
   readonly missionCode: string;
@@ -140,6 +231,7 @@ export interface Mission {
   readonly assignedToUserId: string;
   readonly assignedToUsername: string;
   readonly droneCode: string;
+  readonly droneId?: string | null;
   readonly status: MissionStatus;
   readonly description: string;
   readonly managerId: string;
@@ -147,10 +239,11 @@ export interface Mission {
   readonly createdAt: string;
   readonly updatedAt: string | null;
   readonly targets: readonly MissionTarget[];
+  readonly sourceAssessmentId?: string | null;
   readonly scheduledStartAt?: string | null;
   readonly regionId?: string;
   readonly regionName?: string;
-  readonly missionType?: 'Scheduled' | 'AdHoc' | string;
+  readonly missionType?: string;
   readonly triggerReason?: string | null;
   readonly plannedStart?: string | null;
   readonly plannedEnd?: string | null;
@@ -163,14 +256,13 @@ export interface Mission {
   readonly postponeReason?: string | null;
   readonly suspendedReason?: string | null;
   readonly cancellationReason?: string | null;
-  readonly sourceAssessmentId?: string | null;
   readonly priority?: MissionPriority;
   readonly objective?: InspectionObjective;
   readonly priorityDefects?: readonly string[];
   readonly emergencyReason?: string | null;
   readonly isImmediate?: boolean;
   readonly communicationLogs?: readonly MissionCommunicationLog[];
-  // Multi-role confirmation progress properties
+  // Tiến độ xác nhận của các thành viên
   readonly confirmedAt?: string | null;
   readonly confirmedCount?: number;
   readonly totalRequiredCount?: number;
@@ -188,96 +280,101 @@ export interface MissionPage {
   readonly totalPages: number;
 }
 
-export interface MissionMutationRequest {
-  readonly title?: string;
-  readonly routeData?: string;
-  readonly assignedToUserId: string;
-  readonly droneCode?: string;
-  readonly status?: string;
-  readonly description?: string;
+/** Nhân sự được phân công khi tạo nhiệm vụ từ hồ sơ đánh giá (`MissionPersonnelAssignmentRequest`). */
+export interface MissionPersonnelAssignment {
+  readonly userId: string;
+  readonly role: MissionOperationalRole;
+  readonly isRequired: boolean;
 }
 
-export interface MissionCreateRequest {
-  readonly name?: string;
-  readonly title?: string;
+/**
+ * Body của `POST /pre-mission-assessments/{id}/create-mission` (`CreateMissionFromAssessmentRequest`).
+ * Đây là cách duy nhất để tạo nhiệm vụ: `POST /missions` đã bị gỡ.
+ */
+export interface CreateMissionFromAssessmentRequest {
+  readonly assessmentId: string;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly personnel: readonly MissionPersonnelAssignment[];
+  readonly droneIds: readonly string[];
+  readonly priority: MissionPriority;
+  readonly objective: InspectionObjective;
+  readonly priorityDefects?: readonly string[] | null;
+  readonly emergencyReason?: string | null;
+  readonly isImmediate: boolean;
+  readonly idempotencyKey?: string | null;
+  /**
+   * Hạn chót để thành viên xác nhận (ISO-8601 UTC có `Z`). Phải ở tương lai và không sau `plannedStart`;
+   * bỏ trống thì backend dùng `now + 24h` (tối đa bằng `plannedStart`).
+   */
+  readonly confirmationDeadline?: string | null;
+  /** Chỉ thị của quản lý, gửi kèm thông báo `MISSION_DISPATCH` (tối đa 2.000 ký tự). */
+  readonly managerInstructions?: string | null;
+}
+
+/** Nhiệm vụ vừa tạo (backend trả về thực thể nhiệm vụ). */
+export interface CreatedMission {
+  readonly id: string;
+  readonly missionCode: string;
+  readonly title: string;
+  readonly status: string;
+}
+
+/** Body của `PUT /missions/{id}/towers`. */
+export interface MissionTowersRequest {
+  readonly boundaryWkt: string;
+  readonly towerIds: readonly string[];
+}
+
+/** Body của `POST /missions/{id}/incidents` (`SubmitIncidentReportRequest`). Sự cố không có tệp đính kèm. */
+export interface SubmitIncidentReportRequest {
+  readonly incidentType: string;
+  readonly severity: string;
   readonly description: string;
-  readonly scheduledAt?: string;
-  readonly plannedStart?: string;
-  readonly plannedEnd: string;
-  readonly regionId?: string;
-  readonly missionType?: 'AD_HOC' | 'SCHEDULED' | string;
-  readonly triggerReason?: string;
-  readonly scheduleId?: string;
-  readonly inspectorId?: string;
-  readonly droneId?: string;
-  readonly droneIds?: readonly string[];
-  readonly targetAssetIds?: readonly string[];
-  readonly boundaryWkt?: string;
-  readonly routeData?: string;
-  readonly confirmationDeadline?: string;
-  readonly managerInstructions?: string;
-  readonly sourceAssessmentId?: string;
-  readonly assessmentId?: string;
-  readonly priority?: MissionPriority;
-  readonly objective?: InspectionObjective;
-  readonly priorityDefects?: readonly string[];
-  readonly emergencyReason?: string;
-  readonly isImmediate?: boolean;
-  readonly assignments?: readonly MissionMemberAssignmentItem[];
-  readonly personnel?: readonly MissionMemberAssignmentItem[];
-  readonly idempotencyKey?: string;
+  readonly towerId?: string | null;
 }
 
-export interface MissionTarget {
-  readonly assetId: string;
-  readonly assetCode: string;
-  readonly assetName: string;
-  readonly towerCode?: string;
-  readonly assetType?: string;
-  readonly sequence: number | null;
-  readonly inspectionStatus: string;
+/** `IncidentReportDto`. */
+export interface IncidentReport {
+  readonly id: string;
+  readonly missionId: string;
+  readonly reportedBy: string;
+  readonly reporterName: string;
+  readonly towerId?: string | null;
+  readonly incidentType: string;
+  readonly severity: string;
+  readonly description: string;
+  readonly status: string;
+  readonly reportedAt: string;
+}
+
+/** Body của `POST /missions/{id}/flight-log` (`UploadFlightLogRequest`). */
+export interface UploadFlightLogRequest {
+  readonly gpsTrack: string;
+  readonly minBatteryRecorded: number;
+  readonly maxAltitudeM: number;
+  readonly flightDurationSeconds: number;
+  readonly connectionStatus: string;
+}
+
+/** `MissionFlightLogDto`. */
+export interface MissionFlightLog {
+  readonly id: string;
+  readonly missionId: string;
+  readonly gpsTrack: string;
+  readonly minBatteryRecorded: number;
+  readonly maxAltitudeM: number;
+  readonly flightDurationSeconds: number;
+  readonly connectionStatus: string;
+  readonly recordedAt: string;
+}
+
+/** Metadata gửi kèm `POST /missions/{id}/media`. Bỏ trống `towerId` = video quét hành lang. */
+export interface MissionMediaUploadMeta {
+  readonly towerId?: string | null;
+  readonly capturedAt?: string;
   readonly latitude?: number;
   readonly longitude?: number;
-}
-
-export interface InspectionSettings {
-  readonly inspectionTypes: readonly string[];
-  readonly checklist: string;
-}
-
-
-export interface ResourceConflictItem {
-  readonly resourceType: 'Personnel' | 'Drone' | string;
-  readonly resourceId: string;
-  readonly resourceName?: string;
-  readonly conflictingMissionId: string;
-  readonly conflictingMissionCode: string;
-  readonly conflictingMissionTitle: string;
-  readonly conflictStart: string;
-  readonly conflictEnd: string;
-  readonly conflictingMissionPriority: MissionPriority;
-}
-
-export interface ResourceAvailabilityWarning {
-  readonly resourceId: string;
-  readonly resourceType: string;
-  readonly resourceName: string;
-  readonly warningType: string;
-  readonly message: string;
-}
-
-export interface CheckResourceConflictsRequest {
-  readonly startAt: string;
-  readonly endAt: string;
-  readonly userIds?: readonly string[];
-  readonly droneIds?: readonly string[];
-  readonly excludeMissionId?: string;
-}
-
-export interface CheckResourceConflictsResponse {
-  readonly hasConflict: boolean;
-  readonly conflicts: readonly ResourceConflictItem[];
-  readonly warnings: readonly ResourceAvailabilityWarning[];
 }
 
 export interface UpdateMissionPriorityRequest {

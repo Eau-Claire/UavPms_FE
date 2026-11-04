@@ -5,7 +5,7 @@
     <app-sidebar [open]="sidebarOpen()" (closed)="sidebarOpen.set(false)" />
     @if (sidebarOpen()) { <button type="button" class="app-backdrop" aria-label="Đóng điều hướng" (click)="sidebarOpen.set(false)"></button> }
     <div class="app-main ant-layout">
-      <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" tabindex="-1">
+      <main id="main-content" class="app-content ant-layout-content" [class.app-content-flush]="isAssetRoute()" [class.app-content-dashboard]="isDashboardRoute()" [class.app-content-gis]="isGisRoute()" tabindex="-1">
         <div class="app-content-inner">
           <router-outlet />
         </div>
@@ -13,16 +13,16 @@
           <footer class="app-footer" role="contentinfo">
             <div class="app-footer-inner">
               <div class="app-footer-brand">
-                <strong>TẬP ĐOÀN ĐIỆN LỰC VIỆT NAM (EVN)</strong>
-                <span>HỆ THỐNG QUẢN LÝ KỸ THUẬT & GIÁM SÁT LƯỚI ĐIỆN UAV</span>
+                <strong>HỆ THỐNG QUẢN LÝ THIẾT BỊ BAY UAV (UAV-PMS)</strong>
+                <span>GIÁM SÁT KỸ THUẬT & VẬN HÀNH LƯỚI ĐIỆN THỜI GIAN THỰC</span>
               </div>
-              <div class="app-footer-links">
-                <a routerLink="/system/audit-logs" class="footer-link"><span nz-icon nzType="history" aria-hidden="true"></span> Nhật ký hệ thống</a>
-                <a routerLink="/system" class="footer-link"><span nz-icon nzType="setting" aria-hidden="true"></span> Cấu hình hệ thống</a>
-                <a routerLink="/inspections" class="footer-link"><span nz-icon nzType="question-circle" aria-hidden="true"></span> Hỗ trợ & Hướng dẫn</a>
-              </div>
+              @if (canViewAuditLogs()) {
+                <div class="app-footer-links">
+                  <a routerLink="/system/audit-logs" class="footer-link"><span nz-icon nzType="history" aria-hidden="true"></span> Nhật ký hệ thống</a>
+                </div>
+              }
               <div class="app-footer-meta">
-                <small>© 2026 EVN. Bản quyền thuộc về Tập đoàn Điện lực Việt Nam.</small>
+                <small>© 2026 UAV-PMS. Đồ án Hệ thống Quản trị & Giám sát Lưới điện bằng Thiết bị bay.</small>
               </div>
             </div>
           </footer>

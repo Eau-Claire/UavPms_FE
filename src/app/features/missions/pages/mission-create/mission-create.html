@@ -1,648 +1,330 @@
 <div class="pre-mission-page mission-dispatch-page">
-  <!-- Standard EVN Header Bar -->
   <header class="pre-mission-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <span>TIỀN NHIỆM VỤ</span>
-        <span class="separator">/</span>
-        <a routerLink="/pre-mission" style="color: #64748b; text-decoration: none;">MF01</a>
-        <span class="separator">/</span>
-        <strong>BAN HÀNH NHIỆM VỤ (MF02)</strong>
-      </div>
-      <h1>Ban hành nhiệm vụ khảo sát &amp; Thiết lập Deadline</h1>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/missions">NHIỆM VỤ BAY</a>
+        <span class="separator" aria-hidden="true">/</span>
+        <strong>TẠO NHIỆM VỤ (MF02)</strong>
+      </nav>
+      <h1>Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi</h1>
       <p>
-        Kế thừa 100% phạm vi khảo sát từ Đánh giá tiền nhiệm vụ, phân công nguồn lực đạt chuẩn và thiết lập hạn chót Inspector xác nhận.
+        Nhiệm vụ chỉ được tạo từ hồ sơ đánh giá ở trạng thái <strong>READY</strong>. Phạm vi cột, khung giờ bay và danh
+        sách ứng viên nhân sự, drone được kế thừa từ hồ sơ.
       </p>
     </div>
     <div class="head-actions">
-      <button type="button" class="evn-btn secondary" (click)="goBack()">
-        <span nz-icon nzType="arrow-left"></span> Quay lại đánh giá (MF01)
-      </button>
+      @if (assessment(); as a) {
+        <a class="evn-btn secondary" [routerLink]="['/pre-mission', a.id]">
+          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Về hồ sơ đánh giá
+        </a>
+      }
       <a class="evn-btn secondary" routerLink="/missions">
-        <span nz-icon nzType="unordered-list"></span> Danh sách nhiệm vụ
+        <span nz-icon nzType="unordered-list" aria-hidden="true"></span> Danh sách nhiệm vụ
       </a>
     </div>
   </header>
 
-  <!-- Error Alert -->
   @if (error()) {
-    <div class="evn-alert" role="alert" style="margin-bottom: 12px; background: #fef2f2; border-left: 4px solid #dc2626; color: #991b1b; padding: 8px 12px;">
-      <span nz-icon nzType="exclamation-circle" style="margin-right: 6px;"></span>
+    <div class="evn-alert" role="alert">
       <span>{{ error() }}</span>
-      <button type="button" (click)="error.set('')" style="float: right; border: none; background: none; cursor: pointer; color: #991b1b; font-weight: bold;">✕</button>
+      <button type="button" (click)="error.set('')" aria-label="Đóng thông báo lỗi">✕</button>
     </div>
   }
 
-  <!-- KHỐI 1: Tóm tắt Kế thừa Phạm vi & Kết quả Thẩm định MF01 -->
-  @if (assessmentData(); as ass) {
-    <section class="evn-panel inherited-scope-panel" aria-label="Phạm vi khảo sát kế thừa từ MF01">
-      <div class="panel-header">
-        <div class="header-title-group">
-          <h3>1. Phạm vi khảo sát &amp; Đánh giá mức sẵn sàng (Kế thừa từ MF01)</h3>
-          <span class="panel-subinfo">Dữ liệu tài sản lưới điện, vị trí cột và vùng an toàn đã được thẩm định tự động</span>
-        </div>
-        <div class="header-badges-group">
-          <a [routerLink]="['/pre-mission', ass.id]" class="evn-code" title="Xem lại đánh giá">
-            {{ ass.assessmentCode }}
-          </a>
-          <span class="evn-status pass">READY</span>
-        </div>
+  <!-- 1. Chọn hồ sơ đánh giá -->
+  <section class="evn-panel" aria-labelledby="assessment-panel-title">
+    <div class="panel-header">
+      <div class="header-title-group">
+        <h2 id="assessment-panel-title">1. Hồ sơ đánh giá tiền khả thi</h2>
+        <span class="panel-subinfo">Chọn hồ sơ READY còn hiệu lực hoặc mở từ không gian đánh giá</span>
       </div>
-
-      <div class="panel-body">
-        <!-- 3-Column Props Grid -->
-        <div class="detail-props-grid">
-          <div class="prop-item">
-            <span class="prop-label">Khu vực / Chi nhánh:</span>
-            <span class="prop-value"><strong>{{ ass.regionName }}</strong></span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Tuyến đường dây:</span>
-            <span class="prop-value">{{ ass.lineName || 'Theo danh mục vị trí cột khảo sát' }}</span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Số vị trí cột kiểm tra:</span>
-            <span class="prop-value"><strong>{{ ass.assetCount }} vị trí cột</strong></span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Thời gian bay kế hoạch:</span>
-            <span class="prop-value">
-              {{ ass.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ ass.plannedEnd | date:'dd/MM/yyyy HH:mm' }}
-            </span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Hành lang an toàn lưới điện:</span>
-            <span class="prop-value" style="color: #0369a1; font-weight: 600;">
-              {{ corridorBufferMeters() }} mét (Vùng đệm an toàn)
-            </span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Khí tượng thời gian thực:</span>
-            <span class="prop-value" style="color: #15803d; font-weight: 600;">
-              <span nz-icon nzType="check-circle"></span> Đã thẩm định &le; 10 m/s (Open-Meteo)
-            </span>
-          </div>
-        </div>
-
-        <!-- Asset Chips -->
-        <div style="margin-top: 10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-            <span style="font-size: 11px; font-weight: 600; color: #174f83;">
-              Danh sách mã vị trí cột ({{ ass.scopeAssetIds.length }} cột):
-            </span>
-            <button
-              type="button"
-              class="evn-btn secondary"
-              style="height: 22px; font-size: 10px; padding: 0 8px;"
-              (click)="toggleMapPreview()"
-            >
-              <span nz-icon [nzType]="showMapPreview() ? 'eye-invisible' : 'eye'"></span>
-              {{ showMapPreview() ? 'Ẩn bản đồ GIS' : 'Xem bản đồ vị trí cột & vùng an toàn' }}
-            </button>
-          </div>
-
-          <div class="asset-chips-wrap" style="max-height: 56px;">
-            @for (code of ass.scopeAssetIds; track code) {
-              <span class="asset-chip">{{ code }}</span>
+      @if (assessment(); as a) {
+        <span class="evn-status" [class.pass]="isAssessmentUsable()" [class.fail]="!isAssessmentUsable()">{{ a.status }}</span>
+      }
+    </div>
+    <div class="panel-body form-body-stack">
+      <div class="form-field-row">
+        <label class="field-label" for="assessment-select">Hồ sơ đánh giá <span class="req">*</span></label>
+        <select
+          id="assessment-select"
+          class="evn-select"
+          [value]="assessment()?.id ?? ''"
+          [disabled]="loadingAssessment() || busy()"
+          (change)="onAssessmentSelect($event)"
+        >
+          <option value="">{{ loadingList() ? 'Đang tải danh sách hồ sơ...' : '-- Chọn hồ sơ READY --' }}</option>
+          @if (assessment(); as a) {
+            @if (!readyAssessmentIds().has(a.id)) {
+              <option [value]="a.id">{{ a.assessmentCode }} · {{ a.regionName }} ({{ a.status }})</option>
             }
-          </div>
-        </div>
-
-        <!-- Embedded GIS Scope Map Preview -->
-        @if (showMapPreview()) {
-          <div style="margin-top: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; flex-wrap: wrap; gap: 6px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 10.5px; font-weight: 600; color: #174f83;">Bản đồ phạm vi tuyến &amp; Vùng an toàn:</span>
-                <div class="map-type-group" role="group" aria-label="Kiểu bản đồ nền">
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'google-streets'"
-                    (click)="setMapType('google-streets')"
-                  >
-                    Bản đồ
-                  </button>
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'google-hybrid'"
-                    (click)="setMapType('google-hybrid')"
-                  >
-                    Vệ tinh
-                  </button>
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'carto'"
-                    (click)="setMapType('carto')"
-                  >
-                    Chuẩn
-                  </button>
-                </div>
-              </div>
-              <button
-                type="button"
-                class="evn-btn secondary"
-                style="height: 22px; font-size: 10px; padding: 0 6px;"
-                (click)="refreshMap()"
-                title="Căn chỉnh lại khung nhìn bản đồ"
-              >
-                <span nz-icon nzType="sync"></span> Căn chỉnh
-              </button>
-            </div>
-            <div #mapPreviewContainer id="missionCreateMapContainer" style="height: 190px; width: 100%; border-radius: 3px; border: 1px solid #cbd5e1; background: #e2e8f0; position: relative;"></div>
-            <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: #64748b; margin-top: 3px;">
-              <span>Vòng tròn nét đứt biểu thị hành lang an toàn {{ corridorBufferMeters() }}m quanh từng cột điện</span>
-              <span>Bản đồ GIS không gian lưới điện · Tự động đồng bộ từ MF01</span>
-            </div>
-          </div>
+          }
+          @for (item of readyAssessments(); track item.id) {
+            <option [value]="item.id">
+              {{ item.assessmentCode }} · {{ item.regionName }} · {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }} ({{ item.towers.length }} cột)
+            </option>
+          }
+        </select>
+        @if (!loadingList() && !readyAssessments().length && !assessment()) {
+          <span class="field-hint">
+            Chưa có hồ sơ READY nào. <a routerLink="/pre-mission/new">Lập hồ sơ đánh giá mới</a> và đánh giá đạt trước khi tạo nhiệm vụ.
+          </span>
         }
       </div>
-    </section>
-  }
 
-  <!-- KHỐI 2: Form Phân Công & Thiết Lập Giao Tiếp (2 Cột Cân Đối) -->
-  <form [formGroup]="form" (ngSubmit)="dispatchMission()">
-    <div class="dispatch-form-grid">
-      <!-- CỘT TRÁI: Phân công Nguồn lực từ MF01 -->
-      <section class="evn-panel" aria-label="Phân công nhân sự và thiết bị">
+      @if (loadingAssessment()) {
+        <p class="muted" role="status">Đang tải hồ sơ đánh giá...</p>
+      } @else if (assessment(); as a) {
+        <dl class="detail-props-grid">
+          <div class="prop-item">
+            <dt class="prop-label">Mã hồ sơ</dt>
+            <dd class="prop-value"><a class="evn-code" [routerLink]="['/pre-mission', a.id]">{{ a.assessmentCode }}</a></dd>
+          </div>
+          <div class="prop-item">
+            <dt class="prop-label">Khu vực</dt>
+            <dd class="prop-value">{{ a.regionName }}</dd>
+          </div>
+          <div class="prop-item">
+            <dt class="prop-label">Khung giờ bay</dt>
+            <dd class="prop-value">{{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          </div>
+          <div class="prop-item">
+            <dt class="prop-label">Hiệu lực đến</dt>
+            <dd class="prop-value">{{ a.validUntil ? (a.validUntil | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+          </div>
+          <div class="prop-item">
+            <dt class="prop-label">Số cột kiểm tra</dt>
+            <dd class="prop-value">{{ a.towers.length }} cột</dd>
+          </div>
+          <div class="prop-item">
+            <dt class="prop-label">Sức khỏe kỹ thuật</dt>
+            <dd class="prop-value">{{ a.overallTechnicalHealth }}</dd>
+          </div>
+        </dl>
+
+        @if (a.towers.length) {
+          <div class="tower-chips" aria-label="Danh sách cột trong phạm vi">
+            @for (t of a.towers; track t.id) {
+              <span class="tower-chip">{{ t.sequence }}. {{ t.towerCode || t.towerId }}</span>
+            }
+          </div>
+        }
+      }
+    </div>
+  </section>
+
+  @if (assessment()) {
+    <form [formGroup]="form" (ngSubmit)="submit()" class="dispatch-form-grid">
+      <!-- 2. Thông tin nhiệm vụ -->
+      <section class="evn-panel" aria-labelledby="mission-info-title">
         <div class="panel-header">
           <div class="header-title-group">
-            <h3>2. Phân công Nguồn lực thực thi</h3>
-            <span class="panel-subinfo">Chọn từ danh sách ứng viên phi công và UAV đã đạt chuẩn kỹ thuật MF01</span>
+            <h2 id="mission-info-title">2. Thông tin nhiệm vụ</h2>
+            <span class="panel-subinfo">Tên, mức ưu tiên và mục tiêu kiểm tra</span>
           </div>
         </div>
-
         <div class="panel-body form-body-stack">
-          <!-- Tên nhiệm vụ -->
           <div class="form-field-row">
-            <label class="field-label">
-              Tên đợt bay / Nhiệm vụ kiểm tra <span class="req">*</span>
-            </label>
-            <input
-              type="text"
-              class="evn-input"
-              formControlName="name"
-              placeholder="Nhập tên nhận diện nhiệm vụ..."
-            />
-            @if (form.controls.name.touched && form.controls.name.invalid) {
+            <label class="field-label" for="mission-title">Tên nhiệm vụ <span class="req">*</span></label>
+            <input id="mission-title" type="text" class="evn-input" formControlName="title" autocomplete="off" />
+            @if (form.controls.title.touched && form.controls.title.invalid) {
               <span class="field-error">Tên nhiệm vụ tối thiểu 5 ký tự.</span>
             }
           </div>
 
-          <!-- KHỐI ĐỘ ƯU TIÊN & MỤC TIÊU KIỂM TRA (MF02 Mission Priority & Objective) -->
-          <div class="priority-scheduling-box" style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <strong style="font-size: 12px; color: #1e3a8a;">
-                <span nz-icon nzType="tool" style="color: #0284c7; margin-right: 4px;"></span>
-                Độ ưu tiên &amp; Mục tiêu kiểm tra (MF02 Priority &amp; Objective):
-              </strong>
-              <span class="evn-status pass" style="font-size: 9.5px;">BR-01 / BR-06</span>
-            </div>
-
-            <!-- Radio Priority Options -->
-            <div class="form-field-row" style="margin-bottom: 10px;">
-              <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
-                Mức độ ưu tiên nhiệm vụ (Mission Priority) <span class="req">*</span>
-              </label>
-              <div style="display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap;">
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
-                  <input type="radio" value="NORMAL" formControlName="priority" (change)="onPriorityChange()" />
-                  <span style="font-size: 11.5px; font-weight: 600; color: #1e293b;">○ Bình thường (Normal)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #fde047; background: #fffbeb;">
-                  <input type="radio" value="HIGH" formControlName="priority" (change)="onPriorityChange()" />
-                  <span style="font-size: 11.5px; font-weight: 700; color: #b45309;">🔥 Cao (High)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 12px; border-radius: 4px; border: 1px solid #fca5a5; background: #fef2f2;">
-                  <input type="radio" value="EMERGENCY" formControlName="priority" (change)="onPriorityChange()" />
-                  <span style="font-size: 11.5px; font-weight: 700; color: #b91c1c;">⚡ Khẩn cấp (Emergency)</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Emergency Reason (Required when Priority is EMERGENCY) -->
-            @if (form.controls.priority.value === 'EMERGENCY') {
-              <div class="form-field-row" style="background: #fff; border: 1.5px solid #ef4444; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
-                <label class="field-label" style="color: #991b1b; font-weight: 700;">
-                  <span nz-icon nzType="warning"></span>
-                  Lý do khẩn cấp (Emergency Reason) <span class="req">*</span>
-                  <small style="color: #64748b; font-weight: normal; margin-left: 6px;">(Bắt buộc tối thiểu 10 ký tự theo BR-06)</small>
-                </label>
-                <textarea
-                  class="evn-textarea"
-                  rows="2"
-                  formControlName="emergencyReason"
-                  placeholder="Nhập chi tiết lý do khẩn cấp (VD: Báo cáo sự cố đường dây, đứt dây pha, sét đánh, khuyết tật nguy hiểm...)"
-                  style="border-color: #f87171;"
-                ></textarea>
-                @if (form.controls.emergencyReason.touched && form.controls.emergencyReason.invalid) {
-                  <span class="field-error" style="color: #b91c1c;">Lý do khẩn cấp bắt buộc nhập tối thiểu 10 ký tự khi chọn EMERGENCY.</span>
-                }
-              </div>
-            }
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-              <!-- Inspection Objective -->
-              <div class="form-field-row">
-                <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
-                  Mục tiêu kiểm tra (Inspection Objective)
-                </label>
-                <select class="evn-select" formControlName="objective">
-                  <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ (Periodic Inspection)</option>
-                  <option value="TARGETED_REINSPECTION">Tái kiểm tra mục tiêu (Targeted Re-inspection)</option>
-                  <option value="INCIDENT_FOLLOW_UP">Theo dõi sự cố (Incident Follow-up)</option>
-                  <option value="EMERGENCY_INSPECTION">Kiểm tra khẩn cấp (Emergency Inspection)</option>
-                </select>
-              </div>
-
-              <!-- Priority Defects Checkboxes -->
-              <div class="form-field-row">
-                <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
-                  Danh mục khuyết tật trọng tâm (Priority Defects)
-                </label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; font-size: 11px;">
-                  @for (defect of defectCategories; track defect.key) {
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #334155;">
-                      <input type="checkbox" [checked]="isDefectSelected(defect.key)" (change)="toggleDefect(defect.key)" />
-                      <span>{{ defect.label }}</span>
-                    </label>
-                  }
-                </div>
-                <small style="color: #64748b; font-size: 9.5px; display: block; margin-top: 3px;">
-                  * Định hướng trọng tâm cho Mission Manager, không hạn chế AI phát hiện lỗi khác.
-                </small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Conflict Checking & Warning Banner (BR-04, BR-07) -->
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <button
-              type="button"
-              class="evn-btn secondary"
-              style="height: 24px; font-size: 10.5px; padding: 0 10px;"
-              (click)="checkResourceConflicts()"
-              [disabled]="isCheckingConflicts()"
-            >
-              @if (isCheckingConflicts()) {
-                <span nz-icon nzType="loading"></span> Đang kiểm tra xung đột...
-              } @else {
-                <span nz-icon nzType="search"></span> Kiểm tra xung đột lịch trình (Conflict Check)
-              }
-            </button>
-            <span style="font-size: 10px; color: #64748b;">(BR-04: Không tự động hủy hoặc chiếm dụng tài nguyên)</span>
-          </div>
-
-          @if (resourceConflicts().length > 0) {
-            <div class="evn-alert warning" role="alert" style="margin-bottom: 10px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 4px; padding: 10px;">
-              <strong style="color: #92400e; font-size: 11.5px; display: flex; align-items: center; gap: 6px;">
-                <span nz-icon nzType="warning" style="color: #d97706;"></span>
-                Cảnh báo Xung đột Lịch trình Nguồn lực (Resource Conflict Detected)
-              </strong>
-              <p style="margin: 4px 0 6px; font-size: 10.5px; color: #78350f;">
-                Hệ thống phát hiện xung đột lịch bay. Bạn có thể chọn UAV khác, phi công khác, hoặc dời lịch nhiệm vụ:
-              </p>
-              <ul style="margin: 0; padding-left: 18px; font-size: 10.5px; color: #92400e;">
-                @for (c of resourceConflicts(); track c.conflictingMissionId + c.resourceId) {
-                  <li>
-                    <strong>[{{ c.resourceType }}]</strong> {{ c.resourceName || c.resourceId }} bị trùng với nhiệm vụ
-                    <strong>{{ c.conflictingMissionCode }}</strong> ({{ c.conflictingMissionTitle }}) từ {{ c.conflictStart | date:'HH:mm dd/MM' }} đến {{ c.conflictEnd | date:'HH:mm dd/MM' }}.
-                  </li>
-                }
-              </ul>
-            </div>
-          }
-
-          @if (resourceWarnings().length > 0) {
-            <div class="evn-alert danger" role="alert" style="margin-bottom: 10px; background: #fef2f2; border: 1.5px solid #ef4444; border-radius: 4px; padding: 10px;">
-              <ul style="margin: 0; padding-left: 18px; font-size: 10.5px; color: #991b1b;">
-                @for (w of resourceWarnings(); track w.resourceId + w.warningType) {
-                  <li>⚠️ {{ w.message }}</li>
-                }
-              </ul>
-            </div>
-          }
-
-          <!-- Phân công 3 Vai trò (Inspector, Analyst, Technician) -->
-          <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <strong style="font-size: 11.5px; color: #1e3a8a;">
-                <span nz-icon nzType="team" style="color: #0284c7; margin-right: 4px;"></span>
-                Nhân sự thực thi (Bắt buộc đủ 3 vai trò đạt chuẩn 5 tiêu chí):
-              </strong>
-              <span class="evn-status pass" style="font-size: 9.5px;">3 ROLES MANDATORY</span>
-            </div>
-
-            <!-- Role 1: Inspector -->
-            <div class="form-field-row" style="margin-bottom: 8px;">
-              <label class="field-label" style="font-weight: 600; color: #0c4a6e;">
-                1. Phi công phụ trách (Inspector / Pilot) <span class="req">*</span>
-              </label>
-              <select class="evn-select" formControlName="inspectorId">
-                <option value="" disabled>-- Chọn phi công phụ trách bay --</option>
-                @for (p of eligibleInspectors(); track p.id) {
-                  <option [value]="p.id">
-                    {{ p.name }} — {{ p.role }} ({{ p.availability === 'AVAILABLE' ? 'Sẵn sàng' : p.availability }})
-                  </option>
-                }
-                @if (eligibleInspectors().length === 0) {
-                  @for (p of allPersonnelCandidates(); track p.id) {
-                    <option [value]="p.id">{{ p.name }} — {{ p.role }}</option>
-                  }
-                }
-              </select>
-              @if (form.controls.inspectorId.touched && form.controls.inspectorId.invalid) {
-                <span class="field-error">Vui lòng chỉ định phi công phụ trách.</span>
-              }
-
-              @if (selectedInspector(); as ins) {
-                <div class="candidate-brief-card" style="margin-top: 4px; padding: 4px 8px; border-left: 3px solid #0284c7;">
-                  <span nz-icon nzType="user" style="color: #0284c7; font-size: 14px;"></span>
-                  <div style="flex: 1; font-size: 10.5px;">
-                    <strong style="color: #0c4a6e;">{{ ins.name }}</strong>
-                    <span style="color: #64748b; margin-left: 6px;">{{ ins.role }}</span>
-                    <p style="margin: 1px 0 0; color: #475569; font-size: 9.5px;">{{ ins.reason }}</p>
-                  </div>
-                  <span class="evn-status pass" style="font-size: 9px;">ĐẠT 5 TIÊU CHÍ</span>
-                </div>
-              }
-            </div>
-
-            <!-- Role 2: Analyst -->
-            <div class="form-field-row" style="margin-bottom: 8px;">
-              <label class="field-label" style="font-weight: 600; color: #4c1d95;">
-                2. Chuyên viên phân tích ảnh &amp; dữ liệu (Analyst) <span class="req">*</span>
-              </label>
-              <select class="evn-select" formControlName="analystId">
-                <option value="" disabled>-- Chọn chuyên viên phân tích ảnh/khuyết tật --</option>
-                @for (p of eligibleAnalysts(); track p.id) {
-                  <option [value]="p.id">
-                    {{ p.name }} — {{ p.role }} ({{ p.availability === 'AVAILABLE' ? 'Sẵn sàng' : p.availability }})
-                  </option>
-                }
-                @if (eligibleAnalysts().length === 0) {
-                  @for (p of allPersonnelCandidates(); track p.id) {
-                    <option [value]="p.id">{{ p.name }} — {{ p.role }}</option>
-                  }
-                }
-              </select>
-              @if (form.controls.analystId.touched && form.controls.analystId.invalid) {
-                <span class="field-error">Vui lòng chỉ định chuyên viên phân tích ảnh.</span>
-              }
-
-              @if (selectedAnalyst(); as ana) {
-                <div class="candidate-brief-card" style="margin-top: 4px; padding: 4px 8px; border-left: 3px solid #7c3aed;">
-                  <span nz-icon nzType="fund" style="color: #7c3aed; font-size: 14px;"></span>
-                  <div style="flex: 1; font-size: 10.5px;">
-                    <strong style="color: #4c1d95;">{{ ana.name }}</strong>
-                    <span style="color: #64748b; margin-left: 6px;">{{ ana.role }}</span>
-                    <p style="margin: 1px 0 0; color: #475569; font-size: 9.5px;">{{ ana.reason }}</p>
-                  </div>
-                  <span class="evn-status pass" style="font-size: 9px;">ĐẠT 5 TIÊU CHÍ</span>
-                </div>
-              }
-            </div>
-
-            <!-- Role 3: Technician -->
-            <div class="form-field-row">
-              <label class="field-label" style="font-weight: 600; color: #14532d;">
-                3. Kỹ thuật viên bảo trì lưới (Technician) <span class="req">*</span>
-              </label>
-              <select class="evn-select" formControlName="technicianId">
-                <option value="" disabled>-- Chọn kỹ thuật viên phụ trách an toàn lưới --</option>
-                @for (p of eligibleTechnicians(); track p.id) {
-                  <option [value]="p.id">
-                    {{ p.name }} — {{ p.role }} ({{ p.availability === 'AVAILABLE' ? 'Sẵn sàng' : p.availability }})
-                  </option>
-                }
-                @if (eligibleTechnicians().length === 0) {
-                  @for (p of allPersonnelCandidates(); track p.id) {
-                    <option [value]="p.id">{{ p.name }} — {{ p.role }}</option>
-                  }
-                }
-              </select>
-              @if (form.controls.technicianId.touched && form.controls.technicianId.invalid) {
-                <span class="field-error">Vui lòng chỉ định kỹ thuật viên bảo trì.</span>
-              }
-
-              @if (selectedTechnician(); as tec) {
-                <div class="candidate-brief-card" style="margin-top: 4px; padding: 4px 8px; border-left: 3px solid #16a34a;">
-                  <span nz-icon nzType="tool" style="color: #16a34a; font-size: 14px;"></span>
-                  <div style="flex: 1; font-size: 10.5px;">
-                    <strong style="color: #14532d;">{{ tec.name }}</strong>
-                    <span style="color: #64748b; margin-left: 6px;">{{ tec.role }}</span>
-                    <p style="margin: 1px 0 0; color: #475569; font-size: 9.5px;">{{ tec.reason }}</p>
-                  </div>
-                  <span class="evn-status pass" style="font-size: 9px;">ĐẠT 5 TIÊU CHÍ</span>
-                </div>
-              }
-            </div>
-          </div>
-
-          <!-- Phân công UAV -->
           <div class="form-field-row">
-            <label class="field-label">
-              Phương tiện bay (UAV / Drone) <span class="req">*</span>
-            </label>
-            <select class="evn-select" formControlName="droneId">
-              <option value="" disabled>-- Chọn thiết bị UAV đạt chuẩn kỹ thuật --</option>
-              @for (d of eligibleDrones(); track d.id) {
-                <option [value]="d.id || d.code">
-                  {{ d.code }} - {{ d.name }} (Sức khỏe: {{ d.technicalHealth }})
-                </option>
+            <label class="field-label" for="mission-description">Mô tả nhiệm vụ</label>
+            <textarea id="mission-description" class="evn-textarea" rows="3" formControlName="description"></textarea>
+          </div>
+
+          <fieldset class="form-field-row option-group">
+            <legend class="field-label">Mức ưu tiên <span class="req">*</span></legend>
+            <label class="radio-line"><input type="radio" value="NORMAL" formControlName="priority" /> Bình thường</label>
+            <label class="radio-line"><input type="radio" value="HIGH" formControlName="priority" /> Cao</label>
+            <label class="radio-line"><input type="radio" value="EMERGENCY" formControlName="priority" /> Khẩn cấp</label>
+          </fieldset>
+
+          @if (isEmergency()) {
+            <div class="form-field-row">
+              <label class="field-label" for="emergency-reason">Lý do khẩn cấp <span class="req">*</span></label>
+              <textarea id="emergency-reason" class="evn-textarea" rows="2" formControlName="emergencyReason"></textarea>
+              @if (form.controls.emergencyReason.touched && form.controls.emergencyReason.invalid) {
+                <span class="field-error">Bắt buộc tối thiểu 10 ký tự khi chọn mức Khẩn cấp.</span>
               }
+            </div>
+          }
+
+          <div class="form-field-row">
+            <label class="field-label" for="mission-objective">Mục tiêu kiểm tra</label>
+            <select id="mission-objective" class="evn-select" formControlName="objective">
+              <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ</option>
+              <option value="TARGETED_REINSPECTION">Tái kiểm tra mục tiêu</option>
+              <option value="INCIDENT_FOLLOW_UP">Theo dõi sau sự cố</option>
+              <option value="EMERGENCY_INSPECTION">Kiểm tra khẩn cấp</option>
             </select>
-            @if (form.controls.droneId.touched && form.controls.droneId.invalid) {
-              <span class="field-error">Vui lòng chọn phương tiện bay.</span>
-            }
-
-            @if (selectedDrone(); as uav) {
-              <div class="candidate-brief-card">
-                <span nz-icon nzType="send" style="color: #16a34a; font-size: 16px;"></span>
-                <div style="flex: 1; font-size: 11px;">
-                  <strong style="color: #064e3b;">{{ uav.code }} — {{ uav.name }}</strong>
-                  <div style="display: flex; gap: 8px; margin-top: 2px; font-size: 10px; color: #475569;">
-                    <span>Sức khỏe: <strong>{{ uav.technicalHealth }}</strong></span>
-                    <span>Tình trạng: <strong>{{ uav.operationalStatus }}</strong></span>
-                  </div>
-                </div>
-                <span class="evn-status pass">BIST PASSED</span>
-              </div>
-            }
           </div>
 
-          <!-- Lịch thực hiện -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div class="form-field-row">
-              <label class="field-label">Thời điểm bắt đầu bay <span class="req">*</span></label>
-              <input type="datetime-local" class="evn-input" formControlName="scheduledAt" />
-            </div>
-            <div class="form-field-row">
-              <label class="field-label">Thời điểm kết thúc <span class="req">*</span></label>
-              <input type="datetime-local" class="evn-input" formControlName="plannedEnd" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- CỘT PHẢI: Deadline Xác Nhận & Chỉ Đạo Giao Tiếp -->
-      <section class="evn-panel" aria-label="Thiết lập hạn chót phản hồi và chỉ đạo">
-        <div class="panel-header">
-          <div class="header-title-group">
-            <h3>3. Hạn chót xác nhận (Deadline) &amp; Chỉ đạo vận hành</h3>
-            <span class="panel-subinfo">Cơ chế quản lý deadline phản hồi của Inspector và thông báo giao tiếp hai chiều</span>
-          </div>
-        </div>
-
-        <div class="panel-body form-body-stack">
-          <!-- Confirmation Deadline Box -->
-          <div class="deadline-config-box">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <label class="field-label" style="margin: 0; color: #0c4a6e;">
-                <span nz-icon nzType="clock-circle" style="color: #d97706; margin-right: 4px;"></span>
-                <strong>Hạn chót các thành viên phản hồi xác nhận (Confirmation Deadline) <span class="req">*</span></strong>
+          <fieldset class="form-field-row option-group">
+            <legend class="field-label">Nhóm khuyết tật trọng tâm</legend>
+            @for (defect of defectCategories; track defect.key) {
+              <label class="checkbox-line">
+                <input type="checkbox" [checked]="isDefectSelected(defect.key)" (change)="toggleDefect(defect.key)" />
+                {{ defect.label }}
               </label>
-              <span style="font-size: 10px; color: #d97706; font-weight: 700;">BẮT BUỘC TRƯỚC GIỜ BAY</span>
-            </div>
+            }
+          </fieldset>
 
-            <!-- Presets Buttons -->
-            <div class="deadline-presets-bar">
-              <button
-                type="button"
-                class="preset-btn"
-                [class.active]="selectedPreset() === '2h'"
-                (click)="setDeadlinePreset('2h')"
-              >
-                Trước 2 giờ
-              </button>
-              <button
-                type="button"
-                class="preset-btn"
-                [class.active]="selectedPreset() === '6h'"
-                (click)="setDeadlinePreset('6h')"
-              >
-                Trước 6 giờ
-              </button>
-              <button
-                type="button"
-                class="preset-btn"
-                [class.active]="selectedPreset() === '12h'"
-                (click)="setDeadlinePreset('12h')"
-              >
-                Trước 12 giờ
-              </button>
-              <button
-                type="button"
-                class="preset-btn"
-                [class.active]="selectedPreset() === '24h'"
-                (click)="setDeadlinePreset('24h')"
-              >
-                Trước 24 giờ
-              </button>
-              <button
-                type="button"
-                class="preset-btn"
-                [class.active]="selectedPreset() === 'custom'"
-                (click)="setDeadlinePreset('custom')"
-              >
-                Tùy chỉnh
-              </button>
-            </div>
+          <label class="checkbox-line">
+            <input type="checkbox" formControlName="isImmediate" />
+            Thực hiện ngay (bỏ qua thời gian chờ thành viên xác nhận)
+          </label>
 
-            <!-- DateTime Input -->
+          <div class="form-field-row">
+            <label class="field-label" for="confirmation-deadline">Hạn chót thành viên xác nhận</label>
             <input
+              id="confirmation-deadline"
               type="datetime-local"
               class="evn-input"
-              style="margin-top: 8px; font-weight: 700; color: #0c4a6e; font-size: 13px;"
               formControlName="confirmationDeadline"
+              [max]="deadlineMax()"
+              aria-describedby="confirmation-deadline-hint"
             />
-            @if (form.controls.confirmationDeadline.touched && form.controls.confirmationDeadline.invalid) {
-              <span class="field-error">Vui lòng thiết lập hạn chót phản hồi.</span>
-            }
-
-            <p style="margin: 6px 0 0; font-size: 10px; color: #475569; line-height: 1.4;">
-              <span nz-icon nzType="info-circle" style="color: #0284c7;"></span>
-              Cả 3 vai trò (Inspector, Analyst, Technician) đều phải xác nhận chấp thuận trước thời điểm này. Nếu bất kỳ ai báo hoãn hoặc quá hạn, hệ thống kích hoạt cảnh báo <strong>QUÁ HẠN (OVERDUE)</strong> để Quản lý kịp thời gửi nhắc nhở hoặc tái phân công.
-            </p>
+            <span id="confirmation-deadline-hint" class="field-hint">
+              Mặc định 24 giờ kể từ lúc tạo, không muộn hơn giờ bay dự kiến
+              @if (assessment(); as a) {
+                ({{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }})
+              }. Để trống để hệ thống tự đặt.
+            </span>
           </div>
 
-          <!-- Chỉ đạo vận hành & Ghi chú từ Manager -->
           <div class="form-field-row">
-            <label class="field-label">
-              <span nz-icon nzType="message" style="color: #174f83; margin-right: 4px;"></span>
-              Chỉ đạo vận hành &amp; Lời dặn của Quản lý gửi tới Inspector
-            </label>
+            <label class="field-label" for="manager-instructions">Chỉ thị của quản lý</label>
             <textarea
+              id="manager-instructions"
               class="evn-textarea"
-              rows="4"
+              rows="3"
               formControlName="managerInstructions"
-              placeholder="Nhập hướng dẫn cụ thể gửi Inspector: ví dụ chú ý các vị trí cột có địa hình đèo dốc, gió giật bề mặt, lưu ý an toàn pha-đất..."
+              [attr.maxlength]="instructionsMax"
+              aria-describedby="manager-instructions-hint"
             ></textarea>
-          </div>
-
-          <!-- Kênh phát thông báo Dispatch -->
-          <div class="notification-channels-box">
-            <strong style="font-size: 11px; color: #174f83; display: block; margin-bottom: 6px;">
-              <span nz-icon nzType="bell" style="color: #0284c7;"></span>
-              Kênh phát thông báo phân công nhiệm vụ:
-            </strong>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              <label class="checkbox-line">
-                <input type="checkbox" formControlName="notifyInApp" />
-                <span><strong>Thông báo In-App trên Header</strong> (Gửi thông báo tức thì tới chuông thông báo của Inspector)</span>
-              </label>
-              <label class="checkbox-line">
-                <input type="checkbox" formControlName="notifySms" />
-                <span><strong>Tin nhắn SMS / Thông báo khẩn</strong> (Gửi tin nhắn thông báo điều hành kèm link nhiệm vụ)</span>
-              </label>
-              <label class="checkbox-line">
-                <input type="checkbox" formControlName="notifyEmail" />
-                <span><strong>Email lệnh điều hành</strong> (Gửi kèm phụ lục danh mục cột và bản đồ GIS)</span>
-              </label>
-            </div>
+            <span id="manager-instructions-hint" class="field-hint">
+              Gửi kèm thông báo giao nhiệm vụ cho các thành viên ({{ form.controls.managerInstructions.value.length }}/{{ instructionsMax }} ký tự).
+            </span>
+            @if (form.controls.managerInstructions.invalid) {
+              <span class="field-error">Chỉ thị tối đa 2.000 ký tự.</span>
+            }
           </div>
         </div>
       </section>
-    </div>
 
-    <!-- Error Alert in Footer -->
-    @if (error()) {
-      <div class="evn-alert danger" role="alert" style="margin-top: 12px; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span nz-icon nzType="exclamation-circle" style="font-size: 14px;"></span>
-          <span style="font-size: 11.5px; font-weight: 600;">{{ error() }}</span>
+      <!-- 3. Nguồn lực từ hồ sơ -->
+      <section class="evn-panel" aria-labelledby="resource-title">
+        <div class="panel-header">
+          <div class="header-title-group">
+            <h2 id="resource-title">3. Nhân sự và drone</h2>
+            <span class="panel-subinfo">Chỉ chọn trong danh sách ứng viên đủ điều kiện của hồ sơ</span>
+          </div>
+          <button
+            type="button"
+            class="evn-btn secondary"
+            (click)="refreshReadiness()"
+            [disabled]="refreshingReadiness() || busy()"
+          >
+            <span nz-icon [nzType]="refreshingReadiness() ? 'loading' : 'sync'" aria-hidden="true"></span>
+            Đánh giá lại nguồn lực
+          </button>
         </div>
-        <button type="button" (click)="error.set('')" style="border: none; background: none; cursor: pointer; color: #991b1b; font-weight: bold; font-size: 14px;">✕</button>
-      </div>
-    }
+        <div class="panel-body form-body-stack">
+          <fieldset class="candidate-group">
+            <legend class="field-label">Nhân sự thực hiện <span class="req">*</span></legend>
+            <p class="field-hint">
+              Định mức yêu cầu: <strong>{{ assessmentConfig().reqInspectors }} Inspector</strong> (đã chọn: {{ selectedInspectorCount() }}), <strong>{{ assessmentConfig().reqAnalysts }} Analyst</strong> (đã chọn: {{ selectedAnalystCount() }}), <strong>{{ assessmentConfig().reqTechnicians }} Technician</strong> (đã chọn: {{ selectedTechnicianCount() }}).
+              Thành viên <strong>bắt buộc xác nhận</strong> phải chấp nhận trước khi nhiệm vụ được bắt đầu.
+            </p>
+            @for (p of eligiblePersonnel(); track p.id) {
+              <div class="candidate-row" [class.selected]="isPersonnelSelected(p.id)">
+                <label class="candidate-check">
+                  <input type="checkbox" [checked]="isPersonnelSelected(p.id)" (change)="togglePersonnel(p.id)" />
+                  <span class="candidate-name">{{ p.name }}</span>
+                </label>
+                <span class="evn-status info">{{ roleLabel(p.role) }}</span>
+                <span class="candidate-meta">{{ p.availabilityStatus }}</span>
+                @if (isPersonnelSelected(p.id)) {
+                  <label class="candidate-check required-toggle">
+                    <input type="checkbox" [checked]="isPersonnelRequired(p.id)" (change)="toggleRequired(p.id)" />
+                    Bắt buộc xác nhận
+                  </label>
+                }
+              </div>
+            } @empty {
+              <p class="field-error">Hồ sơ không có nhân sự đủ điều kiện. Hãy đánh giá lại hồ sơ.</p>
+            }
+            @if (ineligiblePersonnelCount()) {
+              <p class="field-hint">{{ ineligiblePersonnelCount() }} ứng viên không đủ điều kiện đã bị ẩn.</p>
+            }
+            @if (selectedPersonnel().length && !hasSelectedInspector()) {
+              <p class="field-error">Cần ít nhất một Phi công / Inspector phụ trách nhiệm vụ.</p>
+            }
+            @if (selectedPersonnel().length && !requiredSelectedCount()) {
+              <p class="field-error">Cần ít nhất một thành viên bắt buộc xác nhận.</p>
+            }
+          </fieldset>
 
-    <!-- KHỐI 3: Thanh Hành Động Ban Hành (Footer Bar) -->
-    <footer class="workspace-footer" style="margin-top: 10px;">
-      <div class="footer-left">
-        <span style="font-size: 11px; color: #475569;">
-          Sau khi ban hành, nhiệm vụ chuyển sang trạng thái <strong>PENDING_CONFIRMATION</strong> và tự động gửi thông báo tới cả 3 vai trò (Inspector, Analyst, Technician).
-        </span>
-      </div>
-      <div class="footer-right">
-        <button type="button" class="evn-btn secondary" (click)="goBack()" [disabled]="busy()">
-          Hủy bỏ
-        </button>
-        <button
-          type="button"
-          class="evn-btn primary"
-          [disabled]="busy()"
-          (click)="dispatchMission()"
-          style="font-weight: 700; height: 32px; padding: 0 16px; cursor: pointer;"
-        >
-          @if (busy()) {
-            <span nz-icon nzType="loading"></span> Đang khởi tạo &amp; Ban hành...
-          } @else {
-            <span nz-icon nzType="send"></span> Ban hành nhiệm vụ &amp; Gửi thông báo tới Đội bay (3 Roles)
-          }
-        </button>
-      </div>
-    </footer>
-  </form>
+          <fieldset class="candidate-group">
+            <legend class="field-label">
+              UAV thực hiện (chọn tối đa {{ maxDronesLimit() }}) <span class="req">*</span>
+            </legend>
+            <p class="field-hint">
+              Giới hạn theo hồ sơ đánh giá: <strong>tối đa {{ maxDronesLimit() }} UAV</strong> cho mỗi chuyến bay. Đã chọn: <strong>{{ selectedDroneIds().length }}/{{ maxDronesLimit() }} UAV</strong>.
+            </p>
+            @for (d of eligibleDrones(); track d.id) {
+              <div class="candidate-row" [class.selected]="isDroneSelected(d.id)">
+                <label class="candidate-check">
+                  @if (maxDronesLimit() === 1) {
+                    <input type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
+                  } @else {
+                    <input
+                      type="checkbox"
+                      [checked]="isDroneSelected(d.id)"
+                      [disabled]="!isDroneSelected(d.id) && selectedDroneIds().length >= maxDronesLimit()"
+                      (change)="toggleDrone(d.id)"
+                    />
+                  }
+                  <span class="candidate-name">{{ d.code }}</span>
+                  <span class="candidate-meta">{{ d.model }}</span>
+                </label>
+                <span class="evn-status" [class.pass]="d.technicalHealth === 'Healthy'" [class.warning]="d.technicalHealth === 'Warning'">
+                  {{ d.technicalHealth }}
+                </span>
+                <span class="candidate-meta">Pin {{ d.batteryLevel }}%</span>
+                @if (d.suitability === 'SUITABLE_WITH_SPLIT') {
+                  <span class="candidate-meta">Cần chia {{ d.estimatedFlightsNeeded ?? 2 }} chuyến</span>
+                }
+              </div>
+            } @empty {
+              <p class="field-error">Hồ sơ không có UAV đủ điều kiện. Kỹ thuật viên cần kiểm định UAV, sau đó đánh giá lại hồ sơ.</p>
+            }
+            @if (ineligibleDroneCount()) {
+              <p class="field-hint">
+                {{ ineligibleDroneCount() }} UAV không đủ điều kiện đã bị ẩn (không sẵn sàng, trùng lịch hoặc chưa có kiểm định còn hạn).
+              </p>
+            }
+          </fieldset>
+        </div>
+      </section>
+
+      <footer class="workspace-footer">
+        <p class="footer-left">
+          Sau khi tạo, nhiệm vụ chuyển sang trạng thái <strong>Chờ thành viên tiếp nhận</strong>, hồ sơ đánh giá chuyển
+          sang <strong>COMPLETED</strong> và các thành viên nhận thông báo.
+        </p>
+        <div class="footer-right">
+          <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
+          <button type="submit" class="evn-btn primary" [disabled]="busy() || !isAssessmentUsable()">
+            <span nz-icon [nzType]="busy() ? 'loading' : 'send'" aria-hidden="true"></span>
+            {{ busy() ? 'Đang tạo nhiệm vụ...' : 'Tạo nhiệm vụ' }}
+          </button>
+        </div>
+      </footer>
+    </form>
+  }
 </div>

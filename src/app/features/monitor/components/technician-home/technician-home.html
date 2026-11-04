@@ -1,0 +1,131 @@
+<div class="field-home">
+  <app-field-home-header
+    subtitle="Phiếu bảo trì được giao cho bạn và UAV cần kiểm tra kỹ thuật."
+    [loading]="loading()"
+    [loadedAt]="loadedAt()"
+    (refresh)="refresh()"
+  />
+
+  @if (tickets.error() && tickets.value()) {
+    <p class="stale-warning" role="status">{{ tickets.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</p>
+  }
+
+  <ul class="count-strip" aria-label="Tóm tắt công việc bảo trì">
+    <li class="count-tile tone-amber">
+      <div><span class="tile-label">Chờ xử lý</span><strong class="tile-value">{{ groups().Open.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-blue">
+      <div><span class="tile-label">Đang sửa chữa</span><strong class="tile-value">{{ groups().InProgress.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-green">
+      <div><span class="tile-label">Chờ nghiệm thu</span><strong class="tile-value">{{ groups().PendingVerification.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-red">
+      <div><span class="tile-label">Quá hạn</span><strong class="tile-value">{{ groups().overdueCount }}</strong></div>
+    </li>
+  </ul>
+
+  <div class="home-grid">
+    <div class="home-main">
+      @if (tickets.loading() && !tickets.value()) {
+        <app-data-state kind="loading" title="Đang tải phiếu bảo trì của bạn" />
+      } @else if (tickets.error() && !tickets.value()) {
+        <app-data-state kind="error" [message]="tickets.error() || ''" (retry)="tickets.refresh()" />
+      } @else {
+        @for (section of sections(); track section.key) {
+          <section class="panel" [attr.aria-labelledby]="'ticket-group-' + section.key">
+            <header>
+              <h2 [id]="'ticket-group-' + section.key">{{ section.title }} <span class="group-count">{{ section.items.length }}</span></h2>
+              @if (section.key === 'Open') {
+                <a routerLink="/maintenance">Tất cả phiếu bảo trì</a>
+              }
+            </header>
+            @if (section.items.length) {
+              <ul class="item-list">
+                @for (ticket of section.items; track ticket.id) {
+                  <li class="item" [class.is-overdue]="isOverdue(ticket)">
+                    <div class="item-body">
+                      <p class="item-title">
+                        <span class="code">{{ ticket.ticketCode || 'Phiếu bảo trì' }}</span>
+                        <span [class]="'badge tone-' + priorityTone(ticket.priority)">Ưu tiên {{ priorityLabel(ticket.priority) }}</span>
+                        @if (isOverdue(ticket)) {
+                          <span class="badge tone-danger">Quá hạn</span>
+                        }
+                      </p>
+                      @if (ticket.description) {
+                        <p class="item-desc">{{ ticket.description }}</p>
+                      }
+                      <p class="item-meta">
+                        <span>Cột: {{ ticket.tower?.towerCode || 'Chưa xác định' }}</span>
+                        @if (ticket.dueDate) {
+                          <span>Hạn hoàn thành: <strong>{{ ticket.dueDate | date: 'dd/MM/yyyy HH:mm' }}</strong></span>
+                        } @else {
+                          <span>Chưa đặt hạn</span>
+                        }
+                        @if (ticket.startedAt) {
+                          <span>Bắt đầu: {{ ticket.startedAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                        }
+                      </p>
+                    </div>
+                    <a
+                      class="action-link"
+                      [class.secondary]="section.key === 'PendingVerification'"
+                      [routerLink]="['/maintenance', ticket.id]"
+                      [attr.aria-label]="section.action + ' ' + (ticket.ticketCode || '')"
+                    >{{ section.action }}</a>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="panel-empty">{{ section.empty }}</p>
+            }
+          </section>
+        }
+      }
+
+      <section class="panel" aria-labelledby="drone-attention-title">
+        <header>
+          <h2 id="drone-attention-title">UAV cần kiểm tra <span class="group-count">{{ attention().length }}</span></h2>
+          <a routerLink="/drones">Quản lý UAV</a>
+        </header>
+        @if (drones.loading() && !drones.value()) {
+          <app-data-state kind="loading" title="Đang tải danh sách UAV" />
+        } @else if (drones.error() && !drones.value()) {
+          <app-data-state kind="error" [message]="drones.error() || ''" (retry)="drones.refresh()" />
+        } @else if (attentionPreview().length) {
+          <ul class="item-list">
+            @for (item of attentionPreview(); track item.drone.id) {
+              <li class="item">
+                <div class="item-body">
+                  <p class="item-title">
+                    <span class="code">{{ item.drone.code }}</span>
+                    <span>{{ item.drone.name }}</span>
+                    <span [class]="'badge tone-' + attentionTone(item)">{{ attentionLabel(item) }}</span>
+                  </p>
+                  <p class="item-meta">
+                    <span>Khu vực: {{ item.drone.assignedRegionName || 'Chưa phân vùng' }}</span>
+                    @if (item.drone.lastTechnicalInspection?.completedAt; as checkedAt) {
+                      <span>Kiểm tra gần nhất: {{ checkedAt | date: 'dd/MM/yyyy' }}</span>
+                    } @else {
+                      <span>Chưa có lần kiểm tra kỹ thuật nào</span>
+                    }
+                  </p>
+                </div>
+                <a class="action-link secondary" routerLink="/drones" [attr.aria-label]="'Kiểm tra UAV ' + item.drone.code">Kiểm tra</a>
+              </li>
+            }
+          </ul>
+          @if (attention().length > attentionPreview().length) {
+            <p class="panel-empty">Còn {{ attention().length - attentionPreview().length }} UAV khác cần kiểm tra.</p>
+          }
+        } @else {
+          <p class="panel-empty">Tất cả UAV đều đạt kiểm tra kỹ thuật.</p>
+        }
+      </section>
+    </div>
+
+    <aside class="home-side" aria-label="Thông báo của tôi">
+      <app-personal-alerts-card />
+    </aside>
+  </div>
+</div>

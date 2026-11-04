@@ -1,33 +1,41 @@
 import { TestBed } from '@angular/core/testing';
-import { MissionTargetSelection } from './mission-target-selection';
+import { MissionTargetSelection, MissionTargetTower } from './mission-target-selection';
+
+const tower = (id: string): MissionTargetTower => ({ towerId: id, towerCode: id.toUpperCase(), latitude: 21, longitude: 105 });
 
 describe('MissionTargetSelection', () => {
-  it('adds unique assets and supports removal and clearing', () => {
-    const store = TestBed.inject(MissionTargetSelection);
-    const asset = { assetId: 'a1', code: 'A-1', name: 'Asset', latitude: 21, longitude: 105, status: 'Operational' };
-    store.add(asset); store.add(asset);
-    store.remove('a1'); expect(store.count()).toBe(0);
-    store.add(asset); store.clear(); expect(store.selected()).toEqual([]);
-  });
-
-  it('supports moving assets up, down, and arbitrary reordering', () => {
+  it('adds unique towers and supports removal and clearing', () => {
     const store = TestBed.inject(MissionTargetSelection);
     store.clear();
-    const a1 = { assetId: 'a1', code: 'A-1', name: 'Asset 1', latitude: 21, longitude: 105, status: 'Operational' };
-    const a2 = { assetId: 'a2', code: 'A-2', name: 'Asset 2', latitude: 21.1, longitude: 105.1, status: 'Operational' };
-    const a3 = { assetId: 'a3', code: 'A-3', name: 'Asset 3', latitude: 21.2, longitude: 105.2, status: 'Operational' };
-    store.addMany([a1, a2, a3]);
+    store.add(tower('t1'));
+    store.add(tower('t1'));
+    expect(store.count()).toBe(1);
+    expect(store.has('t1')).toBe(true);
+    store.remove('t1');
+    expect(store.count()).toBe(0);
+    store.add(tower('t1'));
+    store.clear();
+    expect(store.selected()).toEqual([]);
+  });
 
-    // Move down
+  it('supports moving towers up, down, and arbitrary reordering', () => {
+    const store = TestBed.inject(MissionTargetSelection);
+    store.clear();
+    store.addMany([tower('t1'), tower('t2'), tower('t3')]);
+
     store.moveDown(0);
-    expect(store.selected().map((a) => a.assetId)).toEqual(['a2', 'a1', 'a3']);
+    expect(store.selected().map((t) => t.towerId)).toEqual(['t2', 't1', 't3']);
 
-    // Move up
     store.moveUp(2);
-    expect(store.selected().map((a) => a.assetId)).toEqual(['a2', 'a3', 'a1']);
+    expect(store.selected().map((t) => t.towerId)).toEqual(['t2', 't3', 't1']);
 
-    // Arbitrary reorder
     store.reorder(0, 2);
-    expect(store.selected().map((a) => a.assetId)).toEqual(['a3', 'a1', 'a2']);
+    expect(store.selected().map((t) => t.towerId)).toEqual(['t3', 't1', 't2']);
+  });
+
+  it('deduplicates towers when replacing the selection', () => {
+    const store = TestBed.inject(MissionTargetSelection);
+    store.setAll([tower('t1'), tower('t1'), tower('t2')]);
+    expect(store.selected().map((t) => t.towerId)).toEqual(['t1', 't2']);
   });
 });

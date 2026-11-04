@@ -1,0 +1,23 @@
+@use '../../towers-shared' as shared;
+
+@include shared.page;
+
+.tower-import {
+  position: relative;
+}
+
+.tower-import:focus-within {
+  outline: 2px solid #1d4f91;
+  outline-offset: 2px;
+}
+
+.tower-import.is-busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.tower-import-hint {
+  margin: -12px 0 16px;
+  color: #526b82;
+  font-size: 12px;
+}

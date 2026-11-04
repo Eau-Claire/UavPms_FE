@@ -3,6 +3,7 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnDestroy,
   computed,
@@ -10,47 +11,41 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
+import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { GisApi, GisTower, GisTransmissionLine } from '../../../gis/data-access/gis-api';
-import { PreMissionApi, isValidGuid } from '../../data-access/pre-mission-api';
+import { AssessmentTowerOption, RegionOption } from '../../../../models/pre-mission.models';
+import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
+import { isValidGuid, PreMissionApi } from '../../data-access/pre-mission-api';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 
 function formatDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function dateWindowValidator(control: AbstractControl): ValidationErrors | null {
   const start = control.get('plannedStart')?.value;
   const end = control.get('plannedEnd')?.value;
   if (!start || !end) return null;
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (endDate <= startDate) {
-    return { endBeforeStart: true };
-  }
-  return null;
+  return new Date(end) <= new Date(start) ? { endBeforeStart: true } : null;
 }
 
-function notObsoleteWindowValidator(control: AbstractControl): ValidationErrors | null {
+function notInPastValidator(control: AbstractControl): ValidationErrors | null {
   const start = control.get('plannedStart')?.value;
   if (!start) return null;
-  const startDate = new Date(start);
-  const now = new Date();
-  // Allow 15 minutes buffer for clock skew
-  if (startDate.getTime() < now.getTime() - 15 * 60 * 1000) {
-    return { startInPast: true };
-  }
-  return null;
+  // Cho phép lệch đồng hồ 15 phút.
+  return new Date(start).getTime() < Date.now() - 15 * 60 * 1000 ? { startInPast: true } : null;
 }
 
+/**
+ * Lập hồ sơ đánh giá tiền khả thi (MF01): chọn khu vực, các cột điện cần kiểm tra và khung giờ bay dự kiến.
+ * Gửi `POST /pre-mission-assessments` với `{ regionId, plannedStart, plannedEnd, towerIds }`.
+ */
 @Component({
   selector: 'app-assessment-create',
   imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe],
@@ -60,858 +55,582 @@ function notObsoleteWindowValidator(control: AbstractControl): ValidationErrors 
 })
 export class AssessmentCreate implements AfterViewInit, OnDestroy {
   private readonly api = inject(PreMissionApi);
-  private readonly gisApi = inject(GisApi);
+  private readonly targetSelection = inject(MissionTargetSelection);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('createMapContainer');
-
-  protected readonly busy = signal(false);
-  protected readonly loadingGis = signal(false);
-  protected readonly error = signal('');
-
-  protected readonly regions = signal<readonly { id: string; name: string }[]>([]);
-  protected readonly availableLines = signal<readonly GisTransmissionLine[]>([]);
-  protected readonly availableTowers = signal<readonly GisTower[]>([]);
-  protected readonly selectedTowerCodes = signal<string[]>([]);
-  protected readonly selectedBaseLine = signal<string>('');
-
-  // Cache user tower selections per line: Map<lineName, towerCodes[]>
-  private readonly lineTowerSelectionCache = new Map<string, string[]>();
-
-  // Leaflet map preview instance
+  private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('createMapContainer');
   private map: L.Map | null = null;
   private currentTileLayer: L.TileLayer | null = null;
-  private markersLayer: L.LayerGroup | null = null;
-  private polylineLayer: L.LayerGroup | null = null;
-  private bufferLayer: L.LayerGroup | null = null;
+  private markersLayer = L.layerGroup();
+  private polylineLayer = L.layerGroup();
   private resizeObserver: ResizeObserver | null = null;
-  protected readonly currentMapType = signal<'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'>('google-streets');
 
-  // Default time window in LOCAL time: starting in 1 hour, ending in 4 hours
-  private readonly defaultStart = formatDatetimeLocal(new Date(Date.now() + 60 * 60 * 1000));
-  private readonly defaultEnd = formatDatetimeLocal(new Date(Date.now() + 4 * 60 * 60 * 1000));
+  protected readonly currentMapType = signal<'google-streets' | 'google-hybrid' | 'carto'>('google-streets');
+  protected readonly draggedIndex = signal<number | null>(null);
+
+  protected readonly busy = signal(false);
+  protected readonly loadingTowers = signal(false);
+  protected readonly error = signal('');
+
+  protected readonly regions = signal<readonly RegionOption[]>([]);
+  protected readonly towers = signal<readonly AssessmentTowerOption[]>([]);
+  protected readonly selectedTowerIds = signal<readonly string[]>([]);
+  protected readonly towerSearch = signal('');
+
+  /**
+   * Khóa idempotency: giữ nguyên khi gửi lại cùng nội dung (tránh tạo trùng hồ sơ), đổi khóa mới khi vùng, khung giờ
+   * hoặc danh sách cột thay đổi (backend trả `409 IDEMPOTENCY_KEY_REUSED` nếu dùng lại khóa cho nội dung khác).
+   */
+  private readonly idempotency = new IdempotencyKeyTracker();
 
   protected readonly form = this.fb.nonNullable.group(
     {
       regionId: ['', [Validators.required]],
-      lineName: ['', [Validators.required]],
-      scopeAssetIds: ['', [Validators.required]],
-      plannedStart: [this.defaultStart, [Validators.required]],
-      plannedEnd: [this.defaultEnd, [Validators.required]],
-      corridorBufferMeters: [50, [Validators.required, Validators.min(10), Validators.max(500)]],
-      maxFlightAltitudeMeters: [120, [Validators.required, Validators.min(20), Validators.max(120)]],
-      requiredInspectors: [1, [Validators.required, Validators.min(1)]],
-      requiredAnalysts: [1, [Validators.required, Validators.min(1)]],
-      requiredTechnicians: [1, [Validators.required, Validators.min(1)]],
+      plannedStart: [formatDatetimeLocal(new Date(Date.now() + 60 * 60 * 1000)), [Validators.required]],
+      plannedEnd: [formatDatetimeLocal(new Date(Date.now() + 4 * 60 * 60 * 1000)), [Validators.required]],
+      requiredInspectors: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      requiredAnalysts: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      requiredTechnicians: [1, [Validators.required, Validators.min(1), Validators.max(10)]],
+      maxDronesLimit: [1, [Validators.required, Validators.min(1), Validators.max(5)]],
     },
-    { validators: [dateWindowValidator, notObsoleteWindowValidator] }
+    { validators: [dateWindowValidator, notInPastValidator] },
   );
 
+  private readonly formValue = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+
+  protected readonly cleanInspectors = computed(() => Math.max(1, Number(this.formValue().requiredInspectors) || 1));
+  protected readonly cleanAnalysts = computed(() => Math.max(1, Number(this.formValue().requiredAnalysts) || 1));
+  protected readonly cleanTechnicians = computed(() => Math.max(1, Number(this.formValue().requiredTechnicians) || 1));
+  protected readonly cleanMaxDrones = computed(() => Math.max(1, Number(this.formValue().maxDronesLimit) || 1));
+
   protected readonly totalRequiredPersonnel = computed(() => {
-    const insp = Number(this.form.controls.requiredInspectors.value) || 0;
-    const ana = Number(this.form.controls.requiredAnalysts.value) || 0;
-    const tech = Number(this.form.controls.requiredTechnicians.value) || 0;
-    return insp + ana + tech;
+    return this.cleanInspectors() + this.cleanAnalysts() + this.cleanTechnicians();
   });
 
-  protected readonly selectedRegionObj = computed(() => {
-    const id = this.form.controls.regionId.value;
-    return this.regions().find((r) => r.id === id || r.name === id);
+  protected readonly selectedRegion = computed(() => {
+    const id = this.formValue().regionId;
+    return this.regions().find((r) => r.id === id) ?? null;
   });
+
+  protected readonly plannedStartValue = computed(() => this.formValue().plannedStart ?? '');
+  protected readonly plannedEndValue = computed(() => this.formValue().plannedEnd ?? '');
 
   protected readonly filteredTowers = computed(() => {
-    const baseLine = this.selectedBaseLine();
-    const all = this.availableTowers();
-    if (!baseLine) return all.slice(0, 20);
-    return all.filter((t) => t.transmissionLineName === baseLine || t.lineAssetId === baseLine);
+    const q = this.towerSearch().trim().toLowerCase();
+    const list = this.towers();
+    if (!q) return list;
+    return list.filter((t) => t.towerCode.toLowerCase().includes(q) || (t.address ?? '').toLowerCase().includes(q));
   });
 
-  protected readonly autoSyncLineName = signal(true);
-
-  protected readonly suggestedLineName = computed(() => {
-    const baseLine = this.selectedBaseLine();
-    if (!baseLine) return '';
-    const towers = this.selectedTowerCodes();
-    const allTowersOfLine = this.availableTowers().filter(
-      (t) => t.transmissionLineName === baseLine || t.lineAssetId === baseLine
-    );
-    if (towers.length === 0) return baseLine;
-    if (towers.length === allTowersOfLine.length && allTowersOfLine.length > 0) {
-      return `${baseLine} (Toàn tuyến - ${towers.length} cột)`;
-    }
-    if (towers.length === 1) {
-      return `${baseLine} (Cột ${towers[0]})`;
-    }
-    return `${baseLine} (Đoạn ${towers[0]} - ${towers[towers.length - 1]}, ${towers.length} cột)`;
+  protected readonly selectedTowers = computed(() => {
+    const byId = new Map(this.towers().map((t) => [t.id, t]));
+    return this.selectedTowerIds()
+      .map((id) => byId.get(id))
+      .filter((t): t is AssessmentTowerOption => !!t);
   });
-
-  protected get assetCount(): number {
-    const val = this.form.controls.scopeAssetIds.value;
-    if (!val) return 0;
-    return val.split(/[,\n]/).map((x) => x.trim()).filter(Boolean).length;
-  }
 
   constructor() {
-    this.loadRegions();
-    this.route.queryParamMap.subscribe((params) => {
-      const assessmentId = params.get('assessmentId');
-      if (assessmentId) {
-        this.loadFromAssessment(assessmentId);
-      } else {
-        this.restoreDraft();
+    this.api
+      .getRegions()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (list) => this.regions.set(list),
+        error: () => this.error.set('Không thể tải danh sách khu vực.'),
+      });
+
+    const sourceId = this.route.snapshot.queryParamMap.get('assessmentId');
+    if (sourceId && isValidGuid(sourceId)) {
+      this.prefillFromAssessment(sourceId);
+    } else {
+      // Cột đã chọn trên bản đồ GIS: tự chọn khu vực của cột đầu tiên.
+      const gisRegionId = this.targetSelection.selected().find((t) => t.regionId)?.regionId;
+      if (gisRegionId) {
+        this.form.controls.regionId.setValue(gisRegionId);
+        this.loadTowers(gisRegionId);
       }
-    });
-    this.form.valueChanges.subscribe(() => this.saveDraft());
+    }
   }
 
   ngAfterViewInit(): void {
-    setTimeout(() => this.initMap(), 150);
+    this.initMap();
   }
 
   ngOnDestroy(): void {
-    this.cleanupMap();
-  }
-
-
-  protected resetForm(): void {
-    try {
-      sessionStorage.removeItem('uav_pms_assessment_create_draft');
-    } catch {}
-    this.router.navigate(['/pre-mission/new']).then(() => {
-      this.form.reset({
-        regionId: '',
-        lineName: '',
-        scopeAssetIds: '',
-        plannedStart: this.defaultStart,
-        plannedEnd: this.defaultEnd,
-        corridorBufferMeters: 50,
-        maxFlightAltitudeMeters: 120,
-        requiredInspectors: 1,
-        requiredAnalysts: 1,
-        requiredTechnicians: 1,
-      });
-      this.selectedBaseLine.set('');
-      this.selectedTowerCodes.set([]);
-      this.availableLines.set([]);
-      this.availableTowers.set([]);
-      this.lineTowerSelectionCache.clear();
-      this.renderMap();
-    });
-  }
-
-  protected saveDraft(): void {
-    try {
-      const raw = this.form.getRawValue();
-      const draft = {
-        regionId: raw.regionId,
-        selectedBaseLine: this.selectedBaseLine(),
-        lineName: raw.lineName,
-        scopeAssetIds: raw.scopeAssetIds,
-        selectedTowerCodes: this.selectedTowerCodes(),
-        plannedStart: raw.plannedStart,
-        plannedEnd: raw.plannedEnd,
-        corridorBufferMeters: raw.corridorBufferMeters,
-        maxFlightAltitudeMeters: raw.maxFlightAltitudeMeters,
-        requiredInspectors: raw.requiredInspectors,
-        requiredAnalysts: raw.requiredAnalysts,
-        requiredTechnicians: raw.requiredTechnicians,
-        lineTowerSelectionCache: Array.from(this.lineTowerSelectionCache.entries()),
-      };
-      sessionStorage.setItem('uav_pms_assessment_create_draft', JSON.stringify(draft));
-    } catch {}
-  }
-
-  private initDraftOrAssessment(): void {
-    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
-    if (assessmentId) {
-      this.loadFromAssessment(assessmentId);
-    } else {
-      this.restoreDraft();
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    if (this.map) {
+      try {
+        this.map.remove();
+      } catch {}
+      this.map = null;
+      this.currentTileLayer = null;
     }
   }
 
-  private loadFromAssessment(assessmentId: string): void {
-    this.busy.set(true);
-    this.api.get(assessmentId).subscribe({
-      next: (a) => {
-        this.busy.set(false);
-        const regionId = a.regionId || '';
-        const lineName = a.lineName || '';
-        const plannedStart = a.plannedStart ? formatDatetimeLocal(new Date(a.plannedStart)) : this.defaultStart;
-        const plannedEnd = a.plannedEnd ? formatDatetimeLocal(new Date(a.plannedEnd)) : this.defaultEnd;
-        const geom = (a.scopeGeometry && typeof a.scopeGeometry === 'object' ? a.scopeGeometry : {}) as Record<string, unknown>;
-        const corridorBufferMeters = Number(geom['corridorBufferMeters'] ?? 50);
-        const maxFlightAltitudeMeters = Number(geom['maxFlightAltitudeMeters'] ?? 120);
-        const requiredInspectors = a.requiredInspectors ?? 1;
-        const requiredAnalysts = a.requiredAnalysts ?? 1;
-        const requiredTechnicians = a.requiredTechnicians ?? 1;
-
-        this.form.patchValue({
-          regionId,
-          lineName,
-          plannedStart,
-          plannedEnd,
-          corridorBufferMeters,
-          maxFlightAltitudeMeters,
-          requiredInspectors,
-          requiredAnalysts,
-          requiredTechnicians,
-        });
-
-        if (regionId) {
-          this.loadingGis.set(true);
-          this.gisApi.getAllGisData({ administrativeAreaId: regionId }).subscribe({
-            next: (snapshot) => {
-              this.availableLines.set(snapshot.lines);
-              this.availableTowers.set(snapshot.towers);
-              this.loadingGis.set(false);
-
-              // Map scopeAssetIds to actual tower codes
-              const selectedCodes: string[] = [];
-              for (const idOrCode of a.scopeAssetIds || []) {
-                const matched = snapshot.towers.find(
-                  (t) =>
-                    t.id.toLowerCase() === idOrCode.toLowerCase() ||
-                    t.towerCode.toLowerCase() === idOrCode.toLowerCase()
-                );
-                if (matched) {
-                  selectedCodes.push(matched.towerCode);
-                } else {
-                  selectedCodes.push(idOrCode);
-                }
-              }
-
-              this.selectedTowerCodes.set(selectedCodes);
-              this.form.controls.scopeAssetIds.setValue(selectedCodes.join(', '));
-
-              // Determine selected base line
-              let base = lineName;
-              if (base.includes('(')) {
-                base = base.split('(')[0].trim();
-              }
-              const matchedLine = snapshot.lines.find(
-                (l) => l.lineName === base || l.lineName === lineName || l.id === base
-              );
-              const resolvedBase = matchedLine ? matchedLine.lineName : (base || snapshot.lines[0]?.lineName || '');
-              this.selectedBaseLine.set(resolvedBase);
-              if (resolvedBase) {
-                this.lineTowerSelectionCache.set(resolvedBase, selectedCodes);
-              }
-
-              this.saveDraft();
-              setTimeout(() => this.renderMap(true), 200);
-            },
-            error: () => {
-              this.loadingGis.set(false);
-            },
-          });
-        }
-      },
-      error: () => {
-        this.busy.set(false);
-        this.restoreDraft();
-      },
-    });
-  }
-
-  private restoreDraft(): void {
-    try {
-      const raw = sessionStorage.getItem('uav_pms_assessment_create_draft');
-      if (!raw) return;
-      const draft = JSON.parse(raw);
-      if (!draft || !draft.regionId) return;
-
-      this.form.patchValue({
-        regionId: draft.regionId,
-        lineName: draft.lineName || '',
-        scopeAssetIds: draft.scopeAssetIds || '',
-        plannedStart: draft.plannedStart || this.defaultStart,
-        plannedEnd: draft.plannedEnd || this.defaultEnd,
-        corridorBufferMeters: draft.corridorBufferMeters ?? 50,
-        maxFlightAltitudeMeters: draft.maxFlightAltitudeMeters ?? 120,
-        requiredInspectors: draft.requiredInspectors ?? 1,
-        requiredAnalysts: draft.requiredAnalysts ?? 1,
-        requiredTechnicians: draft.requiredTechnicians ?? 1,
-      });
-
-      this.selectedBaseLine.set(draft.selectedBaseLine || '');
-      this.selectedTowerCodes.set(draft.selectedTowerCodes || []);
-
-      if (Array.isArray(draft.lineTowerSelectionCache)) {
-        this.lineTowerSelectionCache.clear();
-        for (const [k, v] of draft.lineTowerSelectionCache) {
-          this.lineTowerSelectionCache.set(k, v);
-        }
-      }
-
-      this.loadingGis.set(true);
-      this.gisApi.getAllGisData({ administrativeAreaId: draft.regionId }).subscribe({
-        next: (snapshot) => {
-          this.availableLines.set(snapshot.lines);
-          this.availableTowers.set(snapshot.towers);
-          this.loadingGis.set(false);
-          setTimeout(() => this.renderMap(true), 200);
-        },
-        error: () => {
-          this.loadingGis.set(false);
-        },
-      });
-    } catch (e) {
-      console.warn('Failed to restore draft', e);
-    }
-  }
-
-  private loadRegions(): void {
-    this.gisApi.getRegions().subscribe({
-      next: (list) => this.regions.set(list),
-      error: (err: unknown) => console.warn('Failed to load regions', err),
-    });
-  }
-
-  protected onRegionSelect(regionId: string): void {
+  protected onRegionSelect(event: Event): void {
+    const regionId = (event.target as HTMLSelectElement).value;
     this.form.controls.regionId.setValue(regionId);
-    this.selectedBaseLine.set('');
-    this.form.controls.lineName.setValue('');
-    this.form.controls.scopeAssetIds.setValue('');
-    this.selectedTowerCodes.set([]);
-    this.lineTowerSelectionCache.clear();
+    this.form.controls.regionId.markAsTouched();
+    this.selectedTowerIds.set([]);
+    this.loadTowers(regionId);
+  }
 
-    if (!regionId) {
-      this.availableLines.set([]);
-      this.availableTowers.set([]);
-      this.renderMap();
+  protected onTowerSearch(event: Event): void {
+    this.towerSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  protected isTowerSelected(id: string): boolean {
+    return this.selectedTowerIds().includes(id);
+  }
+
+  protected getTowerSequence(id: string): number | null {
+    const idx = this.selectedTowerIds().indexOf(id);
+    return idx >= 0 ? idx + 1 : null;
+  }
+
+  protected toggleTower(id: string): void {
+    this.selectedTowerIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    this.renderMap(false);
+  }
+
+  protected selectAllFiltered(): void {
+    const current = new Set(this.selectedTowerIds());
+    const added = this.filteredTowers()
+      .map((t) => t.id)
+      .filter((id) => !current.has(id));
+    this.selectedTowerIds.set([...this.selectedTowerIds(), ...added]);
+    this.renderMap(true);
+  }
+
+  protected clearSelection(): void {
+    this.selectedTowerIds.set([]);
+    this.renderMap(false);
+  }
+
+  protected moveTower(index: number, direction: 'up' | 'down'): void {
+    const current = [...this.selectedTowerIds()];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+    const temp = current[index];
+    current[index] = current[targetIndex];
+    current[targetIndex] = temp;
+    this.selectedTowerIds.set(current);
+    this.renderMap(false);
+  }
+
+  protected removeSelectedTower(id: string): void {
+    this.selectedTowerIds.update((ids) => ids.filter((x) => x !== id));
+    this.renderMap(false);
+  }
+
+  protected reverseSequence(): void {
+    const current = [...this.selectedTowerIds()];
+    current.reverse();
+    this.selectedTowerIds.set(current);
+    this.renderMap(false);
+  }
+
+  protected onDragStart(index: number, event: DragEvent): void {
+    this.draggedIndex.set(index);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+    }
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  protected onDrop(targetIndex: number, event: DragEvent): void {
+    event.preventDefault();
+    const sourceIndex = this.draggedIndex();
+    this.draggedIndex.set(null);
+    if (sourceIndex === null || sourceIndex === targetIndex) return;
+    const current = [...this.selectedTowerIds()];
+    const [removed] = current.splice(sourceIndex, 1);
+    current.splice(targetIndex, 0, removed);
+    this.selectedTowerIds.set(current);
+    this.renderMap(false);
+  }
+
+  protected blockInvalidNumberKeys(event: KeyboardEvent): void {
+    if (['-', '+', 'e', 'E', '.'].includes(event.key)) {
+      event.preventDefault();
+    }
+  }
+
+  protected onQuotaInput(
+    name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit',
+    min: number = 1,
+    max: number = 10,
+  ): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const raw = control.value;
+    const num = parseInt(String(raw), 10);
+    if (Number.isNaN(num) || num < min) {
+      control.setValue(min);
+    } else if (num > max) {
+      control.setValue(max);
+    } else {
+      control.setValue(num);
+    }
+    control.markAsDirty();
+  }
+
+  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max: number = 10): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const current = Number(control.value) || 1;
+    if (current < max) {
+      control.setValue(current + 1);
+      control.markAsDirty();
+    }
+  }
+
+  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min: number = 1): void {
+    const control = this.form.get(name);
+    if (!control) return;
+    const current = Number(control.value) || 1;
+    if (current > min) {
+      control.setValue(current - 1);
+      control.markAsDirty();
+    }
+  }
+
+  protected submit(): void {
+    this.error.set('');
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.error.set('Thông tin biểu mẫu không hợp lệ. Vui lòng kiểm tra lại khung giờ và định mức nhân sự / UAV (tối thiểu 1).');
       return;
     }
-
-    this.loadingGis.set(true);
-    this.gisApi.getAllGisData({ administrativeAreaId: regionId }).subscribe({
-      next: (snapshot) => {
-        this.availableLines.set(snapshot.lines);
-        this.availableTowers.set(snapshot.towers);
-        this.loadingGis.set(false);
-        this.renderMap();
-      },
-      error: (err: unknown) => {
-        console.warn('Failed to load GIS data', err);
-        this.loadingGis.set(false);
-      },
-    });
-  }
-
-  protected onLineSelect(lineName: string): void {
-    const prevBaseLine = this.selectedBaseLine();
-    if (prevBaseLine) {
-      // Save current towers for previous line into cache
-      this.lineTowerSelectionCache.set(prevBaseLine, [...this.selectedTowerCodes()]);
-    }
-
-    this.selectedBaseLine.set(lineName);
-
-    if (!lineName) {
-      this.form.controls.lineName.setValue('');
-      this.selectedTowerCodes.set([]);
-      this.form.controls.scopeAssetIds.setValue('');
-      this.renderMap();
+    const towerIds = [...this.selectedTowerIds()];
+    if (!towerIds.length) {
+      this.error.set('Vui lòng chọn ít nhất một cột điện trong phạm vi đánh giá.');
       return;
     }
-
-    // Check if we have cached tower selections for this line
-    if (this.lineTowerSelectionCache.has(lineName)) {
-      const cached = this.lineTowerSelectionCache.get(lineName)!;
-      this.selectedTowerCodes.set(cached);
-      this.form.controls.scopeAssetIds.setValue(cached.join(', '));
-    } else {
-      // Auto-populate all towers of newly selected line
-      const lineTowers = this.availableTowers().filter(
-        (t) => t.transmissionLineName === lineName || t.lineAssetId === lineName
-      );
-      const codes = lineTowers.map((t) => t.towerCode);
-      this.selectedTowerCodes.set(codes);
-      this.form.controls.scopeAssetIds.setValue(codes.join(', '));
-      this.lineTowerSelectionCache.set(lineName, codes);
-    }
-
-    // Reset auto-sync flag on line select
-    this.autoSyncLineName.set(true);
-    const suggested = this.suggestedLineName();
-    this.form.controls.lineName.setValue(suggested || lineName);
-    this.renderMap();
+    const raw = this.form.getRawValue();
+    // `datetime-local` values are local time; the API sends them as ISO-8601 UTC (`toISOString()`, with `Z`).
+    const scope = {
+      regionId: raw.regionId,
+      plannedStart: raw.plannedStart,
+      plannedEnd: raw.plannedEnd,
+      towerIds,
+      requiredInspectors: raw.requiredInspectors,
+      requiredAnalysts: raw.requiredAnalysts,
+      requiredTechnicians: raw.requiredTechnicians,
+      maxDronesLimit: raw.maxDronesLimit,
+    };
+    this.busy.set(true);
+    this.api
+      .create({ ...scope, idempotencyKey: this.idempotency.keyFor(scope) })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.busy.set(false)),
+      )
+      .subscribe({
+        next: (created) => {
+          this.targetSelection.clear();
+          void this.router.navigate(['/pre-mission', created.id]);
+        },
+        error: (err: unknown) =>
+          this.error.set(
+            describeHttpError(err, 'Không thể tạo đánh giá tiền nhiệm vụ. Vui lòng kiểm tra lại phạm vi và thời gian.'),
+          ),
+      });
   }
 
-  protected onManualLineNameChange(): void {
-    this.autoSyncLineName.set(false);
-  }
-
-  protected applySuggestedLineName(): void {
-    const suggested = this.suggestedLineName();
-    if (suggested) {
-      this.form.controls.lineName.setValue(suggested);
-      this.autoSyncLineName.set(true);
-    }
-  }
-
-  protected resetToBaseLineName(): void {
-    const base = this.selectedBaseLine();
-    if (base) {
-      this.form.controls.lineName.setValue(base);
-      this.autoSyncLineName.set(false);
-    }
-  }
-
-  protected toggleTowerSelection(code: string): void {
-    const current = new Set(this.selectedTowerCodes());
-    if (current.has(code)) {
-      current.delete(code);
-    } else {
-      current.add(code);
-    }
-    const arr = Array.from(current);
-    this.selectedTowerCodes.set(arr);
-    this.form.controls.scopeAssetIds.setValue(arr.join(', '));
-
-    const base = this.selectedBaseLine();
-    if (base) {
-      this.lineTowerSelectionCache.set(base, arr);
-    }
-
-    if (this.autoSyncLineName()) {
-      const suggested = this.suggestedLineName();
-      if (suggested) {
-        this.form.controls.lineName.setValue(suggested);
-      }
-    }
-    this.renderMap();
-  }
-
-  protected isTowerSelected(code: string): boolean {
-    return this.selectedTowerCodes().includes(code);
-  }
-
-  protected selectAllFilteredTowers(): void {
-    const towers = this.filteredTowers();
-    const current = new Set(this.selectedTowerCodes());
-    towers.forEach((t) => current.add(t.towerCode));
-    const arr = Array.from(current);
-    this.selectedTowerCodes.set(arr);
-    this.form.controls.scopeAssetIds.setValue(arr.join(', '));
-
-    const base = this.selectedBaseLine();
-    if (base) {
-      this.lineTowerSelectionCache.set(base, arr);
-    }
-
-    if (this.autoSyncLineName()) {
-      const suggested = this.suggestedLineName();
-      if (suggested) {
-        this.form.controls.lineName.setValue(suggested);
-      }
-    }
-    this.renderMap();
-  }
-
-  protected clearTowerSelection(): void {
-    this.selectedTowerCodes.set([]);
-    this.form.controls.scopeAssetIds.setValue('');
-
-    const base = this.selectedBaseLine();
-    if (base) {
-      this.lineTowerSelectionCache.set(base, []);
-    }
-
-    if (this.autoSyncLineName()) {
-      const suggested = this.suggestedLineName();
-      this.form.controls.lineName.setValue(suggested || base);
-    }
-    this.renderMap();
-  }
-
-  protected onBufferChange(): void {
-    this.renderMap();
-  }
-
-  protected setMapType(type: 'google-streets' | 'google-hybrid' | 'google-terrain' | 'carto'): void {
+  protected setMapType(type: 'google-streets' | 'google-hybrid' | 'carto'): void {
     this.currentMapType.set(type);
-
     if (!this.map) return;
-
     if (this.currentTileLayer) {
       this.map.removeLayer(this.currentTileLayer);
       this.currentTileLayer = null;
     }
 
-    let tileUrl: string;
-    let maxZoom = 20;
+    let tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
     let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+    let maxZoom = 20;
     let attribution = '© Google Maps | UAV-PMS GIS';
 
-    switch (type) {
-      case 'google-hybrid':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-        attribution = '© Google Maps Vệ Tinh | UAV-PMS GIS';
-        break;
-      case 'google-terrain':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}';
-        attribution = '© Google Maps Địa Hình | UAV-PMS GIS';
-        break;
-      case 'carto':
-        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
-        maxZoom = 19;
-        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
-        break;
-      case 'google-streets':
-      default:
-        tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-        attribution = '© Google Maps | UAV-PMS GIS';
-        break;
+    if (type === 'google-hybrid') {
+      tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+    } else if (type === 'carto') {
+      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      subdomains = ['a', 'b', 'c', 'd'];
+      maxZoom = 19;
+      attribution = '© CARTO · OpenStreetMap | UAV-PMS';
     }
 
-    this.currentTileLayer = L.tileLayer(tileUrl, {
-      maxZoom,
-      subdomains,
-      attribution,
-      updateWhenIdle: false,
-      updateWhenZooming: false,
-      keepBuffer: 6,
-    });
-
+    const tileLayer = L.tileLayer(tileUrl, { maxZoom, subdomains, attribution, keepBuffer: 6 });
     let hasFallenBack = false;
-    this.currentTileLayer.on('tileerror', () => {
-      if (!hasFallenBack && this.currentTileLayer) {
+    tileLayer.on('tileerror', () => {
+      if (!hasFallenBack) {
         hasFallenBack = true;
-        this.currentTileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+        // Fallback to CartoDB Voyager which works reliably in all networks
+        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
       }
     });
-
+    this.currentTileLayer = tileLayer;
     this.currentTileLayer.addTo(this.map);
-  }
-
-  private initMap(): void {
-    const container = this.mapContainer()?.nativeElement ?? (document.getElementById('createMapContainer') as HTMLDivElement | null);
-    if (!container) return;
-
-    if (this.map) {
-      if (this.map.getContainer() !== container) {
-        try {
-          this.map.remove();
-        } catch {}
-        this.map = null;
-      }
-    }
-
-    if (!this.map) {
-      if ((container as any)._leaflet_id) {
-        (container as any)._leaflet_id = null;
-      }
-
-      this.map = L.map(container, {
-        center: [16.0544, 108.2022],
-        zoom: 12,
-        zoomControl: true,
-      });
-
-      this.setMapType(this.currentMapType());
-
-      this.bufferLayer = L.layerGroup().addTo(this.map);
-      this.polylineLayer = L.layerGroup().addTo(this.map);
-      this.markersLayer = L.layerGroup().addTo(this.map);
-
-      if (typeof ResizeObserver !== 'undefined') {
-        this.resizeObserver = new ResizeObserver(() => {
-          this.map?.invalidateSize();
-        });
-        this.resizeObserver.observe(container);
-      }
-    }
-
-    setTimeout(() => {
-      this.map?.invalidateSize();
-      this.renderMap(true);
-    }, 120);
-  }
-
-  protected fitMapToBounds(): void {
-    this.renderMap(true);
   }
 
   protected refreshMap(): void {
     if (this.map) {
-      this.map.invalidateSize();
-      this.renderMap(true);
+      setTimeout(() => {
+        this.map?.invalidateSize();
+        this.fitMapToBounds();
+      }, 50);
     } else {
       this.initMap();
     }
   }
 
-  private renderMap(autoFit = true): void {
+  private fitMapToBounds(): void {
+    if (!this.map) return;
+    const selectedIds = this.selectedTowerIds();
+    const allTowers = this.towers();
+    if (!allTowers.length) {
+      this.map.setView([10.7769, 106.7009], 12);
+      return;
+    }
+
+    const byId = new Map(allTowers.map((t) => [t.id, t]));
+    const targetTowers = selectedIds.length
+      ? selectedIds.map((id) => byId.get(id)).filter((t): t is AssessmentTowerOption => !!t)
+      : allTowers;
+
+    const points: [number, number][] = targetTowers
+      .filter((t) => Number.isFinite(t.latitude) && Number.isFinite(t.longitude) && Math.abs(t.latitude) > 0.1)
+      .map((t) => [t.latitude, t.longitude] as [number, number]);
+
+    if (points.length) {
+      this.map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 16 });
+    } else {
+      this.map.setView([10.7769, 106.7009], 12);
+    }
+  }
+
+  private loadTowers(regionId: string, preselect: readonly string[] = []): void {
+    this.towers.set([]);
+    if (!regionId) {
+      this.renderMap(true);
+      return;
+    }
+    this.loadingTowers.set(true);
+    this.api
+      .getRegionTowers(regionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loadingTowers.set(false)),
+      )
+      .subscribe({
+        next: (list) => {
+          this.towers.set(list);
+          const available = new Set(list.map((t) => t.id));
+          // Cột đã chọn trên bản đồ GIS (nếu có) được chọn sẵn.
+          const fromGis = this.targetSelection.selected().map((t) => t.towerId);
+          const wanted = [...preselect, ...fromGis].filter((id, i, all) => available.has(id) && all.indexOf(id) === i);
+          if (wanted.length) this.selectedTowerIds.set(wanted);
+          setTimeout(() => {
+            this.map?.invalidateSize();
+            this.renderMap(true);
+          }, 100);
+        },
+        error: () => this.error.set('Không thể tải danh sách cột điện của khu vực.'),
+      });
+  }
+
+  /** Tạo lại hồ sơ từ một hồ sơ cũ (ví dụ hồ sơ đã hết hạn): kế thừa khu vực và danh sách cột. */
+  private prefillFromAssessment(id: string): void {
+    this.api
+      .get(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (a) => {
+          this.form.controls.regionId.setValue(a.regionId);
+          if (a.findings) {
+            try {
+              const findingsObj = typeof a.findings === 'string' ? JSON.parse(a.findings) : a.findings;
+              if (typeof findingsObj?.requiredInspectors === 'number') {
+                this.form.controls.requiredInspectors.setValue(findingsObj.requiredInspectors);
+              }
+              if (typeof findingsObj?.requiredAnalysts === 'number') {
+                this.form.controls.requiredAnalysts.setValue(findingsObj.requiredAnalysts);
+              }
+              if (typeof findingsObj?.requiredTechnicians === 'number') {
+                this.form.controls.requiredTechnicians.setValue(findingsObj.requiredTechnicians);
+              }
+              if (typeof findingsObj?.maxDronesLimit === 'number') {
+                this.form.controls.maxDronesLimit.setValue(findingsObj.maxDronesLimit);
+              }
+            } catch {}
+          }
+          this.loadTowers(
+            a.regionId,
+            a.towers.map((t) => t.towerId),
+          );
+        },
+        error: () => this.error.set('Không thể tải hồ sơ đánh giá nguồn để sao chép phạm vi.'),
+      });
+  }
+
+  private initMap(): void {
+    const container =
+      this.mapContainer()?.nativeElement ??
+      (document.getElementById('createScopeMapContainer') as HTMLDivElement | null);
+    if (!container) return;
+
+    if (this.map) {
+      try {
+        this.map.remove();
+      } catch {}
+      this.map = null;
+    }
+
+    const el = container as unknown as { _leaflet_id?: number | null };
+    if (el._leaflet_id) {
+      el._leaflet_id = null;
+    }
+
+    this.map = L.map(container, {
+      center: [10.7769, 106.7009],
+      zoom: 12,
+      zoomControl: true,
+    });
+    this.polylineLayer = L.layerGroup().addTo(this.map);
+    this.markersLayer = L.layerGroup().addTo(this.map);
+    this.setMapType(this.currentMapType());
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.map?.invalidateSize();
+      });
+      this.resizeObserver.observe(container);
+    }
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+      this.renderMap(true);
+    }, 100);
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 300);
+  }
+
+  private renderMap(fit: boolean = false): void {
     if (!this.map) {
       this.initMap();
       return;
     }
+    this.markersLayer.clearLayers();
+    this.polylineLayer.clearLayers();
 
-    this.map.invalidateSize();
-    this.markersLayer?.clearLayers();
-    this.polylineLayer?.clearLayers();
-    this.bufferLayer?.clearLayers();
+    const selectedIds = this.selectedTowerIds();
+    const selectedSet = new Set(selectedIds);
+    const allTowers = this.towers();
 
-    const selectedCodes = new Set(this.selectedTowerCodes());
-    const allTowers = this.filteredTowers();
-    const bufferMeters = Number(this.form.controls.corridorBufferMeters.value || 50);
-
-    const activeCoords: [number, number][] = [];
-
-    // Determine region anchor coordinates
-    let baseLat = 16.0544;
-    let baseLng = 108.2022;
-
-    const regionId = this.form.controls.regionId.value || '';
-    if (regionId.toLowerCase().includes('north') || regionId.toLowerCase().includes('hn')) {
+    // Determine region anchor coordinates for towers with missing coordinates
+    let baseLat = 10.7769;
+    let baseLng = 106.7009;
+    const regionName = (this.selectedRegion()?.name || '').toLowerCase();
+    if (regionName.includes('bắc') || regionName.includes('hà nội')) {
       baseLat = 21.0285;
       baseLng = 105.8542;
-    } else if (regionId.toLowerCase().includes('south') || regionId.toLowerCase().includes('hcm')) {
+    } else if (regionName.includes('nam') || regionName.includes('hồ chí minh')) {
       baseLat = 10.8231;
       baseLng = 106.6297;
-    } else if (regionId.toLowerCase().includes('central') || regionId.toLowerCase().includes('cpc') || regionId.toLowerCase().includes('dn')) {
+    } else if (regionName.includes('trung') || regionName.includes('đà nẵng')) {
       baseLat = 16.0544;
       baseLng = 108.2022;
     }
 
-    const firstValid = allTowers.find((t) => t.latitude && t.longitude && Math.abs(t.latitude) > 0.1);
-    if (firstValid?.latitude && firstValid?.longitude) {
+    const firstValid = allTowers.find(
+      (t) => Number.isFinite(t.latitude) && Number.isFinite(t.longitude) && Math.abs(t.latitude) > 0.1,
+    );
+    if (firstValid) {
       baseLat = firstValid.latitude;
       baseLng = firstValid.longitude;
     }
 
+    // Build coordinates map
+    const towerCoords = new Map<string, [number, number]>();
     allTowers.forEach((t, idx) => {
-      const isSelected = selectedCodes.has(t.towerCode);
-      const lat = t.latitude && Number.isFinite(t.latitude) && Math.abs(t.latitude) > 0.1
-        ? t.latitude
-        : baseLat + idx * 0.0035;
-      const lng = t.longitude && Number.isFinite(t.longitude) && Math.abs(t.longitude) > 0.1
-        ? t.longitude
-        : baseLng + idx * 0.0055;
+      const hasCoords = Number.isFinite(t.latitude) && Number.isFinite(t.longitude) && Math.abs(t.latitude) > 0.1;
+      const lat = hasCoords ? t.latitude : baseLat + idx * 0.0035;
+      const lng = hasCoords ? t.longitude : baseLng + idx * 0.0055;
+      towerCoords.set(t.id, [lat, lng]);
+    });
+
+    // Draw route polyline in sequence
+    const orderedCoords: [number, number][] = [];
+    for (const id of selectedIds) {
+      const coords = towerCoords.get(id);
+      if (coords) orderedCoords.push(coords);
+    }
+
+    if (orderedCoords.length > 1) {
+      const line = L.polyline(orderedCoords, {
+        color: '#0052cc',
+        weight: 3.5,
+        opacity: 0.85,
+        dashArray: '6, 6',
+      });
+      this.polylineLayer.addLayer(line);
+    }
+
+    // Draw markers
+    for (const t of allTowers) {
+      const coords = towerCoords.get(t.id);
+      if (!coords) continue;
+      const isSelected = selectedSet.has(t.id);
 
       if (isSelected) {
-        activeCoords.push([lat, lng]);
-
-        // Safety buffer circle around selected tower
-        const circle = L.circle([lat, lng], {
-          radius: bufferMeters,
-          color: '#0284c7',
-          fillColor: '#38bdf8',
-          fillOpacity: 0.18,
+        const seq = selectedIds.indexOf(t.id) + 1;
+        const marker = L.marker(coords, {
+          icon: L.divIcon({
+            className: 'tower-pin-wrapper',
+            html: `<div class="evn-tower-pin"><span class="pin-number">${seq}</span></div>`,
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+          }),
+        });
+        marker.bindTooltip(`Thứ tự #${seq}: ${t.towerCode}${t.poleType ? ' · ' + t.poleType : ''}`, {
+          direction: 'top',
+          className: 'evn-map-tooltip',
+          offset: [0, -12],
+        });
+        marker.on('click', () => this.toggleTower(t.id));
+        this.markersLayer.addLayer(marker);
+      } else {
+        const marker = L.circleMarker(coords, {
+          radius: 6,
+          fillColor: '#94a3b8',
+          color: '#475569',
           weight: 1.5,
-          dashArray: '4, 4',
+          fillOpacity: 0.85,
         });
-        this.bufferLayer?.addLayer(circle);
-
-        // Marker for selected tower
-        const marker = L.circleMarker([lat, lng], {
-          radius: 8,
-          fillColor: '#0052cc',
-          color: '#ffffff',
-          weight: 2.5,
-          fillOpacity: 1,
-        });
-
-        const popupHtml = `
-          <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 160px;">
-            <strong style="color: #003f99; font-size: 12px;">Vị trí cột: ${t.towerCode}</strong><br/>
-            <span style="color: #475569;">Tuyến:</span> ${t.transmissionLineName || this.selectedBaseLine() || 'N/A'}<br/>
-            <span style="color: #475569;">Tọa độ:</span> ${lat.toFixed(5)}, ${lng.toFixed(5)}<br/>
-            <span style="color: #475569;">Hành lang an toàn:</span> ${bufferMeters}m<br/>
-            <span style="display: inline-block; margin-top: 3px; font-weight: 600; color: #047857;">✓ Đang chọn kiểm tra</span>
-          </div>
-        `;
-        marker.bindPopup(popupHtml);
-        marker.bindTooltip(t.towerCode, {
-          permanent: true,
+        marker.bindTooltip(`${t.towerCode}${t.poleType ? ' · ' + t.poleType : ''}`, {
           direction: 'top',
           className: 'evn-map-tooltip',
           offset: [0, -6],
         });
-        this.markersLayer?.addLayer(marker);
-      } else {
-        // Unselected tower
-        const unselectedMarker = L.circleMarker([lat, lng], {
-          radius: 5,
-          fillColor: '#94a3b8',
-          color: '#ffffff',
-          weight: 1.5,
-          fillOpacity: 0.7,
-        });
-
-        const popupHtml = `
-          <div style="font-family: inherit; font-size: 11px; line-height: 1.4; min-width: 140px;">
-            <strong style="color: #475569;">Vị trí cột: ${t.towerCode}</strong><br/>
-            <span style="color: #94a3b8;">Chưa chọn khảo sát</span>
-          </div>
-        `;
-        unselectedMarker.bindPopup(popupHtml);
-        unselectedMarker.bindTooltip(t.towerCode, {
-          permanent: false,
-          direction: 'top',
-          className: 'evn-map-tooltip',
-        });
-        this.markersLayer?.addLayer(unselectedMarker);
-      }
-    });
-
-    if (activeCoords.length > 1) {
-      const poly = L.polyline(activeCoords, {
-        color: '#0052cc',
-        weight: 3.5,
-        dashArray: '6, 6',
-      });
-      this.polylineLayer?.addLayer(poly);
-    }
-
-    if (autoFit) {
-      if (activeCoords.length > 0) {
-        const bounds = L.latLngBounds(activeCoords);
-        this.map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
-      } else if (allTowers.length > 0) {
-        const allCoords: [number, number][] = allTowers.map((t, idx) => [
-          t.latitude && Number.isFinite(t.latitude) && Math.abs(t.latitude) > 0.1
-            ? t.latitude
-            : baseLat + idx * 0.0035,
-          t.longitude && Number.isFinite(t.longitude) && Math.abs(t.longitude) > 0.1
-            ? t.longitude
-            : baseLng + idx * 0.0055,
-        ]);
-        this.map.fitBounds(L.latLngBounds(allCoords), { padding: [30, 30], maxZoom: 15 });
-      }
-    }
-  }
-
-  private cleanupMap(): void {
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = null;
-    if (this.map) {
-      this.map.remove();
-      this.map = null;
-      this.currentTileLayer = null;
-      this.markersLayer = null;
-      this.polylineLayer = null;
-      this.bufferLayer = null;
-    }
-  }
-
-  protected submit(): void {
-    if (this.form.invalid || this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-
-    const raw = this.form.getRawValue();
-    const enteredTokens = raw.scopeAssetIds
-      .split(/[,\n]/)
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-    if (enteredTokens.length === 0) {
-      this.error.set('Vui lòng chọn hoặc nhập ít nhất một mã vị trí/thiết bị cột điện (Asset ID).');
-      this.busy.set(false);
-      return;
-    }
-
-    // Resolve regionId to a valid GUID
-    let regionId = raw.regionId.trim();
-    if (!isValidGuid(regionId)) {
-      const match = this.regions().find(
-        (r) =>
-          r.id.toLowerCase() === regionId.toLowerCase() ||
-          r.name.toLowerCase() === regionId.toLowerCase()
-      );
-      if (match && isValidGuid(match.id)) {
-        regionId = match.id;
+        marker.on('click', () => this.toggleTower(t.id));
+        this.markersLayer.addLayer(marker);
       }
     }
 
-    // Resolve entered tokens (e.g. tower codes "INS-HN-001" or "HN-T001") to asset GUIDs
-    const allTowers = this.availableTowers();
-    const resolvedAssetGuids: string[] = [];
-
-    for (const token of enteredTokens) {
-      if (isValidGuid(token)) {
-        resolvedAssetGuids.push(token);
-      } else {
-        const matched = allTowers.find(
-          (t) =>
-            t.towerCode.toLowerCase() === token.toLowerCase() ||
-            t.id.toLowerCase() === token.toLowerCase()
-        );
-        if (matched && isValidGuid(matched.id)) {
-          resolvedAssetGuids.push(matched.id);
-        } else {
-          resolvedAssetGuids.push(token);
-        }
-      }
+    if (fit) {
+      this.fitMapToBounds();
     }
-
-    const uniqueAssetIds = Array.from(new Set(resolvedAssetGuids));
-    this.saveDraft();
-
-    this.api
-      .create({
-        regionId,
-        lineName: raw.lineName.trim() || undefined,
-        plannedStart: raw.plannedStart,
-        plannedEnd: raw.plannedEnd,
-        scopeAssetIds: uniqueAssetIds,
-        requiredInspectors: raw.requiredInspectors,
-        requiredAnalysts: raw.requiredAnalysts,
-        requiredTechnicians: raw.requiredTechnicians,
-        scopeGeometry: {
-          corridorBufferMeters: raw.corridorBufferMeters,
-          maxFlightAltitudeMeters: raw.maxFlightAltitudeMeters,
-          geometryType: 'CorridorBuffer',
-        },
-      })
-      .subscribe({
-        next: (created) => {
-          this.router.navigate(['/pre-mission', created.id]);
-        },
-        error: (err: unknown) => {
-          this.busy.set(false);
-          this.error.set(
-            extractErrorMessage(
-              err,
-              'Không thể tạo đánh giá tiền nhiệm vụ. Vui lòng kiểm tra lại thông tin phạm vi và thời gian.'
-            )
-          );
-        },
-      });
   }
 }
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (!err || typeof err !== 'object') return fallback;
-  const e = err as Record<string, unknown>;
-  const errorObj = e['error'] as Record<string, unknown> | string | undefined;
-
-  if (typeof errorObj === 'string' && errorObj.trim()) return errorObj;
-  if (errorObj && typeof errorObj === 'object') {
-    if (typeof errorObj['message'] === 'string' && errorObj['message'].trim()) {
-      return errorObj['message'];
-    }
-    if (typeof errorObj['title'] === 'string') {
-      const title = errorObj['title'];
-      const errors = errorObj['errors'];
-      if (errors && typeof errors === 'object') {
-        const details = Object.entries(errors as Record<string, string[]>)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
-          .join('; ');
-        return `${title} (${details})`;
-      }
-      return title;
-    }
-    if (typeof errorObj['detail'] === 'string' && errorObj['detail'].trim()) {
-      return errorObj['detail'];
-    }
-  }
-  if (typeof e['message'] === 'string' && e['message'].trim()) return e['message'];
-  return fallback;
-}
-

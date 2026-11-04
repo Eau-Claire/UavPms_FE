@@ -34,6 +34,9 @@
               }
             ],
             "styles": [
+              "node_modules/leaflet/dist/leaflet.css",
+              "node_modules/leaflet-draw/dist/leaflet.draw.css",
+              "node_modules/maplibre-gl/dist/maplibre-gl.css",
               "node_modules/ng-zorro-antd/style/index.min.css",
               "node_modules/ng-zorro-antd/layout/style/index.min.css",
               "node_modules/ng-zorro-antd/button/style/index.min.css",

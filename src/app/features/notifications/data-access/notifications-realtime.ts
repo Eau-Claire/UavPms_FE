@@ -66,7 +66,6 @@ export interface MissionLifecycleRealtimeEvent {
   readonly message?: string;
   readonly log?: MissionCommunicationLog;
   readonly detectionId?: string;
-  readonly newHealthScore?: number;
   readonly taskId?: string;
   readonly timestamp: string;
 }
@@ -491,7 +490,6 @@ function normalizeMissionLifecycleEvent(
   const rawPending = pick(source, 'pendingRoles', 'PendingRoles');
   const pendingRoles = Array.isArray(rawPending) ? rawPending.map(String) : undefined;
   const detectionId = stringValue(pick(source, 'detectionId', 'DetectionId', 'anomalyId', 'AnomalyId')) || undefined;
-  const newHealthScore = typeof source['newHealthScore'] === 'number' ? source['newHealthScore'] : (typeof source['NewAssetHealthScore'] === 'number' ? (source['NewAssetHealthScore'] as number) : undefined);
   const taskId = stringValue(pick(source, 'taskId', 'TaskId', 'maintenanceTaskId', 'MaintenanceTaskId')) || undefined;
 
   return {
@@ -512,7 +510,6 @@ function normalizeMissionLifecycleEvent(
     message,
     log,
     detectionId,
-    newHealthScore,
     taskId,
     timestamp,
     mission: source['mission'] && typeof source['mission'] === 'object' ? (source['mission'] as Partial<Mission>) : undefined,

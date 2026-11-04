@@ -1,0 +1,125 @@
+<header class="page-heading">
+  <div class="heading-left">
+    <div class="page-breadcrumb"><span>VẬN HÀNH</span><span>/</span><strong>PHIẾU BẢO TRÌ</strong></div>
+    <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
+    <p class="review-subtitle">
+      @if (isManager()) {
+        Phiếu sửa chữa sinh ra từ khuyết tật đã xác nhận: giao kỹ thuật viên, theo dõi tiến độ và nghiệm thu.
+      } @else {
+        Các phiếu sửa chữa được giao cho bạn.
+      }
+    </p>
+  </div>
+  <div class="tower-actions">
+    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
+      <span nz-icon nzType="reload" aria-hidden="true"></span><span>Tải lại</span>
+    </button>
+  </div>
+</header>
+
+@if (unassignedCount()) {
+  <div class="tower-banner maintenance-banner-warning" role="status">
+    <span><strong>{{ unassignedCount() }}</strong> phiếu trên trang này chưa được giao kỹ thuật viên. Mở phiếu để giao việc.</span>
+  </div>
+}
+
+<form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
+  <div class="tower-filter">
+    <label for="maintenance-status">Trạng thái</label>
+    <select id="maintenance-status" formControlName="status">
+      <option value="">Tất cả trạng thái</option>
+      @for (status of statuses; track status) {
+        <option [value]="status">{{ statusLabel(status) }}</option>
+      }
+    </select>
+  </div>
+  <div class="tower-filter">
+    <label for="maintenance-priority">Mức ưu tiên</label>
+    <select id="maintenance-priority" formControlName="priority">
+      <option value="">Tất cả mức</option>
+      @for (priority of priorities; track priority) {
+        <option [value]="priority">{{ priorityLabel(priority) }}</option>
+      }
+    </select>
+  </div>
+  @if (isManager()) {
+    <div class="tower-filter">
+      <label for="maintenance-page-size">Số dòng / trang</label>
+      <select id="maintenance-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
+        @for (size of pageSizes; track size) {
+          <option [value]="size">{{ size }}</option>
+        }
+      </select>
+    </div>
+  }
+  <div class="tower-actions">
+    <button type="button" class="button secondary" [disabled]="!hasFilters()" (click)="resetFilters()">Đặt lại</button>
+  </div>
+</form>
+
+<section class="tower-card" aria-labelledby="maintenance-table-caption">
+  @if (loading() && !rows().length) {
+    <app-data-state kind="loading" title="Đang tải phiếu bảo trì" />
+  } @else if (loadError()) {
+    <app-data-state kind="error" [message]="loadError()" (retry)="load()" />
+  } @else if (!rows().length) {
+    <app-data-state
+      kind="empty"
+      title="Không có phiếu bảo trì"
+      [message]="hasFilters() ? 'Không có phiếu phù hợp với bộ lọc.' : isManager() ? 'Chưa có phiếu bảo trì nào.' : 'Bạn chưa được giao phiếu bảo trì nào.'"
+    />
+  } @else {
+    <div class="tower-table-wrap" [attr.aria-busy]="loading()">
+      <table class="tower-table maintenance-table">
+        <caption id="maintenance-table-caption" class="sr-only">{{ isManager() ? 'Danh sách phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="th-m-code">Mã phiếu</th>
+            <th scope="col" class="th-m-desc">Sự cố</th>
+            <th scope="col" class="th-m-priority">Ưu tiên</th>
+            <th scope="col" class="th-m-status">Trạng thái</th>
+            <th scope="col" class="th-m-tech">Kỹ thuật viên</th>
+            <th scope="col" class="th-m-date">Hạn xử lý</th>
+            <th scope="col" class="th-m-date">Ngày tạo</th>
+            <th scope="col" class="th-m-actions"><span class="sr-only">Thao tác</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ticket of rows(); track ticket.id) {
+            <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
+              <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
+              <td class="td-m-desc" [title]="ticket.description">
+                <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
+                @if (ticket.tower) { <span class="tower-muted maintenance-sub">Cột {{ ticket.tower.towerCode }}</span> }
+              </td>
+              <td><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
+              <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
+              <td class="td-m-tech">
+                @if (ticket.technicianId) {
+                  {{ technicianName(ticket) }}
+                } @else {
+                  <span class="maintenance-unassigned">Chưa giao</span>
+                }
+              </td>
+              <td [class.maintenance-overdue]="isOverdue(ticket)">
+                {{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}
+                @if (isOverdue(ticket)) { <span class="maintenance-sub">Quá hạn</span> }
+              </td>
+              <td>{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
+              <td class="td-m-actions">
+                <a class="tower-icon-button" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
+                  <span nz-icon nzType="right" aria-hidden="true"></span>
+                </a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (isManager()) {
+      <div class="tower-footer">
+        <app-pagination [page]="pageIndex() + 1" [totalPages]="totalPages()" [totalCount]="page().totalCount" (pageChanged)="goToPage($event - 1)" />
+      </div>
+    }
+  }
+</section>

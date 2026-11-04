@@ -1,26 +1,38 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { SelectableAsset } from '../../../models/assets.models';
 
+/** Cột điện được chọn trên bản đồ để đưa vào phạm vi đánh giá / nhiệm vụ. */
+export interface MissionTargetTower {
+  readonly towerId: string;
+  readonly towerCode: string;
+  readonly regionId?: string;
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+/**
+ * Giỏ chọn cột điện dùng chung giữa bản đồ GIS và trang lập hồ sơ đánh giá (`/pre-mission/new`).
+ * Nhiệm vụ không còn tạo trực tiếp từ danh sách cột: cột được đưa vào hồ sơ đánh giá trước.
+ */
 @Injectable({ providedIn: 'root' })
 export class MissionTargetSelection {
-  private readonly selectedState = signal<readonly SelectableAsset[]>([]);
+  private readonly selectedState = signal<readonly MissionTargetTower[]>([]);
   readonly selected = this.selectedState.asReadonly();
   readonly count = computed(() => this.selectedState().length);
 
-  add(asset: SelectableAsset): void {
-    this.selectedState.update((items) => items.some((item) => item.assetId === asset.assetId) ? items : [...items, asset]);
+  add(tower: MissionTargetTower): void {
+    this.selectedState.update((items) => (items.some((item) => item.towerId === tower.towerId) ? items : [...items, tower]));
   }
 
-  addMany(assets: readonly SelectableAsset[]): void {
-    assets.forEach((asset) => this.add(asset));
+  addMany(towers: readonly MissionTargetTower[]): void {
+    towers.forEach((tower) => this.add(tower));
   }
 
-  remove(assetId: string): void {
-    this.selectedState.update((items) => items.filter((item) => item.assetId !== assetId));
+  remove(towerId: string): void {
+    this.selectedState.update((items) => items.filter((item) => item.towerId !== towerId));
   }
 
-  has(assetId: string): boolean {
-    return this.selectedState().some((item) => item.assetId === assetId);
+  has(towerId: string): boolean {
+    return this.selectedState().some((item) => item.towerId === towerId);
   }
 
   clear(): void {
@@ -29,25 +41,11 @@ export class MissionTargetSelection {
 
   moveUp(index: number): void {
     if (index <= 0) return;
-    this.selectedState.update((items) => {
-      if (index >= items.length) return items;
-      const copy = [...items];
-      const temp = copy[index - 1];
-      copy[index - 1] = copy[index];
-      copy[index] = temp;
-      return copy;
-    });
+    this.reorder(index, index - 1);
   }
 
   moveDown(index: number): void {
-    this.selectedState.update((items) => {
-      if (index < 0 || index >= items.length - 1) return items;
-      const copy = [...items];
-      const temp = copy[index + 1];
-      copy[index + 1] = copy[index];
-      copy[index] = temp;
-      return copy;
-    });
+    this.reorder(index, index + 1);
   }
 
   reorder(fromIndex: number, toIndex: number): void {
@@ -62,15 +60,14 @@ export class MissionTargetSelection {
     });
   }
 
-  setAll(assets: readonly SelectableAsset[]): void {
-    const unique: SelectableAsset[] = [];
+  setAll(towers: readonly MissionTargetTower[]): void {
     const seen = new Set<string>();
-    for (const a of assets) {
-      if (!seen.has(a.assetId)) {
-        seen.add(a.assetId);
-        unique.push(a);
-      }
-    }
-    this.selectedState.set(unique);
+    this.selectedState.set(
+      towers.filter((t) => {
+        if (seen.has(t.towerId)) return false;
+        seen.add(t.towerId);
+        return true;
+      }),
+    );
   }
 }

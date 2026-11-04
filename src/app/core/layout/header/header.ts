@@ -3,8 +3,10 @@ import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
+import { isManagerRole, roleLabel } from '../../auth/roles';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 import { FacilityItem, FacilityStore } from '../../facility/facility-store';
+import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 
 @Component({
   selector: 'app-header',
@@ -32,14 +34,17 @@ export class Header {
 
   protected readonly userDisplayName = computed(() => {
     const u = this.user();
-    if (!u) return 'HieuHV';
-    return u.fullName || u.email?.split('@')[0] || 'HieuHV';
+    return u?.fullName || u?.email?.split('@')[0] || 'Người dùng';
   });
-  protected readonly isInspector = computed(() => ['inspector', 'pilot'].includes((this.user()?.role ?? '').toLowerCase()));
-  protected readonly isOperationalRole = computed(() => {
-    const role = (this.user()?.role ?? '').toLowerCase();
-    return ['inspector', 'pilot', 'analyst', 'technician', 'maintenancetechnician'].includes(role);
+  protected readonly userRoleLabel = computed(() => roleLabel(this.user()?.role));
+  /** The working-area picker is a manager tool; field roles work on what is assigned to them. */
+  protected readonly showFacilitySelector = computed(() => isManagerRole(this.user()?.role));
+  /** Link for the opened notification, or null when the role has no page for it. */
+  protected readonly selectedLink = computed<NotificationLink | null>(() => {
+    const selected = this.notifications.selected();
+    return selected ? notificationLink(selected, this.user()?.role) : null;
   });
+  protected readonly referenceTypeLabel = referenceTypeLabel;
   protected readonly groupedNotifications = computed(() => {
     const list = this.notifications.filteredNotifications();
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
@@ -127,14 +132,47 @@ export class Header {
   protected updateReadFilter(event: Event): void { this.notifications.setReadFilter(((event.target as HTMLSelectElement | null)?.value ?? 'all') as NotificationReadFilter); }
   protected updateTypeFilter(event: Event): void { this.notifications.setTypeFilter((event.target as HTMLSelectElement | null)?.value ?? ''); }
   protected updateSortFilter(event: Event): void { this.notifications.setSortFilter(((event.target as HTMLSelectElement | null)?.value ?? 'newest') as NotificationSort); }
+  protected cleanTitle(title?: string | null): string {
+    if (!title) return 'Thông báo';
+    return title.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim() || 'Thông báo';
+  }
+  protected parseSummary(message?: string | null): { missions: number; inspections: number; alerts: number; defects: number } | null {
+    if (!message) return null;
+    const missionsMatch = message.match(/Tổng nhiệm vụ:\s*(\d+)/i);
+    const inspectionsMatch = message.match(/Tổng kiểm tra:\s*(\d+)/i);
+    const alertsMatch = message.match(/Cảnh báo đang xử lý:\s*(\d+)/i);
+    const defectsMatch = message.match(/Khuyết tật phát hiện:\s*(\d+)/i);
+    if (!missionsMatch && !inspectionsMatch && !alertsMatch && !defectsMatch) return null;
+    return {
+      missions: missionsMatch ? Number(missionsMatch[1]) : 0,
+      inspections: inspectionsMatch ? Number(inspectionsMatch[1]) : 0,
+      alerts: alertsMatch ? Number(alertsMatch[1]) : 0,
+      defects: defectsMatch ? Number(defectsMatch[1]) : 0,
+    };
+  }
+  protected typeIcon(type?: string | null, referenceType?: string | null): string {
+    const t = `${type || ''} ${referenceType || ''}`.toLowerCase();
+    if (t.includes('daily') || t.includes('report') || t.includes('summary') || t.includes('tổng hợp') || t.includes('báo cáo')) return 'bar-chart';
+    if (t.includes('mission') || t.includes('nhiệm vụ')) return 'send';
+    if (t.includes('maintenance') || t.includes('ticket') || t.includes('bảo trì')) return 'tool';
+    if (t.includes('alert') || t.includes('emergency') || t.includes('cảnh báo')) return 'warning';
+    if (t.includes('anomaly') || t.includes('defect') || t.includes('sự cố') || t.includes('khuyết tật')) return 'exclamation-circle';
+    return 'bell';
+  }
+  protected formatTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
   protected formatDate(value: string): string {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'Không rõ thời gian';
     return new Intl.DateTimeFormat('vi', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
   }
   protected markAllAsRead(): void {
-    const unread = this.notifications.unreadNotifications();
-    unread.forEach((item) => this.notifications.markRead(item.id));
+    this.notifications.markAllAsRead();
   }
   protected resetNotifications(): void {
     this.notifications.setReadFilter('all');
@@ -144,65 +182,5 @@ export class Header {
     if (userId) {
       this.notifications.load(userId);
     }
-  }
-  protected isReplyActionAvailable(item: AppNotification): boolean {
-    const titleLower = (item.title || '').toLowerCase();
-    return titleLower.includes('reply') || titleLower.includes('mention') || item.type === 'Comment' || item.type === 'Mention';
-  }
-  protected parseTitleSegments(title: string): { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] {
-    if (!title) return [];
-    const verbs = [
-      'mention you in comment conversation ticket',
-      'reply your comment in',
-      'assigned in number ticket',
-      'change type ticket to',
-      'mention you in',
-      'reply your comment',
-      'assigned in',
-      'change type',
-      'mention',
-      'reply',
-      'assigned',
-      'change',
-      'added',
-      'created',
-      'updated',
-      'deleted',
-      'completed'
-    ];
-    let actor = '';
-    let action = '';
-    let rest = title;
-    for (const verb of verbs) {
-      const index = title.toLowerCase().indexOf(verb);
-      if (index !== -1) {
-        actor = title.substring(0, index).trim();
-        action = title.substring(index, index + verb.length);
-        rest = title.substring(index + verb.length).trim();
-        break;
-      }
-    }
-    const segments: { text: string; isBold?: boolean; isBadge?: boolean; badgeType?: string }[] = [];
-    if (actor) {
-      segments.push({ text: actor, isBold: true });
-      segments.push({ text: ' ' + action + ' ' });
-    } else {
-      rest = title;
-    }
-    const words = rest.split(/(\s+)/);
-    for (const word of words) {
-      if (word.match(/^TC-\d+$/i)) {
-        segments.push({ text: word, isBold: true });
-      } else if (word.toLowerCase() === 'incident') {
-        segments.push({ text: word, isBadge: true, badgeType: 'incident' });
-      } else if (word.toLowerCase() === 'question') {
-        segments.push({ text: word, isBadge: true, badgeType: 'question' });
-      } else if (word.toLowerCase() === 'task') {
-        segments.push({ text: word, isBadge: true, badgeType: 'task' });
-      } else {
-        segments.push({ text: word });
-      }
-    }
-    return segments;
   }
 }

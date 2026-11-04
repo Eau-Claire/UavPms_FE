@@ -83,6 +83,38 @@ describe('Auth', () => {
     http.expectOne(`${environment.apiBaseUrl}/auth/refresh-token`).flush({ data: { accessToken: 'new-access', refreshToken: 'new-refresh' } });
     expect(auth.refreshing()).toBe(false);
   });
+
+  it('rejects login when user status is Locked', () => {
+    let errorMessage = '';
+    auth.login({ username: 'locked@evn.vn', password: 'secret12' }).subscribe({
+      error: (err: Error) => (errorMessage = err.message),
+    });
+    http.expectOne(`${environment.apiBaseUrl}/auth/login`).flush({
+      data: {
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        user: { id: 'u-locked', email: 'locked@evn.vn', status: 'Locked', role: 'Inspector' },
+      },
+    });
+    expect(errorMessage).toContain('bị khóa hoặc tạm đình chỉ');
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('rejects login when user status is Inactive', () => {
+    let errorMessage = '';
+    auth.login({ username: 'inactive@evn.vn', password: 'secret12' }).subscribe({
+      error: (err: Error) => (errorMessage = err.message),
+    });
+    http.expectOne(`${environment.apiBaseUrl}/auth/login`).flush({
+      data: {
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        user: { id: 'u-inactive', email: 'inactive@evn.vn', status: 'Inactive', role: 'Inspector' },
+      },
+    });
+    expect(errorMessage).toContain('tạm ngưng hoạt động');
+    expect(auth.isAuthenticated()).toBe(false);
+  });
 });
 
 const jwtWithExpiry = (expiresAtSeconds: number): string => {

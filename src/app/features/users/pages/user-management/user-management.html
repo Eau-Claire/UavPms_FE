@@ -1,19 +1,417 @@
-<div class="page-stack user-management-page">
-  <div class="page-header user-page-header">
-    <div class="page-heading-group"><div class="page-breadcrumb"><span>HỆ THỐNG</span><span>/</span><strong>NGƯỜI DÙNG</strong></div><h1 class="page-title">Quản lý người dùng</h1><p class="page-subtitle">Quản lý tài khoản người dùng hệ thống</p></div>
-    <button type="button" class="ant-btn ant-btn-primary ant-btn-lg" (click)="openCreate()"><span nz-icon nzType="plus"></span><span>TẠO NGƯỜI DÙNG MỚI</span></button>
+<div class="user-management-container">
+  <!-- Header Banner -->
+  <header class="page-heading">
+    <div class="heading-left">
+      <div class="page-breadcrumb"><span>HỆ THỐNG</span><span>/</span><strong>NGƯỜI DÙNG</strong></div>
+      <h1 class="page-title">{{ isAdmin() ? 'Quản lý người dùng' : 'Phân quyền khu vực' }}</h1>
+      <p class="review-subtitle">
+        {{ isAdmin() ? 'Quản lý tài khoản, vai trò, trạng thái truy cập và phạm vi khu vực của nhân sự hệ thống' : 'Phân quyền khu vực hoạt động cho các thanh tra viên' }}
+      </p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="button secondary"
+        (click)="load()"
+        [disabled]="loading()"
+        title="Làm mới danh sách"
+      >
+        <span nz-icon nzType="reload" [nzSpin]="loading()"></span> Làm mới
+      </button>
+      @if (isAdmin()) {
+        <button
+          type="button"
+          class="button primary"
+          (click)="openCreate()"
+        >
+          <span nz-icon nzType="plus"></span> Thêm người dùng
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Notice Alert Banner -->
+  @if (notice()) {
+    <div class="alert-banner success" role="status">
+      <span nz-icon nzType="check-circle"></span>
+      <span>{{ notice() }}</span>
+      <button type="button" class="alert-close" aria-label="Đóng thông báo" (click)="notice.set('')">×</button>
+    </div>
+  }
+
+  <!-- Error Alert Banner -->
+  @if (error()) {
+    <div class="alert-banner error" role="alert">
+      <span nz-icon nzType="close-circle"></span>
+      <span>{{ error() }}</span>
+      <button type="button" class="alert-close" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
+    </div>
+  }
+
+  @if (!isAdmin() && canManageScopes()) {
+    <div class="user-scope-hint">
+      <span nz-icon nzType="info-circle"></span> Danh sách gồm các thanh tra viên khả dụng. Chỉ Quản trị viên hệ thống (Admin) mới có quyền tạo mới, chỉnh sửa thông tin hoặc khóa/đình chỉ tài khoản.
+    </div>
+  }
+
+  <!-- KPI Metrics Summary Bar -->
+  <div class="metrics-grid">
+    <div class="metric-card total">
+      <div class="metric-icon"><span nz-icon nzType="team"></span></div>
+      <div class="metric-body">
+        <div class="metric-val">{{ stats().total }}</div>
+        <div class="metric-lbl">Tổng người dùng</div>
+      </div>
+    </div>
+
+    <div class="metric-card active">
+      <div class="metric-icon"><span nz-icon nzType="check-circle"></span></div>
+      <div class="metric-body">
+        <div class="metric-val">{{ stats().active }}</div>
+        <div class="metric-lbl">Đang hoạt động</div>
+      </div>
+    </div>
+
+    <div class="metric-card inactive">
+      <div class="metric-icon"><span nz-icon nzType="pause-circle"></span></div>
+      <div class="metric-body">
+        <div class="metric-val">{{ stats().inactive }}</div>
+        <div class="metric-lbl">Tạm ngưng</div>
+      </div>
+    </div>
+
+    <div class="metric-card locked">
+      <div class="metric-icon"><span nz-icon nzType="lock"></span></div>
+      <div class="metric-body">
+        <div class="metric-val">{{ stats().locked }}</div>
+        <div class="metric-lbl">Đã khóa (Đình chỉ)</div>
+      </div>
+    </div>
   </div>
-  @if (error()) { <div class="form-error" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Dismiss</button></div> }
-  <section class="filter-panel">
-    <div class="ant-input-affix-wrapper filter-search"><span nz-icon nzType="search" class="icon-muted"></span><input class="ant-input" type="search" placeholder="Tìm theo tên hoặc email" [value]="search()" (input)="search.set($any($event.target).value)" /></div>
-    <label class="filter-control"><span>VAI TRÒ:</span><select class="filter-select" [value]="roleFilter()" (change)="roleFilter.set($any($event.target).value)"><option value="">Tất cả</option>@for (role of roles; track role) { <option [value]="role">{{ roleLabel(role) }}</option> }</select></label>
-    <label class="filter-control filter-control-status"><span>TRẠNG THÁI:</span><select class="filter-select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)"><option value="">Tất cả</option>@for (status of statuses; track status) { <option [value]="status">{{ statusLabel(status) }}</option> }</select></label>
-    <button type="button" class="ant-btn filter-icon-button" aria-label="Apply filters"><span nz-icon nzType="filter"></span></button>
+
+  <!-- Filter Toolbar Card -->
+  <section class="filter-toolbar">
+    <div class="search-box">
+      <span nz-icon nzType="search" class="search-icon"></span>
+      <input
+        type="search"
+        placeholder="Tìm theo họ tên, email, tên đăng nhập..."
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+      />
+      @if (search()) {
+        <button type="button" class="clear-btn" (click)="search.set('')" aria-label="Xóa tìm kiếm">×</button>
+      }
+    </div>
+
+    <div class="select-group">
+      <div class="select-field">
+        <label for="user-role-filter">Vai trò:</label>
+        <select id="user-role-filter" [value]="roleFilter()" (change)="roleFilter.set($any($event.target).value)">
+          <option value="">Tất cả vai trò</option>
+          @for (role of roles; track role) {
+            <option [value]="role">{{ roleLabel(role) }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="select-field">
+        <label for="user-status-filter">Trạng thái:</label>
+        <select id="user-status-filter" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
+          <option value="">Tất cả trạng thái</option>
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ statusLabel(status) }}</option>
+          }
+        </select>
+      </div>
+
+      @if (search() || roleFilter() || statusFilter()) {
+        <button type="button" class="button secondary small" (click)="clearFilters()" title="Xóa tất cả bộ lọc">
+          <span nz-icon nzType="clear"></span> Xóa lọc
+        </button>
+      }
+    </div>
   </section>
-  <section class="user-table-shell"><div class="ant-table-wrapper evn-table user-table"><div class="ant-table"><div class="ant-table-container"><div class="ant-table-content"><table><thead class="ant-table-thead"><tr><th>HỌ TÊN</th><th>EMAIL</th><th>VAI TRÒ</th><th>TRẠNG THÁI</th><th>HÀNH ĐỘNG</th></tr></thead><tbody class="ant-table-tbody">
-    @if (loading()) { <tr><td colspan="5">Đang tải người dùng...</td></tr> } @else if (!filteredUsers().length) { <tr><td colspan="5">Không tìm thấy người dùng.</td></tr> }
-    @for (user of filteredUsers(); track user.id) { <tr class="ant-table-row" [class.user-row-locked]="user.status === 'Locked'"><td><div class="user-cell"><div class="user-name">{{ user.fullName }}</div></div></td><td><span class="user-table-email">{{ user.email }}</span></td><td><span class="role-pill {{ roleClass(user.role) }}">{{ roleLabel(user.role) }}</span></td><td><span class="status-pill {{ statusClass(user.status) }}"><span class="status-dot"></span>{{ statusLabel(user.status) }}</span></td><td><div class="table-actions"><button type="button" class="ant-btn ant-btn-text table-action-button table-action-edit" aria-label="Chỉnh sửa người dùng" (click)="openEdit(user)"><span nz-icon nzType="edit"></span></button>@if (user.status === 'Locked') { <button type="button" class="ant-btn table-action-unlock" (click)="changeStatus(user, 'Active')">MỞ KHÓA</button> } @else { <button type="button" class="ant-btn ant-btn-text table-action-button table-action-more" aria-label="Đặt lại mật khẩu" (click)="resetPassword(user)"><span nz-icon nzType="more"></span></button> }</div></td></tr> }
-  </tbody></table></div></div></div></div></section>
-  @if (modalOpen()) { <div class="modal-backdrop"><section class="modal user-form-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title"><header><h2 id="user-modal-title">{{ editing() ? 'Edit user' : 'Add user' }}</h2><button type="button" aria-label="Close" (click)="closeModal()">×</button></header><form [formGroup]="form" (ngSubmit)="save()"><label><span>Full name</span><input formControlName="fullName" /></label><label><span>Email</span><input type="email" formControlName="email" /></label><label><span>Phone</span><input formControlName="phone" /></label><label><span>Role</span><select formControlName="role">@for (role of roles; track role) { <option [value]="role">{{ role }}</option> }</select></label><div class="modal-actions"><button type="button" class="button secondary" (click)="closeModal()">Cancel</button><button type="submit" class="button primary" [disabled]="busy()">{{ busy() ? 'Saving...' : 'Save user' }}</button></div></form></section></div> }
-  @if (credential(); as value) { <div class="modal-backdrop"><section class="modal credential" role="dialog" aria-modal="true" aria-labelledby="credential-title"><header><h2 id="credential-title">Temporary credential</h2><button type="button" aria-label="Close" (click)="credential.set(null)">×</button></header><p>Share this password securely. It is shown once.</p><dl><dt>Username</dt><dd>{{ value.username }}</dd><dt>Temporary password</dt><dd>{{ value.temporaryPassword }}</dd></dl><button type="button" class="button primary" (click)="credential.set(null)">Done</button></section></div> }
+
+  <!-- Table Card -->
+  <section class="table-container">
+    <table class="user-table">
+      <thead>
+        <tr>
+          <th style="width: 28%;">Người dùng</th>
+          <th style="width: 24%;">Liên hệ</th>
+          <th style="width: 16%;">Vai trò</th>
+          <th style="width: 14%;">Trạng thái</th>
+          <th style="width: 18%; text-align: right;">Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (loading()) {
+          <tr>
+            <td colspan="5" class="empty-cell">
+              <span nz-icon nzType="loading" nzSpin style="font-size: 20px; color: #10387d;"></span>
+              <p>Đang tải danh sách người dùng...</p>
+            </td>
+          </tr>
+        } @else if (!filteredUsers().length) {
+          <tr>
+            <td colspan="5" class="empty-cell">
+              <span nz-icon nzType="inbox" style="font-size: 24px; color: #94a3b8;"></span>
+              <p>Không tìm thấy người dùng phù hợp.</p>
+            </td>
+          </tr>
+        }
+
+        @for (user of filteredUsers(); track user.id) {
+          <tr [class.user-row-locked]="user.status === 'Locked'" [class.user-row-inactive]="user.status === 'Inactive'">
+            <td>
+              <div class="user-cell">
+                <div
+                  class="user-avatar"
+                  [class.avatar-admin]="user.role === 'Admin'"
+                  [class.avatar-locked]="user.status === 'Locked'"
+                >
+                  {{ getInitials(user.fullName || user.email) }}
+                </div>
+                <div class="user-info">
+                  <div class="user-name">{{ user.fullName || 'Chưa đặt tên' }}</div>
+                  <div class="user-username">&#64;{{ user.username || user.email.split('@')[0] }}</div>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <div class="contact-cell">
+                <div class="user-email"><span nz-icon nzType="mail"></span> {{ user.email }}</div>
+                @if (user.phone) {
+                  <div class="user-phone"><span nz-icon nzType="phone"></span> {{ user.phone }}</div>
+                }
+              </div>
+            </td>
+
+            <td>
+              <span class="role-badge {{ roleClass(user.role) }}">{{ roleLabel(user.role) }}</span>
+            </td>
+
+            <td>
+              <span class="status-badge {{ statusClass(user.status) }}">
+                <span class="status-dot"></span>
+                {{ statusLabel(user.status) }}
+              </span>
+            </td>
+
+            <td>
+              <div class="table-actions">
+                <!-- Scope Assignment Button -->
+                @if (canManageScopes()) {
+                  <button
+                    type="button"
+                    class="action-btn scope-btn"
+                    [attr.aria-label]="'Phạm vi khu vực của ' + (user.fullName || user.email)"
+                    title="Phạm vi khu vực"
+                    (click)="openScopes(user)"
+                  >
+                    <span nz-icon nzType="environment"></span>
+                  </button>
+                }
+
+                @if (isAdmin()) {
+                  <!-- Edit User Button (opens centered modal) -->
+                  <button
+                    type="button"
+                    class="action-btn edit-btn"
+                    aria-label="Cập nhật thông tin người dùng"
+                    title="Cập nhật thông tin"
+                    (click)="openEdit(user)"
+                  >
+                    <span nz-icon nzType="edit"></span>
+                  </button>
+
+                  <!-- Quick Status Actions: Enable / Disable / Suspend -->
+                  @if (user.status === 'Locked') {
+                    <button
+                      type="button"
+                      class="action-btn unlock-btn"
+                      title="Mở khóa tài khoản (Activate)"
+                      (click)="changeStatus(user, 'Active')"
+                    >
+                      <span nz-icon nzType="unlock"></span>
+                    </button>
+                  } @else if (user.status === 'Inactive') {
+                    <button
+                      type="button"
+                      class="action-btn enable-btn"
+                      title="Kích hoạt tài khoản (Enable)"
+                      (click)="changeStatus(user, 'Active')"
+                    >
+                      <span nz-icon nzType="check-circle"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn suspend-btn"
+                      title="Khóa / Đình chỉ tài khoản (Suspend)"
+                      (click)="changeStatus(user, 'Locked')"
+                    >
+                      <span nz-icon nzType="lock"></span>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="action-btn disable-btn"
+                      title="Vô hiệu hóa tài khoản (Disable)"
+                      (click)="changeStatus(user, 'Inactive')"
+                    >
+                      <span nz-icon nzType="pause-circle"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn suspend-btn"
+                      title="Khóa / Đình chỉ tài khoản (Suspend)"
+                      (click)="changeStatus(user, 'Locked')"
+                    >
+                      <span nz-icon nzType="lock"></span>
+                    </button>
+                  }
+
+                  <!-- Reset Password Button -->
+                  <button
+                    type="button"
+                    class="action-btn reset-btn"
+                    aria-label="Đặt lại mật khẩu"
+                    title="Đặt lại mật khẩu"
+                    (click)="resetPassword(user)"
+                  >
+                    <span nz-icon nzType="key"></span>
+                  </button>
+                }
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <!-- User Create / Edit Centered Dialog Modal -->
+  @if (modalOpen()) {
+    <div class="modal-backdrop" (click)="closeModal()">
+      <section
+        class="modal user-form-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-modal-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="modal-header">
+          <div>
+            <h2 id="user-modal-title">{{ editing() ? 'Cập nhật người dùng' : 'Thêm người dùng mới' }}</h2>
+            <p class="modal-subtitle">
+              {{ editing() ? 'Chỉnh sửa thông tin liên hệ, vai trò và trạng thái hoạt động' : 'Điền thông tin tài khoản người dùng mới trong hệ thống UAV-PMS' }}
+            </p>
+          </div>
+          <button type="button" class="modal-close" aria-label="Đóng cửa sổ" (click)="closeModal()">×</button>
+        </header>
+
+        <form [formGroup]="form" (ngSubmit)="save()" class="modal-body">
+          <div class="form-grid">
+            <label class="form-field full-width">
+              <span class="field-label">Họ và tên <span class="required">*</span></span>
+              <input type="text" formControlName="fullName" placeholder="VD: Nguyễn Văn A" />
+            </label>
+
+            <label class="form-field">
+              <span class="field-label">Địa chỉ Email <span class="required">*</span></span>
+              <input
+                type="email"
+                formControlName="email"
+                placeholder="VD: user@uavpms.vn"
+                [readonly]="editing() !== null"
+                [class.readonly-input]="editing() !== null"
+              />
+            </label>
+
+            <label class="form-field">
+              <span class="field-label">Số điện thoại</span>
+              <input type="tel" formControlName="phone" placeholder="VD: 0912345678" />
+            </label>
+
+            <label class="form-field">
+              <span class="field-label">Vai trò hệ thống <span class="required">*</span></span>
+              <select formControlName="role">
+                @for (role of roles; track role) {
+                  <option [value]="role">{{ roleLabel(role) }}</option>
+                }
+              </select>
+            </label>
+
+            @if (editing()) {
+              <label class="form-field">
+                <span class="field-label">Trạng thái tài khoản <span class="required">*</span></span>
+                <select formControlName="status">
+                  @for (status of statuses; track status) {
+                    <option [value]="status">{{ statusLabel(status) }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </div>
+
+          <footer class="modal-footer">
+            <button type="button" class="button secondary" (click)="closeModal()">Hủy bỏ</button>
+            <button type="submit" class="button primary" [disabled]="busy() || form.invalid">
+              {{ busy() ? 'Đang lưu...' : (editing() ? 'Lưu thay đổi' : 'Tạo người dùng') }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
+
+  <!-- Temporary Credential Display Centered Modal -->
+  @if (credential(); as value) {
+    <div class="modal-backdrop" (click)="credential.set(null)">
+      <section
+        class="modal credential-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="credential-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="modal-header">
+          <div>
+            <h2 id="credential-title">Mật khẩu tạm thời</h2>
+            <p class="modal-subtitle">Hãy sao chép và chia sẻ thông tin này an toàn. Mật khẩu tạm thời chỉ hiển thị một lần.</p>
+          </div>
+          <button type="button" class="modal-close" aria-label="Đóng" (click)="credential.set(null)">×</button>
+        </header>
+
+        <div class="modal-body credential-body">
+          <dl class="credential-dl">
+            <div class="credential-row">
+              <dt>Tên đăng nhập:</dt>
+              <dd><code>{{ value.username }}</code></dd>
+            </div>
+            <div class="credential-row">
+              <dt>Mật khẩu tạm thời:</dt>
+              <dd class="password-dd"><code>{{ value.temporaryPassword }}</code></dd>
+            </div>
+          </dl>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="button primary" (click)="credential.set(null)">Hoàn tất</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  <!-- Geographic Scope Centered Dialog -->
+  @if (scopeUser(); as user) {
+    <app-user-scope-dialog
+      [user]="user"
+      [editable]="canManageScopes()"
+      (closed)="closeScopes()"
+      (saved)="onScopesSaved($event)"
+    />
+  }
 </div>

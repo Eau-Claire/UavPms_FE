@@ -15,7 +15,6 @@ export interface RecentDefect {
   readonly defectType: string;
   readonly detectedAt: string;
   readonly imageUrl?: string;
-  readonly severity?: string;
 }
 
 export interface DefectStatistic {
@@ -34,7 +33,6 @@ export interface MonitorAlert {
   readonly message: string;
   readonly createdAt: string;
   readonly isRead: boolean;
-  readonly severity?: string;
 }
 
 export interface InspectionRecord {

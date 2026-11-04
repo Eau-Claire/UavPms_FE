@@ -2,20 +2,18 @@
   <div class="app-sidebar-nav">
     <div class="app-sidebar-nav-primary">
       @for (item of primaryLinks(); track item.path) {
-        <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" [routerLinkActiveOptions]="{ exact: item.exact ?? false }" (click)="closed.emit()">
-          <span nz-icon [nzType]="item.icon" class="app-nav-icon" aria-hidden="true"></span>
+        <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: item.exact ?? false }" (click)="closed.emit()">
           <span class="app-nav-label">{{ item.label }}</span>
           @if (item.badgeCount && item.badgeCount > 0) {
-            <span class="app-nav-badge-danger">{{ item.badgeCount }}</span>
+            <span class="app-nav-badge-danger"><span aria-hidden="true">{{ item.badgeCount }}</span><span class="sr-only">({{ item.badgeCount }} đang mở)</span></span>
           }
         </a>
       }
     </div>
-    @if (open()) {
+    @if (open() && secondaryLinks().length) {
       <div class="app-sidebar-nav-secondary">
         @for (item of secondaryLinks(); track item.path) {
-          <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" [routerLinkActiveOptions]="{ exact: item.exact ?? (item.path === '/system') }" (click)="closed.emit()">
-            <span nz-icon [nzType]="item.icon" class="app-nav-icon" aria-hidden="true"></span>
+          <a class="app-nav-item" [routerLink]="item.path" routerLinkActive="app-nav-item-active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: item.exact ?? false }" (click)="closed.emit()">
             <span class="app-nav-label">{{ item.label }}</span>
           </a>
         }

@@ -20,4 +20,17 @@ export interface CreateUserRequest {
   readonly role: UserRole;
 }
 
+/** A region in a user's default geographic scope (UserGeographicScopeRegionDto). */
+export interface UserScopeRegion {
+  readonly regionId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly type: string;
+}
+
+/** GET/PUT /users/{id}/geographic-scopes (UserGeographicScopesDto). */
+export interface UserGeographicScopes {
+  readonly userId: string;
+  readonly regions: readonly UserScopeRegion[];
+}
 

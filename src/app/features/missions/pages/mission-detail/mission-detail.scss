@@ -1,5 +1,5 @@
 @use '../mission-page';
-@use '../../../assets/pages/asset-management/asset-management-page';
+@use '../mission-review-page';
 
 .mission-targets {
   margin-top: 20px;
@@ -777,22 +777,6 @@
   background: #ffffff !important;
   padding: 10px !important;
   box-shadow: none !important;
-
-  .mission-camera-feed {
-    height: 120px !important;
-    border-radius: 0 !important;
-    border: 1px solid #003f99 !important;
-    background: #07101d;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 8px;
-
-    .mission-camera-empty {
-      font-size: 11px !important;
-      color: #94a3b8 !important;
-    }
-  }
 }
 
 .mission-live-page:not(.workbench-mode) .mission-telemetry-panel h2,
@@ -4890,4 +4874,235 @@
   color: #ef4444;
   font-size: 11px;
   font-weight: 500;
+}
+
+.overdue {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.mission-processing-thumb img,
+.mission-processing-thumb video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.upload-tower-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #334155;
+
+  select {
+    min-width: 200px;
+    padding: 4px 8px;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    font: inherit;
+    background: #ffffff;
+  }
+}
+
+/* Role-aware additions (field roles: Inspector, Analyst, Technician) */
+.mission-live-page {
+  ol.audit-milestones-list {
+    list-style: none;
+    margin: 0;
+  }
+
+  .emergency-banner-note {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .comm-message-item.analyst {
+    background: #faf5ff;
+    border: 1px solid #e9d5ff;
+  }
+
+  .comm-message-item.technician {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+  }
+
+  .sender-badge.analyst {
+    background: #7e22ce;
+    color: #ffffff;
+  }
+
+  .sender-badge.technician {
+    background: #c2410c;
+    color: #ffffff;
+  }
+
+  .task-status-pill {
+    &.pending { color: #b45309; }
+    &.inprogress { color: #1d4ed8; }
+    &.completed { color: #15803d; }
+  }
+
+  .maint-task-link {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+  }
+
+  .maint-task-open {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+}
+
+.mission-live-page .form-field-group .form-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+
+  .required { color: #ef4444; }
+}
+
+// MF02: reason why "Bắt đầu bay" is disabled (required acceptances, start window, UAV).
+.start-blocker-reason {
+  margin: 4px 0 0;
+  max-width: 280px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #7c2d12;
+}
+
+.btn-flight-start:disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+}
+
+
+/* AI Worker Mock & Maintenance Flow (MF04) Enhancements */
+.proc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ai-worker-trigger {
+  height: 28px;
+  padding: 0 12px;
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #0369a1;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #0369a1;
+  }
+}
+
+.ai-processing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0369a1;
+  background: #eff6ff;
+  border: 1px solid #bae6fd;
+  padding: 4px 10px;
+  border-radius: 3px;
+}
+
+.create-ticket-action {
+  height: 32px;
+  padding: 0 12px;
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #047857;
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #047857;
+  }
+
+  &:disabled {
+    background: #f1f5f9;
+    color: #64748b;
+    border-color: #cbd5e1;
+    cursor: default;
+  }
+}
+
+.maint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.btn-batch-create-tickets {
+  height: 30px;
+  padding: 0 12px;
+  background: #0284c7;
+  color: #ffffff;
+  border: 1px solid #0369a1;
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #0369a1;
+  }
+}
+
+.proc-pipeline-flow .step.done .num {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.proc-pipeline-flow .step.done {
+  border-color: #16a34a !important;
+  color: #15803d !important;
+  background: #f0fdf4 !important;
 }

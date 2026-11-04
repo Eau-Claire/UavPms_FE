@@ -1,0 +1,57 @@
+@use '../../towers-shared' as shared;
+
+@include shared.dialog;
+
+.tower-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tower-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+
+  label {
+    color: #17324d;
+    font-size: 13px;
+    font-weight: 600;
+
+    span { color: #b91c1c; }
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    background: #fff;
+    color: #17324d;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 14px;
+  }
+
+  textarea { resize: vertical; }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #005bac;
+    outline-offset: 1px;
+  }
+
+  [aria-invalid='true'] { border-color: #b91c1c; }
+}
+
+.tower-field-error {
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .tower-field-row { grid-template-columns: 1fr; gap: 0; }
+}

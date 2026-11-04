@@ -1,0 +1,254 @@
+<header class="page-heading">
+  <div class="heading-left">
+    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+      <a routerLink="/maintenance">PHIẾU BẢO TRÌ</a><span>/</span><strong>{{ ticket()?.ticketCode || 'CHI TIẾT' }}</strong>
+    </nav>
+    <h1>{{ ticket() ? 'Phiếu ' + ticket()!.ticketCode : 'Chi tiết phiếu bảo trì' }}</h1>
+    <p class="review-subtitle">Sửa chữa khuyết tật đã xác nhận, minh chứng sau sửa chữa và nghiệm thu.</p>
+  </div>
+  <div class="tower-actions">
+    <a class="button secondary" routerLink="/maintenance">
+      <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Danh sách phiếu</span>
+    </a>
+  </div>
+</header>
+
+@if (!ticket() && loading()) {
+  <section class="tower-card"><app-data-state kind="loading" title="Đang tải phiếu bảo trì" /></section>
+} @else if (!ticket() && notFound()) {
+  <section class="tower-card"><app-data-state kind="empty" title="Không tìm thấy phiếu bảo trì" message="Phiếu không tồn tại hoặc đã bị xóa." /></section>
+} @else if (!ticket() && error()) {
+  <section class="tower-card"><app-data-state kind="error" [message]="error()" (retry)="load()" /></section>
+} @else if (ticket(); as data) {
+  @if (notice(); as message) {
+    <div class="tower-banner" [class.tower-banner-success]="message.tone === 'success'" [class.tower-banner-error]="message.tone === 'error'" [attr.role]="message.tone === 'error' ? 'alert' : 'status'">
+      <span>{{ message.text }}</span>
+      <button type="button" (click)="notice.set(null)">Đóng</button>
+    </div>
+  }
+  @if (error()) {
+    <div class="tower-banner tower-banner-error" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">Thử lại</button></div>
+  }
+
+  <div class="md-layout" [attr.aria-busy]="loading()">
+    <div class="md-main">
+      <section class="tower-card md-card" aria-labelledby="md-info-title">
+        <div class="md-card-head">
+          <h2 id="md-info-title">Thông tin phiếu</h2>
+          <div class="md-pills">
+            <span class="tower-pill tone-{{ statusTone(data.status) }}">{{ statusLabel(data.status) }}</span>
+            <span class="tower-pill tone-{{ priorityTone(data.priority) }}">Ưu tiên: {{ priorityLabel(data.priority) }}</span>
+          </div>
+        </div>
+        <dl class="md-meta">
+          <div><dt>Mã phiếu</dt><dd class="tower-mono">{{ data.ticketCode }}</dd></div>
+          <div>
+            <dt>Cột điện</dt>
+            <dd>
+              @if (towerId(); as tid) {
+                <a class="tower-code-link" [routerLink]="['/towers', tid]">{{ data.tower?.towerCode || 'Xem cột điện' }}</a>
+                @if (data.tower?.poleType) { <span class="tower-muted"> · {{ data.tower?.poleType }}</span> }
+              } @else { — }
+            </dd>
+          </div>
+          <div>
+            <dt>Nhiệm vụ bay</dt>
+            <dd>
+              @if (missionId(); as mid) {
+                <a class="tower-code-link" [routerLink]="['/missions', mid]">Xem nhiệm vụ</a>
+              } @else { — }
+            </dd>
+          </div>
+          <div>
+            <dt>Kỹ thuật viên</dt>
+            <dd>
+              @if (data.technicianId) {
+                {{ personName(data.technician) || 'Đã giao' }}
+                @if (isAssignedTechnician()) { <span class="tower-muted">(bạn)</span> }
+              } @else {
+                <span class="md-unassigned">Chưa giao</span>
+              }
+            </dd>
+          </div>
+          <div><dt>Quản lý phụ trách</dt><dd>{{ personName(data.manager) || '—' }}</dd></div>
+          <div>
+            <dt>Hạn xử lý</dt>
+            <dd [class.md-overdue]="isOverdue()">
+              {{ data.dueDate ? (data.dueDate | date: 'dd/MM/yyyy') : '—' }}
+              @if (isOverdue()) { <span>(quá hạn)</span> }
+            </dd>
+          </div>
+          <div><dt>Ngày tạo</dt><dd>{{ data.createdAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+          @if (data.resolvedAt) {
+            <div><dt>Đóng lúc</dt><dd>{{ data.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
+          }
+          <div class="md-meta-wide"><dt>Mô tả</dt><dd class="md-description">{{ data.description || '—' }}</dd></div>
+        </dl>
+      </section>
+
+      <section class="tower-card md-card" aria-labelledby="md-defect-title">
+        <div class="md-card-head">
+          <h2 id="md-defect-title">Khuyết tật cần sửa chữa</h2>
+          @if (data.anomaly?.isEmergencyClass) { <span class="tower-pill tone-danger">Loại khẩn cấp</span> }
+        </div>
+        @if (data.anomaly; as anomaly) {
+          <div class="md-defect">
+            <app-defect-image
+              [src]="anomaly.imageUrl || anomaly.cropUrl"
+              [box]="anomaly.imageUrl ? anomaly.boundingBox : undefined"
+              [label]="anomaly.categoryName || ''"
+              [alt]="'Ảnh khuyết tật ' + (anomaly.categoryName || '') + ' của phiếu ' + data.ticketCode"
+            />
+            <dl class="md-meta md-meta-compact">
+              <div><dt>Loại khuyết tật</dt><dd>{{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}</dd></div>
+              <div><dt>Độ tin cậy AI</dt><dd>{{ anomaly.confidenceScore | number: '1.0-1' }}%</dd></div>
+              <div><dt>Xác nhận lúc</dt><dd>{{ anomaly.validatedAt ? (anomaly.validatedAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd></div>
+              @if (anomaly.analystNotes) {
+                <div class="md-meta-wide"><dt>Ghi chú của chuyên viên phân tích</dt><dd class="md-description">{{ anomaly.analystNotes }}</dd></div>
+              }
+            </dl>
+          </div>
+        } @else {
+          <p class="md-empty">Không có thông tin khuyết tật.</p>
+        }
+      </section>
+
+      <section class="tower-card md-card" aria-labelledby="md-proofs-title">
+        <div class="md-card-head">
+          <h2 id="md-proofs-title">Ảnh minh chứng <span class="md-count">{{ data.proofs.length }}</span></h2>
+        </div>
+        @if (data.proofs.length) {
+          <ul class="md-gallery">
+            @for (proof of data.proofs; track proof.id; let index = $index) {
+              <li>
+                <figure>
+                  <a [href]="proof.fileUrl" target="_blank" rel="noopener" [attr.aria-label]="'Mở ảnh minh chứng ' + (index + 1) + ' trong thẻ mới'">
+                    <img [src]="proof.fileUrl" [alt]="'Ảnh minh chứng ' + (index + 1)" loading="lazy" width="220" height="165" />
+                  </a>
+                  <figcaption>
+                    <span class="tower-muted">{{ proof.uploadedAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                    @if (proof.technicianNotes) { <span>{{ proof.technicianNotes }}</span> }
+                  </figcaption>
+                </figure>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="md-empty">Chưa có ảnh minh chứng sau sửa chữa.</p>
+        }
+        @if (canAddEvidence()) {
+          <div class="md-subform"><app-proof-upload [ticketId]="data.id" (uploaded)="onProofUploaded($event)" /></div>
+        }
+      </section>
+
+      <section class="tower-card md-card" aria-labelledby="md-materials-title">
+        <div class="md-card-head">
+          <h2 id="md-materials-title">Vật tư đã sử dụng <span class="md-count">{{ data.materials.length }}</span></h2>
+        </div>
+        @if (data.materials.length) {
+          <div class="tower-table-wrap">
+            <table class="tower-table md-materials">
+              <caption class="sr-only">Vật tư đã sử dụng cho phiếu {{ data.ticketCode }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Vật tư</th>
+                  <th scope="col" class="th-md-code">Mã</th>
+                  <th scope="col" class="th-md-qty">Số lượng</th>
+                  <th scope="col">Ghi chú hiện trường</th>
+                  <th scope="col" class="th-md-time">Ghi nhận lúc</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (material of data.materials; track material.id || $index) {
+                  <tr>
+                    <td><strong>{{ material.componentName }}</strong></td>
+                    <td class="tower-mono">{{ material.componentCode || '—' }}</td>
+                    <td>{{ material.quantityUsed }} {{ material.unit }}</td>
+                    <td class="tower-muted">{{ material.fieldObservations || '—' }}</td>
+                    <td>{{ material.loggedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="md-empty">Chưa ghi nhận vật tư.</p>
+        }
+        @if (canAddEvidence()) {
+          <div class="md-subform"><app-material-form [ticketId]="data.id" (logged)="onMaterialLogged($event)" /></div>
+        }
+      </section>
+    </div>
+
+    <aside class="md-side" aria-label="Tiến độ và thao tác">
+      <section class="tower-card md-card" aria-labelledby="md-timeline-title">
+        <div class="md-card-head"><h2 id="md-timeline-title">Tiến độ</h2></div>
+        <app-ticket-timeline [ticket]="data" />
+      </section>
+
+      <section class="tower-card md-card" aria-labelledby="md-actions-title">
+        <div class="md-card-head"><h2 id="md-actions-title">Thao tác</h2></div>
+
+        @if (isClosed()) {
+          <p class="md-note">Phiếu đã được nghiệm thu và đóng.</p>
+        } @else if (!hasActions() && !canAddEvidence()) {
+          <p class="md-note">
+            @if (isTechnician() && !isAssignedTechnician()) {
+              Phiếu này không được giao cho bạn nên chỉ có thể xem.
+            } @else if (data.status === 'PendingVerification') {
+              Phiếu đang chờ quản lý nghiệm thu.
+            } @else {
+              Bạn không có thao tác nào trên phiếu ở trạng thái hiện tại.
+            }
+          </p>
+        }
+
+        @if (canAssign()) {
+          <app-assign-technician [ticket]="data" (assigned)="onAssigned()" />
+        }
+
+        @if (canStart() || canSubmit() || canClose()) {
+          <div class="md-buttons">
+            @if (canStart()) {
+              <button type="button" class="button primary" [disabled]="!data.technicianId" [attr.aria-describedby]="!data.technicianId ? 'md-start-hint' : null" (click)="ask('start')">
+                <span nz-icon nzType="tool" aria-hidden="true"></span><span>Bắt đầu sửa chữa</span>
+              </button>
+              @if (!data.technicianId) {
+                <span id="md-start-hint" class="md-hint">Cần giao kỹ thuật viên trước khi bắt đầu sửa chữa.</span>
+              }
+            }
+            @if (canSubmit()) {
+              <button type="button" class="button primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-submit-hint' : null" (click)="ask('submit')">
+                <span nz-icon nzType="check-circle" aria-hidden="true"></span><span>Gửi nghiệm thu</span>
+              </button>
+              @if (!hasProof()) {
+                <span id="md-submit-hint" class="md-hint">Cần tải lên ít nhất một ảnh minh chứng trước khi gửi nghiệm thu.</span>
+              }
+            }
+            @if (canClose()) {
+              <button type="button" class="button primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-close-hint' : null" (click)="ask('close')">
+                <span nz-icon nzType="safety-certificate" aria-hidden="true"></span><span>Nghiệm thu & đóng phiếu</span>
+              </button>
+              @if (!hasProof()) {
+                <span id="md-close-hint" class="md-hint">Phiếu chưa có ảnh minh chứng nên chưa thể nghiệm thu.</span>
+              }
+            }
+          </div>
+        }
+      </section>
+    </aside>
+  </div>
+
+  @if (actionConfig(); as config) {
+    <app-tower-confirm-dialog
+      [title]="config.title"
+      [message]="config.message"
+      [confirmLabel]="config.label"
+      tone="primary"
+      [busy]="actionBusy()"
+      [errorMessage]="actionError()"
+      (confirmed)="runAction()"
+      (closed)="cancelAction()"
+    />
+  }
+}

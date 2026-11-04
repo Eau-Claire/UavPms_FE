@@ -1,0 +1,138 @@
+<div class="field-home">
+  <app-field-home-header
+    subtitle="Phát hiện AI chờ thẩm định và cảnh báo khẩn cấp cần xử lý."
+    [loading]="loading()"
+    [loadedAt]="loadedAt()"
+    (refresh)="refresh()"
+  />
+
+  <ul class="count-strip" aria-label="Tóm tắt công việc phân tích">
+    <li class="count-tile tone-amber">
+      <a routerLink="/ai-review">
+        <span class="tile-label">Phát hiện AI chờ duyệt</span>
+        <strong class="tile-value">{{ pendingTotal() }}</strong>
+      </a>
+    </li>
+    <li class="count-tile tone-red">
+      <a routerLink="/emergency-alerts">
+        <span class="tile-label">Cảnh báo khẩn cấp đang mở</span>
+        <strong class="tile-value">{{ emergencyItems().length }}</strong>
+      </a>
+    </li>
+    <li class="count-tile tone-red">
+      <div>
+        <span class="tile-label">Trong đó nghiêm trọng</span>
+        <strong class="tile-value">{{ criticalEmergencies() }}</strong>
+      </div>
+    </li>
+  </ul>
+
+  <div class="home-grid">
+    <div class="home-main">
+      <!-- Pending AI detections -->
+      <section class="panel" [class.panel-accent]="pendingTotal() > 0" aria-labelledby="analyst-pending-title">
+        <header>
+          <h2 id="analyst-pending-title">Phát hiện AI chờ duyệt <span class="group-count">{{ pendingTotal() }}</span></h2>
+          <a routerLink="/ai-review">Duyệt ngay</a>
+        </header>
+        @if (pending.loading() && !pending.value()) {
+          <app-data-state kind="loading" title="Đang tải phát hiện AI" />
+        } @else if (pending.error() && !pending.value()) {
+          <app-data-state kind="error" [message]="pending.error() || ''" (retry)="pending.refresh()" />
+        } @else if (pendingItems().length) {
+          <ul class="item-list">
+            @for (item of pendingItems(); track item.id) {
+              <li class="item">
+                <div class="item-body">
+                  <p class="item-title">
+                    <span>{{ item.categoryName || 'Chưa phân loại' }}</span>
+                    @if (item.isEmergency) {
+                      <span class="badge tone-danger">Khẩn cấp</span>
+                    }
+                    <span class="badge tone-info">Độ tin cậy {{ item.confidenceScore | number: '1.0-0' }}%</span>
+                  </p>
+                  <p class="item-meta">
+                    <span>Cột: {{ item.towerCode || 'Chưa gán cột' }}</span>
+                    @if (item.missionName) {
+                      <span>Nhiệm vụ: {{ item.missionName }}</span>
+                    }
+                    <span>Phát hiện lúc {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  </p>
+                </div>
+                <a class="action-link" [routerLink]="['/ai-review', item.id]" [attr.aria-label]="'Duyệt ngay phát hiện ' + (item.categoryName || '')">Duyệt ngay</a>
+              </li>
+            }
+          </ul>
+          @if (pendingTotal() > pendingItems().length) {
+            <p class="panel-empty">
+              Còn {{ pendingTotal() - pendingItems().length }} phát hiện khác. <a routerLink="/ai-review">Mở danh sách duyệt</a>
+            </p>
+          }
+        } @else {
+          <p class="panel-empty">Không còn phát hiện AI nào chờ duyệt.</p>
+        }
+      </section>
+
+      <!-- Active emergency alerts -->
+      <section class="panel" aria-labelledby="analyst-emergency-title">
+        <header>
+          <h2 id="analyst-emergency-title">Cảnh báo khẩn cấp đang hoạt động <span class="group-count">{{ emergencyItems().length }}</span></h2>
+          <a routerLink="/emergency-alerts">Xử lý cảnh báo</a>
+        </header>
+        @if (emergencies.loading() && !emergencies.value()) {
+          <app-data-state kind="loading" title="Đang tải cảnh báo khẩn cấp" />
+        } @else if (emergencies.error() && !emergencies.value()) {
+          <app-data-state kind="error" [message]="emergencies.error() || ''" (retry)="emergencies.refresh()" />
+        } @else if (emergencyPreview().length) {
+          <ul class="item-list">
+            @for (alert of emergencyPreview(); track alert.id) {
+              <li class="item">
+                <div class="item-body">
+                  <p class="item-title">
+                    <span [class]="'badge tone-' + priorityTone(alert)">{{ priorityLabel(alert) }}</span>
+                    <span>{{ alert.categoryName || alert.alertType || 'Cảnh báo khẩn cấp' }}</span>
+                  </p>
+                  <p class="item-meta">
+                    <span>Cột: {{ alert.towerCode || 'Chưa xác định' }}</span>
+                    <span>Kích hoạt lúc {{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  </p>
+                </div>
+                <a class="action-link secondary" routerLink="/emergency-alerts" [attr.aria-label]="'Xử lý cảnh báo tại cột ' + (alert.towerCode || '')">Xử lý</a>
+              </li>
+            }
+          </ul>
+          @if (emergencyItems().length > emergencyPreview().length) {
+            <p class="panel-empty">
+              Còn {{ emergencyItems().length - emergencyPreview().length }} cảnh báo khác. <a routerLink="/emergency-alerts">Xem tất cả</a>
+            </p>
+          }
+        } @else {
+          <p class="panel-empty">Không có cảnh báo khẩn cấp nào đang hoạt động.</p>
+        }
+      </section>
+
+      <!-- System recent defects -->
+      <section class="panel panel-defects" aria-labelledby="analyst-defects-title">
+        <header>
+          <h2 id="analyst-defects-title">Sự cố gần đây trên toàn hệ thống</h2>
+          <a routerLink="/inspections">Xem lịch sử kiểm tra</a>
+        </header>
+        @if (defects.value(); as page) {
+          @if (page.items.length) {
+            <app-recent-defects-table [data]="page" (pageChanged)="changeDefectsPage($event)" />
+          } @else {
+            <p class="panel-empty">Chưa có sự cố gần đây.</p>
+          }
+        } @else if (defects.error()) {
+          <app-data-state kind="error" [message]="defects.error() || ''" (retry)="defects.refresh()" />
+        } @else {
+          <app-data-state kind="loading" title="Đang tải sự cố gần đây" />
+        }
+      </section>
+    </div>
+
+    <aside class="home-side" aria-label="Thông báo của tôi">
+      <app-personal-alerts-card />
+    </aside>
+  </div>
+</div>

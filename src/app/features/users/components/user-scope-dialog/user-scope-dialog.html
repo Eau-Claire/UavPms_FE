@@ -1,0 +1,61 @@
+<dialog #dialog class="scope-dialog" aria-labelledby="scope-dialog-title" aria-describedby="scope-dialog-desc" (cancel)="onCancel($event)">
+  <header class="scope-dialog-head">
+    <div>
+      <h2 id="scope-dialog-title">Phạm vi khu vực</h2>
+      <p id="scope-dialog-desc">{{ user().fullName || user().email }} · {{ user().email }}</p>
+    </div>
+    <button type="button" class="scope-dialog-close" aria-label="Đóng" [disabled]="saving()" (click)="close()">×</button>
+  </header>
+
+  <div class="scope-dialog-body">
+    @if (error()) {
+      <p class="scope-error" role="alert">
+        {{ error() }}
+        @if (!saving()) { <button type="button" (click)="load()">Thử lại</button> }
+      </p>
+    }
+
+    @if (loading()) {
+      <p class="scope-muted" role="status">Đang tải danh sách khu vực...</p>
+    } @else if (editable()) {
+      <p class="scope-muted">
+        Người dùng chỉ thấy cột điện, nhiệm vụ và dữ liệu thuộc các khu vực được chọn. Bỏ chọn tất cả để xóa phạm vi mặc định.
+      </p>
+
+      <div class="scope-toolbar">
+        <label class="sr-only" for="scope-filter">Lọc khu vực</label>
+        <input id="scope-filter" type="search" placeholder="Lọc theo tên khu vực" autocomplete="off" [value]="filter()" (input)="filter.set($any($event.target).value)" />
+        <button type="button" class="scope-link" (click)="selectVisible(true)">Chọn tất cả</button>
+        <button type="button" class="scope-link" (click)="selectVisible(false)">Bỏ chọn</button>
+      </div>
+
+      <fieldset class="scope-list">
+        <legend class="sr-only">Khu vực được phân quyền</legend>
+        @for (region of visibleRegions(); track region.id) {
+          <label class="scope-option">
+            <input type="checkbox" [checked]="selected().has(region.id)" (change)="toggle(region.id, $any($event.target).checked)" />
+            <span>{{ region.name }}</span>
+          </label>
+        } @empty {
+          <p class="scope-muted">Không có khu vực phù hợp.</p>
+        }
+      </fieldset>
+      <p class="scope-summary" aria-live="polite">Đã chọn {{ selectedCount() }} / {{ regions().length }} khu vực</p>
+    } @else {
+      @if (selectedNames().length) {
+        <ul class="scope-readonly">
+          @for (name of selectedNames(); track name) { <li>{{ name }}</li> }
+        </ul>
+      } @else {
+        <p class="scope-muted">Người dùng chưa được phân quyền khu vực nào.</p>
+      }
+    }
+  </div>
+
+  <footer class="scope-dialog-actions">
+    <button type="button" class="button secondary" [disabled]="saving()" (click)="close()">{{ editable() ? 'Hủy' : 'Đóng' }}</button>
+    @if (editable()) {
+      <button type="button" class="button primary" [disabled]="saving() || loading()" (click)="save()">{{ saving() ? 'Đang lưu...' : 'Lưu phạm vi' }}</button>
+    }
+  </footer>
+</dialog>

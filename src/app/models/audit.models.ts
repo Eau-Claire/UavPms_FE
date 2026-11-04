@@ -46,14 +46,18 @@ export interface ActionOption {
 
 export const AUDIT_TABLE_OPTIONS: readonly TableOption[] = [
   { value: '', label: 'Tất cả đối tượng' },
-  { value: 'Missions', label: 'Chuyến bay UAV (Missions)' },
-  { value: 'Inspections', label: 'Kiểm tra / Giám sát (Inspections)' },
+  { value: 'Missions', label: 'Nhiệm vụ bay (Missions)' },
+  { value: 'PreMissionAssessments', label: 'Đánh giá tiền khả thi (PreMissionAssessments)' },
+  { value: 'InspectionMedia', label: 'Ảnh / video kiểm tra (InspectionMedia)' },
+  { value: 'DetectedAnomalies', label: 'Bất thường phát hiện (DetectedAnomalies)' },
+  { value: 'EmergencyAlerts', label: 'Cảnh báo khẩn cấp (EmergencyAlerts)' },
+  { value: 'MaintenanceTickets', label: 'Phiếu bảo trì (MaintenanceTickets)' },
+  { value: 'Reports', label: 'Báo cáo (Reports)' },
   { value: 'Regions', label: 'Khu vực (Regions)' },
-  { value: 'Substations', label: 'Trạm biến áp (Substations)' },
-  { value: 'TransmissionLines', label: 'Đường dây truyền tải (TransmissionLines)' },
-  { value: 'Towers', label: 'Cột / Tháp điện (Towers)' },
-  { value: 'Assets', label: 'Tài sản / Thiết bị (Assets)' },
-  { value: 'Devices', label: 'Thiết bị bay / IoT (Devices)' },
+  { value: 'Towers', label: 'Cột điện (Towers)' },
+  { value: 'UAVs', label: 'Thiết bị bay UAV (UAVs)' },
+  { value: 'DroneTechnicalInspections', label: 'Kiểm định kỹ thuật UAV (DroneTechnicalInspections)' },
+  { value: 'DroneFlightControllers', label: 'Bộ điều khiển bay (DroneFlightControllers)' },
   { value: 'Users', label: 'Tài khoản người dùng (Users)' },
 ];
 

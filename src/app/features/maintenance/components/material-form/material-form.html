@@ -1,0 +1,49 @@
+<form class="mt-form" [formGroup]="form" aria-labelledby="material-form-title" novalidate (ngSubmit)="submit()">
+  <h3 id="material-form-title" class="mt-form-title">Ghi nhận vật tư đã sử dụng</h3>
+
+  @if (error()) {
+    <p class="mt-form-error" role="alert">{{ error() }}</p>
+  }
+  @if (status()) {
+    <p class="mt-form-status" role="status">{{ status() }}</p>
+  }
+
+  <div class="mt-form-grid">
+    <div class="mt-field">
+      <label for="material-name">Tên vật tư <span aria-hidden="true">*</span></label>
+      <input id="material-name" type="text" formControlName="componentName" required autocomplete="off"
+        [attr.aria-invalid]="showError('componentName')" [attr.aria-describedby]="showError('componentName') ? 'material-name-error' : null" />
+      @if (showError('componentName')) {
+        <span id="material-name-error" class="mt-field-error">Nhập tên vật tư.</span>
+      }
+    </div>
+    <div class="mt-field">
+      <label for="material-code">Mã vật tư</label>
+      <input id="material-code" type="text" formControlName="componentCode" autocomplete="off" />
+    </div>
+    <div class="mt-field">
+      <label for="material-quantity">Số lượng <span aria-hidden="true">*</span></label>
+      <input id="material-quantity" type="number" formControlName="quantityUsed" min="1" step="1" required inputmode="numeric"
+        [attr.aria-invalid]="showError('quantityUsed')" [attr.aria-describedby]="showError('quantityUsed') ? 'material-quantity-error' : null" />
+      @if (showError('quantityUsed')) {
+        <span id="material-quantity-error" class="mt-field-error">Số lượng là số nguyên lớn hơn 0.</span>
+      }
+    </div>
+    <div class="mt-field">
+      <label for="material-unit">Đơn vị tính <span aria-hidden="true">*</span></label>
+      <input id="material-unit" type="text" formControlName="unit" required placeholder="cái, bộ, mét..." autocomplete="off"
+        [attr.aria-invalid]="showError('unit')" [attr.aria-describedby]="showError('unit') ? 'material-unit-error' : null" />
+      @if (showError('unit')) {
+        <span id="material-unit-error" class="mt-field-error">Nhập đơn vị tính.</span>
+      }
+    </div>
+    <div class="mt-field mt-field-wide">
+      <label for="material-observations">Ghi chú hiện trường</label>
+      <textarea id="material-observations" formControlName="fieldObservations" rows="2" maxlength="1000"></textarea>
+    </div>
+  </div>
+
+  <div class="mt-form-actions">
+    <button type="submit" class="button primary" [disabled]="busy()">{{ busy() ? 'Đang lưu...' : 'Ghi nhận vật tư' }}</button>
+  </div>
+</form>

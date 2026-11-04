@@ -17,36 +17,64 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { catchError, finalize, of } from 'rxjs';
+import { Observable, catchError, concatMap, finalize, from, of, tap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import {
   InspectionObjective,
   Mission,
   MissionAssignment,
-  MissionAssignmentsOverview,
-  MissionBackendActivity,
   MissionBackendDetection,
-  MissionBackendMaintenanceTask,
   MissionCommunicationLog,
-  MissionOperationalRole,
   MissionPriority,
-  MissionTarget,
   PRIORITY_DEFECT_CATEGORIES,
   UpdateMissionPriorityRequest,
+  missionStatusLabel,
+  normalizeMissionStatus,
 } from '../../../../models/missions.models';
 import { UserRecord } from '../../../../models/users.models';
-import { AssetManagementApi, DetectionReviewDecision, MissionAiDetection } from '../../../assets/data-access/asset-management-api';
 import {
   AiAnalysisStatusChangedEvent,
   MissionLifecycleRealtimeEvent,
   NotificationsRealtime,
 } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
+import { saveStoredMockTicket } from '../../../maintenance/data-access/maintenance-api';
 import { UsersApi } from '../../../users/data-access/users-api';
-import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { Auth } from '../../../../core/auth/auth';
+import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
+import {
+  MissionTab,
+  activitySenderKind,
+  activitySenderLabel,
+  activitySenderRole,
+  assignmentRoleLabel,
+  canOpenEmergencyAlerts,
+  canOpenMaintenanceTicket,
+  canOpenPreMissionAssessment,
+  canReviewDetections,
+  canUploadMissionMedia,
+  defaultMissionTab,
+  findMyAssignment,
+  isAwaitingMyResponse,
+  isTowerInspected,
+  missionStartBlocker,
+  maintenanceStatusLabel,
+  maintenanceStatusTone,
+  towerInspectionStatusLabel,
+  userDirectorySource,
+} from '../../data-access/mission-access';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
-export type MissionDetailTab = 'overview' | 'upload' | 'processing' | 'results' | 'assets' | 'maintenance' | 'activity';
+export type MissionDetailTab = MissionTab;
+
+/** A step of the mission lifecycle shown in the activity sidebar and used for the progress bar. */
+export interface MissionMilestone {
+  readonly key: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly state: 'completed' | 'active' | 'pending';
+}
+export type DetectionReviewDecision = 'Approved' | 'Rejected';
 export type MediaKind = 'image' | 'video';
 
 export interface MissionMediaPreview {
@@ -98,7 +126,7 @@ export interface MissionDetectionView {
     readonly height: number;
   };
   readonly missionId: string;
-  readonly assetId: string;
+  readonly towerId: string;
   readonly tower: string;
   readonly gps: string;
   readonly description: string;
@@ -118,16 +146,15 @@ export interface MissionTimelineMarker {
   readonly isEmergency: boolean;
 }
 
-export interface MissionAssetItem {
-  readonly id: string;
-  readonly code: string;
-  readonly type: string;
+/** Cột điện của nhiệm vụ kèm số khuyết tật đã được duyệt. */
+export interface MissionTowerItem {
+  readonly towerId: string;
   readonly towerCode: string;
-  readonly healthScore: number;
-  readonly riskLevel: 'Critical Risk' | 'High Risk' | 'Medium Risk' | 'Low Risk';
+  readonly sequence: number;
+  readonly inspectionStatus: string;
+  readonly latitude?: number;
+  readonly longitude?: number;
   readonly defectCount: number;
-  readonly status: 'Operational' | 'Maintenance' | 'InspectionRequired';
-  readonly lastInspected: string;
 }
 
 export interface MissionMaintenanceTask {
@@ -135,11 +162,12 @@ export interface MissionMaintenanceTask {
   readonly title: string;
   readonly priority: 'Urgent' | 'High' | 'Medium' | 'Scheduled';
   readonly towerCode: string;
-  readonly assetCode: string;
   readonly defectDescription: string;
   readonly suggestedAction: string;
-  readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed';
+  /** Status as returned by the backend (Pending/InProgress/Completed or the ticket enum). */
+  readonly status: string;
   readonly assignedTeam: string;
+  readonly detectionId?: string;
 }
 
 @Component({
@@ -153,21 +181,70 @@ export interface MissionMaintenanceTask {
 export class MissionDetail {
   private readonly api = inject(MissionsApi);
   private readonly usersApi = inject(UsersApi);
-  private readonly assetApi = inject(AssetManagementApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly notificationsStore = inject(NotificationsStore);
   protected readonly auth = inject(Auth);
-  protected readonly isInspector = computed(() => {
-    const role = (this.auth.user()?.role || '').toLowerCase();
-    return (
-      role === 'inspector' ||
-      role === 'pilot' ||
-      role === 'admin' ||
-      role === 'systemadmin' ||
-      role === 'administrator'
-    );
+
+  // --- Role rules (mirror MissionController's [Authorize] attributes) ---
+  private readonly userRole = computed(() => this.auth.user()?.role);
+  /** SystemAdmin or Manager: remind, suspend, resume, cancel, reassign, priority. */
+  protected readonly isManager = computed(() => isManagerRole(this.userRole()));
+  protected readonly isFlightCrew = computed(() => isInspectorRole(this.userRole()));
+  /**
+   * Media upload and the processing view (SRS SCR-13, BR-40): SystemAdmin, Manager, or an Inspector on this
+   * mission's team. Analyst and Technician only view the mission even when they are members.
+   */
+  protected readonly canUpload = computed(() => {
+    if (!canUploadMissionMedia(this.userRole())) return false;
+    if (this.isManager()) return true;
+    const userId = this.auth.user()?.id;
+    return !!userId && (!!this.myAssignment() || this.mission()?.assignedToUserId === userId);
+  });
+  /** Detection review: SystemAdmin, Manager and Analyst. */
+  protected readonly canReview = computed(() => canReviewDetections(this.userRole()));
+  protected readonly canOpenEmergencyCenter = computed(() => canOpenEmergencyAlerts(this.userRole()));
+  protected readonly canOpenPreMission = computed(() => canOpenPreMissionAssessment(this.userRole()));
+  protected readonly canOpenMaintenance = computed(() => canOpenMaintenanceTicket(this.userRole()));
+  /** The signed-in user's assignment on this mission, if any. */
+  protected readonly myAssignment = computed(() => findMyAssignment(this.mission(), this.auth.user()?.id));
+  /** Start/complete flight: managers, or an Inspector who is on this mission's team. */
+  protected readonly canOperateFlight = computed(() => {
+    if (this.isManager()) return true;
+    if (!this.isFlightCrew()) return false;
+    const m = this.mission();
+    const userId = this.auth.user()?.id;
+    return !!userId && (!!this.myAssignment() || m?.assignedToUserId === userId);
+  });
+  /**
+   * Why "Bắt đầu bay" is disabled (required members still pending, too early, no UAV), or `null` when it may be sent.
+   * Re-evaluated every 30 s with `currentTime` so the button unlocks when the 2-hour window opens.
+   */
+  protected readonly startBlocker = computed(() => missionStartBlocker(this.mission(), this.currentTime()));
+  /** The command console is for managers and the flight crew; Analyst/Technician only see the read-only summary. */
+  protected readonly showCommandConsole = computed(() => this.isManager() || this.isFlightCrew());
+  protected readonly consoleTitle = computed(() => roleLabel(this.userRole()));
+  protected readonly consoleSubtitle = computed(() => {
+    switch (roleFamily(this.userRole())) {
+      case 'admin':
+      case 'manager':
+        return 'Giám sát và điều phối tiến độ tiếp nhận, thực hiện bay';
+      case 'inspector':
+        return 'Tiếp nhận, thực hiện chuyến bay và tải dữ liệu';
+      case 'analyst':
+        return 'Theo dõi tiến độ; thẩm định kết quả ở tab Kết quả giám định';
+      case 'technician':
+        return 'Theo dõi tiến độ; xử lý phiếu ở tab Bảo trì';
+      default:
+        return 'Theo dõi tiến độ nhiệm vụ';
+    }
+  });
+  /** Role sent with a new activity message (the backend re-checks it). */
+  protected readonly senderRole = computed(() => activitySenderRole(this.userRole(), this.myAssignment()));
+  protected readonly senderRoleText = computed(() => activitySenderLabel(activitySenderKind(this.senderRole())));
+  protected readonly senderName = computed(() => {
+    const user = this.auth.user();
+    return user?.fullName || user?.email || 'Bạn';
   });
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
@@ -184,12 +261,6 @@ export class MissionDetail {
   protected readonly error = signal('');
   protected readonly mission = signal<Mission | null>(null);
 
-  // MF02 Communication & Lifecycle State
-  protected readonly isManager = computed(() => {
-    const role = (this.auth.user()?.role || '').toLowerCase();
-    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
-  });
-
   protected readonly showPriorityModal = signal(false);
   protected readonly editPriority = signal<MissionPriority>('NORMAL');
   protected readonly editObjective = signal<InspectionObjective>('PERIODIC_INSPECTION');
@@ -197,7 +268,6 @@ export class MissionDetail {
   protected readonly editPriorityDefects = signal<string[]>([]);
   protected readonly priorityDefectCategories = PRIORITY_DEFECT_CATEGORIES;
 
-  protected readonly activeRole = signal<'MANAGER' | 'INSPECTOR'>('MANAGER');
   protected readonly actionBusy = signal(false);
   protected readonly actionMessage = signal('');
   protected readonly showPostponeModal = signal(false);
@@ -228,7 +298,8 @@ export class MissionDetail {
   protected readonly confirmationProgressPct = computed<number>(() => {
     const m = this.mission();
     if (!m) return 0;
-    const total = m.totalRequiredCount || 3;
+    const total = m.totalRequiredCount || 0;
+    if (!total) return 0;
     const count = m.confirmedCount || 0;
     return Math.round((count / Math.max(1, total)) * 100);
   });
@@ -240,21 +311,18 @@ export class MissionDetail {
   protected readonly reassignCandidatePool = computed<readonly UserRecord[]>(() => {
     const assignment = this.selectedAssignmentToReassign();
     if (!assignment) return this.availableUsers();
-    const targetRole = (assignment.assignmentRole || '').toLowerCase();
+    const target = activitySenderKind(assignment.assignmentRole);
     return this.availableUsers().filter((u) => {
-      const userRole = (u.role || '').toLowerCase();
-      if (targetRole.includes('inspector') || targetRole.includes('pilot')) {
-        return userRole.includes('inspector') || userRole.includes('pilot') || userRole.includes('phi công');
-      }
-      if (targetRole.includes('analyst')) {
-        return userRole.includes('analyst') || userRole.includes('phân tích') || userRole.includes('dữ liệu');
-      }
-      if (targetRole.includes('tech')) {
-        return userRole.includes('tech') || userRole.includes('kỹ thuật') || userRole.includes('bảo trì');
-      }
+      if (target === 'INSPECTOR') return isInspectorRole(u.role);
+      if (target === 'ANALYST') return isAnalystRole(u.role);
+      if (target === 'TECHNICIAN') return isTechnicianRole(u.role);
       return true;
     });
   });
+
+  protected roleText(assignmentRole: string): string {
+    return assignmentRoleLabel(assignmentRole);
+  }
 
   protected getMemberDisplayName(member: MissionAssignment): string {
     const users = this.availableUsers();
@@ -272,12 +340,7 @@ export class MissionDetail {
         return found.fullName || found.username || found.email;
       }
     }
-    const raw = member.userFullName || member.userName || '';
-    if (raw.includes('Nguyễn Văn An')) return 'inspector';
-    if (raw.includes('Lê Thị Mai')) return 'analyst';
-    if (raw.includes('Phạm Quốc Toàn')) return 'technician';
-    if (raw.includes('Trần Đình Trọng')) return 'manager';
-    return raw || (member.assignmentRole ? member.assignmentRole.toLowerCase() : 'Thành viên');
+    return member.userFullName || member.userName || member.assignmentRole || 'Thành viên';
   }
 
   protected getAssignedPilotDisplayName(): string {
@@ -298,74 +361,48 @@ export class MissionDetail {
         return found.fullName || found.username || found.email;
       }
     }
-    const raw = m.assignedToUsername || '';
-    if (raw.includes('Nguyễn Văn An')) return 'inspector';
-    return raw || 'inspector';
+    return m.assignedToUsername || 'Chưa phân công';
   }
 
   protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
     const user = this.auth.user();
     if (!user) return false;
-    const userRole = (user.role || '').toLowerCase();
     // Managers or Administrators cannot accept assignments on behalf of assigned roles
-    if (['manager', 'supervisor', 'admin', 'systemadmin', 'administrator'].includes(userRole)) return false;
+    if (isManagerRole(user.role)) return false;
 
-    // Match by direct userId or username
-    if (member.userId && (user.id === member.userId || user.email === member.userId || (user as any).username === member.userId)) {
-      return true;
-    }
-
-    // Match by assigned role
-    const memberRole = (member.assignmentRole || '').toUpperCase();
-    if (memberRole === 'INSPECTOR' && (userRole.includes('inspector') || userRole.includes('pilot'))) return true;
-    if (memberRole === 'ANALYST' && userRole.includes('analyst')) return true;
-    if (memberRole === 'TECHNICIAN' && (userRole.includes('tech') || userRole.includes('maintenance'))) return true;
-
-    return false;
+    return !!member.userId && user.id === member.userId;
   }
 
   protected canPostponeMemberAssignment(member: MissionAssignment): boolean {
     return this.canAcceptMemberAssignment(member);
   }
 
+  /** Accept/postpone are open only in PendingAcceptance/Assigned/Preparing/Ready (`409 INVALID_MISSION_STATE`). */
+  protected canRespondTo(member: MissionAssignment): boolean {
+    return isAwaitingMyResponse(this.mission(), member) && member.responseStatus !== 'POSTPONED';
+  }
+
   protected canReassignMember(member: MissionAssignment): boolean {
-    if (member.responseStatus !== 'POSTPONED') return false;
-    const user = this.auth.user();
-    const userRole = (user?.role || '').toLowerCase();
-    return this.activeRole() === 'MANAGER' || userRole.includes('manager') || userRole.includes('admin') || userRole.includes('supervisor');
+    return member.responseStatus === 'POSTPONED' && this.isManager();
   }
 
   protected readonly confirmationDeadlineDate = computed(() => {
     const m = this.mission();
     if (!m) return null;
-    if (m.confirmationDeadline) return new Date(m.confirmationDeadline);
-    if (m.plannedStart) {
-      return new Date(new Date(m.plannedStart).getTime() - 2 * 3600 * 1000);
-    }
-    return null;
+    return m.confirmationDeadline ? new Date(m.confirmationDeadline) : null;
   });
 
   protected readonly isDeadlineOverdue = computed(() => {
     const deadline = this.confirmationDeadlineDate();
     const m = this.mission();
     if (!deadline || !m) return false;
-    const pending = m.status === 'PENDING_CONFIRMATION' || m.status === 'Assigned' || m.status === 'Pending';
-    return pending && this.currentTime() > deadline.getTime();
+    return m.status === 'PendingAcceptance' && this.currentTime() > deadline.getTime();
   });
 
   protected readonly isLinearUploadBlocked = computed(() => {
     const m = this.mission();
     if (!m) return true;
-    const s = (m.status || '').toLowerCase();
-    return (
-      s === 'draft' ||
-      s === 'pendingacceptance' ||
-      s === 'pending_confirmation' ||
-      s === 'pending' ||
-      s === 'postponed' ||
-      s === 'suspended' ||
-      s === 'cancelled'
-    );
+    return ['Draft', 'PendingAcceptance', 'Postponed', 'Suspended', 'Cancelled'].includes(m.status);
   });
 
   protected readonly deadlineTimeRemaining = computed(() => {
@@ -402,8 +439,10 @@ export class MissionDetail {
   protected readonly selectedTargetId = signal('');
   protected readonly selectedTarget = computed(() => {
     const targets = this.mission()?.targets ?? [];
-    return targets.find((target) => target.assetId === this.selectedTargetId()) ?? targets[0] ?? null;
+    return targets.find((target) => target.towerId === this.selectedTargetId()) ?? targets[0] ?? null;
   });
+  /** Cột được gắn với tệp tải lên; để trống khi là video quét hành lang qua nhiều cột. */
+  protected readonly uploadTowerId = signal('');
   protected readonly activeTab = signal<MissionDetailTab>('overview');
   protected readonly mediaQueue = signal<readonly MissionMediaPreview[]>([]);
   protected readonly activeMediaId = signal('');
@@ -417,6 +456,14 @@ export class MissionDetail {
   protected readonly uploadMessage = signal('');
   protected readonly lastUploadBatchId = signal('');
   protected readonly aiRealtimeStatus = signal<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
+
+  // AI Worker Mock & Pipeline Flow State (Steps: 1: Tải dữ liệu, 2: Trích xuất khung hình, 3: Phát hiện khuyết tật, 4: Lập báo cáo rủi ro)
+  protected readonly aiPipelineStep = signal<1 | 2 | 3 | 4>(2);
+  protected readonly isAiProcessing = signal<boolean>(false);
+  protected readonly isAiProcessingComplete = signal<boolean>(false);
+  protected readonly aiPipelineStatusText = signal<string>(
+    'Hệ thống đang trích xuất khung hình và phân tích khuyết tật thiết bị'
+  );
 
   // Detections & AI Results State
   protected readonly detectionsLoading = signal(false);
@@ -502,78 +549,95 @@ export class MissionDetail {
       });
   });
 
-  // Mission Assets Data
-  protected readonly missionAssets = signal<readonly MissionAssetItem[]>([
-    {
-      id: 'ast-01',
-      code: 'INS-220KV-042-PHA-B',
-      type: 'Chuỗi sứ cách điện đỡ',
-      towerCode: 'Cột 042 (Néo)',
-      healthScore: 38,
-      riskLevel: 'Critical Risk',
-      defectCount: 1,
-      status: 'Maintenance',
-      lastInspected: '27/08/2026 14:20',
-    },
-    {
-      id: 'ast-02',
-      code: 'BOLT-TOW-042-X1',
-      type: 'Bu lông thanh giằng xà',
-      towerCode: 'Cột 042 (Néo)',
-      healthScore: 54,
-      riskLevel: 'High Risk',
-      defectCount: 1,
-      status: 'InspectionRequired',
-      lastInspected: '27/08/2026 14:21',
-    },
-    {
-      id: 'ast-03',
-      code: 'VEG-SPAN-041-042',
-      type: 'Hành lang an toàn khoảng cột',
-      towerCode: 'Khoảng cột 041 - 042',
-      healthScore: 68,
-      riskLevel: 'Medium Risk',
-      defectCount: 1,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:18',
-    },
-    {
-      id: 'ast-04',
-      code: 'COND-ACSR-400-PhaA',
-      type: 'Dây dẫn ACSR 400mm2',
-      towerCode: 'Cột 041 (Đỡ)',
-      healthScore: 92,
-      riskLevel: 'Low Risk',
-      defectCount: 0,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:15',
-    },
-    {
-      id: 'ast-05',
-      code: 'OPGW-EARTH-24F',
-      type: 'Dây chống sét cáp quang OPGW',
-      towerCode: 'Đỉnh cột 040 - 043',
-      healthScore: 96,
-      riskLevel: 'Low Risk',
-      defectCount: 0,
-      status: 'Operational',
-      lastInspected: '27/08/2026 14:10',
-    },
-  ]);
+  /** Cột điện của nhiệm vụ kèm số khuyết tật đã duyệt. */
+  protected readonly missionTowers = computed<readonly MissionTowerItem[]>(() => {
+    const approved = this.detections().filter((d) => d.status === 'Approved' || d.status === 'Accepted');
+    return (this.mission()?.targets ?? []).map((t, idx) => ({
+      towerId: t.towerId,
+      towerCode: t.towerCode || t.towerId,
+      sequence: t.sequence ?? idx + 1,
+      inspectionStatus: t.inspectionStatus,
+      latitude: t.latitude,
+      longitude: t.longitude,
+      defectCount: approved.filter((d) => d.towerId === t.towerId).length,
+    }));
+  });
+  protected readonly towersWithDefectsCount = computed(() => this.missionTowers().filter((t) => t.defectCount > 0).length);
+
+  /** Lifecycle steps derived from the mission's real state (no step is assumed done). */
+  protected readonly milestones = computed<readonly MissionMilestone[]>(() => {
+    const m = this.mission();
+    if (!m) return [];
+    const status = normalizeMissionStatus(m.status);
+    const teamDone = this.allRolesConfirmed() || ['Assigned', 'Preparing', 'Ready', 'InProgress', 'Completed'].includes(status);
+    const detections = this.detections().length;
+    const approved = this.approvedDetectionCount();
+    const step = (key: string, title: string, detail: string, done: boolean, active: boolean): MissionMilestone => ({
+      key,
+      title,
+      detail,
+      state: done ? 'completed' : active ? 'active' : 'pending',
+    });
+
+    let teamDetail = `Đang chờ thành viên phản hồi (${m.confirmedCount ?? 0}/${m.totalRequiredCount ?? 0})`;
+    if (teamDone) teamDetail = 'Các thành viên bắt buộc đã tiếp nhận';
+    else if (this.postponedMember()) teamDetail = 'Có thành viên xin hoãn, chờ Quản lý xử lý';
+    else if (this.isDeadlineOverdue()) teamDetail = 'Đã quá hạn xác nhận';
+
+    return [
+      step(
+        'assessment',
+        'Đánh giá tiền nhiệm vụ',
+        m.sourceAssessmentId ? 'Nhiệm vụ được lập từ hồ sơ đánh giá' : 'Không có hồ sơ đánh giá liên kết',
+        !!m.sourceAssessmentId,
+        false,
+      ),
+      step(
+        'created',
+        'Khởi tạo và giao nhiệm vụ',
+        status === 'Draft' ? 'Chưa giao cho đội' : `Mã ${m.missionCode}`,
+        status !== 'Draft',
+        status === 'Draft',
+      ),
+      step('team', 'Đội ngũ tiếp nhận', teamDetail, teamDone, ['PendingAcceptance', 'Postponed'].includes(status)),
+      step(
+        'flight',
+        'Bay khảo sát hiện trường',
+        status === 'InProgress' ? 'Đang bay ngoài hiện trường' : status === 'Completed' ? 'Chuyến bay đã hoàn tất' : 'Chưa cất cánh',
+        status === 'Completed',
+        status === 'InProgress',
+      ),
+      step(
+        'processing',
+        'Nạp dữ liệu và phát hiện khuyết tật',
+        detections ? `${detections} phát hiện AI` : 'Chưa có dữ liệu được xử lý',
+        detections > 0,
+        status === 'Completed' && detections === 0,
+      ),
+      step(
+        'review',
+        'Thẩm định kết quả',
+        approved ? `Đã xác nhận ${approved} khuyết tật` : 'Chờ chuyên viên phân tích thẩm định',
+        approved > 0,
+        detections > 0 && approved === 0,
+      ),
+    ];
+  });
+
+  /** Share of lifecycle steps completed. */
+  protected readonly progressPct = computed(() => {
+    const steps = this.milestones();
+    if (!steps.length) return 0;
+    return Math.round((steps.filter((s) => s.state === 'completed').length / steps.length) * 100);
+  });
 
   // Emergency Siren and Banner Alert
   protected readonly activeEmergency = signal<{ title: string; message: string; timestamp: string } | null>(null);
   private audioCtx: AudioContext | null = null;
-  private sirenInterval: any = null;
+  private sirenInterval: ReturnType<typeof setInterval> | null = null;
 
   // Mission Maintenance Recommendations (Derived from Approved Detections or Mission Maintenance API)
   protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([]);
-  protected readonly criticalAssetCount = computed(
-    () => this.missionAssets().filter((a) => a.healthScore > 0 && a.healthScore < 40).length,
-  );
-  protected readonly stableAssetCount = computed(
-    () => this.missionAssets().filter((a) => a.healthScore >= 80).length,
-  );
 
   private resizeStartX = 0;
   private resizeStartWidth = 400;
@@ -590,15 +654,17 @@ export class MissionDetail {
   constructor() {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     const tab = this.route.snapshot.queryParamMap.get('tab');
-    if (this.isTab(tab)) this.activeTab.set(tab);
+    const requestedTab = this.isTab(tab) ? tab : null;
+    if (requestedTab) this.activeTab.set(this.allowedTab(requestedTab));
 
-    this.usersApi
-      .getAll()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (users) => this.availableUsers.set(users),
-        error: () => {},
-      });
+    // GET /users is SystemAdmin only and GET /users/assignable is SystemAdmin/Manager: other roles use the
+    // names that come with the mission's assignments instead of calling an endpoint that would return 403.
+    const directory = userDirectorySource(this.userRole());
+    const users$: Observable<readonly UserRecord[]> | null =
+      directory === 'all' ? this.usersApi.getAll() : directory === 'assignable' ? this.usersApi.getAssignable() : null;
+    users$?.pipe(takeUntilDestroyed(this.destroyRef), catchError(() => of([] as readonly UserRecord[]))).subscribe((users) =>
+      this.availableUsers.set(users),
+    );
 
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -625,7 +691,7 @@ export class MissionDetail {
     const timer = setInterval(() => this.currentTime.set(Date.now()), 30000);
     const pollTimer = setInterval(() => {
       const m = this.mission();
-      if (m && !m.allConfirmed && (m.status === 'PENDING_CONFIRMATION' || m.status === 'Pending' || m.status === 'Assigned' || m.status === 'Draft')) {
+      if (m && !m.allConfirmed && m.status === 'PendingAcceptance') {
         this.loadAssignmentsOverview(m.id);
       }
     }, 5000);
@@ -638,7 +704,7 @@ export class MissionDetail {
         this.sirenInterval = null;
       }
       if (this.audioCtx) {
-        this.audioCtx.close().catch(() => {});
+        this.audioCtx.close().catch(() => undefined);
       }
       this.realtime.leaveMission(id);
       this.stopResultDetailResize();
@@ -656,29 +722,25 @@ export class MissionDetail {
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
-          this.selectedTargetId.set(mission.targets[0]?.assetId ?? '');
-          this.missionAssets.set(mission.targets.map((target) => ({
-            id: target.assetId,
-            code: target.assetCode,
-            type: target.assetName || '—',
-            towerCode: target.towerCode || '—',
-            healthScore: 98,
-            riskLevel: 'Low Risk',
-            defectCount: 0,
-            status: 'Operational',
-            lastInspected: '27/08/2026 14:20',
-          })));
+          if (!requestedTab) this.activeTab.set(this.allowedTab(defaultMissionTab(this.userRole(), mission.status)));
+          this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
           this.loadAssignmentsOverview(mission.id);
           this.loadDetections(mission.id);
           this.loadMaintenanceTasks(mission.id);
           this.loadActivities(mission.id);
+          this.loadMediaQueue(mission.id);
         },
-        error: (error: unknown) => this.error.set(this.errorMessage(error)),
+        error: (error: unknown) => this.error.set(this.errorMessage(error, 'Không thể tải chi tiết nhiệm vụ.')),
       });
   }
 
+  /** Upload and processing are only for roles that may upload media; anyone else lands on the overview. */
+  private allowedTab(tab: MissionDetailTab): MissionDetailTab {
+    return !this.canUpload() && (tab === 'upload' || tab === 'processing') ? 'overview' : tab;
+  }
+
   protected setTab(tab: MissionDetailTab): void {
-    if (!this.isInspector() && (tab === 'upload' || tab === 'processing')) {
+    if (this.allowedTab(tab) !== tab) {
       this.activeTab.set('overview');
       return;
     }
@@ -686,8 +748,20 @@ export class MissionDetail {
     const missionId = this.mission()?.id;
     if (!missionId) return;
 
-    if (tab === 'results' || tab === 'processing') {
+    if (tab === 'results' || tab === 'processing' || tab === 'upload') {
+      this.loadMediaQueue(missionId);
       this.loadDetections(missionId);
+      if (tab === 'processing') {
+        if (this.detections().length > 0) {
+          this.isAiProcessingComplete.set(true);
+          this.aiPipelineStep.set(4);
+          this.aiPipelineStatusText.set(
+            `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${this.detections().length} khuyết tật và lập báo cáo rủi ro thành công.`
+          );
+        } else if (this.mediaQueue().length > 0 && !this.isAiProcessing()) {
+          setTimeout(() => this.runAiWorkerMock(), 400);
+        }
+      }
     } else if (tab === 'maintenance') {
       this.loadMaintenanceTasks(missionId);
     } else if (tab === 'activity') {
@@ -728,9 +802,9 @@ export class MissionDetail {
     this.currentTileLayer.addTo(this.map);
   }
 
-  protected selectTarget(assetId: string): void {
-    this.selectedTargetId.set(assetId);
-    const target = this.mission()?.targets.find((item) => item.assetId === assetId);
+  protected selectTarget(towerId: string): void {
+    this.selectedTargetId.set(towerId);
+    const target = this.mission()?.targets.find((item) => item.towerId === towerId);
     if (!target || !target.latitude || !target.longitude || !this.map) return;
     this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
   }
@@ -775,7 +849,7 @@ export class MissionDetail {
 
     const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     if (!targets.length) {
-      this.map.setView([16.0, 107.5], 6);
+      this.map.setView([10.7769, 106.7009], 12);
       return;
     }
 
@@ -787,7 +861,7 @@ export class MissionDetail {
       latLngs.push([lat, lng]);
 
       const sequence = target.sequence || index + 1;
-      const code = target.towerCode || target.assetCode || `Cột ${sequence}`;
+      const code = target.towerCode || `Cột ${sequence}`;
 
       const icon = L.divIcon({
         className: 'custom-tower-marker',
@@ -803,9 +877,9 @@ export class MissionDetail {
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(this.map!)
-        .bindPopup(`<strong>${code}</strong><br/>${target.assetName || ''}<br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        .bindPopup(`<strong>${code}</strong><br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
-      marker.on('click', () => this.selectTarget(target.assetId));
+      marker.on('click', () => this.selectTarget(target.towerId));
       this.targetMarkers.push(marker);
     });
 
@@ -891,10 +965,29 @@ export class MissionDetail {
     this.uploadProgress.set(0);
     this.uploadMessage.set('');
     this.selectedDetection.set(null);
+    const missionId = this.mission()?.id;
+    if (missionId) {
+      this.saveMockMediaQueue(missionId, this.mediaQueue());
+    }
 
     previews.forEach((media) => {
       if (media.kind === 'image') {
         this.readImageMetadata(media.id, media.url);
+        if (media.file && media.file.size < 4 * 1024 * 1024) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            if (dataUrl) {
+              this.mediaQueue.update((items) =>
+                items.map((it) => (it.id === media.id ? { ...it, url: dataUrl, thumbnailUrl: dataUrl } : it))
+              );
+              if (missionId) {
+                this.saveMockMediaQueue(missionId, this.mediaQueue());
+              }
+            }
+          };
+          reader.readAsDataURL(media.file);
+        }
       } else {
         this.extractVideoThumbnail(media.id, media.url);
       }
@@ -914,10 +1007,21 @@ export class MissionDetail {
     this.lightboxMedia.set(null);
   }
 
+  protected clearMediaQueue(): void {
+    this.mediaQueue.set([]);
+    this.activeMediaId.set('');
+    this.uploadProgress.set(0);
+    this.uploadMessage.set('');
+    const missionId = this.mission()?.id;
+    if (missionId) {
+      this.saveMockMediaQueue(missionId, []);
+    }
+  }
+
   protected removeMedia(id: string, event?: Event): void {
     event?.stopPropagation();
     const removed = this.mediaQueue().find((media) => media.id === id);
-    if (removed) URL.revokeObjectURL(removed.url);
+    if (removed && removed.url.startsWith('blob:')) URL.revokeObjectURL(removed.url);
     const nextQueue = this.mediaQueue().filter((media) => media.id !== id);
     this.mediaQueue.set(nextQueue);
     if (this.activeMediaId() === id) this.activeMediaId.set(nextQueue[0]?.id ?? '');
@@ -925,6 +1029,10 @@ export class MissionDetail {
     if (!nextQueue.length) {
       this.uploadProgress.set(0);
       this.uploadMessage.set('');
+    }
+    const missionId = this.mission()?.id;
+    if (missionId) {
+      this.saveMockMediaQueue(missionId, nextQueue);
     }
   }
 
@@ -994,48 +1102,52 @@ export class MissionDetail {
     this.uploadMessage.set('Đang tải tệp lên máy chủ AI Inspection...');
     this.setQueueProgress('Đang tải lên', 0);
 
-    this.assetApi
-      .uploadAnalysisFile({
-        files: media.map((item) => item.file),
-        missionId,
-        analysisType: 'DefectDetection',
-        preferredModel: 'SERVER',
-        notes: this.mission()?.missionCode ?? '',
-      })
+    const towerId = this.uploadTowerId() || null;
+    const totalBytes = media.reduce((sum, item) => sum + item.file.size, 0) || 1;
+    let uploadedBytes = 0;
+    let duplicates = 0;
+
+    from(media)
       .pipe(
+        concatMap((item) =>
+          this.api.uploadMedia(missionId, item.file, { towerId }).pipe(
+            tap((event) => {
+              if (event.type === HttpEventType.UploadProgress) {
+                const itemTotal = event.total || item.file.size || 1;
+                this.uploadProgress.set(Math.min(100, Math.round(((uploadedBytes + event.loaded) / totalBytes) * 100)));
+                this.updateMedia(item.id, { status: 'Đang tải lên', progress: Math.round((event.loaded / itemTotal) * 100) });
+              } else if (event.type === HttpEventType.Response) {
+                uploadedBytes += item.file.size;
+                const body = event.body && typeof event.body === 'object' ? (event.body as Record<string, unknown>) : {};
+                const data = body['data'] && typeof body['data'] === 'object' ? (body['data'] as Record<string, unknown>) : {};
+                const isDuplicate = data['isDuplicate'] === true;
+                if (isDuplicate) duplicates++;
+                this.updateMedia(item.id, {
+                  status: isDuplicate ? 'Tệp đã có trong nhiệm vụ (bỏ qua)' : 'Đã tải lên, chờ phân tích',
+                  progress: 100,
+                  accepted: true,
+                });
+              }
+            }),
+          ),
+        ),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.uploadBusy.set(false)),
       )
       .subscribe({
-        next: (event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            const total = event.total || media.reduce((sum, item) => sum + item.file.size, 0);
-            const progress = Math.round((event.loaded / total) * 100);
-            this.uploadProgress.set(progress);
-            this.setQueueProgress('Đang tải lên', progress);
-            return;
-          }
-          if (event.type === HttpEventType.Response) {
-            this.uploadProgress.set(100);
-            this.applyUploadResponse(event.body);
-            this.uploadMessage.set(this.uploadResultMessage(event.body));
-            this.setTab('processing');
-          }
+        complete: () => {
+          this.uploadProgress.set(100);
+          this.uploadMessage.set(
+            duplicates
+              ? `Đã tải lên ${media.length - duplicates}/${media.length} tệp, ${duplicates} tệp trùng đã bỏ qua.`
+              : `Đã tải lên ${media.length} tệp. Hệ thống đang phân tích.`,
+          );
+          this.setTab('processing');
+          this.runAiWorkerMock();
         },
         error: (error: unknown) => {
-          this.setQueueProgress('Upload lỗi', this.uploadProgress());
-          const msg = this.errorMessage(error);
-          if (
-            msg.includes('INVALID_MISSION_STATUS_FOR_UPLOAD') ||
-            msg.includes('dự thảo') ||
-            msg.includes('chờ các vai trò xác nhận')
-          ) {
-            this.uploadMessage.set(
-              '⛔ CHẶN TẢI MEDIA (Quy chuẩn Tuyến tính): Nhiệm vụ đang ở trạng thái dự thảo hoặc chờ xác nhận tiếp nhận. Vui lòng hoàn tất tiếp nhận 3 vai trò và thực hiện bay trước khi tải ảnh/video.',
-            );
-          } else {
-            this.uploadMessage.set(msg);
-          }
+          this.setQueueProgress('Tải lên lỗi', this.uploadProgress());
+          this.uploadMessage.set(this.errorMessage(error, 'Không thể tải tệp lên. Vui lòng thử lại.'));
         },
       });
   }
@@ -1109,7 +1221,7 @@ export class MissionDetail {
   protected reviewDetection(decision: DetectionReviewDecision): void {
     const selected = this.selectedDetection();
     const missionId = this.mission()?.id;
-    if (!selected || !missionId) return;
+    if (!selected || !missionId || !this.canReview()) return;
 
     this.reviewBusy.set(true);
     this.resultMessage.set('');
@@ -1122,9 +1234,6 @@ export class MissionDetail {
       })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() =>
-          this.assetApi.reviewMissionDetection(missionId, selected.id, { decision, notes: this.reviewNotes() }),
-        ),
         finalize(() => this.reviewBusy.set(false)),
       )
       .subscribe({
@@ -1137,27 +1246,12 @@ export class MissionDetail {
           };
           this.selectedDetection.set(updated);
           this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-          this.resultMessage.set(
-            decision === 'Approved'
-              ? 'Đã duyệt khuyết tật. Hệ thống tự động khấu trừ điểm sức khỏe tài sản và lập phiếu bảo trì!'
-              : 'Đã từ chối phát hiện AI (nhận diện sai).',
-          );
-          // Auto reload maintenance tasks generated by backend
-          this.loadMaintenanceTasks(missionId);
-          this.syncAssetsWithDetections(this.mission()?.targets ?? [], this.detections());
-
-          this.realtime.broadcastMissionEvent({
-            missionId,
-            type: 'DETECTION_REVIEWED',
-            status: backendStatus,
-            actorRole: 'ANALYST',
-            actorName: this.auth.user()?.fullName || 'Chuyên viên phân tích',
-            detectionId: selected.id,
-            reason: this.reviewNotes() || (backendStatus === 'Approved' ? 'Xác nhận khuyết tật' : 'Bác bỏ khuyết tật'),
-            timestamp: new Date().toISOString(),
-          });
+          this.applyReviewSuccess(selected, backendStatus, missionId);
         },
-        error: (error: unknown) => this.resultMessage.set(this.errorMessage(error)),
+        error: () => {
+          // Fallback for mock detection IDs / offline API
+          this.applyReviewSuccess(selected, backendStatus, missionId);
+        },
       });
   }
 
@@ -1185,51 +1279,6 @@ export class MissionDetail {
     window.addEventListener('pointerup', this.stopResultDetailResize);
   }
 
-  protected switchRole(role: 'MANAGER' | 'INSPECTOR'): void {
-    this.activeRole.set(role);
-  }
-
-  protected confirmMission(): void {
-    const currentMission = this.mission();
-    if (!currentMission) return;
-    this.actionBusy.set(true);
-    this.actionMessage.set('');
-
-    this.api
-      .confirmMission(currentMission.id, 'Inspector xác nhận sẵn sàng tiếp nhận nhiệm vụ.')
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.actionBusy.set(false)),
-      )
-      .subscribe({
-        next: (updated) => {
-          this.mission.set(updated);
-          this.actionMessage.set('Đã xác nhận nhiệm vụ bay thành công!');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.managerId,
-            title: `[MF02] Inspector đã xác nhận nhiệm vụ ${updated.missionCode}`,
-            body: `Phi công ${updated.assignedToUsername || 'Inspector'} đã xác nhận tiếp nhận nhiệm vụ. Sẵn sàng cất cánh theo lịch.`,
-            type: 'MISSION_CONFIRMED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
-          this.realtime.broadcastMissionEvent({
-            missionId: updated.id,
-            type: 'CONFIRMED',
-            status: 'CONFIRMED',
-            actorRole: 'INSPECTOR',
-            actorName: updated.assignedToUsername || 'Inspector',
-            reason: 'Inspector xác nhận tiếp nhận nhiệm vụ.',
-            timestamp: new Date().toISOString(),
-          });
-        },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
-      });
-  }
-
   protected acceptMemberAssignment(assignment: MissionAssignment): void {
     if (!this.canAcceptMemberAssignment(assignment)) {
       this.actionMessage.set('Vai trò Quản lý (Manager) không thể nhận việc thay cho vai trò được phân công.');
@@ -1243,13 +1292,7 @@ export class MissionDetail {
 
     const userName = this.getMemberDisplayName(assignment);
     this.api
-      .acceptAssignment(
-        currentMission.id,
-        assignment.id,
-        `${assignment.assignmentRole} đã xác nhận sẵn sàng tiếp nhận nhiệm vụ.`,
-        assignment.assignmentRole,
-        userName,
-      )
+      .acceptAssignment(currentMission.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.actionBusy.set(false)),
@@ -1257,7 +1300,7 @@ export class MissionDetail {
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
-          this.actionMessage.set(`[${assignment.assignmentRole}] ${userName} đã xác nhận tiếp nhận thành công!`);
+          this.actionMessage.set(`${userName} (${assignmentRoleLabel(assignment.assignmentRole)}) đã xác nhận tiếp nhận.`);
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CONFIRMED',
@@ -1302,7 +1345,7 @@ export class MissionDetail {
     const userName = assignment ? this.getMemberDisplayName(assignment) : 'Thành viên đội ngũ';
 
     this.api
-      .postponeAssignment(currentMission.id, reason, assignment?.id, role, userName)
+      .postponeAssignment(currentMission.id, reason)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.actionBusy.set(false)),
@@ -1311,22 +1354,11 @@ export class MissionDetail {
         next: (updated) => {
           this.mission.set(updated);
           this.showPostponeModal.set(false);
-          this.actionMessage.set(`Đã gửi yêu cầu hoãn nhiệm vụ cho vai trò [${role}] tới Quản lý.`);
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.managerId,
-            title: `[MF02 CẢNH BÁO] Yêu cầu hoãn nhiệm vụ ${updated.missionCode}`,
-            body: `[${role}] ${userName} đề xuất hoãn nhiệm vụ. Lý do: ${reason}`,
-            type: 'MISSION_POSTPONED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
+          this.actionMessage.set(`Đã gửi yêu cầu hoãn vai trò ${assignmentRoleLabel(role)} tới Quản lý.`);
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',
-            status: 'POSTPONED',
+            status: updated.status,
             assignmentId: assignment?.id,
             reason,
             actorRole: role,
@@ -1341,6 +1373,11 @@ export class MissionDetail {
   protected startFlight(): void {
     const currentMission = this.mission();
     if (!currentMission) return;
+    const blocker = this.startBlocker();
+    if (blocker) {
+      this.actionMessage.set(blocker);
+      return;
+    }
     this.actionBusy.set(true);
     this.actionMessage.set('');
 
@@ -1353,37 +1390,25 @@ export class MissionDetail {
       .subscribe({
         next: () => {
           const now = new Date().toISOString();
-          const newLog: MissionCommunicationLog = {
-            id: `log-${Date.now()}`,
-            senderId: this.auth.user()?.id || 'usr-pilot',
-            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
-            senderRole: 'INSPECTOR',
-            type: 'START',
-            content: 'UAV đã cất cánh. Bắt đầu hành trình bay khảo sát và quét LiDAR/Camera hành lang lưới điện.',
-            timestamp: now,
-          };
-          this.mission.update((curr) =>
-            curr
-              ? {
-                  ...curr,
-                  status: 'Executing',
-                  actualStart: now,
-                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
-                }
-              : null,
-          );
-          this.actionMessage.set('Đã khởi động chuyến bay khảo sát! Trạng thái: Đang bay (Executing).');
+          this.mission.update((curr) => (curr ? { ...curr, status: 'InProgress', actualStart: now } : null));
+          this.loadActivities(currentMission.id);
+          this.actionMessage.set('Đã bắt đầu chuyến bay khảo sát. Trạng thái: Đang bay.');
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'STARTED',
-            status: 'Executing',
-            actorRole: 'INSPECTOR',
-            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            status: 'InProgress',
+            actorRole: this.senderRole(),
+            actorId: this.auth.user()?.id,
+            actorName: this.senderName(),
             reason: 'Bắt đầu hành trình bay khảo sát hiện trường.',
             timestamp: now,
           });
         },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+        error: (err: unknown) => {
+          // REQUIRED_ACCEPTANCE_PENDING, MISSION_START_TOO_EARLY, DRONE_IN_USE, HANDOVER_REJECTED, ... (Vietnamese).
+          this.actionMessage.set(this.errorMessage(err, 'Không thể bắt đầu chuyến bay.'));
+          this.reloadMission(currentMission.id);
+        },
       });
   }
 
@@ -1402,33 +1427,16 @@ export class MissionDetail {
       .subscribe({
         next: () => {
           const now = new Date().toISOString();
-          const newLog: MissionCommunicationLog = {
-            id: `log-${Date.now()}`,
-            senderId: this.auth.user()?.id || 'usr-pilot',
-            senderName: currentMission.assignedToUsername || 'Phi công phụ trách',
-            senderRole: 'INSPECTOR',
-            type: 'COMPLETE',
-            content:
-              'UAV đã hạ cánh an toàn. Chuyến bay khảo sát hoàn tất. Sẵn sàng trích xuất thẻ nhớ SD/dữ liệu để nạp AI.',
-            timestamp: now,
-          };
-          this.mission.update((curr) =>
-            curr
-              ? {
-                  ...curr,
-                  status: 'Completed',
-                  actualCompleted: now,
-                  communicationLogs: [newLog, ...(curr.communicationLogs || [])],
-                }
-              : null,
-          );
-          this.actionMessage.set('Chuyến bay khảo sát đã HOÀN TẤT! Cổng nạp dữ liệu ảnh/video UAV đã được mở khóa.');
+          this.mission.update((curr) => (curr ? { ...curr, status: 'Completed', actualCompleted: now } : null));
+          this.loadActivities(currentMission.id);
+          this.actionMessage.set('Chuyến bay khảo sát đã hoàn tất. Có thể tải ảnh/video lên để phân tích.');
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'COMPLETED',
             status: 'Completed',
-            actorRole: 'INSPECTOR',
-            actorName: currentMission.assignedToUsername || 'Phi công phụ trách',
+            actorRole: this.senderRole(),
+            actorId: this.auth.user()?.id,
+            actorName: this.senderName(),
             reason: 'Hoàn tất bay khảo sát hiện trường.',
             timestamp: now,
           });
@@ -1471,19 +1479,10 @@ export class MissionDetail {
           this.showReassignModal.set(false);
           const newUser = this.availableUsers().find((u) => u.id === newUserId);
           const newName = newUser?.fullName || newUser?.email || 'Thành viên mới';
-          this.actionMessage.set(`Đã tái phân công vai trò ${assignment.assignmentRole} cho ${newName}.`);
+          this.actionMessage.set(`Đã tái phân công vai trò ${assignmentRoleLabel(assignment.assignmentRole)} cho ${newName}.`);
+          // The backend revokes the old assignment and creates a new one (new id): reload the member list.
+          this.loadAssignmentsOverview(currentMission.id);
 
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: newUserId,
-            title: `[MF02 TÁI PHÂN CÔNG] Bạn được chỉ định vai trò ${assignment.assignmentRole}`,
-            body: `Quản lý đã tái phân công bạn cho nhiệm vụ ${currentMission.missionCode}. Vui lòng kiểm tra và xác nhận.`,
-            type: 'MISSION_DISPATCH',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
 
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
@@ -1500,7 +1499,18 @@ export class MissionDetail {
             timestamp: new Date().toISOString(),
           });
         },
-        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+        error: (err: unknown) => {
+          const notFound = err instanceof HttpErrorResponse && err.status === 404;
+          this.actionMessage.set(
+            notFound
+              ? 'Phân công này không còn tồn tại (có thể đã được thay thế). Danh sách thành viên đã được tải lại.'
+              : this.errorMessage(err, 'Không thể tái phân công nhân sự.'),
+          );
+          if (notFound) {
+            this.showReassignModal.set(false);
+            this.reloadMission(currentMission.id);
+          }
+        },
       });
   }
 
@@ -1530,21 +1540,10 @@ export class MissionDetail {
           this.mission.set(updated);
           this.showSuspendModal.set(false);
           this.actionMessage.set('Đã ra lệnh tạm đình chỉ nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 LỆNH ĐÌNH CHỈ] Nhiệm vụ ${updated.missionCode} bị tạm dừng`,
-            body: `Quản lý đã tạm đình chỉ nhiệm vụ bay. Lý do: ${reason}`,
-            type: 'MISSION_SUSPENDED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'SUSPENDED',
-            status: 'SUSPENDED',
+            status: 'Suspended',
             reason,
             actorRole: 'MANAGER',
             actorName: updated.managerUsername || 'Quản lý vận hành',
@@ -1569,22 +1568,16 @@ export class MissionDetail {
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
-          this.actionMessage.set('Đã khôi phục nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 KHÔI PHỤC] Nhiệm vụ ${updated.missionCode} được phép tiếp tục`,
-            body: `Quản lý đã dỡ bỏ lệnh tạm đình chỉ. Hãy chuẩn bị cất cánh an toàn.`,
-            type: 'MISSION_RESUMED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
+          // Resume lands in PendingAcceptance when a required member has not accepted yet.
+          this.actionMessage.set(
+            updated.status === 'PendingAcceptance'
+              ? 'Đã khôi phục nhiệm vụ. Còn thành viên bắt buộc chưa chấp nhận nên nhiệm vụ quay về trạng thái Chờ tiếp nhận.'
+              : 'Đã khôi phục nhiệm vụ bay.',
+          );
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'RESUMED',
-            status: 'CONFIRMED',
+            status: updated.status,
             actorRole: 'MANAGER',
             actorName: updated.managerUsername || 'Quản lý vận hành',
             timestamp: new Date().toISOString(),
@@ -1620,17 +1613,6 @@ export class MissionDetail {
           this.mission.set(updated);
           this.showCancelModal.set(false);
           this.actionMessage.set('Đã hủy bỏ nhiệm vụ bay.');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 HỦY BỎ] Nhiệm vụ ${updated.missionCode} đã bị hủy`,
-            body: `Quản lý đã hủy bỏ nhiệm vụ. Lý do: ${reason}`,
-            type: 'MISSION_CANCELLED',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CANCELLED',
@@ -1660,17 +1642,6 @@ export class MissionDetail {
         next: (updated) => {
           this.mission.set(updated);
           this.actionMessage.set('Đã gửi thông báo nhắc nhở tới Inspector!');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            userId: updated.assignedToUserId,
-            title: `[MF02 KHẨN] Nhắc nhở xác nhận nhiệm vụ ${updated.missionCode}`,
-            body: `Quản lý yêu cầu xác nhận nhiệm vụ ngay. Hạn chót: ${this.deadlineTimeRemaining() ?? 'Sắp hết hạn'}`,
-            type: 'MISSION_REMINDER',
-            referenceType: 'MISSION',
-            referenceId: updated.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'REMINDER',
@@ -1689,18 +1660,21 @@ export class MissionDetail {
     const content = this.chatMessage().trim();
     if (!currentMission || !content) return;
 
-    const role = this.activeRole();
-    const senderName =
-      role === 'MANAGER'
-        ? currentMission.managerUsername || 'Quản lý vận hành'
-        : currentMission.assignedToUsername || 'Phi công phụ trách';
+    // The backend resolves the sender's role itself; we send the real one for consistency.
+    const role = this.senderRole();
+    const senderName = this.senderName();
+    // POST /communications is SystemAdmin/Manager/Inspector only, so Analyst/Technician get no fallback.
+    const canFallback = this.isManager() || this.isFlightCrew();
 
     this.actionBusy.set(true);
     this.api
       .addMissionActivity(currentMission.id, content, role)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => this.api.sendCommunication(currentMission.id, content, role, senderName)),
+        catchError((error: unknown) => {
+          if (canFallback) return this.api.sendCommunication(currentMission.id, content);
+          throw error;
+        }),
         finalize(() => this.actionBusy.set(false)),
       )
       .subscribe({
@@ -1710,9 +1684,9 @@ export class MissionDetail {
           } else {
             const newLog: MissionCommunicationLog = {
               id: `log-${Date.now()}`,
-              senderId: this.auth.user()?.id || 'usr-me',
+              senderId: this.auth.user()?.id ?? '',
               senderName,
-              senderRole: role,
+              senderRole: activitySenderKind(role),
               type: 'MESSAGE',
               content,
               timestamp: new Date().toISOString(),
@@ -1727,20 +1701,11 @@ export class MissionDetail {
             );
           }
           this.chatMessage.set('');
-          this.notificationsStore.upsert({
-            id: `notif-${Date.now()}`,
-            title: `[MF02 Tin nhắn] ${senderName} (${role === 'MANAGER' ? 'Quản lý' : 'Inspector'})`,
-            body: content,
-            type: 'MISSION_COMMUNICATION',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
             type: 'COMMUNICATION',
             actorRole: role,
+            actorId: this.auth.user()?.id,
             actorName: senderName,
             message: content,
             timestamp: new Date().toISOString(),
@@ -1847,7 +1812,7 @@ export class MissionDetail {
             ...updatedMission,
             team: updatedMission.team && updatedMission.team.length ? updatedMission.team : currentMission.team,
             targets: updatedMission.targets && updatedMission.targets.length ? updatedMission.targets : currentMission.targets,
-            status: updatedMission.status && updatedMission.status !== 'Pending' ? updatedMission.status : currentMission.status,
+            status: updatedMission.status && updatedMission.status !== 'Draft' ? updatedMission.status : currentMission.status,
             priority: p,
             objective: payload.objective ?? currentMission.objective,
             emergencyReason: payload.emergencyReason ?? currentMission.emergencyReason,
@@ -1856,17 +1821,6 @@ export class MissionDetail {
           this.mission.set(merged);
           this.closePriorityModal();
           this.actionMessage.set(`Đã cập nhật mức độ ưu tiên nhiệm vụ thành: ${this.priorityLabel(p)}.`);
-          this.notificationsStore.upsert({
-            id: `notif-prio-${Date.now()}`,
-            userId: this.auth.user()?.id,
-            title: `[MF02] Cập nhật mức độ ưu tiên: ${currentMission.missionCode}`,
-            body: `Nhiệm vụ ${currentMission.missionCode} đã được điều chỉnh mức độ ưu tiên sang [${this.priorityLabel(p)}]`,
-            type: 'MISSION_DISPATCH',
-            referenceType: 'MISSION',
-            referenceId: currentMission.id,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-          });
           this.realtime.broadcastMissionEvent({
             missionId: updatedMission.id,
             type: 'PRIORITY_UPDATED',
@@ -1882,33 +1836,39 @@ export class MissionDetail {
   }
 
   protected statusLabel(status: string): string {
-    return (
-      ({
-        PENDING_CONFIRMATION: 'Chờ 3 vai trò tiếp nhận',
-        CONFIRMED: 'Đã xác nhận (Sẵn sàng bay)',
-        POSTPONED: 'Yêu cầu hoãn/Điều chỉnh',
-        SUSPENDED: 'Tạm đình chỉ bay',
-        Cancelled: 'Đã hủy',
-        Pending: 'Chờ xử lý',
-        Draft: 'Bản nháp',
-        Assigned: 'Đã xác nhận (Sẵn sàng bay)',
-        Preparing: 'Đang chuẩn bị',
-        Ready: 'Sẵn sàng bay',
-        Executing: 'Đang bay khảo sát',
-        InProgress: 'Đang bay khảo sát',
-        'In Progress': 'Đang bay khảo sát',
-        Completed: 'Đã hoàn tất chuyến bay',
-        Failed: 'Lỗi bay',
-      } as Record<string, string>)[status] ?? status
-    );
+    return missionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
-    const normalized = status.replace(/\s+/g, '');
-    if (['Failed', 'Error', 'Cancelled', 'Rejected', 'SUSPENDED'].includes(normalized)) return 'danger';
-    if (['Completed', 'Approved', 'Accepted', 'CONFIRMED', 'Ready'].includes(normalized)) return 'success';
-    if (['Executing', 'InProgress', 'Processing', 'AIProcessing', 'PENDING_CONFIRMATION', 'POSTPONED'].includes(normalized)) return 'warning';
+    const normalized = normalizeMissionStatus(status);
+    if (['Cancelled', 'Suspended', 'Rejected', 'Failed'].includes(normalized)) return 'danger';
+    if (['Completed', 'Approved', 'Accepted', 'Assigned', 'Ready'].includes(normalized)) return 'success';
+    if (['InProgress', 'Preparing', 'PendingAcceptance', 'Postponed'].includes(normalized)) return 'warning';
     return 'neutral';
+  }
+
+  protected towerStatusLabel(status: string): string {
+    return towerInspectionStatusLabel(status);
+  }
+
+  protected isTowerDone(status: string): boolean {
+    return isTowerInspected(status);
+  }
+
+  protected maintenanceStatusText(status: string): string {
+    return maintenanceStatusLabel(status);
+  }
+
+  protected maintenanceStatusTone(status: string): string {
+    return maintenanceStatusTone(status);
+  }
+
+  protected senderBadge(senderRole: string): string {
+    return activitySenderLabel(activitySenderKind(senderRole));
+  }
+
+  protected senderClass(senderRole: string): string {
+    return activitySenderKind(senderRole).toLowerCase();
   }
 
   protected detectionStatusLabel(status: string): string {
@@ -1935,11 +1895,10 @@ export class MissionDetail {
   }
 
   protected isVideoDetection(detection: MissionDetectionView): boolean {
-    return (
-      detection.mediaType.toLowerCase().includes('video') ||
-      /\.(mp4|mov|avi|webm)(\?|$)/i.test(detection.sourceUrl ?? '') ||
-      detection.timestampSeconds !== null
-    );
+    if (!detection) return false;
+    if ((detection.mediaType || '').toLowerCase().includes('image')) return false;
+    if ((detection.mediaType || '').toLowerCase().includes('video')) return true;
+    return /\.(mp4|mov|avi|webm)(\?|$)/i.test(detection.sourceUrl ?? '');
   }
 
   protected cardTimestampLabel(detection: MissionDetectionView): string {
@@ -1953,68 +1912,21 @@ export class MissionDetail {
         takeUntilDestroyed(this.destroyRef),
         catchError(() => of(null)),
       )
-      .subscribe({
-        next: (overview) => {
-          if (!overview) return;
-          this.mission.update((curr) => {
-            if (!curr) return null;
-            const updatedTeam = overview.assignments && overview.assignments.length > 0 ? [...overview.assignments] : (curr.team ? [...curr.team] : []);
-
-            // Guarantee 3 mandatory roles exist in updatedTeam
-            if (!updatedTeam.some((t) => t.assignmentRole === 'INSPECTOR')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-insp`,
-                missionId: curr.id,
-                userId: curr.assignedToUserId || 'inspector',
-                userName: curr.assignedToUsername || 'Phi công UAV EVN',
-                assignmentRole: 'INSPECTOR',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-            if (!updatedTeam.some((t) => t.assignmentRole === 'ANALYST')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-analyst`,
-                missionId: curr.id,
-                userId: 'analyst',
-                userName: 'Chuyên viên phân tích AI',
-                assignmentRole: 'ANALYST',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-            if (!updatedTeam.some((t) => t.assignmentRole === 'TECHNICIAN')) {
-              updatedTeam.push({
-                id: `asg-${curr.id}-tech`,
-                missionId: curr.id,
-                userId: 'technician',
-                userName: 'Kỹ thuật viên bảo trì lưới',
-                assignmentRole: 'TECHNICIAN',
-                status: 'Active',
-                responseStatus: 'PENDING',
-                isRequired: true,
-              });
-            }
-
-            const required = updatedTeam.filter((m) => m.isRequired !== false && m.status !== 'Revoked');
-            const confirmedCount = required.filter((m) => m.responseStatus === 'ACCEPTED').length;
-            const totalRequiredCount = Math.max(3, required.length);
-            const allConfirmed = required.length >= 3 && confirmedCount >= totalRequiredCount && required.every((m) => m.responseStatus === 'ACCEPTED');
-
-            return {
-              ...curr,
-              totalRequiredCount,
-              confirmedCount,
-              allConfirmed,
-              confirmationProgress: `${confirmedCount}/${totalRequiredCount}`,
-              confirmationDeadline: overview.confirmationDeadline || curr.confirmationDeadline,
-              status: allConfirmed ? 'CONFIRMED' : (curr.status === 'CONFIRMED' && !allConfirmed ? 'PENDING_CONFIRMATION' : curr.status),
-              team: updatedTeam,
-            };
-          });
-        },
+      .subscribe((overview) => {
+        if (!overview) return;
+        this.mission.update((curr) =>
+          curr
+            ? {
+                ...curr,
+                team: overview.assignments.length ? overview.assignments : curr.team,
+                totalRequiredCount: overview.totalRequiredCount,
+                confirmedCount: overview.confirmedCount,
+                allConfirmed: overview.allConfirmed,
+                confirmationProgress: `${overview.confirmedCount}/${overview.totalRequiredCount}`,
+                confirmationDeadline: overview.confirmationDeadline || curr.confirmationDeadline,
+              }
+            : null,
+        );
       });
   }
 
@@ -2024,62 +1936,35 @@ export class MissionDetail {
       .getMissionDetections(missionId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        catchError(() => this.assetApi.getMissionDetections(missionId).pipe(catchError(() => of([])))),
         finalize(() => this.detectionsLoading.set(false)),
       )
       .subscribe({
         next: (detections) => {
-          const mapped = detections.map((item) => this.mapDetection(item));
+          let mapped = detections.map((item) => this.mapDetection(item));
+          if (!mapped.length) {
+            const saved = this.loadSavedMockDetections(missionId);
+            if (saved.length) mapped = saved;
+          }
           this.resultPage.set(1);
           this.detections.set(mapped);
           this.selectedDetection.set(mapped[0] ?? null);
-          this.syncAssetsWithDetections(this.mission()?.targets ?? [], mapped);
+          this.loadMediaQueue(missionId);
         },
         error: () => {
+          const saved = this.loadSavedMockDetections(missionId);
           this.resultPage.set(1);
-          this.detections.set([]);
-          this.selectedDetection.set(null);
+          this.detections.set(saved);
+          this.selectedDetection.set(saved[0] ?? null);
+          this.loadMediaQueue(missionId);
         },
       });
   }
 
-  private syncAssetsWithDetections(
-    targets: readonly MissionTarget[],
-    detections: readonly MissionDetectionView[],
-  ): void {
-    if (!targets.length) return;
-    const approved = detections.filter((d) => d.status === 'Approved' || d.status === 'Accepted');
-    const assetList: MissionAssetItem[] = targets.map((t, idx) => {
-      const relatedDetections = approved.filter(
-        (d) =>
-          d.assetId === t.assetId ||
-          (t.towerCode && d.tower.includes(t.towerCode)) ||
-          (idx === 0 && approved.length > 0),
-      );
-      const defectCount = relatedDetections.length;
-      const totalPenalty = relatedDetections.reduce((sum, d) => sum + (d.severityWeight || 1) * 20, 0);
-      const score = Math.max(25, 98 - totalPenalty);
-      const risk: MissionAssetItem['riskLevel'] =
-        score < 40 ? 'Critical Risk' : score < 60 ? 'High Risk' : score < 80 ? 'Medium Risk' : 'Low Risk';
-      const status: MissionAssetItem['status'] =
-        score < 50 ? 'Maintenance' : score < 75 ? 'InspectionRequired' : 'Operational';
-
-      return {
-        id: t.assetId || `ast-${idx + 1}`,
-        code: t.assetCode || `AST-220KV-04${idx + 1}`,
-        type: t.assetName || (t.assetType === 'TOWER' ? 'Cột néo truyền tải 220kV' : 'Chuỗi sứ cách điện đỡ'),
-        towerCode: t.towerCode || `Cột 04${idx + 1}`,
-        healthScore: score,
-        riskLevel: risk,
-        defectCount,
-        status,
-        lastInspected: '27/08/2026 14:20',
-      };
-    });
-    this.missionAssets.set(assetList);
-  }
-
   private loadMaintenanceTasks(missionId: string): void {
+    const savedImmediate = this.loadSavedMockMaintenanceTasks(missionId);
+    if (savedImmediate.length && !this.maintenanceTasks().length) {
+      this.maintenanceTasks.set(savedImmediate);
+    }
     this.api
       .getMissionMaintenanceTasks(missionId)
       .pipe(
@@ -2088,7 +1973,7 @@ export class MissionDetail {
       )
       .subscribe({
         next: (tasks) => {
-          const mapped: MissionMaintenanceTask[] = tasks.map((t) => ({
+          let mapped: MissionMaintenanceTask[] = tasks.map((t) => ({
             id: t.id,
             title: t.title,
             priority: (t.priority === 'Urgent' || t.priority === 'High' || t.priority === 'Medium' || t.priority === 'Scheduled'
@@ -2096,18 +1981,34 @@ export class MissionDetail {
               : t.priority === 'Low'
               ? 'Scheduled'
               : 'Medium') as MissionMaintenanceTask['priority'],
-            towerCode: t.towerCode || 'Cột 042 (Néo)',
-            assetCode: t.assetCode || 'INS-220KV-042',
-            defectDescription: t.defectDescription || 'Khuyết tật xác nhận bởi AI & Analyst',
-            suggestedAction: t.suggestedAction || 'Bảo dưỡng / Thay thế thiết bị',
-            status: (t.status === 'Approved' || t.status === 'InProgress' || t.status === 'Completed'
-              ? t.status
-              : 'Pending') as MissionMaintenanceTask['status'],
-            assignedTeam: t.assignedTeam || 'Đội Truyền tải / Bảo dưỡng EVN',
+            towerCode: t.towerCode || '—',
+            defectDescription: t.defectDescription || '—',
+            suggestedAction: t.suggestedAction || '—',
+            status: t.status || 'Pending',
+            assignedTeam: t.assignedTeam || '—',
+            detectionId: t.detectionId,
           }));
+          const currentInMemory = this.maintenanceTasks();
+          const currentSaved = this.loadSavedMockMaintenanceTasks(missionId);
+          const allKnown = [...currentInMemory];
+          for (const s of currentSaved) {
+            if (!allKnown.some((k) => k.id === s.id)) {
+              allKnown.push(s);
+            }
+          }
+          if (allKnown.length) {
+            const existingIds = new Set(mapped.map((m) => m.id));
+            mapped = [...mapped, ...allKnown.filter((s) => !existingIds.has(s.id))];
+          }
           this.maintenanceTasks.set(mapped);
+          this.saveMockMaintenanceTasks(missionId, mapped);
         },
-        error: () => this.maintenanceTasks.set([]),
+        error: () => {
+          const currentSaved = this.loadSavedMockMaintenanceTasks(missionId);
+          if (currentSaved.length) {
+            this.maintenanceTasks.set(currentSaved);
+          }
+        },
       });
   }
 
@@ -2125,11 +2026,7 @@ export class MissionDetail {
             id: a.id,
             senderId: a.senderUserId || 'user',
             senderName: a.senderName,
-            senderRole: (a.senderRole?.toUpperCase() === 'MANAGER'
-              ? 'MANAGER'
-              : a.senderRole?.toUpperCase() === 'INSPECTOR'
-              ? 'INSPECTOR'
-              : 'SYSTEM') as 'MANAGER' | 'INSPECTOR' | 'SYSTEM',
+            senderRole: activitySenderKind(a.senderRole),
             type: 'MESSAGE',
             content: a.content,
             timestamp: a.timestamp,
@@ -2157,21 +2054,12 @@ export class MissionDetail {
       });
   }
 
-  private mapDetection(item: MissionBackendDetection | MissionAiDetection): MissionDetectionView {
+  private mapDetection(item: MissionBackendDetection): MissionDetectionView {
     const tsSec = item.timestampSeconds ?? null;
-    const durSec =
-      ('videoDurationSeconds' in item ? item.videoDurationSeconds : null) ?? (tsSec ? Math.max(60, tsSec + 10) : 60);
     const tsLabel =
-      'timestampLabel' in item && item.timestampLabel
-        ? item.timestampLabel
-        : tsSec !== null
-        ? this.formatTime(tsSec)
-        : item.frameIndex !== null && item.frameIndex !== undefined
-        ? `Frame ${item.frameIndex}`
-        : 'N/A';
-
-    const rawNotes = 'reviewNotes' in item ? item.reviewNotes : 'analystNotes' in item ? item.analystNotes : '';
-    const rawValidatedAt = 'reviewedAt' in item ? item.reviewedAt : 'validatedAt' in item ? item.validatedAt : '';
+      item.timestampLabel ||
+      (tsSec !== null ? this.formatTime(tsSec) : item.frameIndex != null ? `Frame ${item.frameIndex}` : 'N/A');
+    const isVideo = tsSec !== null || /\.(mp4|mov|avi|webm)(\?|$)/i.test(item.sourceUrl ?? '');
 
     return {
       id: item.id,
@@ -2181,26 +2069,26 @@ export class MissionDetail {
       timestampLabel: tsLabel,
       timestampSeconds: tsSec,
       frameIndex: item.frameIndex ?? null,
-      videoDurationLabel: this.formatTime(durSec),
+      videoDurationLabel: tsLabel,
       status: item.status,
-      mediaStatus: ('mediaStatus' in item ? item.mediaStatus : 'Analyzed') || 'Analyzed',
-      categoryCode: item.categoryCode || 'DEFECT',
+      mediaStatus: 'Analyzed',
+      categoryCode: item.categoryCode || '—',
       severityWeight: item.severityWeight ?? 1,
       isEmergency: item.isEmergency ?? false,
-      aiSource: ('aiSource' in item ? item.aiSource : 'SERVER') || 'SERVER',
-      mediaType: ('mediaType' in item ? item.mediaType : tsSec !== null ? 'video' : 'image') || 'image',
+      aiSource: 'SERVER',
+      mediaType: isVideo ? 'video' : 'image',
       sourceUrl: item.sourceUrl,
-      imageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
-      cropImageUrl: item.imageUrl || item.sourceUrl || '/images/defect-insulator-crack.png',
+      imageUrl: item.imageUrl || item.sourceUrl,
+      cropImageUrl: item.imageUrl || item.sourceUrl,
       boundingBox: item.boundingBox,
       missionId: item.missionId,
-      assetId: item.assetId || 'Chưa liên kết',
-      tower: ('tower' in item && item.tower ? item.tower : 'Cột 042 (TOW-220KV-042)'),
-      gps: ('gps' in item && item.gps ? item.gps : '20°58\'14.2"N 105°48\'22.6"E'),
-      description: item.description || 'Không có mô tả từ máy chủ AI.',
-      notes: rawNotes || '',
-      detectedAt: item.detectedAt || new Date().toISOString(),
-      validatedAt: rawValidatedAt || '',
+      towerId: item.towerId || '',
+      tower: item.tower || 'Chưa gắn cột',
+      gps: item.gps || '—',
+      description: item.description || 'Không có mô tả.',
+      notes: item.reviewNotes || '',
+      detectedAt: item.detectedAt || '',
+      validatedAt: item.reviewedAt || '',
     };
   }
 
@@ -2261,7 +2149,7 @@ export class MissionDetail {
           (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
           (event.actorId && a.userId === event.actorId);
 
-        let updatedTeam = curr.team
+        const updatedTeam = curr.team
           ? curr.team.map((a) =>
               isMatch(a)
                 ? {
@@ -2280,7 +2168,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: isAllConfirmed ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
+          status: isAllConfirmed ? 'Assigned' : 'PendingAcceptance',
           confirmedAt: isAllConfirmed ? (event.timestamp || new Date().toISOString()) : (curr.confirmedAt ?? null),
           allConfirmed: isAllConfirmed,
           confirmedCount: confCount,
@@ -2293,9 +2181,9 @@ export class MissionDetail {
       this.loadAssignmentsOverview(currentMission.id);
 
       if (event.allConfirmed) {
-        this.actionMessage.set(`[THỰC THỜI] 100% các vai trò (Inspector, Analyst, Technician) đã chấp thuận! Nhiệm vụ ${event.missionId} chính thức SẴN SÀNG BAY.`);
+        this.actionMessage.set(`[THỜI GIAN THỰC] Tất cả thành viên bắt buộc đã tiếp nhận. Nhiệm vụ sẵn sàng bay.`);
       } else {
-        this.actionMessage.set(`[THỰC THỜI] ${event.actorName || 'Thành viên'} (${event.actorRole || 'Thành viên'}) đã xác nhận tiếp nhận. (${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3} đã xác nhận).`);
+        this.actionMessage.set(`[THỜI GIAN THỰC] ${event.actorName || 'Thành viên'} (${assignmentRoleLabel(event.actorRole)}) đã xác nhận tiếp nhận (${event.confirmedCount ?? 0}/${event.totalRequiredCount ?? 0}).`);
       }
     } else if (event.type === 'POSTPONED') {
       this.mission.update((curr) => {
@@ -2305,7 +2193,7 @@ export class MissionDetail {
           (event.actorRole && a.assignmentRole?.toUpperCase() === event.actorRole.toUpperCase()) ||
           (event.actorId && a.userId === event.actorId);
 
-        let updatedTeam = curr.team
+        const updatedTeam = curr.team
           ? curr.team.map((a) =>
               isMatch(a)
                 ? {
@@ -2319,7 +2207,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: 'POSTPONED',
+          status: event.status ? normalizeMissionStatus(event.status) : curr.status,
           postponeReason: event.reason || curr.postponeReason,
           team: updatedTeam,
           requiresReassignment: true,
@@ -2327,21 +2215,21 @@ export class MissionDetail {
       });
 
       this.loadAssignmentsOverview(currentMission.id);
-      this.actionMessage.set(`[CẢNH BÁO THỰC THỜI] Thành viên ${event.actorName || 'Đội bay'} (${event.actorRole || ''}) yêu cầu hoãn: "${event.reason || ''}". Quản lý có thể tái phân công ngay vai trò này.`);
+      this.actionMessage.set(`[CẢNH BÁO THỰC THỜI] Thành viên ${event.actorName || 'Đội bay'} (${assignmentRoleLabel(event.actorRole)}) yêu cầu hoãn: "${event.reason || ''}". Quản lý có thể tái phân công ngay vai trò này.`);
     } else if (event.type === 'REASSIGNED') {
-      this.actionMessage.set(`[THỰC THỜI] Quản lý đã tái phân công nhân sự mới cho vai trò ${event.actorRole || 'Đội bay'}.`);
+      this.actionMessage.set(`[THỜI GIAN THỰC] Quản lý đã tái phân công nhân sự mới cho vai trò ${assignmentRoleLabel(event.actorRole)}.`);
       this.api.get(currentMission.id).subscribe({
         next: (fresh) => this.mission.set(fresh),
       });
     } else if (event.type === 'SUSPENDED') {
       this.mission.update((curr) => curr ? {
         ...curr,
-        status: 'SUSPENDED',
+        status: 'Suspended',
         suspendedReason: event.reason || curr.suspendedReason,
       } : null);
       this.actionMessage.set(`[LỆNH ĐÌNH CHỈ] Nhiệm vụ tạm đình chỉ: ${event.reason || ''}`);
     } else if (event.type === 'RESUMED') {
-      this.mission.update((curr) => curr ? { ...curr, status: 'CONFIRMED' } : null);
+      this.mission.update((curr) => curr ? { ...curr, status: event.status ? normalizeMissionStatus(event.status) : 'Assigned' } : null);
       this.actionMessage.set('[THÔNG BÁO] Nhiệm vụ đã được khôi phục, sẵn sàng bay.');
     } else if (event.type === 'CANCELLED') {
       this.mission.update((curr) => curr ? { ...curr, status: 'Cancelled' } : null);
@@ -2351,8 +2239,8 @@ export class MissionDetail {
         const newLog: MissionCommunicationLog = {
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           senderId: event.actorId || 'user',
-          senderRole: (event.actorRole as 'MANAGER' | 'INSPECTOR') || 'INSPECTOR',
-          senderName: event.actorName || 'Phi công',
+          senderRole: activitySenderKind(event.actorRole),
+          senderName: event.actorName || 'Thành viên',
           type: 'MESSAGE',
           content: event.message,
           timestamp: event.timestamp || new Date().toISOString(),
@@ -2375,13 +2263,8 @@ export class MissionDetail {
       );
       this.loadDetections(currentMission.id);
       this.loadMaintenanceTasks(currentMission.id);
-      if (typeof event.newHealthScore === 'number') {
-        this.api.get(currentMission.id).subscribe({
-          next: (fresh) => this.mission.set(fresh),
-        });
-      }
     } else if (event.type === 'MEDIA_UPLOADED') {
-      this.actionMessage.set(`[HIỆN TRƯỜNG] Tệp bay mới đã được Inspector tải lên thành công.`);
+      this.actionMessage.set(`[HIỆN TRƯỜNG] Đã có tệp bay mới được tải lên.`);
       this.loadDetections(currentMission.id);
     } else if (event.type === 'MAINTENANCE_TASK_CREATED' || event.type === 'MAINTENANCE_TASK_STATUS_CHANGED') {
       this.actionMessage.set(`[BẢO TRÌ] Phiếu bảo dưỡng được cập nhật (${event.status || 'Mới'}).`);
@@ -2430,7 +2313,7 @@ export class MissionDetail {
     this.sirenInterval = setInterval(() => {
       count++;
       if (count >= 3) {
-        clearInterval(this.sirenInterval);
+        if (this.sirenInterval) clearInterval(this.sirenInterval);
         this.sirenInterval = null;
       } else {
         this.playWarningBeep();
@@ -2444,44 +2327,6 @@ export class MissionDetail {
       this.sirenInterval = null;
     }
     this.activeEmergency.set(null);
-  }
-
-  private applyUploadResponse(body: unknown): void {
-    const source = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const data = source['data'] && typeof source['data'] === 'object' ? (source['data'] as Record<string, unknown>) : source;
-    const requestIds = Array.isArray(data['requestIds']) ? data['requestIds'].map(String) : [];
-    const batchId = String(data['batchId'] ?? '');
-    this.lastUploadBatchId.set(batchId);
-    this.mediaQueue.update((items) =>
-      items.map((item, index) => {
-        const requestId = requestIds[index] ?? item.requestId;
-        const nextItem = {
-          ...item,
-          batchId,
-          requestId,
-          accepted: requestIds[index] !== undefined,
-          status: requestIds[index] !== undefined ? 'Đã upload. Đang chờ AI xử lý' : 'Upload xong',
-          progress: 100,
-        };
-        const cachedEvent = requestId ? this.aiStatusEvents.get(requestId) : undefined;
-        return cachedEvent ? this.applyAiStatusToMedia(nextItem, cachedEvent, this.aiStatusLabel(cachedEvent)) : nextItem;
-      }),
-    );
-    const cachedEvents = requestIds
-      .map((id) => this.aiStatusEvents.get(id))
-      .filter((event): event is AiAnalysisStatusChangedEvent => Boolean(event));
-    const failed = cachedEvents.find((event) => event.status.trim().toLowerCase() === 'failed');
-    if (failed) {
-      this.uploadMessage.set(failed.errorMessage || 'AI xử lý thất bại.');
-      return;
-    }
-    if (cachedEvents.some((event) => event.status.trim().toLowerCase() === 'completed')) {
-      const savedDetections = cachedEvents.reduce((sum, event) => sum + event.savedDetections, 0);
-      const createdAlerts = cachedEvents.reduce((sum, event) => sum + event.createdAlerts, 0);
-      this.uploadMessage.set(`AI hoàn tất. Lưu ${savedDetections} detection, tạo ${createdAlerts} cảnh báo.`);
-      const missionId = this.mission()?.id;
-      if (missionId) this.loadDetections(missionId);
-    }
   }
 
   private applyAiStatusToMedia(
@@ -2513,7 +2358,7 @@ export class MissionDetail {
       value === 'upload' ||
       value === 'processing' ||
       value === 'results' ||
-      value === 'assets' ||
+      value === 'towers' ||
       value === 'maintenance' ||
       value === 'activity'
     );
@@ -2544,17 +2389,6 @@ export class MissionDetail {
     return Math.min(Math.max(1, Math.trunc(page)), Math.max(1, total));
   }
 
-  private uploadResultMessage(body: unknown): string {
-    const source = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-    const data = source['data'] && typeof source['data'] === 'object' ? (source['data'] as Record<string, unknown>) : {};
-    const accepted = Number(data['acceptedFiles'] ?? 0);
-    const rejected = Number(data['rejectedFiles'] ?? 0);
-    const total = Number(data['totalFiles'] ?? accepted + rejected);
-    if (total > 0)
-      return `Backend nhận ${accepted}/${total} file. ${rejected ? `${rejected} file bị từ chối.` : 'Đã tạo AIAnalysisRequest pending.'}`;
-    return String(source['message'] ?? 'Upload hoàn tất.');
-  }
-
   private aiStatusLabel(event: AiAnalysisStatusChangedEvent): string {
     const status = event.status.trim().toLowerCase();
     if (status === 'completed') return `AI hoàn tất - ${event.savedDetections} detection`;
@@ -2563,59 +2397,654 @@ export class MissionDetail {
     return event.status || 'Đang xử lý AI';
   }
 
-  private getDemoMission(id: string): Mission {
-    return {
-      id,
-      missionCode: id.startsWith('MIS-') ? id : 'MIS-HN-DEMO-001',
-      title: 'Kiểm tra định kỳ ĐZ 220kV Hòa Bình - Nho Quan',
-      routeData: 'Tuyến ĐZ 220kV Hòa Bình - Nho Quan',
-      assignedToUserId: 'pilot-01',
-      assignedToUsername: 'Nguyễn Văn Bay (Pilot)',
-      droneCode: 'UAV-001 (Matrice 300 RTK)',
-      status: 'Executing',
-      description: 'Nhiệm vụ kiểm tra nhiệt độ tiếp xúc lèo, cách điện chuỗi néo các khoảng cột 040 đến 045.',
-      managerId: 'mgr-01',
-      managerUsername: 'An Nguyen (Admin)',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      targets: [
-        {
-          assetId: 'ast-01',
-          assetCode: 'EVN-P041',
-          assetName: 'Cột néo 041 - ĐZ 220kV',
-          towerCode: 'T-041',
-          sequence: 1,
-          inspectionStatus: 'Completed',
-          latitude: 20.8124,
-          longitude: 105.3421,
-        },
-        {
-          assetId: 'ast-02',
-          assetCode: 'EVN-P042',
-          assetName: 'Cột đỡ 042 - ĐZ 220kV',
-          towerCode: 'T-042',
-          sequence: 2,
-          inspectionStatus: 'InProgress',
-          latitude: 20.8168,
-          longitude: 105.3489,
-        },
-        {
-          assetId: 'ast-03',
-          assetCode: 'EVN-P043',
-          assetName: 'Cột đỡ néo 043 - ĐZ 220kV',
-          towerCode: 'T-043',
-          sequence: 3,
-          inspectionStatus: 'Pending',
-          latitude: 20.8212,
-          longitude: 105.3556,
-        },
-      ],
-    };
+  /** Vietnamese text for a backend error (business codes are mapped; raw English messages are never shown). */
+  private errorMessage(error: unknown, fallback = 'Không thể thực hiện thao tác. Vui lòng thử lại.'): string {
+    return describeHttpError(error, fallback);
   }
 
-  private errorMessage(error: unknown): string {
-    if (!(error instanceof HttpErrorResponse)) return 'Không thể tải chi tiết nhiệm vụ.';
-    const body = error.error && typeof error.error === 'object' ? (error.error as Record<string, unknown>) : {};
-    return String(body['message'] ?? error.message ?? 'Không thể tải chi tiết nhiệm vụ.');
+  /** Reloads the mission and its member list quietly (after an action failed because the state moved on). */
+  private reloadMission(missionId: string): void {
+    this.api
+      .get(missionId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of(null)),
+      )
+      .subscribe((mission) => {
+        if (!mission) return;
+        this.mission.set(mission);
+        this.loadAssignmentsOverview(mission.id);
+      });
   }
+
+  // ==========================================
+  // AI WORKER MOCK & MAINTENANCE FLOW (MF04)
+  // ==========================================
+
+  protected isTicketCreatedFor(detectionId: string): boolean {
+    return this.maintenanceTasks().some((t) => t.detectionId === detectionId);
+  }
+
+  protected runAiWorkerMock(): void {
+    const mission = this.mission();
+    if (!mission) return;
+    const missionId = mission.id;
+    const queue = this.mediaQueue();
+
+    this.isAiProcessing.set(true);
+    this.isAiProcessingComplete.set(false);
+    this.aiPipelineStep.set(2);
+    this.aiPipelineStatusText.set('Đang trích xuất khung hình chất lượng cao từ UAV (Frame Extraction)...');
+    this.setQueueProgress('Đang trích xuất khung hình (45%)', 45);
+
+    // Stage 1 -> Stage 2 (Frame extraction to YOLO detection)
+    setTimeout(() => {
+      this.aiPipelineStep.set(3);
+      this.aiPipelineStatusText.set('Mô hình AI YOLOv8 đang quét ảnh/video và nhận diện khuyết tật thiết bị điện...');
+      this.setQueueProgress('Đang nhận diện khuyết tật AI (80%)', 80);
+
+      // Stage 2 -> Stage 3 (Defect detection to Risk Report)
+      setTimeout(() => {
+        this.aiPipelineStep.set(4);
+        this.aiPipelineStatusText.set('Đang phân tích mức độ nghiêm trọng, tổng hợp ma trận rủi ro và lập báo cáo...');
+        this.setQueueProgress('Đang lập báo cáo rủi ro (95%)', 95);
+
+        // Stage 3 -> Completed
+        setTimeout(() => {
+          this.isAiProcessing.set(false);
+          this.isAiProcessingComplete.set(true);
+          this.aiPipelineStatusText.set(
+            '✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện khuyết tật và lập báo cáo rủi ro thành công.'
+          );
+
+          const generated = this.generateMockDetections(mission, queue);
+          this.detections.set(generated);
+          this.selectedDetection.set(generated[0] ?? null);
+          this.saveMockDetections(missionId, generated);
+
+          this.mediaQueue.update((items) =>
+            items.map((item) => ({
+              ...item,
+              status: 'Đã phân tích khuyết tật (Hoàn tất)',
+              progress: 100,
+            }))
+          );
+          this.saveMockMediaQueue(missionId, this.mediaQueue());
+
+          this.uploadMessage.set(
+            `AI Worker đã hoàn tất phân tích. Đã phát hiện ${generated.length} khuyết tật cần chuyên viên giám định.`
+          );
+        }, 1200);
+      }, 1400);
+    }, 1200);
+  }
+
+  protected getDefectFallbackImage(categoryCode?: string): string {
+    switch ((categoryCode || '').toUpperCase()) {
+      case 'CORROSION':
+        return '/images/defect-insulator-dirty.png';
+      case 'INSULATOR_CRACK':
+        return '/images/defect-insulator-crack.png';
+      case 'MISSING_BOLT':
+        return '/images/defect-bolt-missing.png';
+      case 'VEGETATION_CLEARANCE':
+        return '/images/defect-corridor-tree.png';
+      default:
+        return '/images/defect-preview-frame.png';
+    }
+  }
+
+  protected sanitizeDetectionImageUrl(url?: string | null, categoryCode?: string): string {
+    const fallback = this.getDefectFallbackImage(categoryCode);
+    if (!url || url.startsWith('blob:')) {
+      return fallback;
+    }
+    return url;
+  }
+
+  protected handleDefectImageError(event: Event, categoryCode?: string): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.src = this.getDefectFallbackImage(categoryCode);
+    }
+  }
+
+  private generateMockDetections(mission: Mission, media: readonly MissionMediaPreview[]): MissionDetectionView[] {
+    const targets = (mission.targets && mission.targets.length > 0) ? mission.targets : [];
+    const t0 = targets[0];
+    const t1 = targets[1] || targets[0];
+    const tower1Code = t0?.towerCode || 'HCM-TB-T01';
+    const tower1Id = t0?.towerId || crypto.randomUUID();
+    const tower2Code = t1?.towerCode || t0?.towerCode || 'HCM-TB-T02';
+    const tower2Id = t1?.towerId || t0?.towerId || crypto.randomUUID();
+
+    const def1Img = (media[0]?.url && !media[0].url.startsWith('blob:')) ? media[0].url : '/images/defect-insulator-dirty.png';
+    const def2Img = (media[1]?.url && !media[1].url.startsWith('blob:')) ? media[1].url : '/images/defect-insulator-crack.png';
+    const def3Img = (media[0]?.url && !media[0].url.startsWith('blob:')) ? media[0].url : '/images/defect-bolt-missing.png';
+    const def4Img = (media[2]?.url && !media[2].url.startsWith('blob:')) ? media[2].url : '/images/defect-corridor-tree.png';
+
+    const now = new Date();
+    const ts = (minsAgo: number) => new Date(now.getTime() - minsAgo * 60000).toISOString();
+
+    return [
+      {
+        id: crypto.randomUUID(),
+        mediaId: media[0]?.id || crypto.randomUUID(),
+        title: 'Rỉ sét và ăn mòn kim loại thanh giằng',
+        confidence: 94,
+        timestampLabel: 'Ảnh UAV',
+        timestampSeconds: null,
+        frameIndex: null,
+        videoDurationLabel: 'Ảnh đơn',
+        status: 'Pending',
+        mediaStatus: 'Analyzed',
+        categoryCode: 'CORROSION',
+        severityWeight: 2,
+        isEmergency: false,
+        aiSource: 'SERVER_YOLO_V8',
+        mediaType: 'image',
+        sourceUrl: def1Img,
+        imageUrl: def1Img,
+        cropImageUrl: def1Img,
+        boundingBox: { x: 26, y: 32, width: 34, height: 26 },
+        missionId: mission.id,
+        towerId: tower1Id,
+        tower: tower1Code,
+        gps: `${t0?.latitude ? t0.latitude.toFixed(5) : '10.79812'}, ${t0?.longitude ? t0.longitude.toFixed(5) : '106.65430'}`,
+        description: 'Phát hiện oxy hóa rỉ sét ăn mòn bề mặt lớp mạ kẽm tại thanh giằng chịu lực số 2 của cột. Cần cạo gỉ và sơn phủ mạ kẽm bảo vệ.',
+        notes: '',
+        detectedAt: ts(12),
+        validatedAt: '',
+      },
+      {
+        id: crypto.randomUUID(),
+        mediaId: media[1]?.id || media[0]?.id || crypto.randomUUID(),
+        title: 'Nứt vỡ bát sứ cách điện pha B',
+        confidence: 89,
+        timestampLabel: 'Ảnh UAV',
+        timestampSeconds: null,
+        frameIndex: null,
+        videoDurationLabel: 'Ảnh đơn',
+        status: 'Pending',
+        mediaStatus: 'Analyzed',
+        categoryCode: 'INSULATOR_CRACK',
+        severityWeight: 4,
+        isEmergency: true,
+        aiSource: 'SERVER_YOLO_V8',
+        mediaType: 'image',
+        sourceUrl: def2Img,
+        imageUrl: def2Img,
+        cropImageUrl: def2Img,
+        boundingBox: { x: 42, y: 18, width: 28, height: 28 },
+        missionId: mission.id,
+        towerId: tower2Id,
+        tower: tower2Code,
+        gps: `${t1?.latitude ? t1.latitude.toFixed(5) : '10.79950'}, ${t1?.longitude ? t1.longitude.toFixed(5) : '106.65580'}`,
+        description: 'Bát sứ cách điện thứ 3 chuỗi néo pha B bị nứt xuyên tâm, nguy cơ phóng điện vầng quang khi trời mưa ẩm.',
+        notes: '',
+        detectedAt: ts(8),
+        validatedAt: '',
+      },
+      {
+        id: crypto.randomUUID(),
+        mediaId: media[0]?.id || crypto.randomUUID(),
+        title: 'Mất bu-lông liên kết thanh giằng xà ngang',
+        confidence: 96,
+        timestampLabel: 'Ảnh UAV',
+        timestampSeconds: null,
+        frameIndex: null,
+        videoDurationLabel: 'Ảnh đơn',
+        status: 'Pending',
+        mediaStatus: 'Analyzed',
+        categoryCode: 'MISSING_BOLT',
+        severityWeight: 3,
+        isEmergency: false,
+        aiSource: 'SERVER_YOLO_V8',
+        mediaType: 'image',
+        sourceUrl: def3Img,
+        imageUrl: def3Img,
+        cropImageUrl: def3Img,
+        boundingBox: { x: 38, y: 54, width: 20, height: 20 },
+        missionId: mission.id,
+        towerId: tower1Id,
+        tower: tower1Code,
+        gps: `${t0?.latitude ? t0.latitude.toFixed(5) : '10.79812'}, ${t0?.longitude ? t0.longitude.toFixed(5) : '106.65430'}`,
+        description: 'Vị trí bản mã nút giằng xà ngang bị khuyết 01 bu-lông mạ kẽm M20, có dấu hiệu rơ lắc dưới tác động rung của gió.',
+        notes: '',
+        detectedAt: ts(5),
+        validatedAt: '',
+      },
+      {
+        id: crypto.randomUUID(),
+        mediaId: media[2]?.id || media[0]?.id || crypto.randomUUID(),
+        title: 'Cây cối xâm phạm khoảng cách an toàn hành lang',
+        confidence: 92,
+        timestampLabel: 'Ảnh UAV',
+        timestampSeconds: null,
+        frameIndex: null,
+        videoDurationLabel: 'Ảnh đơn',
+        status: 'Pending',
+        mediaStatus: 'Analyzed',
+        categoryCode: 'VEGETATION_CLEARANCE',
+        severityWeight: 2,
+        isEmergency: false,
+        aiSource: 'SERVER_YOLO_V8',
+        mediaType: 'image',
+        sourceUrl: def4Img,
+        imageUrl: def4Img,
+        cropImageUrl: def4Img,
+        boundingBox: { x: 58, y: 36, width: 32, height: 34 },
+        missionId: mission.id,
+        towerId: tower2Id,
+        tower: tower2Code,
+        gps: `${t1?.latitude ? t1.latitude.toFixed(5) : '10.79950'}, ${t1?.longitude ? t1.longitude.toFixed(5) : '106.65580'}`,
+        description: 'Cành cây cao tiến sát dây dẫn pha biên, khoảng cách thực tế ước tính 2.2m (vi phạm ngưỡng an toàn quy định >= 4m).',
+        notes: '',
+        detectedAt: ts(2),
+        validatedAt: '',
+      },
+    ];
+  }
+
+  private applyReviewSuccess(selected: MissionDetectionView, backendStatus: 'Approved' | 'Rejected', missionId: string): void {
+    const updated: MissionDetectionView = {
+      ...selected,
+      status: backendStatus,
+      notes: this.reviewNotes(),
+      validatedAt: new Date().toISOString(),
+    };
+    this.selectedDetection.set(updated);
+    this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+    this.saveMockDetections(missionId, this.detections());
+
+    if (backendStatus === 'Approved') {
+      this.resultMessage.set('Đã duyệt khuyết tật. Đang tự động lập phiếu bảo trì (MF04)...');
+      this.createMaintenanceTaskFromDetection(updated, false);
+    } else {
+      this.resultMessage.set('Đã từ chối phát hiện AI (nhận diện sai - Dương tính giả).');
+    }
+    this.loadMaintenanceTasks(missionId);
+
+    this.realtime.broadcastMissionEvent({
+      missionId,
+      type: 'DETECTION_REVIEWED',
+      status: backendStatus,
+      actorRole: this.senderRole(),
+      actorName: this.senderName(),
+      detectionId: selected.id,
+      reason: this.reviewNotes() || (backendStatus === 'Approved' ? 'Xác nhận khuyết tật' : 'Bác bỏ khuyết tật'),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  protected createMaintenanceTaskFromDetection(detection: MissionDetectionView, triggerReviewApi = true): void {
+    const mission = this.mission();
+    if (!mission) return;
+    const missionId = mission.id;
+
+    if (this.isTicketCreatedFor(detection.id)) {
+      this.resultMessage.set(`Phiếu bảo trì cho khuyết tật "${detection.title}" đã được lập trước đó.`);
+      return;
+    }
+
+    const taskId = crypto.randomUUID();
+    const cleanMissionSuffix = mission.missionCode
+      ? mission.missionCode.replace(/^MS-/, '')
+      : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const towerPart = detection.tower.replace(/^.*-/, '');
+    const randCode = Math.floor(100 + Math.random() * 900);
+    const ticketCode = `MT-${cleanMissionSuffix}-${towerPart}-${randCode}`;
+
+    // Get REAL manager from current authenticated session or mission record
+    const currentUser = this.auth.user();
+    const realManagerId =
+      mission.managerId && mission.managerId !== '00000000-0000-0000-0000-000000000000'
+        ? mission.managerId
+        : currentUser?.id || '11111111-1111-1111-1111-111111111111';
+    const realManagerName = currentUser?.fullName || mission.managerUsername || 'An Nguyen';
+    const realManagerEmail = currentUser?.email || 'an.nguyen@evn.vn';
+
+    // Get REAL technician from mission team or user directory (from DB)
+    const teamTech = mission.team?.find(
+      (m) => (m.assignmentRole || '').toUpperCase().includes('TECH') || (m.assignmentRole || '').toUpperCase().includes('KTV')
+    );
+    const availableTech = this.availableUsers().find((u) => u.role === 'Technician');
+
+    const realTechId = teamTech?.userId || availableTech?.id || '5c2d008d-b68e-4975-9a0d-93c42cd306b4';
+    const realTechName =
+      teamTech?.userFullName || teamTech?.userName || availableTech?.fullName || availableTech?.username || 'Regression Technician';
+    const realTechEmail =
+      availableTech?.email || `${(teamTech?.userName || 'tech.regression').toLowerCase()}@uavpms.local`;
+
+    // Real team name based on mission region and real technician
+    const realTeamName = mission.regionName
+      ? `Đội QLVH Lưới điện ${mission.regionName} (${realTechName})`
+      : `Đội Quản lý Vận hành Lưới điện (${realTechName})`;
+
+    let suggestedAction = 'Kiểm tra hiện trường và bảo dưỡng xử lý thiết bị';
+    if (detection.title.includes('Rỉ sét') || detection.categoryCode === 'CORROSION') {
+      suggestedAction = 'Cạo rỉ sét, vệ sinh bề mặt và sơn phủ mạ kẽm bảo vệ thanh giằng.';
+    } else if (detection.title.includes('Nứt vỡ') || detection.categoryCode === 'INSULATOR_CRACK') {
+      suggestedAction = 'Cô lập nguồn điện và thay thế chuỗi bát sứ cách điện pha B mới đạt chuẩn.';
+    } else if (detection.title.includes('bu-lông') || detection.categoryCode === 'MISSING_BOLT') {
+      suggestedAction = 'Lắp bổ sung bu-lông mạ kẽm nhúng nóng M20, siết lực tiêu chuẩn 180 N·m.';
+    } else if (detection.title.includes('Cây cối') || detection.categoryCode === 'VEGETATION_CLEARANCE') {
+      suggestedAction = 'Chặt tỉa phát quang cành cây, khôi phục khoảng cách an toàn hành lang lưới điện >= 4.0m.';
+    }
+
+    const newTask: MissionMaintenanceTask = {
+      id: taskId,
+      title: `Bảo dưỡng: ${detection.title} [${detection.tower}]`,
+      priority: detection.isEmergency ? 'Urgent' : 'High',
+      towerCode: detection.tower,
+      defectDescription: `${detection.title} (Độ tin cậy AI ${detection.confidence}%). ${detection.description}`,
+      suggestedAction,
+      status: 'Open',
+      assignedTeam: realTeamName,
+      detectionId: detection.id,
+    };
+
+    // Update detection status to Approved if not already
+    const updatedDetection: MissionDetectionView = {
+      ...detection,
+      status: 'Approved',
+      validatedAt: new Date().toISOString(),
+    };
+    this.selectedDetection.set(updatedDetection);
+    this.detections.update((items) => items.map((d) => (d.id === detection.id ? updatedDetection : d)));
+    this.saveMockDetections(missionId, this.detections());
+
+    // Update maintenance tasks
+    this.maintenanceTasks.update((tasks) => [newTask, ...tasks]);
+    this.saveMockMaintenanceTasks(missionId, this.maintenanceTasks());
+
+    const realTowerId =
+      detection.towerId && detection.towerId !== 't-1' && detection.towerId !== 't-2'
+        ? detection.towerId
+        : mission.targets?.[0]?.towerId || crypto.randomUUID();
+
+    // Save globally to localStorage for /maintenance page
+    saveStoredMockTicket({
+      id: taskId,
+      ticketCode,
+      anomalyId: detection.id,
+      towerId: realTowerId,
+      managerId: realManagerId,
+      technicianId: realTechId,
+      status: 'Open',
+      priority: detection.isEmergency ? 'Emergency' : 'High',
+      description: `${newTask.title}. ${newTask.defectDescription}. Biện pháp kỹ thuật: ${newTask.suggestedAction}`,
+      createdAt: new Date().toISOString(),
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+      manager: {
+        id: realManagerId,
+        fullName: realManagerName,
+        email: realManagerEmail,
+      },
+      technician: {
+        id: realTechId,
+        fullName: realTechName,
+        email: realTechEmail,
+      },
+      tower: {
+        id: realTowerId,
+        towerCode: detection.tower,
+        regionId: mission.regionId,
+      },
+      anomaly: {
+        id: detection.id,
+        validationStatus: 'Confirmed',
+        confidenceScore: detection.confidence,
+        mediaId: detection.mediaId,
+        missionId: mission.id,
+        categoryName: detection.title,
+        categoryCode: detection.categoryCode,
+        isEmergencyClass: detection.isEmergency,
+        imageUrl: detection.imageUrl || '/images/defect-preview-frame.png',
+        cropUrl: detection.cropImageUrl || detection.imageUrl || '/images/defect-preview-frame.png',
+        analystNotes: detection.notes,
+        validatedAt: detection.validatedAt || new Date().toISOString(),
+        boundingBox: detection.boundingBox
+          ? {
+              x: detection.boundingBox.x,
+              y: detection.boundingBox.y,
+              width: detection.boundingBox.width,
+              height: detection.boundingBox.height,
+              isNormalized: true,
+            }
+          : undefined,
+      },
+      proofs: [],
+      materials: [],
+    });
+
+    // Notify backend API of review decision to keep database synced
+    if (triggerReviewApi) {
+      this.api
+        .reviewDetection(missionId, detection.id, {
+          status: 'Approved',
+          reviewNotes: `Duyệt khuyết tật từ AI (MF04) - Lập phiếu bảo trì #${ticketCode}`,
+        })
+        .subscribe({
+          next: () => this.loadMaintenanceTasks(missionId),
+          error: () => this.loadMaintenanceTasks(missionId),
+        });
+    }
+
+    this.resultMessage.set(`✅ Đã lập lệnh công tác / phiếu bảo trì #${ticketCode} thành công.`);
+  }
+
+  protected createTicketsForAllDetections(): void {
+    const list = this.detections();
+    const mission = this.mission();
+    const missionId = mission?.id;
+    if (!list.length || !missionId) {
+      this.resultMessage.set('Chưa có khuyết tật nào để tạo phiếu bảo trì.');
+      return;
+    }
+    let count = 0;
+    list.forEach((d) => {
+      if (!this.isTicketCreatedFor(d.id)) {
+        this.createMaintenanceTaskFromDetection(d, false);
+        count++;
+        // Notify backend of approval in background without triggering nested task wiping
+        this.api
+          .reviewDetection(missionId, d.id, {
+            status: 'Approved',
+            reviewNotes: 'Duyệt khuyết tật từ AI (MF04) - Lập phiếu bảo trì',
+          })
+          .subscribe({
+            next: () => undefined,
+            error: () => undefined,
+          });
+      }
+    });
+    this.saveMockMaintenanceTasks(missionId, this.maintenanceTasks());
+    this.resultMessage.set(`✅ Đã lập thành công ${count} phiếu bảo trì từ các khuyết tật AI.`);
+  }
+
+  private loadSavedMockDetections(missionId: string): MissionDetectionView[] {
+    try {
+      const raw = localStorage.getItem(`uavpms.mock_detections_${missionId}`);
+      if (!raw) return [];
+      const list = JSON.parse(raw) as MissionDetectionView[];
+      const sanitized = list.map((item) => ({
+        ...item,
+        mediaType: item.mediaType || 'image',
+        timestampSeconds: (item.mediaType || '').toLowerCase().includes('video') ? item.timestampSeconds : null,
+        imageUrl: this.sanitizeDetectionImageUrl(item.imageUrl, item.categoryCode),
+        cropImageUrl: this.sanitizeDetectionImageUrl(item.cropImageUrl, item.categoryCode),
+        sourceUrl: this.sanitizeDetectionImageUrl(item.sourceUrl, item.categoryCode),
+      }));
+      // Resave to clean any expired blob: URLs permanently
+      this.saveMockDetections(missionId, sanitized);
+      return sanitized;
+    } catch {
+      return [];
+    }
+  }
+
+  private saveMockDetections(missionId: string, items: readonly MissionDetectionView[]): void {
+    try {
+      localStorage.setItem(`uavpms.mock_detections_${missionId}`, JSON.stringify(items));
+    } catch {
+      // ignore
+    }
+  }
+
+  private loadSavedMockMaintenanceTasks(missionId: string): MissionMaintenanceTask[] {
+    try {
+      const raw = localStorage.getItem(`uavpms.mock_maintenance_tasks_${missionId}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveMockMaintenanceTasks(missionId: string, items: readonly MissionMaintenanceTask[]): void {
+    try {
+      localStorage.setItem(`uavpms.mock_maintenance_tasks_${missionId}`, JSON.stringify(items));
+    } catch {
+      // ignore
+    }
+  }
+
+  private loadMediaQueue(missionId: string): void {
+    const saved = this.loadSavedMockMediaQueue(missionId);
+    if (saved.length > 0) {
+      this.mediaQueue.set(saved);
+      this.activeMediaId.set(saved[0]?.id ?? '');
+      if (this.detections().length > 0) {
+        this.isAiProcessingComplete.set(true);
+        this.aiPipelineStep.set(4);
+        this.aiPipelineStatusText.set(
+          `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${this.detections().length} khuyết tật và lập báo cáo rủi ro thành công.`
+        );
+      }
+      return;
+    }
+
+    // Auto-restore uploaded files if detections exist for this mission or mission completed
+    const detections = this.detections().length > 0 ? this.detections() : this.loadSavedMockDetections(missionId);
+    const mission = this.mission();
+    const isCompletedOrHasDetections =
+      detections.length > 0 ||
+      mission?.status === 'Completed' ||
+      mission?.status === 'UnderReview' ||
+      mission?.status === 'InFlight';
+
+    if (isCompletedOrHasDetections) {
+      const synthesized: MissionMediaPreview[] = [
+        {
+          id: `media-${missionId}-1`,
+          file: new File([''], 'SCREENSHOT 2026-10-14 163033.PNG', { type: 'image/png' }),
+          url: '/images/defect-insulator-dirty.png',
+          thumbnailUrl: '/images/defect-insulator-dirty.png',
+          kind: 'image',
+          name: 'SCREENSHOT 2026-10-14 163033.PNG',
+          size: '23.1 KB',
+          resolution: '916 x 265',
+          fps: '-',
+          duration: '-',
+          durationSeconds: 0,
+          status: 'Đã phân tích khuyết tật (Hoàn tất)',
+          progress: 100,
+        },
+        {
+          id: `media-${missionId}-2`,
+          file: new File([''], 'SCREENSHOT 2026-10-14 163607.PNG', { type: 'image/png' }),
+          url: '/images/defect-insulator-crack.png',
+          thumbnailUrl: '/images/defect-insulator-crack.png',
+          kind: 'image',
+          name: 'SCREENSHOT 2026-10-14 163607.PNG',
+          size: '26.8 KB',
+          resolution: '254 x 178',
+          fps: '-',
+          duration: '-',
+          durationSeconds: 0,
+          status: 'Đã phân tích khuyết tật (Hoàn tất)',
+          progress: 100,
+        },
+        {
+          id: `media-${missionId}-3`,
+          file: new File([''], 'SCREENSHOT 2026-10-14 163726.PNG', { type: 'image/png' }),
+          url: '/images/defect-corridor-tree.png',
+          thumbnailUrl: '/images/defect-corridor-tree.png',
+          kind: 'image',
+          name: 'SCREENSHOT 2026-10-14 163726.PNG',
+          size: '18.0 KB',
+          resolution: '162 x 234',
+          fps: '-',
+          duration: '-',
+          durationSeconds: 0,
+          status: 'Đã phân tích khuyết tật (Hoàn tất)',
+          progress: 100,
+        },
+      ];
+      this.mediaQueue.set(synthesized);
+      this.activeMediaId.set(synthesized[0]?.id ?? '');
+      this.saveMockMediaQueue(missionId, synthesized);
+      this.isAiProcessingComplete.set(true);
+      this.aiPipelineStep.set(4);
+      this.aiPipelineStatusText.set(
+        `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${detections.length} khuyết tật và lập báo cáo rủi ro thành công.`
+      );
+    }
+  }
+
+  private loadSavedMockMediaQueue(missionId: string): MissionMediaPreview[] {
+    try {
+      const raw = localStorage.getItem(`uavpms.mock_media_queue_${missionId}`);
+      if (!raw) return [];
+      const list = JSON.parse(raw) as Partial<MissionMediaPreview>[];
+      return list.map((item, idx) => {
+        const fallbackImg =
+          idx === 0
+            ? '/images/defect-insulator-dirty.png'
+            : idx === 1
+            ? '/images/defect-insulator-crack.png'
+            : '/images/defect-corridor-tree.png';
+        const url = !item.url || item.url.startsWith('blob:') ? fallbackImg : item.url;
+        return {
+          id: item.id || `media-${missionId}-${idx}`,
+          file: new File([''], item.name || 'uav-media.png', { type: item.kind === 'video' ? 'video/mp4' : 'image/png' }),
+          url,
+          thumbnailUrl: url,
+          kind: (item.kind === 'video' ? 'video' : 'image') as MediaKind,
+          name: item.name || `uav-media-${idx + 1}.png`,
+          size: item.size || '25 KB',
+          resolution: item.resolution || '1920 x 1080',
+          fps: item.fps || '-',
+          duration: item.duration || '-',
+          durationSeconds: item.durationSeconds || 0,
+          status: item.status || 'Đã phân tích khuyết tật (Hoàn tất)',
+          progress: item.progress ?? 100,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  private saveMockMediaQueue(missionId: string, items: readonly MissionMediaPreview[]): void {
+    try {
+      const serializable = items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        url: item.url.startsWith('blob:') ? '' : item.url,
+        kind: item.kind,
+        size: item.size,
+        resolution: item.resolution,
+        fps: item.fps,
+        duration: item.duration,
+        durationSeconds: item.durationSeconds,
+        status: item.status,
+        progress: item.progress,
+      }));
+      localStorage.setItem(`uavpms.mock_media_queue_${missionId}`, JSON.stringify(serializable));
+    } catch {
+      // ignore
+    }
+  }
+
 }

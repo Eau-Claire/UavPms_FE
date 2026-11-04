@@ -5,7 +5,6 @@
       <tr>
         <th>Nhiệm vụ</th>
         <th>Loại sự cố</th>
-        <th>Mức độ</th>
         <th>Thời gian phát hiện</th>
         <th>Hình ảnh</th>
       </tr>
@@ -15,7 +14,7 @@
         <tr>
           <td>
             @if (defect.missionId) {
-              <a [routerLink]="['/missions', defect.missionId]" [queryParams]="{ tab: 'results' }" class="font-bold text-blue-600 hover:underline">
+              <a [routerLink]="['/missions', defect.missionId]" [queryParams]="{ tab: 'results' }">
                 {{ defect.missionName }}
               </a>
             } @else {
@@ -23,11 +22,6 @@
             }
           </td>
           <td>{{ defect.defectType }}</td>
-          <td>
-            <span class="status" [class.critical]="defect.severity?.toLowerCase() === 'critical'">
-              {{ defect.severity || 'Phát hiện' }}
-            </span>
-          </td>
           <td>{{ defect.detectedAt | date:'dd/MM/yyyy, HH:mm' }}</td>
           <td>
             @if (defect.imageUrl) {

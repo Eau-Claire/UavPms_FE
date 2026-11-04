@@ -1,0 +1,104 @@
+<div class="field-home">
+  <app-field-home-header
+    subtitle="Nhiệm vụ bay được giao cho bạn: xác nhận, chuẩn bị, bay và tải dữ liệu."
+    [loading]="missions.loading()"
+    [loadedAt]="missions.loadedAt()"
+    (refresh)="refresh()"
+  />
+
+  @if (missions.error() && missions.value()) {
+    <p class="stale-warning" role="status">{{ missions.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</p>
+  }
+
+  <ul class="count-strip" aria-label="Tóm tắt nhiệm vụ của tôi">
+    <li class="count-tile tone-amber">
+      <div><span class="tile-label">Chờ tôi xác nhận</span><strong class="tile-value">{{ groups().awaiting.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-blue">
+      <div><span class="tile-label">Sắp bay</span><strong class="tile-value">{{ groups().upcoming.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-red">
+      <div><span class="tile-label">Đang bay</span><strong class="tile-value">{{ groups().flying.length }}</strong></div>
+    </li>
+    <li class="count-tile tone-green">
+      <div><span class="tile-label">Đã hoàn thành</span><strong class="tile-value">{{ groups().completedTotal }}</strong></div>
+    </li>
+  </ul>
+
+  <div class="home-grid">
+    <div class="home-main">
+      @if (missions.loading() && !missions.value()) {
+        <app-data-state kind="loading" title="Đang tải nhiệm vụ của bạn" />
+      } @else if (missions.error() && !missions.value()) {
+        <app-data-state kind="error" [message]="missions.error() || ''" (retry)="missions.refresh()" />
+      } @else {
+        @for (section of sections(); track section.key) {
+          <section
+            class="panel"
+            [class.panel-accent]="section.key === 'awaiting' && section.items.length > 0"
+            [attr.aria-labelledby]="'inspector-group-' + section.key"
+          >
+            <header>
+              <h2 [id]="'inspector-group-' + section.key">
+                {{ section.title }} <span class="group-count">{{ section.total }}</span>
+              </h2>
+              @if (section.key === 'completed' && section.total > section.items.length) {
+                <a routerLink="/missions">Xem tất cả nhiệm vụ</a>
+              }
+            </header>
+            @if (section.items.length) {
+              <ul class="item-list">
+                @for (mission of section.items; track mission.id) {
+                  <li class="item">
+                    <div class="item-body">
+                      <p class="item-title">
+                        <span class="code">{{ mission.missionCode }}</span>
+                        <span>{{ mission.title || 'Nhiệm vụ chưa đặt tên' }}</span>
+                        <span [class]="'badge tone-' + statusTone(mission.status)">{{ statusLabel(mission.status) }}</span>
+                        @if (iPostponed(mission)) {
+                          <span class="badge tone-warning">Bạn đã xin hoãn</span>
+                        }
+                      </p>
+                      <p class="item-meta">
+                        <span>Khu vực: {{ mission.regionName || 'Chưa xác định' }}</span>
+                        <span>
+                          Kế hoạch:
+                          @if (plannedStart(mission); as start) {
+                            {{ start | date: 'dd/MM/yyyy HH:mm' }}
+                            @if (mission.plannedEnd) {
+                              – {{ mission.plannedEnd | date: 'dd/MM HH:mm' }}
+                            }
+                          } @else {
+                            chưa lên lịch
+                          }
+                        </span>
+                        @if (section.key === 'awaiting' && mission.confirmationDeadline) {
+                          <span>Hạn xác nhận: <strong>{{ mission.confirmationDeadline | date: 'dd/MM/yyyy HH:mm' }}</strong></span>
+                        }
+                        @if (section.key === 'completed' && mission.actualCompleted) {
+                          <span>Hoàn thành: {{ mission.actualCompleted | date: 'dd/MM/yyyy HH:mm' }}</span>
+                        }
+                      </p>
+                    </div>
+                    <a
+                      class="action-link"
+                      [class.secondary]="section.key === 'completed' || section.key === 'paused'"
+                      [routerLink]="link(mission, section.key)"
+                      [attr.aria-label]="section.action + ' ' + mission.missionCode"
+                    >{{ section.action }}</a>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="panel-empty">{{ section.empty }}</p>
+            }
+          </section>
+        }
+      }
+    </div>
+
+    <aside class="home-side" aria-label="Thông báo của tôi">
+      <app-personal-alerts-card />
+    </aside>
+  </div>
+</div>

@@ -1,0 +1,52 @@
+<div class="mt-form" role="group" aria-labelledby="proof-upload-title">
+  <h3 id="proof-upload-title" class="mt-form-title">Tải ảnh minh chứng sau sửa chữa</h3>
+
+  @if (error()) {
+    <p class="mt-form-error" role="alert">{{ error() }}</p>
+  }
+  @if (status()) {
+    <p class="mt-form-status" role="status">{{ status() }}</p>
+  }
+
+  <label class="button secondary proof-picker" [class.is-busy]="busy()">
+    <span>Chọn ảnh...</span>
+    <input
+      type="file"
+      class="sr-only"
+      multiple
+      [accept]="accept"
+      [disabled]="busy()"
+      aria-describedby="proof-file-hint"
+      (change)="onFilesSelected($event)"
+    />
+  </label>
+  <span id="proof-file-hint" class="mt-field-hint">JPG, PNG, WEBP hoặc TIFF, tối đa 50MB mỗi ảnh. Có thể chọn nhiều ảnh.</span>
+
+  @if (pending().length) {
+    <ul class="proof-previews" aria-label="Ảnh chờ tải lên">
+      @for (item of pending(); track item.key) {
+        <li class="proof-preview">
+          @if (item.previewUrl) {
+            <img [src]="item.previewUrl" [alt]="'Xem trước ' + item.file.name" width="120" height="90" />
+          } @else {
+            <span class="proof-preview-placeholder" aria-hidden="true">Ảnh</span>
+          }
+          <span class="proof-preview-name" [title]="item.file.name">{{ item.file.name }}</span>
+          <span class="mt-field-hint">{{ formatSize(item.file.size) }}</span>
+          <button type="button" class="mt-link-button" [disabled]="busy()" [attr.aria-label]="'Bỏ ảnh ' + item.file.name" (click)="remove(item)">Bỏ</button>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="mt-field">
+    <label for="proof-notes">Ghi chú kỹ thuật viên</label>
+    <textarea id="proof-notes" [formControl]="notes" maxlength="1000" rows="3" placeholder="Mô tả công việc đã thực hiện, tình trạng sau sửa chữa..."></textarea>
+  </div>
+
+  <div class="mt-form-actions">
+    <button type="button" class="button primary" [disabled]="busy() || !pending().length" (click)="upload()">
+      {{ busy() ? 'Đang tải lên...' : 'Tải lên ' + (pending().length || '') + ' ảnh' }}
+    </button>
+  </div>
+</div>

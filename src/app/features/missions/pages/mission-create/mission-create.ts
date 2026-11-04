@@ -1,896 +1,517 @@
-import { DatePipe, Location } from '@angular/common';
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  DestroyRef,
-  effect,
-  ElementRef,
-  inject,
-  OnDestroy,
-  OnInit,
-  signal,
-  viewChild,
-  ViewEncapsulation,
-} from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import * as L from 'leaflet';
+import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { Auth } from '../../../../core/auth/auth';
-import { DroneDto } from '../../../../models/drones.models';
 import {
-  MissionCreateRequest,
-  MissionPriority,
+  CreateMissionFromAssessmentRequest,
   InspectionObjective,
+  MissionPersonnelAssignment,
+  MissionPriority,
   PRIORITY_DEFECT_CATEGORIES,
-  ResourceConflictItem,
-  ResourceAvailabilityWarning,
 } from '../../../../models/missions.models';
 import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
-import { UserRecord } from '../../../../models/users.models';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
-import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
-import { UsersApi } from '../../../users/data-access/users-api';
-import { DronesApi } from '../../data-access/drones-api';
-import { MissionsApi, isValidGuid } from '../../data-access/missions-api';
+import { isValidGuid } from '../../data-access/missions-api';
 
-export type DeadlinePreset = '2h' | '6h' | '12h' | '24h' | 'custom';
+const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
 
+const ROLE_LABELS: Record<string, string> = {
+  INSPECTOR: 'Phi công / Inspector',
+  ANALYST: 'Chuyên viên phân tích',
+  TECHNICIAN: 'Kỹ thuật viên',
+};
+
+/** Backend default when no deadline is sent (`Mission:ConfirmationDeadlineHours`). */
+const DEFAULT_DEADLINE_HOURS = 24;
+export const MANAGER_INSTRUCTIONS_MAX = 2000;
+
+/**
+ * Tạo nhiệm vụ bay (MF02). Backend chỉ cho tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi ở trạng thái READY
+ * (`POST /pre-mission-assessments/{id}/create-mission`). Nhân sự và drone phải chọn trong danh sách ứng viên
+ * đủ điều kiện của chính hồ sơ đó. Mỗi nhiệm vụ bay đúng MỘT UAV và cần ít nhất một thành viên bắt buộc xác nhận.
+ */
 @Component({
   selector: 'app-mission-create',
-  imports: [ReactiveFormsModule, FormsModule, RouterLink, NzIconModule, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe],
   templateUrl: './mission-create.html',
   styleUrl: './mission-create.scss',
-  encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MissionCreate implements OnInit, AfterViewInit, OnDestroy {
-  private readonly api = inject(MissionsApi);
-  private readonly realtime = inject(NotificationsRealtime);
+export class MissionCreate {
   private readonly preMissionApi = inject(PreMissionApi);
-  private readonly dronesApi = inject(DronesApi);
-  private readonly usersApi = inject(UsersApi);
-  private readonly notificationsStore = inject(NotificationsStore);
-  private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  private readonly location = inject(Location);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly sourceAssessmentId = signal<string>('');
-  protected readonly assessmentData = signal<PreMissionAssessment | null>(null);
-  protected readonly loadingAssessment = signal<boolean>(false);
-  protected readonly busy = signal<boolean>(false);
-  protected readonly error = signal<string>('');
-  protected readonly successMessage = signal<string>('');
+  protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
+  protected readonly instructionsMax = MANAGER_INSTRUCTIONS_MAX;
 
-  protected readonly users = signal<readonly UserRecord[]>([]);
-  protected readonly drones = signal<readonly DroneDto[]>([]);
-  protected readonly currentUser = this.auth.user;
+  protected readonly readyAssessments = signal<readonly PreMissionAssessment[]>([]);
+  protected readonly loadingList = signal(false);
+  protected readonly assessment = signal<PreMissionAssessment | null>(null);
+  protected readonly loadingAssessment = signal(false);
+  protected readonly refreshingReadiness = signal(false);
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
 
-  // Deadline Preset & State
-  protected readonly selectedPreset = signal<DeadlinePreset>('6h');
-  protected readonly showMapPreview = signal<boolean>(true);
-  protected readonly currentMapType = signal<'google-streets' | 'google-hybrid' | 'carto'>('google-streets');
+  protected readonly selectedPersonnelIds = signal<readonly string[]>([]);
+  /** Members who must accept before the mission can start (`isRequired: true`). */
+  protected readonly requiredPersonnelIds = signal<readonly string[]>([]);
+  /** The UAVs selected for the mission (limited by maxDronesLimit from assessment findings). */
+  protected readonly selectedDroneIds = signal<readonly string[]>([]);
+  /** Backward-compatible getter for primary drone ID */
+  protected readonly selectedDroneId = computed(() => this.selectedDroneIds()[0] ?? '');
+  protected readonly selectedPriorityDefects = signal<readonly string[]>([]);
+  private readonly priority = signal<MissionPriority>('NORMAL');
 
-  private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapPreviewContainer');
-  private map: L.Map | null = null;
-  private currentTileLayer: L.TileLayer | null = null;
-  private markersLayer = L.layerGroup();
-  private polylineLayer = L.layerGroup();
-  private bufferLayer = L.layerGroup();
-  private resizeObserver: ResizeObserver | null = null;
+  /** Same key while an unchanged request is retried; a new key once the request changes (`IDEMPOTENCY_KEY_REUSED`). */
+  private readonly idempotency = new IdempotencyKeyTracker();
 
-  constructor() {
-    effect(() => {
-      const ass = this.assessmentData();
-      const show = this.showMapPreview();
-      const el = this.mapContainer();
-      if (ass && show && el) {
-        setTimeout(() => this.initMapPreview(), 60);
-      }
-    });
-  }
-
-  // Reactive Form
   protected readonly form = this.fb.nonNullable.group({
-    name: ['', [Validators.required, Validators.minLength(5)]],
-    priority: ['NORMAL'],
-    objective: ['PERIODIC_INSPECTION'],
-    emergencyReason: [''],
-    scheduledAt: ['', Validators.required],
-    plannedEnd: ['', Validators.required],
-    inspectorId: ['', Validators.required],
-    analystId: ['', Validators.required],
-    technicianId: ['', Validators.required],
-    droneId: ['', Validators.required],
-    confirmationDeadline: ['', Validators.required],
-    managerInstructions: [''],
-    notifyInApp: [true],
-    notifySms: [true],
-    notifyEmail: [true],
+    title: ['', [Validators.required, Validators.minLength(5)]],
     description: [''],
+    priority: ['NORMAL' as MissionPriority],
+    objective: ['PERIODIC_INSPECTION' as InspectionObjective],
+    emergencyReason: [''],
+    isImmediate: [false],
+    /** `datetime-local` (giờ địa phương), gửi lên dạng ISO UTC. */
+    confirmationDeadline: [''],
+    managerInstructions: ['', [Validators.maxLength(MANAGER_INSTRUCTIONS_MAX)]],
   });
 
-  protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
-  protected readonly selectedPriorityDefects = signal<string[]>([]);
-  protected readonly resourceConflicts = signal<readonly ResourceConflictItem[]>([]);
-  protected readonly resourceWarnings = signal<readonly ResourceAvailabilityWarning[]>([]);
-  protected readonly isCheckingConflicts = signal<boolean>(false);
+  protected readonly isAssessmentUsable = computed(() => {
+    const a = this.assessment();
+    return !!a && a.status === 'READY' && !a.completedMissionId && !isExpired(a);
+  });
+
+  /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
+  protected readonly assessmentConfig = computed(() => {
+    const raw = this.assessment()?.findings;
+    let reqInspectors = 1;
+    let reqAnalysts = 1;
+    let reqTechnicians = 1;
+    let maxDronesLimit = 1;
+    if (raw) {
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (typeof parsed?.requiredInspectors === 'number') reqInspectors = Math.max(1, parsed.requiredInspectors);
+        if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
+        if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
+        if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
+      } catch {}
+    }
+    return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
+  });
+
+  protected readonly maxDronesLimit = computed(() => this.assessmentConfig().maxDronesLimit);
+
+  protected readonly eligiblePersonnel = computed<readonly PersonnelCandidate[]>(() =>
+    [...(this.assessment()?.personnelCandidates ?? [])]
+      .filter((p) => p.isEligible)
+      .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.name.localeCompare(b.name)),
+  );
+
+  protected readonly ineligiblePersonnelCount = computed(
+    () => (this.assessment()?.personnelCandidates ?? []).filter((p) => !p.isEligible).length,
+  );
+
+  protected readonly eligibleDrones = computed<readonly UavCandidate[]>(() =>
+    (this.assessment()?.uavCandidates ?? []).filter((d) => d.isEligible),
+  );
+
+  protected readonly ineligibleDroneCount = computed(
+    () => (this.assessment()?.uavCandidates ?? []).filter((d) => !d.isEligible).length,
+  );
+
+  protected readonly selectedPersonnel = computed(() => {
+    const ids = new Set(this.selectedPersonnelIds());
+    return this.eligiblePersonnel().filter((p) => ids.has(p.id));
+  });
+
+  protected readonly selectedInspectorCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'INSPECTOR').length,
+  );
+  protected readonly selectedAnalystCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'ANALYST').length,
+  );
+  protected readonly selectedTechnicianCount = computed(
+    () => this.selectedPersonnel().filter((p) => p.role === 'TECHNICIAN').length,
+  );
+
+  protected readonly hasSelectedInspector = computed(() => this.selectedPersonnel().some((p) => p.role === 'INSPECTOR'));
+
+  protected readonly requiredSelectedCount = computed(() => {
+    const required = new Set(this.requiredPersonnelIds());
+    return this.selectedPersonnel().filter((p) => required.has(p.id)).length;
+  });
+
+  protected readonly selectedDrones = computed<readonly UavCandidate[]>(() => {
+    const ids = new Set(this.selectedDroneIds());
+    return this.eligibleDrones().filter((d) => ids.has(d.id));
+  });
+
+  protected readonly primaryDrone = computed(
+    () => this.selectedDrones()[0] ?? null,
+  );
+
+  protected readonly isEmergency = computed(() => this.priority() === 'EMERGENCY');
+
+  protected readonly readyAssessmentIds = computed(() => new Set(this.readyAssessments().map((a) => a.id)));
+
+  /** Latest allowed deadline: the planned start of the assessment (local `datetime-local` value). */
+  protected readonly deadlineMax = computed(() => {
+    const a = this.assessment();
+    const start = a ? new Date(a.plannedStart) : null;
+    return start && !Number.isNaN(start.getTime()) ? toDatetimeLocal(start) : '';
+  });
+
+  constructor() {
+    this.form.controls.priority.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.onPriorityChange(value));
+
+    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
+    if (assessmentId && isValidGuid(assessmentId)) {
+      this.selectAssessment(assessmentId);
+    }
+    this.loadReadyAssessments();
+  }
+
+  protected onAssessmentSelect(event: Event): void {
+    const id = (event.target as HTMLSelectElement).value;
+    if (!id) {
+      this.assessment.set(null);
+      this.resetSelections();
+      return;
+    }
+    this.selectAssessment(id);
+  }
+
+  protected togglePersonnel(id: string): void {
+    if (this.selectedPersonnelIds().includes(id)) {
+      this.selectedPersonnelIds.update((ids) => ids.filter((x) => x !== id));
+      this.requiredPersonnelIds.update((ids) => ids.filter((x) => x !== id));
+    } else {
+      // A newly selected member is required by default; the manager can make them optional.
+      this.selectedPersonnelIds.update((ids) => [...ids, id]);
+      this.requiredPersonnelIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    }
+  }
+
+  protected toggleRequired(id: string): void {
+    if (!this.selectedPersonnelIds().includes(id)) return;
+    this.requiredPersonnelIds.update((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  protected selectDrone(id: string): void {
+    const limit = this.maxDronesLimit();
+    if (limit <= 1) {
+      this.selectedDroneIds.set([id]);
+    } else {
+      const current = this.selectedDroneIds();
+      if (current.includes(id)) {
+        this.selectedDroneIds.set(current.filter((x) => x !== id));
+      } else if (current.length < limit) {
+        this.selectedDroneIds.set([...current, id]);
+      }
+    }
+  }
+
+  protected toggleDrone(id: string): void {
+    this.selectDrone(id);
+  }
 
   protected toggleDefect(key: string): void {
-    const current = this.selectedPriorityDefects();
-    if (current.includes(key)) {
-      this.selectedPriorityDefects.set(current.filter((k) => k !== key));
-    } else {
-      this.selectedPriorityDefects.set([...current, key]);
-    }
+    this.selectedPriorityDefects.update((keys) => (keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]));
+  }
+
+  protected isPersonnelSelected(id: string): boolean {
+    return this.selectedPersonnelIds().includes(id);
+  }
+
+  protected isPersonnelRequired(id: string): boolean {
+    return this.requiredPersonnelIds().includes(id);
+  }
+
+  protected isDroneSelected(id: string): boolean {
+    return this.selectedDroneIds().includes(id);
   }
 
   protected isDefectSelected(key: string): boolean {
     return this.selectedPriorityDefects().includes(key);
   }
 
-  protected onPriorityChange(): void {
-    const p = this.form.controls.priority.value;
-    if (p === 'EMERGENCY') {
-      this.form.controls.emergencyReason.setValidators([Validators.required, Validators.minLength(10)]);
-    } else {
-      this.form.controls.emergencyReason.clearValidators();
-      this.form.controls.emergencyReason.setValue('');
-    }
-    this.form.controls.emergencyReason.updateValueAndValidity();
+  protected roleLabel(role: string): string {
+    return ROLE_LABELS[role] ?? role;
   }
 
-  protected checkResourceConflicts(): void {
-    const f = this.form.getRawValue();
-    if (!f.scheduledAt || !f.plannedEnd) return;
-    const userIds = [f.inspectorId, f.analystId, f.technicianId].filter(Boolean);
-    const droneIds = [f.droneId].filter(Boolean);
-    if (userIds.length === 0 && droneIds.length === 0) return;
-
-    this.isCheckingConflicts.set(true);
-    this.api
-      .checkResourceConflicts({
-        startAt: f.scheduledAt,
-        endAt: f.plannedEnd,
-        userIds,
-        droneIds,
-      })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (res) => {
-          this.isCheckingConflicts.set(false);
-          this.resourceConflicts.set(res?.conflicts || []);
-          this.resourceWarnings.set(res?.warnings || []);
-        },
-        error: () => {
-          this.isCheckingConflicts.set(false);
-        },
-      });
-  }
-
-  // Base personnel list from real database users, falling back to assessment or defaults
-  protected readonly allPersonnelCandidates = computed<readonly PersonnelCandidate[]>(() => {
-    const realUsers = this.users();
-    if (realUsers && realUsers.length > 0) {
-      return realUsers.map((u) => {
-        const r = (u.role || '').toLowerCase();
-        const email = (u.email || '').toLowerCase();
-        const username = (u.username || '').toLowerCase();
-        let roleType: 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN' = 'INSPECTOR';
-        if (r.includes('analyst') || r.includes('phân tích') || username.includes('analyst') || email.includes('analyst')) {
-          roleType = 'ANALYST';
-        } else if (r.includes('tech') || r.includes('kỹ thuật') || r.includes('bảo trì') || username.includes('technician') || email.includes('technician')) {
-          roleType = 'TECHNICIAN';
-        } else if (r.includes('inspector') || r.includes('pilot') || r.includes('phi công') || username.includes('inspector') || email.includes('inspector')) {
-          roleType = 'INSPECTOR';
-        }
-
-        const isActive = u.status !== 'Inactive' && u.status !== 'Locked';
-        return {
-          id: u.id,
-          name: u.fullName || u.username || u.email,
-          role: roleType,
-          region: 'Khu vực quản lý',
-          availability: 'AVAILABLE' as const,
-          eligibility: 'ELIGIBLE' as const,
-          overallEligibility: isActive,
-          isActive,
-          isEligible: isActive,
-          isWithinScope: true,
-          isAvailable: isActive,
-          reason: 'Người dùng thực tế từ CSDL',
-        };
-      });
-    }
-
-    const ass = this.assessmentData();
-    if (ass && ass.personnelCandidates && ass.personnelCandidates.length > 0) {
-      return ass.personnelCandidates;
-    }
-    return [];
-  });
-
-  // Derived candidate lists partitioned by the 3 required roles satisfying 5 AND criteria
-  protected readonly eligibleInspectors = computed<readonly PersonnelCandidate[]>(() => {
-    return this.allPersonnelCandidates().filter((p) => {
-      const r = (p.role || '').toLowerCase();
-      const isInspector = r.includes('inspector') || r.includes('pilot') || r.includes('phi công');
-      const isEligible = p.overallEligibility !== undefined
-        ? Boolean(p.overallEligibility && p.overallEligibility !== 'INELIGIBLE')
-        : p.eligibility === 'ELIGIBLE';
-      return isInspector && isEligible;
-    });
-  });
-
-  protected readonly eligibleAnalysts = computed<readonly PersonnelCandidate[]>(() => {
-    return this.allPersonnelCandidates().filter((p) => {
-      const r = (p.role || '').toLowerCase();
-      const isAnalyst = r.includes('analyst') || r.includes('phân tích') || r.includes('dữ liệu');
-      const isEligible = p.overallEligibility !== undefined
-        ? Boolean(p.overallEligibility && p.overallEligibility !== 'INELIGIBLE')
-        : p.eligibility === 'ELIGIBLE';
-      return isAnalyst && isEligible;
-    });
-  });
-
-  protected readonly eligibleTechnicians = computed<readonly PersonnelCandidate[]>(() => {
-    return this.allPersonnelCandidates().filter((p) => {
-      const r = (p.role || '').toLowerCase();
-      const isTech = r.includes('tech') || r.includes('kỹ thuật') || r.includes('bảo trì');
-      const isEligible = p.overallEligibility !== undefined
-        ? Boolean(p.overallEligibility && p.overallEligibility !== 'INELIGIBLE')
-        : p.eligibility === 'ELIGIBLE';
-      return isTech && isEligible;
-    });
-  });
-
-  // Backward compatible general personnel list
-  protected readonly eligiblePersonnel = computed<readonly PersonnelCandidate[]>(() => {
-    return this.allPersonnelCandidates().filter((p) =>
-      p.overallEligibility !== false && p.overallEligibility !== 'INELIGIBLE' && p.eligibility === 'ELIGIBLE',
-    );
-  });
-
-  protected readonly eligibleDrones = computed<readonly UavCandidate[]>(() => {
-    const ass = this.assessmentData();
-    if (ass && ass.uavCandidates && ass.uavCandidates.length > 0) {
-      return ass.uavCandidates.filter((d) =>
-        d.eligibility === 'ELIGIBLE' &&
-        d.technicalHealth !== 'CRITICAL' &&
-        (d.operationalStatus === 'AVAILABLE' || d.operationalStatus === 'Idle') &&
-        d.suitability !== 'UNSUITABLE'
-      );
-    }
-    // Fallback to active drones
-    return this.drones()
-      .filter((d) => (d.operationalStatus === 'Idle' || d.operationalStatus === 'Available') && d.online)
-      .map((d) => ({
-        id: d.id,
-        code: d.droneCode,
-        name: d.name,
-        operationalStatus: 'AVAILABLE' as const,
-        technicalHealth: 'HEALTHY' as const,
-        eligibility: 'ELIGIBLE' as const,
-        battery: d.battery,
-      }));
-  });
-
-  protected readonly selectedInspector = computed(() => {
-    const id = this.form.controls.inspectorId.value;
-    return this.allPersonnelCandidates().find((p) => p.id === id);
-  });
-
-  protected readonly selectedAnalyst = computed(() => {
-    const id = this.form.controls.analystId.value;
-    return this.allPersonnelCandidates().find((p) => p.id === id);
-  });
-
-  protected readonly selectedTechnician = computed(() => {
-    const id = this.form.controls.technicianId.value;
-    return this.allPersonnelCandidates().find((p) => p.id === id);
-  });
-
-  protected readonly selectedDrone = computed(() => {
-    const id = this.form.controls.droneId.value;
-    return this.eligibleDrones().find((d) => d.id === id || d.code === id);
-  });
-
-  protected readonly corridorBufferMeters = computed<number>(() => {
-    const ass = this.assessmentData();
-    if (!ass || !ass.scopeGeometry || typeof ass.scopeGeometry !== 'object') return 50;
-    const geom = ass.scopeGeometry as Record<string, unknown>;
-    return Number(geom['corridorBufferMeters'] ?? 50);
-  });
-
-  ngOnInit(): void {
-    this.loadUsersAndDrones();
-
-    const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
-    if (assessmentId && isValidGuid(assessmentId)) {
-      this.sourceAssessmentId.set(assessmentId);
-      this.loadAssessment(assessmentId);
-    }
-
-    // Synchronize deadline automatically if flight start time changes
-    this.form.controls.scheduledAt.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((startVal) => {
-        if (startVal && this.selectedPreset() !== 'custom') {
-          const dl = this.computeDeadlineString(startVal, this.selectedPreset());
-          this.form.controls.confirmationDeadline.setValue(dl, { emitEvent: false });
-        }
-      });
-  }
-
-  ngAfterViewInit(): void {
-    setTimeout(() => this.initMapPreview(), 250);
-  }
-
-  ngOnDestroy(): void {
-    this.cleanupMap();
-  }
-
-  private loadUsersAndDrones(): void {
-    this.usersApi
-      .getAll()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (users) => {
-          this.users.set(users);
-          this.autoSelectCandidatesIfEmpty();
-        },
-        error: () => {},
-      });
-
-    this.dronesApi
-      .getAll()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (drones) => {
-          this.drones.set(drones);
-          if (!this.form.controls.droneId.value && drones.length > 0) {
-            const best = this.eligibleDrones()[0]?.id || drones[0].id;
-            this.form.controls.droneId.setValue(best);
-          }
-        },
-        error: () => {},
-      });
-  }
-
-  private autoSelectCandidatesIfEmpty(): void {
-    const c = this.form.controls;
-    const isMock = (id: string | null | undefined) => !id || id.startsWith('usr-');
-    if (isMock(c.inspectorId.value)) {
-      const ins = this.eligibleInspectors()[0]?.id || this.users().find((u) => (u.role || '').toLowerCase().includes('pilot') || (u.email || '').toLowerCase().includes('inspector'))?.id;
-      if (ins) c.inspectorId.setValue(ins);
-    }
-    if (isMock(c.analystId.value)) {
-      const ana = this.eligibleAnalysts()[0]?.id || this.users().find((u) => (u.role || '').toLowerCase().includes('analyst') || (u.email || '').toLowerCase().includes('analyst'))?.id;
-      if (ana) c.analystId.setValue(ana);
-    }
-    if (isMock(c.technicianId.value)) {
-      const tec = this.eligibleTechnicians()[0]?.id || this.users().find((u) => (u.role || '').toLowerCase().includes('tech') || (u.email || '').toLowerCase().includes('technician'))?.id;
-      if (tec) c.technicianId.setValue(tec);
-    }
-  }
-
-  private loadAssessment(id: string): void {
-    this.loadingAssessment.set(true);
+  /**
+   * Đánh giá lại hồ sơ (`POST /re-evaluate`) để lấy danh sách ứng viên mới nhất. `GET /resource-readiness` nay chỉ
+   * đọc kết quả cũ nên không dùng để làm mới. Phản hồi là hồ sơ đầy đủ sau khi đánh giá, thay thế hồ sơ đang hiển thị.
+   */
+  protected refreshReadiness(): void {
+    const a = this.assessment();
+    if (!a || this.refreshingReadiness()) return;
+    this.refreshingReadiness.set(true);
+    this.error.set('');
     this.preMissionApi
-      .get(id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .reEvaluate(a.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.refreshingReadiness.set(false)),
+      )
       .subscribe({
-        next: (ass) => {
-          this.assessmentData.set(ass);
-          this.loadingAssessment.set(false);
-
-          // Calculate forward-safe execution window
-          let startTimeMs = ass.plannedStart ? new Date(ass.plannedStart).getTime() : Date.now() + 2 * 3600000;
-          if (isNaN(startTimeMs) || startTimeMs <= Date.now() + 30 * 60 * 1000) {
-            startTimeMs = Date.now() + 2 * 3600000; // default 2 hours from now
+        next: (updated) => {
+          this.assessment.set(updated);
+          this.pruneSelections();
+          if (updated.status !== 'READY') {
+            this.error.set('Sau khi đánh giá lại, hồ sơ không còn ở trạng thái READY. Vui lòng xử lý tại không gian đánh giá.');
           }
-          let endTimeMs = ass.plannedEnd ? new Date(ass.plannedEnd).getTime() : startTimeMs + 4 * 3600000;
-          if (isNaN(endTimeMs) || endTimeMs <= startTimeMs) {
-            endTimeMs = startTimeMs + 4 * 3600000;
-          }
-
-          const startStr = this.formatDateTimeInput(new Date(startTimeMs));
-          const endStr = this.formatDateTimeInput(new Date(endTimeMs));
-
-          // Calculate default deadline (6 hours before start, or safely placed before start)
-          const deadlineStr = this.computeDeadlineString(startStr, '6h');
-
-          // Pick best inspector, analyst, technician, drone candidates
-          const bestInspector =
-            this.eligibleInspectors()[0]?.id ||
-            ass.personnelCandidates?.find((p) => (p.role || '').toLowerCase().includes('inspector'))?.id ||
-            '';
-
-          const bestAnalyst =
-            this.eligibleAnalysts()[0]?.id ||
-            ass.personnelCandidates?.find((p) => (p.role || '').toLowerCase().includes('analyst'))?.id ||
-            '';
-
-          const bestTechnician =
-            this.eligibleTechnicians()[0]?.id ||
-            ass.personnelCandidates?.find((p) => (p.role || '').toLowerCase().includes('tech'))?.id ||
-            '';
-
-          const bestDrone =
-            ass.uavCandidates?.find((d) => d.eligibility === 'ELIGIBLE')?.id ||
-            ass.uavCandidates?.[0]?.id ||
-            this.eligibleDrones()[0]?.id ||
-            this.drones()[0]?.id ||
-            '';
-
-          this.form.patchValue({
-            name: `Khảo sát ${ass.regionName || 'EVN'}${ass.lineName ? ' - ' + ass.lineName : ''} [${ass.assessmentCode}]`,
-            scheduledAt: startStr,
-            plannedEnd: endStr,
-            confirmationDeadline: deadlineStr,
-            inspectorId: bestInspector,
-            analystId: bestAnalyst,
-            technicianId: bestTechnician,
-            droneId: bestDrone,
-            managerInstructions: `Yêu cầu đội bay và kỹ thuật kiểm tra kỹ khoảng cách an toàn hành lang lưới điện (${this.corridorBufferMeters()}m), phối hợp phân tích ảnh và hoàn thành xác nhận trước hạn chót.`,
-            description: `Nhiệm vụ bay kiểm tra được kế thừa từ Đánh giá tiền nhiệm vụ ${ass.assessmentCode}. Phạm vi: ${ass.assetCount} vị trí cột điện. Yêu cầu đủ 3 vai trò: Inspector, Analyst, Technician.`,
-          });
-
-          // Fallback auto selection if some fields empty
-          this.autoSelectCandidatesIfEmpty();
-
-          setTimeout(() => {
-            this.initMapPreview();
-            this.renderMapTowers();
-          }, 80);
         },
-        error: () => {
-          this.loadingAssessment.set(false);
-          this.error.set('Không thể tải thông tin Đánh giá tiền nhiệm vụ. Vui lòng thử lại.');
-        },
+        error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể đánh giá lại mức sẵn sàng nguồn lực.')),
       });
   }
 
-  protected setDeadlinePreset(preset: DeadlinePreset): void {
-    this.selectedPreset.set(preset);
-    if (preset === 'custom') return;
-
-    const startVal = this.form.controls.scheduledAt.value;
-    const deadlineVal = this.computeDeadlineString(startVal, preset);
-    this.form.controls.confirmationDeadline.setValue(deadlineVal);
-  }
-
-  private computeDeadlineString(startIsoOrInput: string, preset: DeadlinePreset): string {
-    const startTime = startIsoOrInput ? new Date(startIsoOrInput).getTime() : Date.now() + 2 * 3600000;
-    let offsetHours = 6;
-    if (preset === '2h') offsetHours = 2;
-    else if (preset === '6h') offsetHours = 6;
-    else if (preset === '12h') offsetHours = 12;
-    else if (preset === '24h') offsetHours = 24;
-
-    let deadlineMs = startTime - offsetHours * 3600000;
-    // CRITICAL: The confirmation deadline MUST ALWAYS be before the flight start time
-    if (deadlineMs >= startTime || deadlineMs <= Date.now()) {
-      const leadTime = startTime - Date.now();
-      if (leadTime > 3600000) {
-        deadlineMs = startTime - 30 * 60 * 1000; // 30 mins before flight
-      } else {
-        deadlineMs = Math.max(Date.now() + 5 * 60 * 1000, startTime - 10 * 60 * 1000);
-      }
-    }
-    return this.formatDateTimeInput(new Date(deadlineMs));
-  }
-
-  private formatDateTimeInput(d: Date): string {
-    const pad = (n: number) => (n < 10 ? '0' + n : String(n));
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  protected toggleMapPreview(): void {
-    this.showMapPreview.update((v) => !v);
-    if (this.showMapPreview()) {
-      setTimeout(() => {
-        this.initMapPreview();
-      }, 60);
-    } else {
-      this.cleanupMap();
-    }
-  }
-
-  protected goBack(): void {
-    const ass = this.assessmentData();
-    if (ass) {
-      this.router.navigate(['/pre-mission', ass.id]);
-    } else {
-      this.location.back();
-    }
-  }
-
-  // --- Map Preview Methods ---
-  protected setMapType(type: 'google-streets' | 'google-hybrid' | 'carto'): void {
-    this.currentMapType.set(type);
-    if (!this.map) return;
-
-    if (this.currentTileLayer) {
-      this.map.removeLayer(this.currentTileLayer);
-      this.currentTileLayer = null;
-    }
-
-    let tileUrl: string;
-    let maxZoom = 20;
-    let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
-    let attribution = '© Google Maps | UAV-PMS MF02';
-
-    switch (type) {
-      case 'google-hybrid':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-        attribution = '© Google Maps Vệ Tinh | UAV-PMS MF02';
-        break;
-      case 'carto':
-        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c', 'd'];
-        maxZoom = 19;
-        attribution = '© OpenStreetMap contributors | EVN UAV-PMS';
-        break;
-      case 'google-streets':
-      default:
-        tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-        attribution = '© Google Maps | UAV-PMS MF02';
-        break;
-    }
-
-    const tileLayer = L.tileLayer(tileUrl, {
-      maxZoom,
-      subdomains,
-      attribution,
-      updateWhenIdle: false,
-      updateWhenZooming: false,
-      keepBuffer: 6,
-    });
-
-    let hasFallenBack = false;
-    tileLayer.on('tileerror', () => {
-      if (!hasFallenBack) {
-        hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-      }
-    });
-
-    this.currentTileLayer = tileLayer;
-    this.currentTileLayer.addTo(this.map);
-  }
-
-  private initMapPreview(): void {
-    const container = this.mapContainer()?.nativeElement ?? (document.getElementById('missionCreateMapContainer') as HTMLDivElement | null);
-    if (!container) return;
-
-    if (this.map) {
-      if (this.map.getContainer() !== container) {
-        this.cleanupMap();
-      } else {
-        this.map.invalidateSize();
-        this.renderMapTowers();
-        return;
-      }
-    }
-
-    if ((container as any)._leaflet_id) {
-      (container as any)._leaflet_id = null;
-    }
-
-    this.map = L.map(container, {
-      center: [16.0544, 108.2022],
-      zoom: 13,
-      zoomControl: true,
-      scrollWheelZoom: false,
-    });
-
-    this.bufferLayer = L.layerGroup().addTo(this.map);
-    this.polylineLayer = L.layerGroup().addTo(this.map);
-    this.markersLayer = L.layerGroup().addTo(this.map);
-
-    this.setMapType(this.currentMapType());
-
-    if (typeof ResizeObserver !== 'undefined') {
-      if (this.resizeObserver) {
-        this.resizeObserver.disconnect();
-      }
-      this.resizeObserver = new ResizeObserver(() => {
-        this.map?.invalidateSize();
-      });
-      this.resizeObserver.observe(container);
-    }
-
-    this.map.whenReady(() => {
-      this.map?.invalidateSize();
-      this.renderMapTowers();
-    });
-
-    setTimeout(() => {
-      this.map?.invalidateSize();
-      this.renderMapTowers();
-    }, 80);
-
-    setTimeout(() => {
-      this.map?.invalidateSize();
-    }, 280);
-  }
-
-  private renderMapTowers(): void {
-    if (!this.map) {
-      this.initMapPreview();
+  protected submit(): void {
+    this.error.set('');
+    const a = this.assessment();
+    if (!a) {
+      this.error.set('Vui lòng chọn một hồ sơ đánh giá tiền khả thi ở trạng thái READY.');
       return;
     }
-    this.markersLayer.clearLayers();
-    this.polylineLayer.clearLayers();
-    this.bufferLayer.clearLayers();
-
-    const ass = this.assessmentData();
-    if (!ass || !ass.scopeAssetIds || ass.scopeAssetIds.length === 0) return;
-
-    const bufferMeters = this.corridorBufferMeters();
-    let baseLat = 16.0544;
-    let baseLng = 108.2022;
-    const reg = (ass.regionName || ass.regionId || '').toLowerCase();
-    if (reg.includes('bắc') || reg.includes('north') || reg.includes('hn')) {
-      baseLat = 21.0285;
-      baseLng = 105.8542;
-    } else if (reg.includes('nam') || reg.includes('south') || reg.includes('hcm')) {
-      baseLat = 10.8231;
-      baseLng = 106.6297;
+    if (!this.isAssessmentUsable()) {
+      this.error.set('Hồ sơ đánh giá đã hết hạn, đã tạo nhiệm vụ hoặc chưa ở trạng thái READY.');
+      return;
     }
-
-    const latLngs: [number, number][] = [];
-
-    ass.scopeAssetIds.forEach((code, idx) => {
-      const lat = baseLat + idx * 0.0045;
-      const lng = baseLng + idx * 0.0065;
-      latLngs.push([lat, lng]);
-
-      // Safety buffer
-      const circle = L.circle([lat, lng], {
-        radius: bufferMeters,
-        color: '#0284c7',
-        fillColor: '#38bdf8',
-        fillOpacity: 0.18,
-        weight: 1.5,
-        dashArray: '4, 4',
-      });
-      this.bufferLayer.addLayer(circle);
-
-      // Tower marker
-      const marker = L.circleMarker([lat, lng], {
-        radius: 7,
-        fillColor: '#0052cc',
-        color: '#ffffff',
-        weight: 2,
-        fillOpacity: 1,
-      });
-      marker.bindTooltip(`Cột ${idx + 1}: ${code}`, {
-        permanent: false,
-        direction: 'top',
-        className: 'evn-map-tooltip',
-        offset: [0, -6],
-      });
-      marker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; line-height: 1.4; padding: 2px;">
-          <strong style="color: #0369a1;">Vị trí cột ${idx + 1}</strong>
-          <div style="font-family: monospace; font-weight: 600; margin: 2px 0;">${code}</div>
-          <div style="color: #64748b; font-size: 11px;">Hành lang an toàn: <strong>${bufferMeters}m</strong></div>
-        </div>
-      `);
-      this.markersLayer.addLayer(marker);
-    });
-
-    if (latLngs.length > 1) {
-      const poly = L.polyline(latLngs, {
-        color: '#0052cc',
-        weight: 3.5,
-        dashArray: '6, 6',
-      });
-      this.polylineLayer.addLayer(poly);
+    const f = this.form.getRawValue();
+    if (f.priority === 'EMERGENCY' && f.emergencyReason.trim().length < 10) {
+      this.form.controls.emergencyReason.markAsTouched();
+      this.error.set('Lý do khẩn cấp bắt buộc nhập tối thiểu 10 ký tự khi chọn mức ưu tiên Khẩn cấp.');
+      return;
     }
-
-    if (latLngs.length > 0) {
-      const bounds = L.latLngBounds(latLngs);
-      this.map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
+    if (f.managerInstructions.length > MANAGER_INSTRUCTIONS_MAX) {
+      this.form.controls.managerInstructions.markAsTouched();
+      this.error.set('Chỉ thị của quản lý tối đa 2.000 ký tự.');
+      return;
     }
-  }
-
-  protected refreshMap(): void {
-    if (this.map) {
-      this.map.invalidateSize();
-      this.renderMapTowers();
-    } else {
-      this.initMapPreview();
-    }
-  }
-
-  private cleanupMap(): void {
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
-    }
-    if (this.map) {
-      try {
-        this.map.remove();
-      } catch {}
-      this.map = null;
-      this.currentTileLayer = null;
-    }
-  }
-
-  // --- Dispatch Action ---
-  changeRegion(_regionId: string): void {}
-  save(): void { this.dispatchMission(); }
-  dispatchMission(): void {
-    this.error.set('');
-
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      const missing: string[] = [];
-      const c = this.form.controls;
-      if (c.name.invalid) missing.push('Tên đợt bay (tối thiểu 5 ký tự)');
-      if (c.inspectorId.invalid) missing.push('Phi công phụ trách (Inspector)');
-      if (c.analystId.invalid) missing.push('Chuyên viên phân tích (Analyst)');
-      if (c.technicianId.invalid) missing.push('Kỹ thuật viên bảo trì (Technician)');
-      if (c.droneId.invalid) missing.push('Phương tiện UAV');
-      if (c.scheduledAt.invalid) missing.push('Thời điểm bắt đầu bay');
-      if (c.plannedEnd.invalid) missing.push('Thời điểm kết thúc');
-      if (c.confirmationDeadline.invalid) missing.push('Hạn chót xác nhận');
-
-      this.error.set(`Vui lòng hoàn thiện các trường bắt buộc (yêu cầu đủ 3 vai trò): ${missing.join(', ')}.`);
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      this.error.set('Vui lòng nhập tên nhiệm vụ (tối thiểu 5 ký tự) và các trường bắt buộc.');
       return;
     }
-
-    const f = this.form.getRawValue();
-    const ass = this.assessmentData();
-    const startTime = new Date(f.scheduledAt).getTime();
-    const endTime = new Date(f.plannedEnd).getTime();
-    const deadlineTime = new Date(f.confirmationDeadline).getTime();
-
-    if (endTime <= startTime) {
-      this.error.set('Thời gian kết thúc nhiệm vụ phải sau thời điểm bắt đầu bay.');
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    const personnel = this.selectedPersonnel();
+    if (!personnel.length) {
+      this.error.set('Vui lòng chọn ít nhất một nhân sự từ danh sách ứng viên của hồ sơ.');
       return;
     }
-
-    if (f.priority === 'EMERGENCY' && (!f.emergencyReason || f.emergencyReason.trim().length < 10)) {
-      this.error.set('Lý do khẩn cấp (Emergency Reason) bắt buộc nhập tối thiểu 10 ký tự khi chọn mức độ ưu tiên EMERGENCY (BR-06).');
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    if (!this.hasSelectedInspector()) {
+      this.error.set('Cần chọn ít nhất một Phi công / Inspector phụ trách nhiệm vụ.');
       return;
     }
-
-    if (deadlineTime >= startTime) {
-      this.error.set('Hạn chót các thành viên xác nhận (Confirmation Deadline) phải diễn ra trước thời điểm bắt đầu bay.');
-      if (typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    if (!this.requiredSelectedCount()) {
+      this.error.set('Cần ít nhất một thành viên được đánh dấu "Bắt buộc xác nhận".');
       return;
     }
-
-    const candidates = this.eligibleDrones();
-    if (candidates.length > 0) {
-      const selectedDrone = candidates.find((d) => d.id === f.droneId || d.code === f.droneId);
-      if (!selectedDrone) {
-        this.error.set('Phương tiện UAV đã chọn không đạt điều kiện an toàn kỹ thuật, không phù hợp phạm vi tuyến hoặc không còn khả dụng trong đội bay.');
-        if (typeof window !== 'undefined') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        return;
-      }
+    const droneIds = [...this.selectedDroneIds()];
+    if (!droneIds.length) {
+      this.error.set('Vui lòng chọn ít nhất một UAV từ danh sách ứng viên của hồ sơ.');
+      return;
     }
+    const cfg = this.assessmentConfig();
+    if (droneIds.length > cfg.maxDronesLimit) {
+      this.error.set(
+        `Số lượng UAV được chọn (${droneIds.length}) vượt quá giới hạn tối đa (${cfg.maxDronesLimit}) theo hồ sơ đánh giá.`,
+      );
+      return;
+    }
+    const deadline = this.resolveDeadline(f.confirmationDeadline, a);
+    if (deadline === false) return;
 
-    this.busy.set(true);
-    this.error.set('');
+    // Người đầu tiên là Inspector chính (backend lấy Personnel[0] làm người phụ trách).
+    const required = new Set(this.requiredPersonnelIds());
+    const orderedPersonnel: MissionPersonnelAssignment[] = [...personnel]
+      .sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
+      .map((p) => ({ userId: p.id, role: p.role, isRequired: required.has(p.id) }));
 
-    const targetAssetIds = ass && ass.scopeAssetIds?.length ? ass.scopeAssetIds : [];
-    const regionId = ass?.regionId && isValidGuid(ass.regionId) ? ass.regionId : '00000000-0000-0000-0000-000000000001';
-    const boundaryWkt = ass?.scopeGeometry ? JSON.stringify(ass.scopeGeometry) : '';
-
-    const req: MissionCreateRequest = {
-      name: f.name,
-      description: f.description,
-      scheduledAt: f.scheduledAt,
-      plannedEnd: f.plannedEnd,
-      regionId,
-      missionType: ass?.id ? 'SCHEDULED' : 'AD_HOC',
+    const body: Omit<CreateMissionFromAssessmentRequest, 'idempotencyKey'> = {
+      assessmentId: a.id,
+      title: f.title.trim(),
+      description: f.description.trim() || null,
+      personnel: orderedPersonnel,
+      droneIds: droneIds,
       priority: f.priority,
       objective: f.objective,
-      priorityDefects: this.selectedPriorityDefects(),
-      emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : undefined,
-      inspectorId: f.inspectorId,
-      droneId: f.droneId,
-      targetAssetIds,
-      boundaryWkt,
-      confirmationDeadline: f.confirmationDeadline,
-      managerInstructions: f.managerInstructions,
-      sourceAssessmentId: ass?.id,
-      assignments: [
-        { userId: f.inspectorId, role: 'INSPECTOR', isRequired: true },
-        { userId: f.analystId, role: 'ANALYST', isRequired: true },
-        { userId: f.technicianId, role: 'TECHNICIAN', isRequired: true },
-      ],
+      priorityDefects: this.selectedPriorityDefects().length ? [...this.selectedPriorityDefects()] : null,
+      emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : null,
+      isImmediate: f.isImmediate,
+      confirmationDeadline: deadline,
+      managerInstructions: f.managerInstructions.trim() || null,
     };
+    const request: CreateMissionFromAssessmentRequest = { ...body, idempotencyKey: this.idempotency.keyFor(body) };
 
-    this.api
-      .create(req)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.busy.set(true);
+    this.preMissionApi
+      .createMission(request)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.busy.set(false)),
+      )
       .subscribe({
         next: (mission) => {
-          this.busy.set(false);
-
-          // Dispatch Notification to Header Notifications Store for ALL 3 roles
-          if (f.notifyInApp) {
-            const roleTargets = [
-              { userId: f.inspectorId, roleLabel: 'Phi công (Inspector)' },
-              { userId: f.analystId, roleLabel: 'Chuyên viên phân tích (Analyst)' },
-              { userId: f.technicianId, roleLabel: 'Kỹ thuật viên bảo trì (Technician)' },
-            ];
-
-            const deadlineFormatted = `${new Date(f.confirmationDeadline).toLocaleTimeString('vi-VN')} ${new Date(f.confirmationDeadline).toLocaleDateString('vi-VN')}`;
-
-            roleTargets.forEach((item, index) => {
-              this.notificationsStore.upsert({
-                id: `notif-${Date.now()}-${index}`,
-                userId: item.userId,
-                type: 'MISSION_DISPATCH',
-                referenceType: 'MISSION',
-                referenceId: mission.id,
-                title: `Phân công nhiệm vụ: ${mission.missionCode} (${item.roleLabel})`,
-                body: `Bạn được chỉ định vai trò ${item.roleLabel} cho nhiệm vụ "${mission.title}". Vui lòng kiểm tra và xác nhận trước ${deadlineFormatted}.`,
-                createdAt: new Date().toISOString(),
-                isRead: false,
-              });
-            });
+          if (mission.id) {
+            void this.router.navigate(['/missions', mission.id], { queryParams: { created: 'true' } });
+          } else {
+            void this.router.navigate(['/missions']);
           }
-
-          // Broadcast real-time mission dispatch event across tabs / roles
-          this.realtime.broadcastMissionEvent({
-            missionId: mission.id,
-            type: 'DISPATCHED',
-            status: 'PENDING_CONFIRMATION',
-            actorRole: 'MANAGER',
-            actorName: this.currentUser()?.fullName || 'Quản lý vận hành',
-            managerInstructions: f.managerInstructions,
-            confirmationDeadline: f.confirmationDeadline,
-            allConfirmed: false,
-            confirmedCount: 0,
-            totalRequiredCount: 3,
-            pendingRoles: ['INSPECTOR', 'ANALYST', 'TECHNICIAN'],
-            timestamp: new Date().toISOString(),
-          });
-
-          // Mark assessment completed
-          if (ass?.id) {
-            this.preMissionApi.markCompleted(ass.id, mission.id).subscribe({
-              error: () => {},
-            });
-          }
-
-          // Route to Mission Detail
-          this.router.navigate(['/missions', mission.id], {
-            queryParams: { created: 'true' },
-          });
         },
-        error: (err) => {
-          this.busy.set(false);
-          this.error.set(err?.error?.message || 'Không thể tạo và ban hành nhiệm vụ bay. Vui lòng thử lại.');
+        error: (err: unknown) =>
+          this.error.set(describeHttpError(err, 'Không thể tạo nhiệm vụ từ hồ sơ đánh giá. Vui lòng thử lại.')),
+      });
+  }
+
+  /**
+   * Validates the confirmation deadline: empty → `null` (backend default), otherwise ISO UTC. It must be in the
+   * future and not after the planned start (`INVALID_CONFIRMATION_DEADLINE`). Returns `false` when invalid.
+   */
+  private resolveDeadline(value: string, a: PreMissionAssessment): string | null | false {
+    if (!value) return null;
+    const deadline = new Date(value);
+    if (Number.isNaN(deadline.getTime())) {
+      this.error.set('Hạn xác nhận không hợp lệ.');
+      return false;
+    }
+    if (deadline.getTime() <= Date.now()) {
+      this.form.controls.confirmationDeadline.markAsTouched();
+      this.error.set('Hạn xác nhận phải ở tương lai.');
+      return false;
+    }
+    const start = new Date(a.plannedStart);
+    if (!Number.isNaN(start.getTime()) && deadline.getTime() > start.getTime()) {
+      this.form.controls.confirmationDeadline.markAsTouched();
+      this.error.set('Hạn xác nhận không được sau thời điểm bắt đầu bay dự kiến.');
+      return false;
+    }
+    return deadline.toISOString();
+  }
+
+  private selectAssessment(id: string): void {
+    this.loadingAssessment.set(true);
+    this.error.set('');
+    this.resetSelections();
+    this.preMissionApi
+      .get(id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loadingAssessment.set(false)),
+      )
+      .subscribe({
+        next: (a) => {
+          this.assessment.set(a);
+          this.idempotency.reset();
+          if (!this.form.controls.title.value) {
+            this.form.controls.title.setValue(`Kiểm tra ${a.regionName || 'khu vực'} [${a.assessmentCode}]`);
+          }
+          this.form.controls.confirmationDeadline.setValue(defaultDeadline(a));
+          if (!this.isAssessmentUsable()) {
+            this.error.set(
+              a.completedMissionId
+                ? 'Hồ sơ này đã được dùng để tạo nhiệm vụ.'
+                : 'Hồ sơ này chưa ở trạng thái READY hoặc đã hết hạn hiệu lực, không thể tạo nhiệm vụ.',
+            );
+          }
+          this.preselectDefaults();
+        },
+        error: (err: unknown) => {
+          this.assessment.set(null);
+          this.error.set(describeHttpError(err, 'Không thể tải hồ sơ đánh giá tiền khả thi.'));
         },
       });
   }
+
+  private loadReadyAssessments(): void {
+    this.loadingList.set(true);
+    this.preMissionApi
+      .list({ status: 'READY', page: 1, pageSize: 100 })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loadingList.set(false)),
+      )
+      .subscribe({
+        next: (page) => this.readyAssessments.set(page.items.filter((a) => !a.completedMissionId && !isExpired(a))),
+        error: () => this.readyAssessments.set([]),
+      });
+  }
+
+  /** Chọn sẵn mỗi vai trò theo định mức (đều bắt buộc xác nhận) và UAV đầu tiên đủ điều kiện để người dùng chỉnh lại. */
+  private preselectDefaults(): void {
+    const byRole = new Map<string, string[]>();
+    for (const p of this.eligiblePersonnel()) {
+      if (p.role in ROLE_ORDER) {
+        const list = byRole.get(p.role) ?? [];
+        list.push(p.id);
+        byRole.set(p.role, list);
+      }
+    }
+    const cfg = this.assessmentConfig();
+    const initialSelected: string[] = [
+      ...(byRole.get('INSPECTOR')?.slice(0, cfg.reqInspectors) ?? []),
+      ...(byRole.get('ANALYST')?.slice(0, cfg.reqAnalysts) ?? []),
+      ...(byRole.get('TECHNICIAN')?.slice(0, cfg.reqTechnicians) ?? []),
+    ];
+    this.selectedPersonnelIds.set(initialSelected);
+    this.requiredPersonnelIds.set(initialSelected);
+    const firstDrone = this.eligibleDrones().find((d) => d.isAvailable !== false) ?? this.eligibleDrones()[0];
+    this.selectedDroneIds.set(firstDrone ? [firstDrone.id] : []);
+  }
+
+  private pruneSelections(): void {
+    const personnelIds = new Set(this.eligiblePersonnel().map((p) => p.id));
+    this.selectedPersonnelIds.update((ids) => ids.filter((id) => personnelIds.has(id)));
+    this.requiredPersonnelIds.update((ids) => ids.filter((id) => personnelIds.has(id)));
+    const droneIds = new Set(this.eligibleDrones().map((d) => d.id));
+    this.selectedDroneIds.update((ids) => ids.filter((id) => droneIds.has(id)));
+  }
+
+  private resetSelections(): void {
+    this.selectedPersonnelIds.set([]);
+    this.requiredPersonnelIds.set([]);
+    this.selectedDroneIds.set([]);
+  }
+
+  private onPriorityChange(value: MissionPriority): void {
+    this.priority.set(value);
+    const control = this.form.controls.emergencyReason;
+    if (value === 'EMERGENCY') {
+      control.setValidators([Validators.required, Validators.minLength(10)]);
+    } else {
+      control.clearValidators();
+      control.setValue('');
+    }
+    control.updateValueAndValidity();
+  }
+}
+
+function isExpired(a: PreMissionAssessment): boolean {
+  return !!a.validUntil && new Date(a.validUntil).getTime() <= Date.now();
+}
+
+/** `now + 24h`, capped at the planned start; empty when the planned start is (almost) past (backend default). */
+function defaultDeadline(a: PreMissionAssessment): string {
+  const now = Date.now();
+  const start = new Date(a.plannedStart).getTime();
+  if (Number.isNaN(start) || start <= now + 60_000) return '';
+  // Rounded down to the minute by the input format, so the default never lands after the planned start.
+  return toDatetimeLocal(new Date(Math.min(now + DEFAULT_DEADLINE_HOURS * 3_600_000, start)));
+}
+
+/** Local `yyyy-MM-ddTHH:mm` for `<input type="datetime-local">`. */
+function toDatetimeLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

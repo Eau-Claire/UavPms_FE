@@ -6,9 +6,19 @@ import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
-import { Mission, MissionPage } from '../../../../models/missions.models';
+import { isManagerRole } from '../../../../core/auth/roles';
+import {
+  MISSION_STATUSES,
+  Mission,
+  MissionPage,
+  MissionStatus,
+  missionStatusLabel,
+  normalizeMissionStatus,
+} from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { MissionLink, MissionListScope, canViewAllMissions, missionRowLink } from '../../data-access/mission-access';
 import { MissionsApi } from '../../data-access/missions-api';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-mission-list',
@@ -26,16 +36,9 @@ export class MissionList {
   private readonly searchInput = new Subject<string>();
 
   protected readonly user = computed(() => this.auth.user());
-  protected readonly canCreateMission = computed(() => {
-    const role = (this.user()?.role || '').toLowerCase();
-    return ['admin', 'systemadmin', 'administrator', 'manager', 'supervisor'].includes(role);
-  });
-
-  protected readonly isInspector = computed(() => ['inspector', 'pilot'].includes((this.user()?.role ?? '').toLowerCase()));
-  protected readonly isOperationalRole = computed(() => {
-    const role = (this.user()?.role ?? '').toLowerCase();
-    return ['inspector', 'pilot', 'analyst', 'technician', 'maintenancetechnician'].includes(role);
-  });
+  protected readonly canCreateMission = computed(() => isManagerRole(this.user()?.role));
+  /** `GET /missions` (all missions) is only open to SystemAdmin, Manager and Analyst. */
+  protected readonly canViewAll = computed(() => canViewAllMissions(this.user()?.role));
 
   protected readonly loading = signal(true);
   protected readonly error = signal('');
@@ -46,11 +49,11 @@ export class MissionList {
   protected readonly priority = signal<string>('');
   protected readonly sortBy = signal<string>('priority');
   protected readonly sortDescending = signal<boolean>(true);
-  protected readonly scope = signal<'my' | 'all'>(this.isOperationalRole() ? 'my' : 'all');
+  protected readonly scope = signal<MissionListScope>(isManagerRole(this.auth.user()?.role) ? 'all' : 'my');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
   protected readonly statsItems = signal<readonly Mission[]>([]);
-  protected readonly statuses = ['PENDING_CONFIRMATION', 'CONFIRMED', 'Draft', 'Assigned', 'Preparing', 'Ready', 'InProgress', 'Completed', 'Cancelled'];
+  protected readonly statuses = MISSION_STATUSES;
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
@@ -87,12 +90,7 @@ export class MissionList {
           if (index === -1) return curr;
           const newItems = [...curr.items];
           const target = newItems[index];
-          let nextStatus = target.status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'CONFIRMED';
-          else if (event.type === 'POSTPONED') nextStatus = 'POSTPONED';
-          else if (event.type === 'SUSPENDED') nextStatus = 'SUSPENDED';
-          else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
-          newItems[index] = { ...target, status: nextStatus };
+          newItems[index] = { ...target, status: liveStatus(event, target.status) };
           return { ...curr, items: newItems };
         });
 
@@ -103,12 +101,7 @@ export class MissionList {
           );
           if (index === -1) return items;
           const newItems = [...items];
-          let nextStatus = newItems[index].status;
-          if (event.type === 'CONFIRMED' || event.type === 'RESUMED') nextStatus = 'CONFIRMED';
-          else if (event.type === 'POSTPONED') nextStatus = 'POSTPONED';
-          else if (event.type === 'SUSPENDED') nextStatus = 'SUSPENDED';
-          else if (event.type === 'CANCELLED') nextStatus = 'Cancelled';
-          newItems[index] = { ...newItems[index], status: nextStatus };
+          newItems[index] = { ...newItems[index], status: liveStatus(event, newItems[index].status) };
           return newItems;
         });
       });
@@ -116,8 +109,9 @@ export class MissionList {
     this.load();
   }
 
-  protected setScope(scope: 'my' | 'all'): void {
+  protected setScope(scope: MissionListScope): void {
     if (this.scope() === scope) return;
+    if (scope === 'all' && !this.canViewAll()) return;
     this.scope.set(scope);
     this.page.set(1);
     this.load();
@@ -137,11 +131,11 @@ export class MissionList {
       sortDescending: this.sortDescending(),
     };
 
-    if (this.scope() === 'my') {
+    if (this.scope() === 'my' || !this.canViewAll()) {
       this.api.my().pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false))).subscribe({
         next: (missions) => {
           const query = filters.search.trim().toLowerCase();
-          let items = missions.filter((mission) => {
+          const items = missions.filter((mission) => {
             const matchesStatus = !filters.status || mission.status === filters.status;
             const matchesPriority = !filters.priority || (mission.priority || 'NORMAL').toUpperCase() === filters.priority.toUpperCase();
             const matchesSearch = !query || `${mission.title} ${mission.missionCode} ${mission.description}`.toLowerCase().includes(query);
@@ -237,31 +231,20 @@ export class MissionList {
   }
 
   protected statusLabel(status: string): string {
-    return ({
-      Pending: 'Chờ xử lý',
-      PENDING_CONFIRMATION: 'Chờ xác nhận',
-      CONFIRMED: 'Đã tiếp nhận',
-      POSTPONED: 'Tạm hoãn',
-      SUSPENDED: 'Đình chỉ bay',
-      Draft: 'Bản nháp',
-      Assigned: 'Đã phân công',
-      Preparing: 'Đang chuẩn bị',
-      Ready: 'Sẵn sàng',
-      Executing: 'Đang xử lý AI',
-      InProgress: 'Đang bay',
-      'In Progress': 'Đang bay',
-      Completed: 'Hoàn thành',
-      Failed: 'Lỗi bay',
-      Cancelled: 'Đã hủy',
-    } as Record<string, string>)[status] ?? status;
+    return missionStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
-    if (this.isFailed(status)) return 'danger';
-    if (status.replace(/\s+/g, '') === 'Completed') return 'success';
-    if (status === 'CONFIRMED' || status === 'Ready') return 'success';
-    if (this.isInProgress(status) || status === 'PENDING_CONFIRMATION' || status === 'POSTPONED') return 'warning';
+    const normalized = normalizeMissionStatus(status);
+    if (this.isFailed(normalized)) return 'danger';
+    if (['Completed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
+    if (this.isInProgress(normalized) || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
     return 'neutral';
+  }
+
+  /** Row target depends on the role and on whether the user still has to answer their assignment. */
+  protected rowLink(mission: Mission): MissionLink {
+    return missionRowLink(mission, this.user()?.role, this.user()?.id, this.scope());
   }
 
   protected routeLabel(mission: Mission): string {
@@ -302,11 +285,11 @@ export class MissionList {
   }
 
   private isInProgress(status: string): boolean {
-    return ['Executing', 'Preparing', 'Ready', 'InProgress', 'Processing', 'AIProcessing', 'PENDING_CONFIRMATION'].includes(status.replace(/\s+/g, ''));
+    return ['Preparing', 'Ready', 'InProgress', 'PendingAcceptance'].includes(normalizeMissionStatus(status));
   }
 
   private isFailed(status: string): boolean {
-    return ['Failed', 'Error', 'Cancelled'].includes(status.replace(/\s+/g, ''));
+    return ['Cancelled', 'Suspended'].includes(normalizeMissionStatus(status));
   }
 
   private compactPages(current: number, total: number): readonly number[] {
@@ -322,8 +305,21 @@ export class MissionList {
   }
 
   private errorMessage(error: unknown): string {
-    if (!(error instanceof HttpErrorResponse)) return 'Không thể tải danh sách nhiệm vụ.';
-    const body = error.error && typeof error.error === 'object' ? error.error as Record<string, unknown> : {};
-    return String(body['message'] ?? error.message ?? 'Không thể tải danh sách nhiệm vụ.');
+    if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+      return 'Bạn không có quyền xem danh sách nhiệm vụ này.';
+    }
+    return describeHttpError(error, 'Không thể tải danh sách nhiệm vụ.');
   }
+}
+
+/**
+ * Status shown after a realtime mission event. The event's own status wins: a confirmation only makes the mission
+ * Assigned once every required member accepted, a non-required member's postponement leaves it unchanged, and
+ * resume may land in PendingAcceptance.
+ */
+function liveStatus(event: { type: string; status?: string | null }, current: MissionStatus): MissionStatus {
+  if (event.status) return normalizeMissionStatus(event.status);
+  if (event.type === 'SUSPENDED') return 'Suspended';
+  if (event.type === 'CANCELLED') return 'Cancelled';
+  return current;
 }
