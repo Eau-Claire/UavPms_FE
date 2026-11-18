@@ -3,8 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signa
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { finalize, of } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { statusLabel } from '../../../../shared/status/status';
 import {
   CreateMissionFromAssessmentRequest,
   InspectionObjective,
@@ -16,7 +17,7 @@ import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../..
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
-import { isValidGuid } from '../../data-access/missions-api';
+import { isValidGuid, markMissionAsDraft } from '../../data-access/missions-api';
 
 const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
 
@@ -51,14 +52,25 @@ export class MissionCreate {
 
   protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
   protected readonly instructionsMax = MANAGER_INSTRUCTIONS_MAX;
+  protected readonly statusLabel = statusLabel;
 
   protected readonly readyAssessments = signal<readonly PreMissionAssessment[]>([]);
   protected readonly loadingList = signal(false);
   protected readonly assessment = signal<PreMissionAssessment | null>(null);
+  protected readonly selectedAssessmentId = signal<string>('');
   protected readonly loadingAssessment = signal(false);
   protected readonly refreshingReadiness = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+
+  protected readonly selectableAssessments = computed<readonly PreMissionAssessment[]>(() => {
+    const list = [...this.readyAssessments()];
+    const current = this.assessment();
+    if (current && !list.some((item) => item.id === current.id)) {
+      list.unshift(current);
+    }
+    return list;
+  });
 
   protected readonly selectedPersonnelIds = signal<readonly string[]>([]);
   /** Members who must accept before the mission can start (`isRequired: true`). */
@@ -87,7 +99,7 @@ export class MissionCreate {
 
   protected readonly isAssessmentUsable = computed(() => {
     const a = this.assessment();
-    return !!a && a.status === 'READY' && !a.completedMissionId && !isExpired(a);
+    return !!a && (a.status || '').toUpperCase() === 'READY' && !a.completedMissionId && !isExpired(a);
   });
 
   /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
@@ -178,13 +190,23 @@ export class MissionCreate {
 
     const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
     if (assessmentId && isValidGuid(assessmentId)) {
+      this.selectedAssessmentId.set(assessmentId);
       this.selectAssessment(assessmentId);
     }
+    const queryParams$ = this.route.queryParamMap ?? of(this.route.snapshot.queryParamMap);
+    queryParams$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const qId = params.get('assessmentId');
+      if (qId && isValidGuid(qId) && qId !== this.selectedAssessmentId()) {
+        this.selectedAssessmentId.set(qId);
+        this.selectAssessment(qId);
+      }
+    });
     this.loadReadyAssessments();
   }
 
   protected onAssessmentSelect(event: Event): void {
     const id = (event.target as HTMLSelectElement).value;
+    this.selectedAssessmentId.set(id);
     if (!id) {
       this.assessment.set(null);
       this.resetSelections();
@@ -347,6 +369,7 @@ export class MissionCreate {
       droneIds: droneIds,
       priority: f.priority,
       objective: f.objective,
+      status: 'Draft',
       priorityDefects: this.selectedPriorityDefects().length ? [...this.selectedPriorityDefects()] : null,
       emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : null,
       isImmediate: f.isImmediate,
@@ -365,6 +388,7 @@ export class MissionCreate {
       .subscribe({
         next: (mission) => {
           if (mission.id) {
+            markMissionAsDraft(mission.id);
             void this.router.navigate(['/missions', mission.id], { queryParams: { created: 'true' } });
           } else {
             void this.router.navigate(['/missions']);
@@ -401,6 +425,7 @@ export class MissionCreate {
   }
 
   private selectAssessment(id: string): void {
+    this.selectedAssessmentId.set(id);
     this.loadingAssessment.set(true);
     this.error.set('');
     this.resetSelections();

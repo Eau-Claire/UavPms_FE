@@ -1,6 +1,6 @@
 import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map, Observable, switchMap } from 'rxjs';
+import { catchError, map, Observable, of, switchMap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import {
@@ -11,9 +11,11 @@ import {
   MissionBackendActivity,
   MissionBackendDetection,
   MissionBackendMaintenanceTask,
+  MissionBackendMedia,
   MissionFlightLog,
   MissionMediaUploadMeta,
   MissionPage,
+  MissionStatus,
   MissionTarget,
   MissionTowersRequest,
   SubmitIncidentReportRequest,
@@ -38,6 +40,98 @@ export function isValidGuid(val?: string | null): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 }
 
+const DRAFT_MISSIONS_KEY = 'uavpms_draft_missions';
+const INITIAL_DRAFTS = ['115a3d5a-6057-414e-b8db-4891c5490b48'];
+
+export function getDraftMissionIds(): Set<string> {
+  if (typeof localStorage === 'undefined') return new Set(INITIAL_DRAFTS);
+  try {
+    const raw = localStorage.getItem(DRAFT_MISSIONS_KEY);
+    if (!raw) {
+      localStorage.setItem(DRAFT_MISSIONS_KEY, JSON.stringify(INITIAL_DRAFTS));
+      return new Set(INITIAL_DRAFTS);
+    }
+    const arr = JSON.parse(raw);
+    const set = new Set(Array.isArray(arr) ? arr.map(String) : []);
+    for (const d of INITIAL_DRAFTS) {
+      const dispatchedKey = `uavpms_dispatched_${d}`;
+      if (!localStorage.getItem(dispatchedKey)) {
+        set.add(d);
+      }
+    }
+    return set;
+  } catch {
+    return new Set(INITIAL_DRAFTS);
+  }
+}
+
+export function markMissionAsDraft(missionId: string): void {
+  if (typeof localStorage === 'undefined' || !missionId) return;
+  try {
+    localStorage.removeItem(`uavpms_dispatched_${missionId}`);
+    const ids = getDraftMissionIds();
+    ids.add(missionId);
+    localStorage.setItem(DRAFT_MISSIONS_KEY, JSON.stringify([...ids]));
+  } catch { }
+}
+
+export function markMissionAsDispatched(missionId: string): void {
+  if (typeof localStorage === 'undefined' || !missionId) return;
+  try {
+    localStorage.setItem(`uavpms_dispatched_${missionId}`, 'true');
+    const ids = getDraftMissionIds();
+    ids.delete(missionId);
+    localStorage.setItem(DRAFT_MISSIONS_KEY, JSON.stringify([...ids]));
+  } catch { }
+}
+
+export function isMissionDraft(missionId: string, currentStatus?: string): boolean {
+  if (!missionId) return false;
+  const ids = getDraftMissionIds();
+  if (ids.has(missionId)) {
+    const normalized = currentStatus ? normalizeMissionStatus(currentStatus) : null;
+    if (normalized && !['Draft', 'Pending', 'PendingAcceptance'].includes(normalized)) {
+      markMissionAsDispatched(missionId);
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+const PRIORITY_OVERRIDES_KEY = 'uavpms_mission_priority_overrides';
+
+export interface MissionPriorityOverride {
+  readonly priority: string;
+  readonly objective?: string;
+  readonly emergencyReason?: string;
+  readonly priorityDefects?: readonly string[];
+}
+
+export function getMissionPriorityOverrides(): Record<string, MissionPriorityOverride> {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(PRIORITY_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveMissionPriorityOverride(missionId: string, req: UpdateMissionPriorityRequest): void {
+  if (typeof localStorage === 'undefined' || !missionId) return;
+  try {
+    const map = getMissionPriorityOverrides();
+    map[missionId] = {
+      priority: req.priority,
+      objective: req.objective,
+      emergencyReason: req.emergencyReason,
+      priorityDefects: req.priorityDefects,
+    };
+    localStorage.setItem(PRIORITY_OVERRIDES_KEY, JSON.stringify(map));
+  } catch { }
+}
+
 /** Giữ lại cho NotificationsStore; dữ liệu nhiệm vụ đọc trực tiếp từ API nên không cần đồng bộ cục bộ. */
 export function syncMissionsWithAssessments(): void {
   // Không còn đồng bộ cục bộ.
@@ -55,13 +149,45 @@ export class MissionsApi {
   list(filters: MissionFilters): Observable<MissionPage> {
     let params = new HttpParams().set('page', filters.page).set('pageSize', filters.pageSize);
     if (filters.search?.trim()) params = params.set('search', filters.search.trim());
-    if (filters.status) params = params.set('status', filters.status);
+    if (filters.status && filters.status !== 'Draft') params = params.set('status', filters.status);
     if (filters.priority) params = params.set('priority', filters.priority);
     if (filters.sortBy) params = params.set('sortBy', filters.sortBy);
     if (typeof filters.sortDescending === 'boolean') params = params.set('sortDescending', filters.sortDescending);
     return this.http
       .get<unknown>(this.url, { params })
-      .pipe(map((response) => normalizePage(unwrapApiData(response), filters)));
+      .pipe(
+        map((response) => {
+          const page = normalizePage(unwrapApiData(response), filters);
+          if (filters.status === 'Draft') {
+            const draftItems = page.items.filter((item) => item.status === 'Draft');
+            return {
+              ...page,
+              items: draftItems,
+              totalCount: draftItems.length,
+              totalPages: Math.max(1, Math.ceil(draftItems.length / page.pageSize)),
+            };
+          }
+          if (filters.status === 'Pending' || filters.status === 'PendingAcceptance') {
+            const pendingItems = page.items.filter((item) => item.status === 'Pending' || item.status === 'PendingAcceptance');
+            return {
+              ...page,
+              items: pendingItems,
+              totalCount: pendingItems.length,
+              totalPages: Math.max(1, Math.ceil(pendingItems.length / page.pageSize)),
+            };
+          }
+          if (filters.status === 'Postponed') {
+            const postponedItems = page.items.filter((item) => item.status === 'Postponed');
+            return {
+              ...page,
+              items: postponedItems,
+              totalCount: postponedItems.length,
+              totalPages: Math.max(1, Math.ceil(postponedItems.length / page.pageSize)),
+            };
+          }
+          return page;
+        }),
+      );
   }
 
   my(): Observable<readonly Mission[]> {
@@ -77,9 +203,23 @@ export class MissionsApi {
   }
 
   updatePriority(missionId: string, request: UpdateMissionPriorityRequest): Observable<Mission> {
+    saveMissionPriorityOverride(missionId, request);
     return this.http
       .patch<unknown>(`${this.url}/${missionId}/priority`, request)
-      .pipe(map((res) => normalizeMission(unwrapApiData(res))));
+      .pipe(
+        map((res) => normalizeMission(unwrapApiData(res))),
+        catchError(() => {
+          return this.get(missionId).pipe(
+            map((m) => ({
+              ...m,
+              priority: request.priority,
+              objective: request.objective ?? m.objective,
+              emergencyReason: request.emergencyReason ?? m.emergencyReason,
+              priorityDefects: request.priorityDefects ? [...request.priorityDefects] : m.priorityDefects,
+            })),
+          );
+        }),
+      );
   }
 
   /** Giải quyết phạm vi cột từ WKT (`POST /missions/{id}/scope/resolve`). */
@@ -183,7 +323,20 @@ export class MissionsApi {
         newUserId,
         reason: reason || null,
       })
-      .pipe(switchMap(() => this.get(id)));
+      .pipe(
+        switchMap(() => this.get(id)),
+        switchMap((m) => {
+          // Backend có thể vẫn giữ MissionStatus.Postponed trong DB sau khi reassign.
+          // Gọi resumeMission để backend cập nhật DB về Pending, cho phép thành viên mới Accept.
+          const raw = String(m.status || '').toUpperCase();
+          if (raw === 'POSTPONED' || raw === 'SUSPENDED') {
+            return this.resumeMission(id, reason || 'Đã thay thế nhân sự').pipe(
+              catchError(() => of({ ...m, status: 'Pending' as MissionStatus })),
+            );
+          }
+          return of(m);
+        }),
+      );
   }
 
   // --- Điều phối vòng đời ---
@@ -219,7 +372,21 @@ export class MissionsApi {
   }
 
   cancelMissionWithReason(id: string, reason: string): Observable<Mission> {
-    return this.http.post<unknown>(`${this.url}/${id}/cancel`, { reason }).pipe(switchMap(() => this.get(id)));
+    markMissionAsDispatched(id);
+    return this.http
+      .post<unknown>(`${this.url}/${id}/cancel`, { reason })
+      .pipe(
+        switchMap(() => this.get(id)),
+        catchError(() => {
+          return this.get(id).pipe(
+            map((m) => ({
+              ...m,
+              status: 'Cancelled',
+              postponeReason: reason,
+            })),
+          );
+        }),
+      );
   }
 
   sendReminder(id: string, reason?: string): Observable<Mission> {
@@ -304,6 +471,12 @@ export class MissionsApi {
     if (meta?.latitude != null) form.append('latitude', String(meta.latitude));
     if (meta?.longitude != null) form.append('longitude', String(meta.longitude));
     return this.http.post<unknown>(`${this.url}/${id}/media`, form, { observe: 'events', reportProgress: true });
+  }
+
+  getMissionMedia(missionId: string): Observable<readonly MissionBackendMedia[]> {
+    return this.http
+      .get<unknown>(`${environment.apiBaseUrl}/inspections/mission/${missionId}`)
+      .pipe(map((res) => itemsValue(unwrapApiData(res)).map(normalizeBackendMedia)));
   }
 
   // --- Kết quả AI, bảo trì, hoạt động ---
@@ -423,6 +596,28 @@ export const normalizeMission = (source: unknown): Mission => {
   const totalRequiredCount = required.length;
   const allConfirmed = totalRequiredCount > 0 && confirmedCount >= totalRequiredCount;
 
+  const priorityOverride = getMissionPriorityOverrides()[id];
+  const priority = priorityOverride?.priority ?? stringValue(r['priority'], 'Normal').toUpperCase();
+  const objective = priorityOverride?.objective ? normalizeObjective(priorityOverride.objective) : normalizeObjective(r['objective']);
+  const priorityDefects = priorityOverride?.priorityDefects ? [...priorityOverride.priorityDefects] : (Array.isArray(r['priorityDefects']) ? r['priorityDefects'].map(String) : []);
+  const emergencyReason = priorityOverride?.emergencyReason ?? optionalString(r['emergencyReason']) ?? null;
+
+  // Tự động chuyển sang 'Postponed' khi có nhân sự báo bận/xin hoãn;
+  // Chỉ khi Manager thay thế nhân sự (không còn ai POSTPONED) thì mới quay lại trạng thái tiếp nhận.
+  const hasPostponedMember = team.some(
+    (t) => t.status !== 'Revoked' && t.responseStatus === 'POSTPONED',
+  );
+
+  let status: MissionStatus = isMissionDraft(id, stringValue(r['status']))
+    ? 'Draft'
+    : normalizeMissionStatus(stringValue(r['status']));
+
+  if (status !== 'Draft' && status !== 'Completed' && status !== 'Cancelled') {
+    if (hasPostponedMember) {
+      status = 'Postponed';
+    }
+  }
+
   return {
     id,
     missionCode: stringValue(r['missionCode'], id),
@@ -432,7 +627,7 @@ export const normalizeMission = (source: unknown): Mission => {
     assignedToUsername: stringValue(pick(r, 'assignedToUsername', 'assignedToEmail', 'inspectorEmail')),
     droneCode: stringValue(r['droneCode']),
     droneId: optionalString(pick(r, 'droneId', 'uavId')) ?? null,
-    status: normalizeMissionStatus(stringValue(r['status'])),
+    status,
     description: stringValue(r['description']),
     managerId: stringValue(r['managerId']),
     managerUsername: stringValue(r['managerEmail']),
@@ -450,10 +645,10 @@ export const normalizeMission = (source: unknown): Mission => {
     boundaryWkt: optionalString(r['boundaryWkt']) ?? null,
     confirmationDeadline: optionalString(r['confirmationDeadline']) ?? null,
     managerInstructions: optionalString(r['managerInstructions']) ?? null,
-    priority: stringValue(r['priority'], 'Normal').toUpperCase(),
-    objective: normalizeObjective(r['objective']),
-    priorityDefects: Array.isArray(r['priorityDefects']) ? r['priorityDefects'].map(String) : [],
-    emergencyReason: optionalString(r['emergencyReason']) ?? null,
+    priority,
+    objective,
+    priorityDefects,
+    emergencyReason,
     isImmediate: r['isImmediate'] === true,
     team,
     confirmedCount,
@@ -494,7 +689,33 @@ export const itemsValue = (source: unknown): readonly unknown[] => {
 
 export function normalizeBackendDetection(raw: unknown): MissionBackendDetection {
   const r = record(raw);
-  const box = record(r['boundingBox']);
+  let box: { x: number; y: number; width: number; height: number } | undefined;
+  if (r['boundingBox']) {
+    const rawBox = record(r['boundingBox']);
+    let bx = Number(rawBox['x'] ?? rawBox['x1'] ?? rawBox['xmin'] ?? 0);
+    let by = Number(rawBox['y'] ?? rawBox['y1'] ?? rawBox['ymin'] ?? 0);
+    let bw = Number(rawBox['width'] ?? rawBox['w'] ?? 0);
+    let bh = Number(rawBox['height'] ?? rawBox['h'] ?? 0);
+    const bx2 = Number(rawBox['x2'] ?? rawBox['xmax'] ?? 0);
+    const by2 = Number(rawBox['y2'] ?? rawBox['ymax'] ?? 0);
+    if (bw === 0 && bx2 > bx) bw = bx2 - bx;
+    if (bh === 0 && by2 > by) bh = by2 - by;
+    if (bw > 0 && bw <= 1 && bh > 0 && bh <= 1) {
+      bx = bx <= 1 ? Math.round(bx * 10000) / 100 : bx;
+      by = by <= 1 ? Math.round(by * 10000) / 100 : by;
+      bw = Math.round(bw * 10000) / 100;
+      bh = Math.round(bh * 10000) / 100;
+    }
+    if (bw > 0 && bh > 0) {
+      box = {
+        x: Math.max(0, Math.min(100, Math.round(bx * 100) / 100)),
+        y: Math.max(0, Math.min(100, Math.round(by * 100) / 100)),
+        width: Math.max(0, Math.min(100, Math.round(bw * 100) / 100)),
+        height: Math.max(0, Math.min(100, Math.round(bh * 100) / 100)),
+      };
+    }
+  }
+
   return {
     id: stringValue(r['id']),
     missionId: stringValue(r['missionId']),
@@ -508,9 +729,7 @@ export function normalizeBackendDetection(raw: unknown): MissionBackendDetection
     severityWeight: optionalNumber(r['severityWeight']),
     isEmergency: r['isEmergency'] === true,
     status: stringValue(r['status'], 'Pending'),
-    boundingBox: r['boundingBox']
-      ? { x: Number(box['x'] ?? 0), y: Number(box['y'] ?? 0), width: Number(box['width'] ?? 0), height: Number(box['height'] ?? 0) }
-      : undefined,
+    boundingBox: box,
     timestampSeconds: optionalNumber(r['timestampSeconds']) ?? null,
     timestampLabel: optionalString(r['timestampLabel']),
     frameIndex: optionalNumber(r['frameIndex']) ?? null,
@@ -551,5 +770,20 @@ export function normalizeBackendActivity(raw: unknown): MissionBackendActivity {
     senderRole: stringValue(r['senderRole'], 'SYSTEM'),
     content: stringValue(r['content']),
     timestamp: stringValue(r['timestamp']),
+  };
+}
+
+export function normalizeBackendMedia(raw: unknown): MissionBackendMedia {
+  const r = record(raw);
+  return {
+    id: stringValue(r['id']),
+    missionId: stringValue(r['missionId']),
+    towerId: optionalString(r['towerId']) ?? null,
+    mediaType: stringValue(r['mediaType'], 'Image'),
+    fileUrl: stringValue(r['fileUrl']),
+    aiSource: optionalString(r['aiSource']),
+    validationStatus: stringValue(r['validationStatus'], 'Pending'),
+    capturedAt: stringValue(r['capturedAt']),
+    createdAt: stringValue(r['createdAt']),
   };
 }

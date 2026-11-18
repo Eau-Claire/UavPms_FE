@@ -122,7 +122,7 @@ export class MissionInspector {
     const deadline = this.confirmationDeadlineDate();
     const m = this.mission();
     if (!deadline || !m) return false;
-    return m.status === 'PendingAcceptance' && this.currentTime() > deadline.getTime();
+    return (m.status === 'Pending' || m.status === 'PendingAcceptance') && this.currentTime() > deadline.getTime();
   });
 
   protected readonly deadlineRemainingText = computed(() => {
@@ -483,6 +483,7 @@ export class MissionInspector {
 
   protected statusClass(status: string): string {
     switch (status) {
+      case 'Pending':
       case 'PendingAcceptance':
         return 'status-pending';
       case 'Assigned':
