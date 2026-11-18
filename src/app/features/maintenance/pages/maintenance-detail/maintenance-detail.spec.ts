@@ -82,12 +82,12 @@ describe('MaintenanceDetail', () => {
     expect(links).toContain('/missions/ms1');
   });
 
-  it('lets a manager assign an unassigned Open ticket; start is blocked until a technician is assigned', async () => {
+  it('lets a manager assign an unassigned Open ticket; start is reserved for the assigned technician', async () => {
     await setup('Manager', ticket());
     expect(api.technicians).toHaveBeenCalled();
     expect(text()).toContain('Giao kỹ thuật viên');
     expect(text()).toContain('Nguyễn Văn Thợ — 2 phiếu chưa đóng');
-    expect(button('Bắt đầu sửa chữa')?.disabled).toBe(true);
+    expect(button('Bắt đầu sửa chữa')).toBeUndefined();
     expect(button('Gửi nghiệm thu')).toBeUndefined();
     expect(button('Nghiệm thu & đóng phiếu')).toBeUndefined();
   });
@@ -106,11 +106,11 @@ describe('MaintenanceDetail', () => {
     expect(api.get).toHaveBeenCalledTimes(2);
   });
 
-  it('disables "Gửi nghiệm thu" until a proof exists and shows the evidence forms while in progress', async () => {
+  it('disables "Gửi nghiệm thu" until a proof exists and shows the evidence upload while in progress', async () => {
     await setup('MaintenanceTechnician', ticket({ technicianId: 'u1', status: 'InProgress' }));
     expect(button('Gửi nghiệm thu')?.disabled).toBe(true);
     expect(element().querySelector('app-proof-upload')).not.toBeNull();
-    expect(element().querySelector('app-material-form')).not.toBeNull();
+    expect(element().querySelector('app-material-form')).toBeNull();
   });
 
   it('enables "Gửi nghiệm thu" when a proof exists and submits PendingVerification', async () => {
@@ -146,7 +146,7 @@ describe('MaintenanceDetail', () => {
 
   it('shows the Vietnamese error when an action fails', async () => {
     api.updateStatus.mockReturnValue(throwError(() => ({ status: 400, error: { errorCode: 'Cannot submit ticket for verification without repair proof photo', message: 'Cannot submit ticket for verification without repair proof photo' } })));
-    await setup('Manager', ticket({ technicianId: 'tech1', status: 'InProgress', proofs: [proof] }));
+    await setup('Technician', ticket({ technicianId: 'u1', status: 'InProgress', proofs: [proof] }));
     const component = fixture.componentInstance as unknown as DetailHarness;
     component.ask('submit');
     component.runAction();

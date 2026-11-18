@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, throwError } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import {
@@ -18,7 +19,12 @@ import {
 } from '../../../models/maintenance.models';
 import { parseBoundingBox } from '../../analyst-review/data-access/anomaly-api';
 
-const MOCK_TICKETS_KEY = 'uavpms.mock_maintenance_tickets';
+// Purge any legacy mock tickets from browser storage
+try {
+  localStorage.removeItem('uavpms.mock_maintenance_tickets');
+} catch {
+  // ignore
+}
 
 export function sanitizeTicketImage(url?: string | null, categoryCode?: string): string {
   if (!url || url.startsWith('blob:')) {
@@ -36,62 +42,6 @@ export function sanitizeTicketImage(url?: string | null, categoryCode?: string):
     }
   }
   return url;
-}
-
-export function getStoredMockTickets(): MaintenanceTicket[] {
-  try {
-    const raw = localStorage.getItem(MOCK_TICKETS_KEY);
-    if (!raw) return [];
-    const tickets = JSON.parse(raw) as MaintenanceTicket[];
-    return tickets.map((t) => {
-      const sanitizedProofs = (t.proofs || []).map((p) => {
-        if (!p.fileUrl || p.fileUrl.startsWith('blob:')) {
-          return {
-            ...p,
-            fileUrl: '/images/defect-insulator-crack.png',
-          };
-        }
-        return p;
-      });
-      if (!t.anomaly) return { ...t, proofs: sanitizedProofs };
-      return {
-        ...t,
-        proofs: sanitizedProofs,
-        anomaly: {
-          ...t.anomaly,
-          imageUrl: sanitizeTicketImage(t.anomaly.imageUrl, t.anomaly.categoryCode),
-          cropUrl: sanitizeTicketImage(t.anomaly.cropUrl, t.anomaly.categoryCode),
-        },
-      };
-    });
-  } catch {
-    return [];
-  }
-}
-
-export function saveStoredMockTicket(ticket: MaintenanceTicket): void {
-  try {
-    const sanitizedTicket: MaintenanceTicket = ticket.anomaly
-      ? {
-          ...ticket,
-          anomaly: {
-            ...ticket.anomaly,
-            imageUrl: sanitizeTicketImage(ticket.anomaly.imageUrl, ticket.anomaly.categoryCode),
-            cropUrl: sanitizeTicketImage(ticket.anomaly.cropUrl, ticket.anomaly.categoryCode),
-          },
-        }
-      : ticket;
-    const existing = getStoredMockTickets();
-    const idx = existing.findIndex((t) => t.id === sanitizedTicket.id);
-    if (idx >= 0) {
-      existing[idx] = sanitizedTicket;
-    } else {
-      existing.unshift(sanitizedTicket);
-    }
-    localStorage.setItem(MOCK_TICKETS_KEY, JSON.stringify(existing));
-  } catch {
-    // ignore
-  }
 }
 
 export const REAL_DB_TECHNICIANS: readonly TechnicianSummary[] = [
@@ -123,49 +73,27 @@ export class MaintenanceApi {
     return this.http.get<unknown>(this.url, { params }).pipe(
       map((response) => {
         const data = asRecord(unwrapApiData(response));
-        const backendItems = arrayOf(Array.isArray(data) ? data : data['items']).map(normalizeTicket);
-        const mockTickets = getStoredMockTickets().filter((t) => {
-          if (filters.status && t.status !== filters.status) return false;
-          if (filters.priority && t.priority !== filters.priority) return false;
-          return true;
-        });
-        const merged = [...mockTickets.filter((m) => !backendItems.some((b) => b.id === m.id)), ...backendItems];
+        const items = arrayOf(Array.isArray(data) ? data : data['items']).map(normalizeTicket);
         return {
-          items: merged,
-          totalCount: (numberOf(data['totalCount']) || backendItems.length) + mockTickets.length,
+          items,
+          totalCount: numberOf(data['totalCount']) || items.length,
           pageIndex: numberOf(data['pageIndex'] ?? filters.pageIndex),
           pageSize: numberOf(data['pageSize']) || filters.pageSize,
         };
-      }),
-      catchError(() => {
-        const mockTickets = getStoredMockTickets().filter((t) => {
-          if (filters.status && t.status !== filters.status) return false;
-          if (filters.priority && t.priority !== filters.priority) return false;
-          return true;
-        });
-        return of({
-          items: mockTickets,
-          totalCount: mockTickets.length,
-          pageIndex: filters.pageIndex,
-          pageSize: filters.pageSize,
-        });
       }),
     );
   }
 
   /** Tickets assigned to the signed-in technician. */
   mine(): Observable<readonly MaintenanceTicket[]> {
-    return this.http.get<unknown>(`${this.url}/my`).pipe(map((response) => itemsOf(unwrapApiData(response)).map(normalizeTicket)));
+    return this.http.get<unknown>(`${this.url}/my`).pipe(
+      map((response) => itemsOf(unwrapApiData(response)).map(normalizeTicket)),
+    );
   }
 
   get(id: string): Observable<MaintenanceTicket> {
     return this.http.get<unknown>(`${this.url}/${id}`).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) return of(mock);
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -212,46 +140,12 @@ export class MaintenanceApi {
     const body = { technicianId: request.technicianId, dueDate: request.dueDate ? toDueDateIso(request.dueDate) : undefined };
     return this.http.put<unknown>(`${this.url}/${id}/assign`, body).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const matchedTech = REAL_DB_TECHNICIANS.find((t) => t.id === request.technicianId);
-          const updated: MaintenanceTicket = {
-            ...mock,
-            technicianId: request.technicianId,
-            technician: matchedTech
-              ? { id: matchedTech.id, fullName: matchedTech.fullName, email: matchedTech.email }
-              : mock.technician?.id === request.technicianId
-              ? mock.technician
-              : { id: request.technicianId, fullName: 'Regression Technician', email: 'tech.regression@uavpms.local' },
-            dueDate: request.dueDate ? toDueDateIso(request.dueDate) : mock.dueDate,
-            assignedAt: new Date().toISOString(),
-            status: 'Open',
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
   updateStatus(id: string, status: 'InProgress' | 'PendingVerification'): Observable<MaintenanceTicket> {
     return this.http.put<unknown>(`${this.url}/${id}/status`, { status }).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            status,
-            startedAt: status === 'InProgress' ? new Date().toISOString() : mock.startedAt,
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -261,45 +155,6 @@ export class MaintenanceApi {
     form.append('technicianNotes', technicianNotes.trim());
     return this.http.post<unknown>(`${this.url}/${id}/proof`, form).pipe(
       map((response) => normalizeProof(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          return new Observable<MaintenanceProof>((subscriber) => {
-            const handleSuccess = (url: string) => {
-              const proof: MaintenanceProof = {
-                id: crypto.randomUUID(),
-                proofType: 'RepairAfter',
-                fileUrl: url,
-                technicianNotes: technicianNotes.trim() || 'Minh chứng sửa chữa hoàn tất',
-                uploadedAt: new Date().toISOString(),
-              };
-              const nextStatus = mock.status === 'Open' ? 'InProgress' : mock.status;
-              const updated: MaintenanceTicket = {
-                ...mock,
-                proofs: [...mock.proofs, proof],
-                status: nextStatus,
-              };
-              saveStoredMockTicket(updated);
-              subscriber.next(proof);
-              subscriber.complete();
-            };
-
-            if (file && file.size < 5 * 1024 * 1024 && typeof FileReader !== 'undefined') {
-              const reader = new FileReader();
-              reader.onload = () => {
-                handleSuccess((reader.result as string) || URL.createObjectURL(file));
-              };
-              reader.onerror = () => {
-                handleSuccess(URL.createObjectURL(file));
-              };
-              reader.readAsDataURL(file);
-            } else {
-              handleSuccess(URL.createObjectURL(file));
-            }
-          });
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -313,45 +168,12 @@ export class MaintenanceApi {
     };
     return this.http.post<unknown>(`${this.url}/${id}/materials`, body).pipe(
       map((response) => normalizeMaterial(unwrapApiData(response))),
-      catchError(() => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        const log: MaterialLog = {
-          id: crypto.randomUUID(),
-          componentName: request.componentName.trim(),
-          componentCode: request.componentCode?.trim() || 'VT-01',
-          quantityUsed: Math.trunc(Number(request.quantityUsed)),
-          unit: request.unit.trim(),
-          fieldObservations: request.fieldObservations?.trim() || '',
-          loggedAt: new Date().toISOString(),
-        };
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            materials: [...mock.materials, log],
-          };
-          saveStoredMockTicket(updated);
-        }
-        return of(log);
-      }),
     );
   }
 
   close(id: string): Observable<MaintenanceTicket> {
     return this.http.put<unknown>(`${this.url}/${id}/close`, {}).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            status: 'Closed',
-            resolvedAt: new Date().toISOString(),
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 }
@@ -379,6 +201,7 @@ const ERROR_MESSAGES: readonly (readonly [string, string])[] = [
   ['componentName and unit are required', 'Tên vật tư và đơn vị tính là bắt buộc.'],
   ['quantityUsed must be greater than 0', 'Số lượng phải lớn hơn 0.'],
   ['not assigned to this ticket', 'Bạn không được giao phiếu bảo trì này.'],
+  ['CK_DetectedAnomalies_ValidationStatus', 'Không thể cập nhật trạng thái bất thường liên kết.'],
 ];
 
 export const maintenanceErrorMessage = (error: unknown, fallback: string): string => {
@@ -395,6 +218,7 @@ export const maintenanceErrorMessage = (error: unknown, fallback: string): strin
   if (status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
   if (status === 404) return 'Không tìm thấy phiếu bảo trì.';
   if (status === 413) return 'Ảnh quá lớn (tối đa 50MB).';
+  if (message && !haystack.includes('an unexpected error occurred')) return message;
   return fallback;
 };
 

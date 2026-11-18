@@ -1,6 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { ReloadOutline, RightOutline } from '@ant-design/icons-angular/icons';
+import {
+  ClearOutline,
+  CloseCircleOutline,
+  InboxOutline,
+  LeftOutline,
+  ReloadOutline,
+  RightOutline,
+  WarningOutline,
+} from '@ant-design/icons-angular/icons';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
@@ -36,7 +44,15 @@ describe('MaintenanceList', () => {
       imports: [MaintenanceList],
       providers: [
         provideRouter([]),
-        provideNzIcons([ReloadOutline, RightOutline]),
+        provideNzIcons([
+          ClearOutline,
+          CloseCircleOutline,
+          InboxOutline,
+          LeftOutline,
+          ReloadOutline,
+          RightOutline,
+          WarningOutline,
+        ]),
         { provide: MaintenanceApi, useValue: api },
         { provide: Auth, useValue: { user: () => ({ id: 'u1', role }) } },
       ],
