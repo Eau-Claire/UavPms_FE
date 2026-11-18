@@ -47,13 +47,12 @@ export class AssessmentList implements OnDestroy {
 
   protected readonly statuses = [
     { value: '', label: 'Tất cả trạng thái' },
-    { value: 'READY', label: 'Sẵn sàng (READY)' },
-    { value: 'NOT_READY', label: 'Chưa sẵn sàng (NOT_READY)' },
-    { value: 'EVALUATING', label: 'Đang đánh giá (EVALUATING)' },
-    { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
-    { value: 'EXPIRED', label: 'Hết hạn (EXPIRED)' },
-    { value: 'COMPLETED', label: 'Đã hoàn thành (COMPLETED)' },
-    { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' },
+    { value: 'EVALUATING', label: 'Đang đánh giá' },
+    { value: 'READY', label: 'Sẵn sàng' },
+    { value: 'NOT_READY', label: 'Chưa sẵn sàng' },
+    { value: 'EXPIRED', label: 'Hết hạn' },
+    { value: 'COMPLETED', label: 'Đã lập nhiệm vụ' },
+    { value: 'CANCELLED', label: 'Đã hủy' },
   ];
 
   protected readonly filteredItems = computed(() => {
@@ -84,15 +83,26 @@ export class AssessmentList implements OnDestroy {
     return list;
   });
 
+  protected isItemCompleted(item: PreMissionAssessment): boolean {
+    return item.status === 'COMPLETED' || !!item.completedMissionId;
+  }
+
+  protected effectiveStatus(item: PreMissionAssessment): string {
+    return this.isItemCompleted(item) ? 'COMPLETED' : item.status;
+  }
+
   protected readonly stats = computed(() => {
     const list = this.items();
     return [
       { label: 'Tổng số đánh giá', value: this.totalCount() || list.length },
-      { label: 'Sẵn sàng (READY)', value: list.filter((x) => x.status === 'READY').length },
-      { label: 'Chưa sẵn sàng (NOT_READY)', value: list.filter((x) => x.status === 'NOT_READY').length },
+      { label: 'Sẵn sàng', value: list.filter((x) => this.effectiveStatus(x) === 'READY').length },
+      { label: 'Chưa sẵn sàng', value: list.filter((x) => this.effectiveStatus(x) === 'NOT_READY').length },
       {
         label: 'Hết hạn / Hoàn thành / Hủy',
-        value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || x.status === 'CANCELLED').length,
+        value: list.filter((x) => {
+          const s = this.effectiveStatus(x);
+          return s === 'EXPIRED' || s === 'COMPLETED' || s === 'CANCELLED';
+        }).length,
       },
     ];
   });
@@ -260,7 +270,7 @@ export class AssessmentList implements OnDestroy {
   protected reevaluateItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (item.status === 'COMPLETED') {
+    if (this.isItemCompleted(item)) {
       this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
       return;
     }
@@ -306,7 +316,7 @@ export class AssessmentList implements OnDestroy {
   protected cancelItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (item.status === 'COMPLETED') {
+    if (this.isItemCompleted(item)) {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }

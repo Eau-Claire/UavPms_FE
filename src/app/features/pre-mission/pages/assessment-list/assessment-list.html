@@ -5,7 +5,7 @@
       <div class="pre-mission-breadcrumb">
         <span>TIỀN NHIỆM VỤ</span>
         <span class="separator">/</span>
-        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG (MF01)</strong>
+        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG</strong>
       </div>
       <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
       <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
@@ -102,7 +102,7 @@
           <thead>
             <tr>
               <th style="width: 130px;">Mã đánh giá</th>
-              <th>Phạm vi (Khu vực / Tuyến / Cột)</th>
+              <th style="width: 230px;">Phạm vi (Khu vực / Cột)</th>
               <th style="width: 170px;">Khung giờ dự kiến</th>
               <th style="width: 90px;">Mặt bằng</th>
               <th style="width: 90px;">Nhân sự</th>
@@ -112,7 +112,7 @@
               <th style="width: 110px;">Hiệu lực đến</th>
               <th style="width: 110px;">Ngày tạo</th>
               <th style="width: 110px;">Cập nhật</th>
-              <th style="width: 120px;" class="text-center">Thao tác</th>
+              <th style="width: 135px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -134,17 +134,9 @@
               @for (item of filteredItems(); track item.id) {
                 <tr>
                   <td>
-                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
+                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code" [title]="'Xem chi tiết ' + item.assessmentCode">
                       {{ item.assessmentCode }}
                     </a>
-                    @if (item.completedMissionId) {
-                      <div style="margin-top: 2px;">
-                        <a [routerLink]="['/missions', item.completedMissionId]" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; color: #1d4ed8; text-decoration: none;" title="Xem nhiệm vụ bay đã tạo">
-                          <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span>
-                          #{{ item.completedMissionId }}
-                        </a>
-                      </div>
-                    }
                   </td>
                   <td>
                     <strong>{{ item.regionName }}</strong>
@@ -174,8 +166,8 @@
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.status) }}">
-                      {{ statusLabel(item.status) }}
+                    <span class="evn-status {{ statusTone(effectiveStatus(item)) }}">
+                      {{ statusLabel(effectiveStatus(item)) }}
                     </span>
                   </td>
                   <td>
@@ -199,7 +191,17 @@
                       >
                         Mở
                       </a>
-                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (item.completedMissionId) {
+                        <a
+                          [routerLink]="['/missions', item.completedMissionId]"
+                          class="evn-btn secondary"
+                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff;"
+                          title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
+                        >
+                          <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span> Nhiệm vụ
+                        </a>
+                      }
+                      @if (canManage() && !isItemCompleted(item) && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"
@@ -215,7 +217,7 @@
                           }
                         </button>
                       }
-                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
+                      @if (canManage() && !isItemCompleted(item) && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
                           class="evn-btn secondary"

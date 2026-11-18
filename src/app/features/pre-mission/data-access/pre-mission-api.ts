@@ -1,9 +1,10 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { CreateMissionFromAssessmentRequest, CreatedMission } from '../../../models/missions.models';
+import { markMissionAsDraft } from '../../missions/data-access/missions-api';
 import {
   AssessmentCreateRequest,
   AssessmentFilterOptions,
@@ -39,6 +40,13 @@ export interface RealtimeWeatherSnapshot {
   referenceTowerCode?: string;
   latitude?: number;
   longitude?: number;
+  isForecast?: boolean;
+  forecastDate?: string;
+  forecastHour?: number;
+  dailyMaxTemp?: number;
+  dailyMinTemp?: number;
+  dailyMaxWind?: number;
+  towerCount?: number;
 }
 
 /** Một chỉ số trong biên bản kiểm định (`DroneInspectionMetricRequest`). */
@@ -189,6 +197,7 @@ export class PreMissionApi {
   createMission(request: CreateMissionFromAssessmentRequest): Observable<CreatedMission> {
     const payload = {
       ...request,
+      status: request.status ?? 'Draft',
       confirmationDeadline: request.confirmationDeadline ? toIsoString(request.confirmationDeadline) : null,
       managerInstructions: request.managerInstructions?.trim() || null,
     };
@@ -197,11 +206,15 @@ export class PreMissionApi {
       .pipe(
         map((response) => {
           const x = objectOf(unwrapApiData(response));
+          const id = stringOf(x['id']);
+          if (id) {
+            markMissionAsDraft(id);
+          }
           return {
-            id: stringOf(x['id']),
+            id,
             missionCode: stringOf(x['missionCode']),
             title: stringOf(x['title']),
-            status: stringOf(x['status']),
+            status: stringOf(x['status']) || request.status || 'Draft',
           };
         }),
       );
@@ -286,7 +299,7 @@ export class PreMissionApi {
                   timestamp: Date.now(),
                 }),
               );
-            } catch {}
+            } catch { }
           }
         }),
       );
@@ -296,6 +309,88 @@ export class PreMissionApi {
     return this.http
       .get<unknown>(`${this.baseUrl}/drone-technical-inspections/drone/${droneId}/latest`)
       .pipe(map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)));
+  }
+
+  /** Dự báo thời tiết từ API Open-Meteo theo đúng ngày bay và tọa độ trung bình các cột điện. */
+  getWeatherForecast(
+    lat: number,
+    lng: number,
+    regionName?: string,
+    towerCode?: string,
+    targetDate?: string,
+    targetHour?: number,
+    towerCount?: number,
+  ): Observable<RealtimeWeatherSnapshot> {
+    let dateStr = targetDate;
+    if (dateStr && dateStr.includes('T')) {
+      dateStr = dateStr.slice(0, 10);
+    }
+    if (!dateStr || Number.isNaN(new Date(dateStr).getTime())) {
+      dateStr = new Date().toISOString().slice(0, 10);
+    }
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m&start_date=${dateStr}&end_date=${dateStr}&wind_speed_unit=ms&timezone=Asia%2FBangkok`;
+
+    return this.http.get<unknown>(url).pipe(
+      map((res) => {
+        const root = objectOf(res);
+        const hourly = objectOf(root['hourly']);
+        const daily = objectOf(root['daily']);
+        const times = arrayOf(hourly['time']);
+
+        let idx = typeof targetHour === 'number' && targetHour >= 0 && targetHour <= 23 ? targetHour : 12;
+        if (idx >= times.length) idx = Math.max(0, times.length - 1);
+
+        const windSpeed = Number(arrayOf(hourly['wind_speed_10m'])[idx] ?? 0);
+        const windGust = Number(arrayOf(hourly['wind_gusts_10m'])[idx] ?? 0);
+        const weatherCode = Number(arrayOf(hourly['weather_code'])[idx] ?? 0);
+        const temperature = Number(arrayOf(hourly['temperature_2m'])[idx] ?? 0);
+        const humidity = Number(arrayOf(hourly['relative_humidity_2m'])[idx] ?? 0);
+        const windDirection = Number(arrayOf(hourly['wind_direction_10m'])[idx] ?? 0);
+
+        const dailyMaxTemp = optionalNumberOf(arrayOf(daily['temperature_2m_max'])[0]) ?? temperature;
+        const dailyMinTemp = optionalNumberOf(arrayOf(daily['temperature_2m_min'])[0]) ?? temperature;
+        const dailyMaxWind = optionalNumberOf(arrayOf(daily['wind_speed_10m_max'])[0]) ?? windSpeed;
+
+        const isSafeToFly = windSpeed <= 10.0 && dailyMaxWind <= 12.0 && weatherCode < 80;
+        const warningLevel: 'low' | 'medium' | 'high' =
+          windSpeed > 12 || dailyMaxWind > 15 || weatherCode >= 80 ? 'high' : windSpeed > 8 || weatherCode >= 51 ? 'medium' : 'low';
+
+        const centroidDesc = towerCount && towerCount > 1
+          ? `Tâm tuyến ${towerCount} cột điện (${lat.toFixed(4)}°B, ${lng.toFixed(4)}°Đ)`
+          : `Tọa độ vị trí (${lat.toFixed(4)}°B, ${lng.toFixed(4)}°Đ)`;
+
+        const stationLabel = regionName
+          ? `Trạm dự báo khí tượng ${regionName} [${centroidDesc}]`
+          : `Trạm dự báo khí tượng [${centroidDesc}]`;
+
+        return {
+          temperature,
+          humidity,
+          windSpeed,
+          windGust,
+          windDirection,
+          weatherCode,
+          weatherDescription: getWeatherDescription(weatherCode),
+          isSafeToFly,
+          warningLevel,
+          time: stringOf(times[idx]) || `${dateStr}T${String(idx).padStart(2, '0')}:00`,
+          stationName: stationLabel,
+          regionName: regionName || 'Khu vực quản lý lưới điện',
+          referenceTowerCode: towerCode,
+          latitude: lat,
+          longitude: lng,
+          isForecast: true,
+          forecastDate: dateStr,
+          forecastHour: idx,
+          dailyMaxTemp,
+          dailyMinTemp,
+          dailyMaxWind,
+          towerCount,
+        };
+      }),
+      catchError(() => this.getRealtimeWeather(lat, lng, regionName, towerCode)),
+    );
   }
 
   /** Khí tượng thời gian thực từ API Open-Meteo phân giải cao theo đúng tọa độ GPS của cột/khu vực được phân công. */
@@ -365,15 +460,22 @@ function toIsoString(value: string): string {
 }
 
 /** Thông tin khí tượng (tham khảo) hiển thị ở tab Mặt bằng. Không thay thế kết quả đánh giá của backend. */
-export const weatherSiteChecks = (weather: RealtimeWeatherSnapshot): readonly SiteCheckItem[] => [
-  {
-    code: 'METEO_WIND',
-    name: `Quan trắc khí tượng bề mặt - ${weather.regionName || 'Khu vực kiểm tra'}`,
-    status: weather.isSafeToFly ? 'PASS' : weather.warningLevel === 'high' ? 'FAIL' : 'WARNING',
-    details: `${weather.stationName || 'Trạm quan trắc tự động'}${weather.referenceTowerCode ? ` [Cột đối chiếu: ${weather.referenceTowerCode}]` : ''} (${weather.latitude ? weather.latitude.toFixed(4) : '--'}°B, ${weather.longitude ? weather.longitude.toFixed(4) : '--'}°Đ). Sức gió ${weather.windSpeed.toFixed(1)} m/s (gió giật ${weather.windGust.toFixed(1)} m/s), nhiệt độ ${weather.temperature.toFixed(1)}°C, độ ẩm ${weather.humidity}%, ${weather.weatherDescription}. Ngưỡng an toàn bay EVN: gió <= 10 m/s, không mưa dông.`,
-    severity: weather.warningLevel,
-  },
-];
+export const weatherSiteChecks = (weather: RealtimeWeatherSnapshot): readonly SiteCheckItem[] => {
+  const dateStr = weather.forecastDate ? new Date(weather.forecastDate).toLocaleDateString('vi-VN') : '';
+  const centroidInfo = weather.towerCount && weather.towerCount > 1
+    ? `Tọa độ trung bình ${weather.towerCount} cột (${weather.latitude ? weather.latitude.toFixed(4) : '--'}°B, ${weather.longitude ? weather.longitude.toFixed(4) : '--'}°Đ)`
+    : `Tọa độ (${weather.latitude ? weather.latitude.toFixed(4) : '--'}°B, ${weather.longitude ? weather.longitude.toFixed(4) : '--'}°Đ)`;
+
+  return [
+    {
+      code: 'METEO_WIND',
+      name: `Dự báo khí tượng ${dateStr ? `ngày ${dateStr}` : 'bề mặt'} - ${weather.regionName || 'Khu vực kiểm tra'}`,
+      status: weather.isSafeToFly ? 'PASS' : weather.warningLevel === 'high' ? 'FAIL' : 'WARNING',
+      details: `${weather.stationName || 'Trạm quan trắc dự báo'} [${centroidInfo}]. Sức gió ${weather.windSpeed.toFixed(1)} m/s (gió giật ${weather.windGust.toFixed(1)} m/s), nhiệt độ ${weather.temperature.toFixed(1)}°C${weather.dailyMaxTemp ? ` (dao động ${weather.dailyMinTemp?.toFixed(0)}°C - ${weather.dailyMaxTemp?.toFixed(0)}°C)` : ''}, độ ẩm ${weather.humidity}%, ${weather.weatherDescription}. Tiêu chuẩn an toàn bay: sức gió <= 10 m/s, không mưa dông.`,
+      severity: weather.warningLevel,
+    },
+  ];
+};
 
 /** Chuẩn hóa vai trò ứng viên từ backend (`Inspector`, `Analyst`, `Technician`, `MaintenanceTechnician`...). */
 export function normalizeOperationalRole(role: string): string {
@@ -455,7 +557,7 @@ export function getLocalDroneInspectionOverride(droneId: string): {
         inspectionId: String(parsed['inspectionId'] || ''),
       };
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -555,11 +657,12 @@ const checkOf = (value: unknown): ReadinessCheck => {
   };
 };
 
-/** Chuẩn hóa trạng thái hồ sơ; chấp nhận cả giá trị cũ `CONSUMED`, `INCOMPLETE`. */
+/** Chuẩn hóa trạng thái hồ sơ về 6 trạng thái chuẩn của Backend (`PreMissionAssessmentStatus`). */
 export function normalizeAssessmentStatus(value: unknown): string {
   const s = stringOf(value).replace(/[\s-]/g, '_').toUpperCase();
   if (s === 'CONSUMED') return 'COMPLETED';
   if (s === 'INCOMPLETE' || s === 'NOTREADY') return 'NOT_READY';
+  if (s === 'DRAFT') return 'EVALUATING';
   return s;
 }
 
@@ -601,6 +704,10 @@ export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
     id: stringOf(x['id']),
     assessmentCode: stringOf(x['assessmentCode']),
     managerId: stringOf(x['managerId']),
+    managerName: optionalStringOf(
+      x['managerName'] ??
+        (typeof x['manager'] === 'object' && x['manager'] ? (x['manager'] as Record<string, unknown>)['fullName'] : undefined),
+    ),
     regionId: stringOf(x['regionId']),
     regionName: stringOf(x['regionName']),
     plannedStart: stringOf(x['plannedStart']),

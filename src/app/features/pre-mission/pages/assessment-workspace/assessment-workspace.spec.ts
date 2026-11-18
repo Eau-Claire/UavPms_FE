@@ -1,3 +1,4 @@
+import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -231,5 +232,35 @@ describe('AssessmentWorkspace technical inspection', () => {
     const parsedPlainText = c.parseFindings('Đạt yêu cầu vận hành', 'TECHNICIAN');
     expect(parsedPlainText.isJson).toBe(false);
     expect(parsedPlainText.rawText).toBe('Đạt yêu cầu vận hành');
+  });
+
+  it('marks assessment as completed and NOT expired when completedMissionId exists even if validUntil is in the past', () => {
+    role = 'Manager';
+    const c = create() as unknown as {
+      item: () => PreMissionAssessment | null;
+      status: () => string;
+      isCompleted: () => boolean;
+      isExpired: () => boolean;
+      reevaluate: () => void;
+      error: () => string;
+    };
+
+    // Assessment already used to create a mission, validUntil expired yesterday
+    const completedRecord: PreMissionAssessment = {
+      ...assessment(),
+      status: 'READY', // Backend raw status might still be READY or COMPLETED
+      completedMissionId: 'mission-abc-123',
+      validUntil: '2020-01-01T00:00:00Z',
+    };
+    c.item = () => completedRecord;
+
+    expect(c.status()).toBe('COMPLETED');
+    expect(c.isCompleted()).toBe(true);
+    expect(c.isExpired()).toBe(false);
+
+    // Attempting to re-evaluate should be blocked
+    c.reevaluate();
+    expect(api['reEvaluate']).not.toHaveBeenCalled();
+    expect(c.error()).toBe('Bản đánh giá đã được sử dụng bởi nhiệm vụ bay, không thể đánh giá lại.');
   });
 });
