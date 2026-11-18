@@ -15,7 +15,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error: HttpErrorResponse) => {
-      // 401 Unauthorized handling
+
       if (error.status === 401 && token && isInternalApi && !isAuthRequest) {
         return auth.refresh().pipe(
           switchMap((tokens) => next(req.clone({ setHeaders: { Authorization: `Bearer ${tokens.accessToken}` } }))),
@@ -32,10 +32,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
           }),
         );
       }
-
-      // 403 Forbidden handling:
-      // Route access is strictly enforced by route-level roleGuard.
-      // Component-level API errors are handled gracefully via catchError, avoiding kicking user out of permitted routes.
 
       return throwError(() => error);
     }),

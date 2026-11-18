@@ -194,7 +194,7 @@ export const missionRowLink = (
   if (isManagerRole(role)) return { commands: detail };
   if (isAnalystRole(role) && scope === 'all') return { commands: detail, queryParams: { tab: 'results' } };
   const mine = findMyAssignment(mission, userId);
-  // A member whose postponement is still pending also lands on the acceptance page to follow its outcome.
+
   const postponePending = mine?.responseStatus === 'POSTPONED' && normalizeMissionStatus(mission.status) === 'Postponed';
   if (isAwaitingMyResponse(mission, mine) || postponePending) {
     return { commands: ['/missions', mission.id, 'inspector'] };

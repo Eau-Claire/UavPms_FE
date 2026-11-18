@@ -25,11 +25,11 @@ export const routes: Routes = [
       { path: 'emergency-alerts', canActivate: [roleGuard(ROUTE_ROLES.emergencyAlerts)], loadComponent: () => import('./features/emergency-alerts/pages/emergency-alerts-review/emergency-alerts-review').then((m) => m.EmergencyAlertsReview), title: 'Cảnh Báo Khẩn Cấp Edge AI | UAV-PMS' },
       { path: 'alerts', redirectTo: 'emergency-alerts' },
       { path: 'ai-review', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-list/detection-list').then((m) => m.DetectionList), title: 'Duyệt sự cố AI | UAV-PMS' },
-      { path: 'ai-review/:id', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
+      { path: 'ai-review/:id', canActivate: [roleGuard(ROUTE_ROLES.aiReviewDetail)], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
       { path: 'maintenance', canActivate: [roleGuard(ROUTE_ROLES.maintenance)], loadComponent: () => import('./features/maintenance/pages/maintenance-list/maintenance-list').then((m) => m.MaintenanceList), title: 'Phiếu bảo trì | UAV-PMS' },
       { path: 'maintenance/:id', canActivate: [roleGuard(ROUTE_ROLES.maintenance)], loadComponent: () => import('./features/maintenance/pages/maintenance-detail/maintenance-detail').then((m) => m.MaintenanceDetail), title: 'Chi tiết phiếu bảo trì | UAV-PMS' },
       { path: 'gis', canActivate: [roleGuard(ROUTE_ROLES.gis)], loadComponent: () => import('./features/gis/pages/gis-monitoring/gis-monitoring').then((m) => m.GisMonitoring), title: 'Bản đồ GIS Lưới điện | UAV-PMS' },
-      // Every role may read the fleet (`GET /drones`); the page hides write actions by role.
+
       { path: 'drones/inspection', canActivate: [roleGuard(ROUTE_ROLES.technicianInspection)], loadComponent: () => import('./features/drones/pages/drone-inspection/drone-inspection').then((m) => m.DroneInspection), title: 'Kiểm định kỹ thuật UAV | UAV-PMS' },
       { path: 'drones/technical-inspection', redirectTo: 'drones/inspection' },
       { path: 'drones', loadComponent: () => import('./features/drones/pages/drone-management/drone-management').then((m) => m.DroneManagement), title: 'Quản lý phương tiện UAV | UAV-PMS' },

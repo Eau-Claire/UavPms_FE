@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { finalize, map, tap } from 'rxjs';
+import { finalize, map, Subscription, tap, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { unwrapApiData } from '../../models/api.models';
 import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } from '../../models/auth.models';
@@ -15,7 +15,7 @@ export class Auth {
   private readonly defaultDeviceTrustKey = 'uavpms.device_trust_token';
   private readonly sessionState = signal<AuthSession | null>(this.readSession());
   private readonly refreshingState = signal(false);
-  private sessionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionExpirySub: Subscription | null = null;
   readonly session = this.sessionState.asReadonly();
   readonly refreshing = this.refreshingState.asReadonly();
   readonly user = computed(() => this.sessionState()?.user ?? null);
@@ -51,9 +51,6 @@ export class Auth {
     if (!refreshToken) return;
 
     this.http.post<unknown>(`${environment.apiBaseUrl}/auth/validate-session`, { refreshToken }).subscribe({
-      next: () => {
-        // Session active
-      },
       error: (err) => {
         if (err?.status === 401) {
           this.logout();
@@ -81,7 +78,7 @@ export class Auth {
             }
           }
         } catch {
-          // ignore parsing error
+          void 0;
         }
       }
     });
@@ -91,7 +88,7 @@ export class Auth {
     try {
       localStorage.setItem('uavpms.account_event', JSON.stringify({ type, userId, timestamp: Date.now() }));
     } catch {
-      // ignore storage error
+      void 0;
     }
   }
 
@@ -209,8 +206,8 @@ export class Auth {
   }
 
   logout(): void {
-    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
-    this.sessionExpiryTimer = null;
+    this.sessionExpirySub?.unsubscribe();
+    this.sessionExpirySub = null;
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem('uav_pms_missions_data_v2');
     localStorage.removeItem('uav_pms_notifications_v1');
@@ -338,17 +335,17 @@ export class Auth {
   }
 
   private scheduleSessionExpiry(token?: string): void {
-    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
-    this.sessionExpiryTimer = null;
+    this.sessionExpirySub?.unsubscribe();
+    this.sessionExpirySub = null;
     if (!token) return;
     try {
       const expiresAtMs = Number(this.parseTokenPayload(token)['exp']) * 1000;
       if (!Number.isFinite(expiresAtMs)) return;
       const remainingMs = expiresAtMs - Date.now();
       if (remainingMs <= 0) return;
-      this.sessionExpiryTimer = setTimeout(() => this.logout(), remainingMs);
+      this.sessionExpirySub = timer(remainingMs).subscribe(() => this.logout());
     } catch {
-      // Opaque development tokens do not provide an expiry timestamp.
+      void 0;
     }
   }
 

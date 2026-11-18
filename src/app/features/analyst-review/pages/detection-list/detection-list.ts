@@ -9,7 +9,7 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { debounceTime, distinctUntilChanged, finalize, Subject } from 'rxjs';
 import {
@@ -17,13 +17,16 @@ import {
   anomalyErrorMessage,
   AnomalyItem,
   AnomalyPage,
+  AnomalyStatusCounts,
   EXECUTION_LOCATION_LABELS,
   groupSuperseded,
-} from '../../data-access/anomaly-api';
+} from '../../../../core/services/anomaly-api';
+
+export type AnomalyFilterStatus = 'all' | 'pending' | 'confirmed' | 'rejected' | 'resolved';
 
 @Component({
   selector: 'app-detection-list',
-  imports: [DatePipe, NzIconModule],
+  imports: [DatePipe, RouterLink, NzIconModule],
   templateUrl: './detection-list.html',
   styleUrl: './detection-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -32,6 +35,7 @@ import {
 export class DetectionList {
   private readonly api = inject(AnomalyApi);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchSubject = new Subject<string>();
 
@@ -41,6 +45,14 @@ export class DetectionList {
   protected readonly pageSize = signal(10);
   protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly search = signal('');
+  protected readonly selectedStatus = signal<AnomalyFilterStatus>('all');
+  protected readonly statusCounts = signal<AnomalyStatusCounts>({
+    all: 0,
+    pending: 0,
+    confirmed: 0,
+    rejected: 0,
+    resolved: 0,
+  });
   protected readonly viewMode = signal<'table' | 'grid'>('table');
   protected readonly showSuperseded = signal(false);
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
@@ -83,7 +95,7 @@ export class DetectionList {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }
@@ -94,7 +106,7 @@ export class DetectionList {
   });
 
   protected readonly hasActiveFilters = computed(() =>
-    Boolean(this.search().trim() || this.showSuperseded())
+    Boolean(this.search().trim() || this.showSuperseded() || this.selectedStatus() !== 'all'),
   );
 
   protected readonly criticalCount = computed(() =>
@@ -110,6 +122,21 @@ export class DetectionList {
   );
 
   constructor() {
+    const qpStatus = this.route.snapshot.queryParamMap.get('status')?.toLowerCase();
+    if (
+      qpStatus === 'pending' ||
+      qpStatus === 'confirmed' ||
+      qpStatus === 'rejected' ||
+      qpStatus === 'resolved' ||
+      qpStatus === 'all'
+    ) {
+      this.selectedStatus.set(qpStatus as AnomalyFilterStatus);
+    }
+    const qpSearch = this.route.snapshot.queryParamMap.get('search');
+    if (qpSearch) {
+      this.search.set(qpSearch);
+    }
+
     this.searchSubject
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((query) => {
@@ -126,15 +153,32 @@ export class DetectionList {
     this.error.set('');
 
     this.api
-      .listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() })
+      .list({
+        pageIndex: this.page(),
+        pageSize: this.pageSize(),
+        search: this.search(),
+        status: this.selectedStatus(),
+      })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: (res) => this.response.set(res),
-        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải hàng đợi thẩm định.')),
+        next: (res) => {
+          this.response.set(res);
+          if (res.statusCounts) {
+            this.statusCounts.set(res.statusCounts);
+          }
+        },
+        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải danh sách sự cố.')),
       });
+  }
+
+  protected selectStatus(status: AnomalyFilterStatus): void {
+    if (this.selectedStatus() === status) return;
+    this.selectedStatus.set(status);
+    this.page.set(1);
+    this.load();
   }
 
   protected onSearchInput(event: Event): void {
@@ -151,7 +195,12 @@ export class DetectionList {
 
   protected openDetail(item: AnomalyItem): void {
     void this.router.navigate(['/ai-review', item.id], {
-      state: { anomaly: item, superseded: this.grouping().supersededByReplacement.get(item.id) ?? [] },
+      state: {
+        anomaly: item,
+        superseded: this.grouping().supersededByReplacement.get(item.id) ?? [],
+        from: 'queue',
+      },
+      queryParams: { from: 'queue' },
     });
   }
 
@@ -169,7 +218,9 @@ export class DetectionList {
   protected resetFilters(): void {
     this.search.set('');
     this.showSuperseded.set(false);
+    this.selectedStatus.set('all');
     this.setPage(1);
+    this.load();
   }
 
   protected confidenceTone(score: number): string {

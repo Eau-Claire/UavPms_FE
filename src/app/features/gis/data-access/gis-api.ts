@@ -4,7 +4,7 @@ import { map, Observable, timeout } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { RegionLookup, SelectableAsset, SpatialTowerQueryRequest } from '../../../models/assets.models';
-import { RegionsApi } from '../../towers/data-access/regions-api';
+import { RegionsApi } from '../../../core/services/regions-api';
 
 /** Tower marker from GET /gis/infrastructure (GisTowerDto). */
 export interface GisTower {

@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
 import { DashboardSnapshot } from '../../../models/monitor.models';
-import { MonitorApi } from './monitor-api';
+import { MonitorApi } from '../../../core/services/monitor-api';
 
 describe('MonitorApi', () => {
   let api: MonitorApi;

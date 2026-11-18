@@ -7,8 +7,8 @@ import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
 import { MonitorAlert } from '../../../../models/monitor.models';
-import { NotificationsApi } from '../../../notifications/data-access/notifications-api';
-import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
+import { NotificationsApi } from '../../../../core/services/notifications-api';
+import { NotificationsStore } from '../../../../core/notifications/notifications-store';
 import { ActiveAlertsPanel } from './active-alerts-panel';
 
 function makeAlert(id: string, isRead = false, index = 1): MonitorAlert {
@@ -86,7 +86,6 @@ describe('ActiveAlertsPanel', () => {
     expect(toggleBtn).not.toBeNull();
     expect(toggleBtn.textContent.trim()).toBe('Xem thêm');
 
-    // Click to expand
     toggleBtn.click();
     fixture.detectChanges();
 
@@ -94,7 +93,6 @@ describe('ActiveAlertsPanel', () => {
     expect(cards.length).toBe(8);
     expect(toggleBtn.textContent.trim()).toBe('Thu gọn');
 
-    // Click to collapse
     toggleBtn.click();
     fixture.detectChanges();
 
@@ -116,7 +114,7 @@ describe('ActiveAlertsPanel', () => {
     const tabs: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.filter-tab'));
     const unreadTab = tabs.find((t) => t.textContent?.includes('Chưa đọc'));
     expect(unreadTab).not.toBeNull();
-    expect(unreadTab!.textContent).toContain('2'); // unread pill count
+    expect(unreadTab!.textContent).toContain('2');
 
     unreadTab!.click();
     fixture.detectChanges();

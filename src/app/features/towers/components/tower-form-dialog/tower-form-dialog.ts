@@ -116,7 +116,6 @@ export class TowerFormDialog implements OnInit {
         const dlg = this.dialog()?.nativeElement;
         if (dlg?.open) dlg.close();
       } catch {
-        // no-op
       }
       this.closed.emit();
     }

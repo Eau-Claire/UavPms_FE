@@ -27,13 +27,13 @@ import {
   DroneTechnicalInspectionResult,
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
+import { FlightControllerApi } from '../../../../core/services/flight-controller-api';
 import {
   buildInspectionChecklist,
   ChecklistPreset,
-} from '../../../pre-mission/data-access/inspection-checklist';
-import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
-import { DroneManagementApi } from '../../data-access/drone-management-api';
+} from '../../../../shared/utils/inspection-checklist';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { DroneManagementApi } from '../../../../core/services/drone-management-api';
 
 export type InspectionPurpose = 'PERIODIC' | 'POST_FLIGHT' | 'PRE_MISSION';
 
@@ -57,24 +57,20 @@ export class DroneInspection implements OnInit {
   protected readonly isTechnician = computed(() => isTechnicianRole(this.currentUser()?.role));
   protected readonly isManager = computed(() => isManagerRole(this.currentUser()?.role));
 
-  // Drone fleet state
   protected readonly drones = signal<readonly UavRecord[]>([]);
   protected readonly loadingDrones = signal<boolean>(true);
   protected readonly selectedDroneId = signal<string>('');
   protected readonly droneSearch = signal<string>('');
   protected readonly filterType = signal<'ALL' | 'ATTENTION' | 'EXPIRED'>('ALL');
 
-  // Selected drone
   protected readonly currentDrone = computed<UavRecord | null>(() => {
     const id = this.selectedDroneId();
     const list = this.drones();
     return list.find((d) => d.id === id) || (list.length > 0 ? list[0] : null);
   });
 
-  // Inspection Purpose
   protected readonly purpose = signal<InspectionPurpose>('PERIODIC');
 
-  // Inspection Input State
   protected readonly mockPreset = signal<ChecklistPreset>('healthy');
   protected readonly batteryLevel = signal<number>(95);
   protected readonly gpsSats = signal<number>(24);
@@ -84,7 +80,6 @@ export class DroneInspection implements OnInit {
   protected readonly actionMessage = signal<string>('');
   protected readonly errorMessage = signal<string>('');
 
-  // Flight Controller (Betaflight MSP / Web Serial)
   protected readonly fcMetadata = this.fcSerial.activeMetadata;
   protected readonly fcConnectionState = this.fcSerial.connectionState;
   protected readonly fcIsSimulated = this.fcSerial.isSimulated;
@@ -99,13 +94,11 @@ export class DroneInspection implements OnInit {
   protected readonly pairingMessage = signal<string>('');
   protected readonly activeMeasurementTab = signal<'manual' | 'fc'>('manual');
 
-  // Inspection History of selected drone
   protected readonly historyItems = signal<readonly DroneTechnicalInspectionSummaryDto[]>([]);
   protected readonly loadingHistory = signal<boolean>(false);
   protected readonly latestInspections = signal<ReadonlyMap<string, DroneTechnicalInspectionSummaryDto>>(new Map());
   protected readonly bulkInspecting = signal<boolean>(false);
 
-  // Status mapping
   protected readonly statusTone = statusTone;
   protected readonly statusLabel = statusLabel;
 
@@ -247,7 +240,6 @@ export class DroneInspection implements OnInit {
     });
   }
 
-  // Submit Technical Inspection
   protected submitInspection(): void {
     const drone = this.currentDrone();
     if (!drone || this.submitting()) return;
@@ -282,7 +274,6 @@ export class DroneInspection implements OnInit {
           this.actionMessage.set(`Biên bản kiểm định cho UAV ${drone.code} đã được lưu: KHÔNG ĐẠT (Cần bảo dưỡng trước khi bay).`);
         }
 
-        // Update latest inspection cache immediately
         this.latestInspections.update((m) => {
           const newMap = new Map(m);
           newMap.set(drone.id, {
@@ -298,7 +289,6 @@ export class DroneInspection implements OnInit {
           return newMap;
         });
 
-        // Refresh fleet and history
         this.loadDrones(false);
         this.loadHistory(drone.id);
       },
@@ -393,7 +383,6 @@ export class DroneInspection implements OnInit {
       });
   }
 
-  // Betaflight / MSP controls
   protected async connectWebSerial(): Promise<void> {
     this.pairingMessage.set('');
     try {
@@ -459,4 +448,3 @@ export class DroneInspection implements OnInit {
     });
   }
 }
-

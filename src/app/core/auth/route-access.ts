@@ -9,8 +9,10 @@ type RoleInput = UserRole | string | null | undefined;
  * The lists mirror the backend `[Authorize(Roles = ...)]` of the API each page depends on.
  */
 export const ROUTE_ROLES = {
-  /** `/ai-review`, `/ai-review/:id`: anomaly review (`AnomaliesController`). */
+  /** `/ai-review`: anomaly review queue (`AnomaliesController`). */
   aiReview: ['Admin', 'Manager', 'Analyst'],
+  /** `/ai-review/:id`: anomaly detail view allowed for all authenticated technical roles. */
+  aiReviewDetail: ['Admin', 'Manager', 'Analyst', 'Inspector', 'Technician', 'MaintenanceTechnician'],
   /** `/ai-analysis/upload`: standalone AI analysis. */
   aiAnalysis: ['Admin', 'Manager', 'Analyst'],
   /** `/emergency-alerts`: allows all roles to view emergency alerts. */

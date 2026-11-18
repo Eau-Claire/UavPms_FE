@@ -3,8 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, catchError, finalize, timer } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { DashboardSnapshot, InspectionFilters, PagedResponse, InspectionRecord } from '../../../models/monitor.models';
-import { NotificationsStore } from '../../notifications/data-access/notifications-store';
-import { MonitorApi, getReadAlertIds, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from './monitor-api';
+import { NotificationsStore } from '../../../core/notifications/notifications-store';
+import { MonitorApi, getReadAlertIds, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../../core/services/monitor-api';
 
 @Injectable({
   providedIn: 'root',

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
-import { normalizeMission, MissionsApi } from '../../../missions/data-access/missions-api';
+import { normalizeMission, MissionsApi } from '../../../../core/services/missions-api';
 import { InspectionFilterChange, InspectionFilters, MissionOption, resolveMissionInput } from './inspection-filters';
 
 const GUID = '2c52a953-3606-4f8a-bd13-76cfab48d133';

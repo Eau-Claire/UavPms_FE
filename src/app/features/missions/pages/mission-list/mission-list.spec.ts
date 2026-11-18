@@ -18,8 +18,8 @@ import {
 import { Auth } from '../../../../core/auth/auth';
 import { AuthUser, UserRole } from '../../../../models/auth.models';
 import { Mission } from '../../../../models/missions.models';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
-import { MissionsApi } from '../../data-access/missions-api';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { MissionsApi } from '../../../../core/services/missions-api';
 import { MissionList } from './mission-list';
 
 const pendingMission = {

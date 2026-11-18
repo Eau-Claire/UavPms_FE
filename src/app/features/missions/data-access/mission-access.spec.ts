@@ -132,18 +132,14 @@ describe('mission access rules', () => {
         team: [assignment({ userId: 'analyst-1', assignmentRole: 'ANALYST', status: 'Active' })],
       });
 
-      // Assigned analyst can view
       expect(canViewMissionDetections('Analyst', analystAssigned, 'analyst-1')).toBe(true);
 
-      // Unassigned analyst cannot view
       expect(canViewMissionDetections('Analyst', analystAssigned, 'other-analyst')).toBe(false);
 
-      // Other roles cannot view even if in team
       expect(canViewMissionDetections('Manager', analystAssigned, 'analyst-1')).toBe(false);
       expect(canViewMissionDetections('SystemAdmin', analystAssigned, 'analyst-1')).toBe(false);
       expect(canViewMissionDetections('Inspector', analystAssigned, 'analyst-1')).toBe(false);
 
-      // Revoked/Cancelled analyst cannot view
       const revoked = mission({
         team: [assignment({ userId: 'analyst-1', assignmentRole: 'ANALYST', status: 'Revoked' })],
       });

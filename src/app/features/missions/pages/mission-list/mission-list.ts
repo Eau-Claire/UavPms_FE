@@ -15,10 +15,10 @@ import {
   missionStatusLabel,
   normalizeMissionStatus,
 } from '../../../../models/missions.models';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
 import { MissionLink, MissionListScope, canViewAllMissions, missionRowLink } from '../../data-access/mission-access';
-import { MissionsApi } from '../../data-access/missions-api';
-import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
+import { MissionsApi } from '../../../../core/services/missions-api';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
@@ -102,7 +102,6 @@ export class MissionList {
           return;
         }
 
-        // Live update status in the table
         this.response.update((curr) => {
           const index = curr.items.findIndex(
             (m) => m.id === event.missionId || m.missionCode === event.missionId,
@@ -114,7 +113,6 @@ export class MissionList {
           return { ...curr, items: newItems };
         });
 
-        // Live update stats cards
         this.statsItems.update((items) => {
           const index = items.findIndex(
             (m) => m.id === event.missionId || m.missionCode === event.missionId,

@@ -19,7 +19,7 @@ import {
   ticketPriorityTone,
   ticketStatusLabel,
   ticketStatusTone,
-} from '../../data-access/tower-labels';
+} from '../../../../shared/utils/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
 export type TowerHistoryTab = 'anomalies' | 'maintenance';
@@ -132,7 +132,6 @@ export class TowerDetail {
         this.error.set(status === 403 ? 'Bạn không có quyền xem cột điện này (ngoài phạm vi khu vực được phân công).' : error);
       });
 
-    // Reload whenever the route id changes.
     effect(() => {
       const id = this.id();
       untracked(() => {

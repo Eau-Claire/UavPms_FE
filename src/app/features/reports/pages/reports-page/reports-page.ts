@@ -41,7 +41,6 @@ export class ReportsPage implements OnInit {
   protected readonly typeLabels = REPORT_TYPE_LABELS;
   protected readonly reportTypes = Object.keys(REPORT_TYPE_LABELS) as ReportType[];
 
-  // State signals
   protected readonly reports = signal<readonly ReportItem[]>([]);
   protected readonly isLoading = signal(false);
   protected readonly isDownloading = signal<string | null>(null);
@@ -49,7 +48,6 @@ export class ReportsPage implements OnInit {
   protected readonly toastMessage = signal<string | null>(null);
   protected readonly toastType = signal<'success' | 'error' | 'info'>('success');
 
-  // Filter signals
   protected readonly searchQuery = signal('');
   protected readonly selectedType = signal('all');
   protected readonly selectedStatus = signal('all');
@@ -78,7 +76,7 @@ export class ReportsPage implements OnInit {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }
@@ -133,7 +131,6 @@ export class ReportsPage implements OnInit {
 
   protected readonly regions = signal<readonly RegionOption[]>([]);
 
-  // Create modal
   protected readonly isCreateModalOpen = signal(false);
   protected readonly createForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MaintenanceTicket } from '../../../models/maintenance.models';
 import { UavRecord } from '../../../models/drone-management.models';
-import { normalizeMission } from '../../missions/data-access/missions-api';
+import { normalizeMission } from '../../../core/services/missions-api';
 import { dronesNeedingAttention, groupInspectorMissions, groupTechnicianTickets, inspectorMissionLink, isTicketOverdue } from './field-dashboard';
 
 const ME = 'aaaaaaaa-0000-0000-0000-000000000001';

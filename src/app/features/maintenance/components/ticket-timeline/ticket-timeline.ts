@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
-import { isClosedStatus } from '../../data-access/maintenance-labels';
+import { isClosedStatus } from '../../../../shared/utils/maintenance-labels';
 
 export type TimelineState = 'done' | 'current' | 'pending';
 

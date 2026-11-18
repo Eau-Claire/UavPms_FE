@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { Mission } from '../../../models/missions.models';
-import { MissionsApi, markMissionAsDraft, markMissionAsDispatched } from './missions-api';
+import { MissionsApi, markMissionAsDraft, markMissionAsDispatched } from '../../../core/services/missions-api';
 
 describe('MissionsApi', () => {
   let api: MissionsApi;

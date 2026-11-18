@@ -16,8 +16,8 @@ import {
 import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
-import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
-import { isValidGuid, markMissionAsDraft } from '../../data-access/missions-api';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { isValidGuid, markMissionAsDraft } from '../../../../core/services/missions-api';
 
 const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
 
@@ -220,7 +220,7 @@ export class MissionCreate {
       this.selectedPersonnelIds.update((ids) => ids.filter((x) => x !== id));
       this.requiredPersonnelIds.update((ids) => ids.filter((x) => x !== id));
     } else {
-      // A newly selected member is required by default; the manager can make them optional.
+
       this.selectedPersonnelIds.update((ids) => [...ids, id]);
       this.requiredPersonnelIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
     }
@@ -355,7 +355,6 @@ export class MissionCreate {
     const deadline = this.resolveDeadline(f.confirmationDeadline, a);
     if (deadline === false) return;
 
-    // Người đầu tiên là Inspector chính (backend lấy Personnel[0] làm người phụ trách).
     const required = new Set(this.requiredPersonnelIds());
     const orderedPersonnel: MissionPersonnelAssignment[] = [...personnel]
       .sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
@@ -531,7 +530,7 @@ function defaultDeadline(a: PreMissionAssessment): string {
   const now = Date.now();
   const start = new Date(a.plannedStart).getTime();
   if (Number.isNaN(start) || start <= now + 60_000) return '';
-  // Rounded down to the minute by the input format, so the default never lands after the planned start.
+
   return toDatetimeLocal(new Date(Math.min(now + DEFAULT_DEADLINE_HOURS * 3_600_000, start)));
 }
 

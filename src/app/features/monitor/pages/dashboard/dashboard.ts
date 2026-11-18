@@ -42,7 +42,7 @@ export class Dashboard {
   protected readonly fieldFamily = isFieldRole(this.role) ? roleFamily(this.role) : null;
 
   constructor() {
-    // The system-wide stats are only shown (and polled) on the manager dashboard.
+
     if (!this.fieldFamily) this.store.startDashboardPolling();
   }
 

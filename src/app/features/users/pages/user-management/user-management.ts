@@ -17,7 +17,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
-import { UsersApi } from '../../data-access/users-api';
+import { UsersApi } from '../../../../core/services/users-api';
 
 const ADMIN_ROLES = ['admin', 'systemadmin', 'administrator'];
 const MANAGER_ROLES = ['manager', 'supervisor'];
@@ -53,7 +53,6 @@ export class UserManagement {
   protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
 
-  // Pagination state
   protected readonly page = signal(1);
   protected readonly pageSize = signal(10);
   protected readonly pageSizes = [10, 20, 50] as const;
@@ -110,7 +109,7 @@ export class UserManagement {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }

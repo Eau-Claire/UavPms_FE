@@ -213,7 +213,7 @@ export interface MissionAssignment {
   readonly userName: string;
   readonly userFullName?: string;
   readonly assignmentRole: MissionOperationalRole;
-  readonly status: string; // 'Active' | 'Unavailable' | 'Revoked' | string
+  readonly status: string;
   readonly responseStatus?: AssignmentResponseStatus;
   readonly isRequired?: boolean;
   readonly assignedAt?: string;
@@ -273,7 +273,7 @@ export interface Mission {
   readonly emergencyReason?: string | null;
   readonly isImmediate?: boolean;
   readonly communicationLogs?: readonly MissionCommunicationLog[];
-  // Tiến độ xác nhận của các thành viên
+
   readonly confirmedAt?: string | null;
   readonly confirmedCount?: number;
   readonly totalRequiredCount?: number;

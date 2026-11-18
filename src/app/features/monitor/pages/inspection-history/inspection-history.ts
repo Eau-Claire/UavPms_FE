@@ -72,7 +72,7 @@ export class InspectionHistory {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }

@@ -279,7 +279,7 @@
           <span class="badge-tag">
             @switch (selected.type) {
               @case ('tower') { Cột điện }
-              @case ('anomaly') { Bất thường AI phát hiện }
+              @case ('anomaly') { AI phát hiện bất thường }
               @case ('alert') { Cảnh báo khẩn cấp }
             }
           </span>
@@ -386,8 +386,8 @@
             class="btn-primary"
             (click)="navigateToReview(selected.data.anomalyId)"
           >
-            <span nz-icon nzType="audit" aria-hidden="true"></span>
-            Xem & Thẩm định AI
+            <span nz-icon [nzType]="isAnalyst() ? 'audit' : 'eye'" aria-hidden="true"></span>
+            {{ isAnalyst() ? 'Xem và thẩm định' : 'Xem chi tiết' }}
           </button>
         } @else if (selected.type === 'anomaly' && selected.data.towerId) {
           <a

@@ -27,7 +27,7 @@ import {
   captureVideoFrameAtTime,
   extractCropDataUrl,
   VideoTimelineMarker,
-} from '../../data-access/ai-analysis-api';
+} from '../../../../core/services/ai-analysis-api';
 
 export type AnalysisWorkflowMode = 'image' | 'video';
 export type StandaloneWorkflowStage = 'idle' | 'ready' | 'processing' | 'inspected';
@@ -74,7 +74,6 @@ export class StandaloneUpload {
   protected readonly uploadError = signal<string | null>(null);
   protected readonly uploadSuccessResult = signal<AnalysisSessionResult | null>(null);
 
-  // Queued media
   protected readonly selectedFiles = signal<readonly StandaloneMediaPreview[]>([]);
   protected readonly activeMediaId = signal<string>('');
   protected readonly currentMedia = computed<StandaloneMediaPreview | null>(() => {
@@ -83,7 +82,6 @@ export class StandaloneUpload {
     return list.find((item) => item.id === this.activeMediaId()) ?? list[0];
   });
 
-  // Detections & Inspection State
   protected readonly allDetections = signal<readonly AiDetection[]>([]);
   protected readonly confidenceThreshold = signal<number>(60);
   protected readonly selectedCategoryFilter = signal<string>('ALL');
@@ -92,7 +90,6 @@ export class StandaloneUpload {
   protected readonly reviewNotes = signal<string>('');
   protected readonly reviewFeedback = signal<string>('');
 
-  // Video Inspection State
   protected readonly isVideoPlaying = signal<boolean>(false);
   protected readonly videoCurrentTime = signal<number>(0);
   protected readonly videoDuration = signal<number>(0);
@@ -104,7 +101,6 @@ export class StandaloneUpload {
     preferredModel: ['DefectDetection-Standard'],
   });
 
-  // Filtered Detections
   protected readonly filteredDetections = computed<readonly AiDetection[]>(() => {
     const thresh = this.confidenceThreshold();
     const cat = this.selectedCategoryFilter();
@@ -115,7 +111,6 @@ export class StandaloneUpload {
     });
   });
 
-  // Timeline Markers for Video
   protected readonly videoTimelineMarkers = computed<readonly VideoTimelineMarker[]>(() => {
     const duration = this.videoDuration() || this.currentMedia()?.durationSeconds || 60;
     return this.filteredDetections()
@@ -136,7 +131,6 @@ export class StandaloneUpload {
       });
   });
 
-  // Unique categories for filtering
   protected readonly availableCategories = computed<readonly string[]>(() => {
     const set = new Set<string>();
     this.allDetections().forEach((d) => set.add(d.title));
@@ -231,7 +225,6 @@ export class StandaloneUpload {
     this.activeMediaId.set(combined[0]?.id ?? '');
     this.workflowStage.set('ready');
 
-    // Extract metadata & thumbnails
     additions.forEach((item) => {
       if (item.kind === 'video') {
         this.extractVideoMetadataAndThumbnail(item);
@@ -441,7 +434,6 @@ export class StandaloneUpload {
             };
           }
         } catch {
-          // Fallback to original detection
         }
         return det;
       }),
@@ -453,7 +445,6 @@ export class StandaloneUpload {
     }
   }
 
-  // Inspection UI Actions
   selectDetection(detection: AiDetection): void {
     this.selectedDetection.set(detection);
     this.reviewNotes.set(detection.analystNotes ?? '');
@@ -523,7 +514,6 @@ export class StandaloneUpload {
       list.map((item) => (item.id === updated.id ? updated : item)),
     );
 
-    // No backend endpoint stores reviews of standalone uploads: the mark only lives in this page's state.
     this.reviewFeedback.set(
       decision === 'Approved'
         ? 'Đã đánh dấu tạm là khuyết tật (chỉ lưu tạm trên trình duyệt, chưa ghi vào hệ thống).'

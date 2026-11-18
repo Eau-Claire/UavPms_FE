@@ -4,7 +4,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../auth/auth';
 import { roleFamily, RoleFamily } from '../../auth/roles';
-import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
+import { EmergencyAlertsApi } from '../../services/emergency-alerts-api';
 
 export interface NavLinkItem {
   readonly path: string;
@@ -130,7 +130,7 @@ export class Sidebar {
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => SECONDARY_LINKS[this.family()]);
 
   constructor() {
-    // The badge needs `GET /alerts/active` (SystemAdmin, Manager, Analyst): load it once for a role whose menu shows the link.
+
     let loadedFor: RoleFamily | null = null;
     effect(() => {
       const family = this.family();

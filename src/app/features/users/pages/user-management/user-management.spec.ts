@@ -27,7 +27,7 @@ import {
 import { of } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { UserRecord } from '../../../../models/users.models';
-import { UsersApi } from '../../data-access/users-api';
+import { UsersApi } from '../../../../core/services/users-api';
 import { UserManagement } from './user-management';
 
 const mockUsers: readonly UserRecord[] = [
@@ -148,7 +148,6 @@ describe('UserManagement', () => {
     expect(text).toContain('Lê Kỹ Thuật');
     expect(text).toContain('Phạm Người Xem');
 
-    // Check stats computed
     expect(component.stats()).toEqual({
       total: 4,
       active: 2,
@@ -161,7 +160,7 @@ describe('UserManagement', () => {
 
   it('filters users by search keyword and role', () => {
     setup();
-    // Search by name
+
     (component as unknown as { onSearch(v: string): void }).onSearch('Trần');
     fixture.detectChanges();
 
@@ -169,7 +168,6 @@ describe('UserManagement', () => {
     expect(tbodyText).toContain('Trần Văn Bay');
     expect(tbodyText).not.toContain('Lê Kỹ Thuật');
 
-    // Clear search and filter by role
     (component as unknown as { resetFilters(): void }).resetFilters();
     (component as unknown as { onRoleFilterChange(r: string): void }).onRoleFilterChange('Inspector');
     fixture.detectChanges();
@@ -191,7 +189,6 @@ describe('UserManagement', () => {
       goToPage(p: number): void;
     };
 
-    // Change page size to 2
     c.changePageSize(2);
     fixture.detectChanges();
 
@@ -200,7 +197,6 @@ describe('UserManagement', () => {
     expect(c.startIndex()).toBe(1);
     expect(c.endIndex()).toBe(2);
 
-    // Go to next page
     c.goToPage(2);
     fixture.detectChanges();
 

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MonitorAlert } from '../../../../models/monitor.models';
 import { ActiveAlertsPanel } from '../active-alerts-panel/active-alerts-panel';
-import { MonitorApi } from '../../data-access/monitor-api';
+import { MonitorApi } from '../../../../core/services/monitor-api';
 import { pollResource } from '../../data-access/polled-resource';
 
 /** The signed-in user's own notifications (`GET /monitor/alerts`), refreshed every minute. */

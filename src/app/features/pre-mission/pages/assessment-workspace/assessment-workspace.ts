@@ -46,8 +46,8 @@ import {
   UavTechnicalEligibility,
 } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
-import { FlightControllerApi } from '../../data-access/flight-controller-api';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { FlightControllerApi } from '../../../../core/services/flight-controller-api';
 import {
   needsTechnicianInspection,
   personnelReasonLabel,
@@ -56,8 +56,8 @@ import {
   technicalEligibilityTone,
   uavReasonLabel,
 } from '../../data-access/candidate-labels';
-import { buildInspectionChecklist } from '../../data-access/inspection-checklist';
-import { PreMissionApi, RealtimeWeatherSnapshot, weatherSiteChecks } from '../../data-access/pre-mission-api';
+import { buildInspectionChecklist } from '../../../../shared/utils/inspection-checklist';
+import { PreMissionApi, RealtimeWeatherSnapshot, weatherSiteChecks } from '../../../../core/services/pre-mission-api';
 import { describeHttpError, isStaleDataError } from '../../../../shared/errors/business-error-messages';
 
 export type WorkspaceTab = 'overview' | 'site' | 'personnel' | 'uav' | 'technical';
@@ -118,17 +118,14 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly busy = signal(false);
   protected readonly activeTab = signal<WorkspaceTab>('overview');
 
-  // Bộ lọc ứng viên nhân sự
   protected readonly personnelSearch = signal('');
   protected readonly selectedRoleFilter = signal<'ALL' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN'>('ALL');
   protected readonly onlyAvailableFilter = signal<boolean>(true);
 
-  // Kiểm định kỹ thuật drone
   protected readonly selectedDroneId = signal<string>('');
   protected readonly inspectionResult = signal<DroneTechnicalInspectionResult | null>(null);
   protected readonly inspecting = signal(false);
 
-  // Flight Controller (Betaflight MSP)
   protected readonly fcMetadata = this.fcSerial.activeMetadata;
   protected readonly fcConnectionState = this.fcSerial.connectionState;
   protected readonly fcIsSimulated = this.fcSerial.isSimulated;
@@ -144,7 +141,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly pairingSuccess = signal<string>('');
   protected readonly pairTargetDroneId = signal<string>('');
 
-  // Mock BIST Telemetry (Giả lập kiểm định viễn trắc lưu về Backend)
   protected readonly showMockModal = signal<boolean>(false);
   protected readonly mockSubmitting = signal<boolean>(false);
   protected readonly mockPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
@@ -153,7 +149,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly mockRfQuality = signal<number>(98);
   protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
 
-  // Khí tượng (tham khảo, không thay đổi kết quả đánh giá của backend)
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
   protected readonly loadingWeather = signal(false);
   protected readonly siteChecks = computed<readonly SiteCheckItem[]>(() => {
@@ -191,7 +186,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     return !this.isFcMatchingAssessmentDrone();
   });
 
-  // Bản đồ Leaflet
   private map: L.Map | null = null;
   private currentTileLayer: L.TileLayer | null = null;
   private markersLayer = L.layerGroup();
@@ -392,7 +386,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly statusTone = statusTone;
   protected readonly statusLabel = statusLabel;
 
-  // MF01 candidate reasons: `suitability` only describes scope; availability/technical come from separate fields.
   protected readonly uavReason = uavReasonLabel;
   protected readonly personnelReason = personnelReasonLabel;
 
@@ -424,7 +417,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           rawText: trimmed,
         };
       } catch {
-        // Fall back to plain text
       }
     }
 
@@ -504,7 +496,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         }
         case 'AssessmentStatusChanged':
         case 'AssessmentCompleted': {
-          // Luôn tải lại hồ sơ từ backend để hiển thị kết quả chính thức.
+
           this.api.get(current.id).subscribe({
             next: (updated) => {
               this.item.set(updated);
@@ -533,7 +525,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         if (res.uavCandidates.length > 0 && !this.selectedDroneId()) {
           this.selectedDroneId.set(res.uavCandidates[0].id);
         }
-        // Technicians land on the technical tab: show the latest inspection of the selected drone right away.
+
         const droneId = this.selectedDroneId();
         if (this.activeTab() === 'technical' && droneId && !this.inspectionResult()) this.loadLatestInspection(droneId);
         this.loadRegionTowers(res);
@@ -725,7 +717,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           this.isStaleConflict.set(true);
           this.error.set('Dữ liệu đánh giá đã bị thay đổi bởi phiên làm việc khác. Vui lòng bấm "Làm mới dữ liệu".');
         } else {
-          // ASSESSMENT_CANCELLED / ASSESSMENT_EXPIRED / ASSESSMENT_ALREADY_COMPLETED are final: reload to show the state.
+
           this.error.set(describeHttpError(err, 'Không thể hủy bản đánh giá.'));
           this.showCancelModal.set(false);
           this.refreshItem(a.id);
@@ -777,7 +769,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       const meta = await this.fcSerial.connectRealSerial();
       this.resolveFc(meta.uid);
     } catch {
-      // Lỗi đã được ghi vào signal của BetaflightSerialService.
     }
   }
 
@@ -792,7 +783,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       const meta = await this.fcSerial.connectSimulated(target);
       this.resolveFc(meta.uid);
     } catch {
-      // Lỗi đã được ghi vào signal của BetaflightSerialService.
     }
   }
 
@@ -870,7 +860,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // BR-05: chặn gửi biên bản khi Flight Controller đang kết nối không thuộc drone được kiểm định.
     if (this.isFcConnected()) {
       if (this.isFcDroneMismatch()) {
         this.error.set(
@@ -884,8 +873,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       }
     }
 
-    // The backend no longer accepts an inspection without readings (`METRICS_REQUIRED`) and fails every critical
-    // item that has none, so the technician records the checklist first; the modal submits it with the FC UID.
     this.error.set('');
     this.checklistManual.set(true);
     this.showMockModal.set(true);
@@ -1095,7 +1082,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           });
 
           if (!a) return;
-          // Re-evaluation needs manager scope for the region; technicians hand it over to the manager.
+
           if (!this.canManage()) {
             this.actionMessage.update(
               (msg) => `${msg} Quản lý cần bấm “Đánh giá lại” để cập nhật kết quả của hồ sơ.`,
@@ -1189,7 +1176,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     const scopeTowerIds = new Set(scopeTowers.map((t) => t.towerId));
     const allRegionTowers = this.regionTowers();
 
-    // 1. Vẽ các cột khác trong khu vực làm nền tham chiếu (chấm xám mờ như màn hình khởi tạo)
     for (const rt of allRegionTowers) {
       if (scopeTowerIds.has(rt.id)) continue;
       if (rt.latitude == null || rt.longitude == null || (rt.latitude === 0 && rt.longitude === 0)) continue;
@@ -1208,7 +1194,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.markersLayer.addLayer(marker);
     }
 
-    // 2. Vẽ các cột điện trong phạm vi khảo sát kèm số thứ tự (1, 2, 3...) giống màn hình khởi tạo
     const latLngs: [number, number][] = [];
     const sortedScopeTowers = [...scopeTowers].sort((a, b) => a.sequence - b.sequence);
 
@@ -1234,7 +1219,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.markersLayer.addLayer(marker);
     }
 
-    // 3. Đường nối tuyến khảo sát (nét đứt xanh EVN)
     if (latLngs.length > 1) {
       this.polylineLayer.addLayer(
         L.polyline(latLngs, {
@@ -1246,7 +1230,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       );
     }
 
-    // 4. Tự động căn chỉnh khung nhìn (fit bounds)
     if (latLngs.length) {
       this.map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40], maxZoom: 16 });
     } else if (allRegionTowers.length) {

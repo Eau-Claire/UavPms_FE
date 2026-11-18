@@ -9,10 +9,10 @@ import { Auth } from '../../../../core/auth/auth';
 import { RegionLookup, TowerFilters, TowerPage, TowerSummary, TowerUpsertRequest } from '../../../../models/assets.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
-import { ConfirmDialog } from '../../components/confirm-dialog/confirm-dialog';
+import { ConfirmDialog } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { TowerFormDialog } from '../../components/tower-form-dialog/tower-form-dialog';
-import { RegionsApi } from '../../data-access/regions-api';
-import { canManageInfrastructure } from '../../data-access/tower-labels';
+import { RegionsApi } from '../../../../core/services/regions-api';
+import { canManageInfrastructure } from '../../../../shared/utils/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
 const EMPTY_PAGE: TowerPage = { items: [], pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
@@ -64,7 +64,7 @@ export class TowerList {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }

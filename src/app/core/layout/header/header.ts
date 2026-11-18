@@ -4,7 +4,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { isManagerRole, roleLabel } from '../../auth/roles';
-import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
+import { NotificationsStore } from '../../notifications/notifications-store';
 import { FacilityItem, FacilityStore } from '../../facility/facility-store';
 import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 

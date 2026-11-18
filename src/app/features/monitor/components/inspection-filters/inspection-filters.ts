@@ -6,8 +6,8 @@ import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isManagerRole } from '../../../../core/auth/roles';
 import { Mission } from '../../../../models/missions.models';
 import { InspectionFilters as Filters } from '../../../../models/monitor.models';
-import { MissionsApi } from '../../../missions/data-access/missions-api';
-import { GUID_PATTERN } from '../../data-access/monitor-api';
+import { MissionsApi } from '../../../../core/services/missions-api';
+import { GUID_PATTERN } from '../../../../core/services/monitor-api';
 
 export interface MissionOption {
   readonly id: string;

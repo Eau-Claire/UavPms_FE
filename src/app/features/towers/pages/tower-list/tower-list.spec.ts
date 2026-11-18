@@ -6,7 +6,7 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { TowerPage, TowerSummary } from '../../../../models/assets.models';
-import { RegionsApi } from '../../data-access/regions-api';
+import { RegionsApi } from '../../../../core/services/regions-api';
 import { TowersApi } from '../../data-access/towers-api';
 import { TowerList } from './tower-list';
 
@@ -115,13 +115,11 @@ describe('TowerList', () => {
     setup();
     const component = fixture.componentInstance as unknown as TowerListHarness & { importFile: (e: Event) => void };
 
-    // Invalid extension
     const invalidEvent = { target: { files: [new File([''], 'test.txt')], value: '' } } as unknown as Event;
     component.importFile(invalidEvent);
     expect(component.notice()?.text).toContain('Vui lòng chọn tệp định dạng .xlsx hoặc .csv.');
     expect(api.import).not.toHaveBeenCalled();
 
-    // Valid CSV
     const csvFile = new File(['region,code,lat,lng\nr1,T-01,21,105'], 'towers.csv', { type: 'text/csv' });
     const csvEvent = { target: { files: [csvFile], value: '' } } as unknown as Event;
     component.importFile(csvEvent);

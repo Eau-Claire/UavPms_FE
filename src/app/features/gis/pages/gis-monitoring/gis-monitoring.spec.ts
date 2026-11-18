@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { GisApi, GisDataSnapshot } from '../../data-access/gis-api';
-import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
+import { MissionTargetSelection } from '../../../../core/services/mission-target-selection';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { GisMonitoring, rectangleToPolygon } from './gis-monitoring';
 
@@ -54,11 +54,11 @@ describe('GisMonitoring tower selection', () => {
     expect(result).toEqual({
       type: 'Polygon', coordinates: [[[105, 21], [106, 21], [106, 22], [105, 22], [105, 21]]],
     });
-    // Verify [lng, lat] order: first element is longitude
+
     const firstCoord = result.coordinates[0][0];
-    expect(firstCoord[0]).toBe(105); // longitude first
-    expect(firstCoord[1]).toBe(21);  // latitude second
-    // Verify polygon closure: first coord === last coord
+    expect(firstCoord[0]).toBe(105);
+    expect(firstCoord[1]).toBe(21);
+
     expect(result.coordinates[0][0]).toEqual(result.coordinates[0][result.coordinates[0].length - 1]);
   });
 
@@ -202,16 +202,20 @@ describe('GisMonitoring tower selection', () => {
     expect(component.canCreateMission()).toBe(false);
   });
 
-  it('offers the AI review link only to roles allowed on /ai-review', () => {
-    const component = fixture.componentInstance as unknown as GisHarness;
-    for (const role of ['Admin', 'Manager', 'Analyst']) {
+  it('offers the AI review link to technical roles allowed on /ai-review/:id', () => {
+    const component = fixture.componentInstance as unknown as GisHarness & { isAnalyst: () => boolean };
+    for (const role of ['Admin', 'Manager', 'Analyst', 'Inspector', 'Technician', 'MaintenanceTechnician']) {
       authMock.user.set({ id: 'u', email: 'x@evn.vn', role });
       expect(component.canReviewAnomalies()).toBe(true);
     }
-    for (const role of ['Inspector', 'Technician', 'MaintenanceTechnician']) {
+    for (const role of ['Viewer', 'Guest', 'Unknown']) {
       authMock.user.set({ id: 'u', email: 'x@evn.vn', role });
       expect(component.canReviewAnomalies()).toBe(false);
     }
+    authMock.user.set({ id: 'u', email: 'x@evn.vn', role: 'Analyst' });
+    expect(component.isAnalyst()).toBe(true);
+    authMock.user.set({ id: 'u', email: 'x@evn.vn', role: 'Inspector' });
+    expect(component.isAnalyst()).toBe(false);
   });
 
   it('createMission opens a pre-mission assessment when towers are selected', () => {
@@ -221,7 +225,7 @@ describe('GisMonitoring tower selection', () => {
     expect(store.count()).toBe(1);
     component.createMission();
     expect(router.navigate).toHaveBeenCalledWith(['/pre-mission/new']);
-    // Target asset IDs remain stored in targetSelection
+
     expect(store.selected()[0].towerId).toBe('a1');
   });
 
@@ -257,13 +261,11 @@ describe('GisMonitoring tower selection', () => {
   it('handles empty results as a distinct state from API errors', () => {
     const component = fixture.componentInstance as unknown as GisHarness;
 
-    // Empty result (0 assets)
     api.spatialQuery.mockReturnValueOnce(of([]));
     component.resolveGeometry(polygon);
     expect(component.spatialMessage()).toContain('Không có cột điện');
     expect(component.uxState()).toBe('empty');
 
-    // API error
     api.spatialQuery.mockReturnValueOnce(throwError(() => ({ status: 500 })));
     component.resolveGeometry(polygon);
     expect(component.spatialMessage()).toContain('Không thể truy vấn cột điện trong vùng');

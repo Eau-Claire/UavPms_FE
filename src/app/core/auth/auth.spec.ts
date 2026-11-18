@@ -132,7 +132,6 @@ describe('Auth', () => {
 
     expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');
 
-    // Perform subsequent login
     auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe();
     const req = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
     expect(req.request.body).toEqual({
@@ -153,7 +152,6 @@ describe('Auth', () => {
 
     expect(auth.isAuthenticated()).toBe(true);
 
-    // Logout should keep device trust token
     auth.logout();
     expect(auth.isAuthenticated()).toBe(false);
     expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');

@@ -13,7 +13,7 @@ import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
-import { MaintenanceApi } from '../../data-access/maintenance-api';
+import { MaintenanceApi } from '../../../../core/services/maintenance-api';
 import { MaintenanceList } from './maintenance-list';
 
 const ticket = (overrides: Partial<MaintenanceTicket> = {}): MaintenanceTicket => ({

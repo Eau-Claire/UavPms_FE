@@ -12,7 +12,7 @@ import {
   UnorderedListOutline,
 } from '@ant-design/icons-angular/icons';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
-import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
 import { MissionCreate } from './mission-create';
 
 const ASSESSMENT_ID = '11111111-1111-4111-8111-111111111111';

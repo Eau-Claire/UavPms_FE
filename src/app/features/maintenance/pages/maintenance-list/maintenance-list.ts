@@ -15,7 +15,7 @@ import {
   TicketPriority,
   TicketStatus,
 } from '../../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
 import {
   isClosedStatus,
   isMaintenanceManager,
@@ -23,7 +23,7 @@ import {
   maintenancePriorityTone,
   maintenanceStatusLabel,
   maintenanceStatusTone,
-} from '../../data-access/maintenance-labels';
+} from '../../../../shared/utils/maintenance-labels';
 
 const EMPTY_PAGE: MaintenanceTicketPage = { items: [], totalCount: 0, pageIndex: 0, pageSize: 20 };
 
@@ -106,7 +106,7 @@ export class MaintenanceList {
     const pages: number[] = [];
     const maxButtons = 5;
     let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    let end = Math.min(total, start + maxButtons - 1);
+    const end = Math.min(total, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) {
       start = Math.max(1, end - maxButtons + 1);
     }
@@ -134,7 +134,6 @@ export class MaintenanceList {
     try {
       localStorage.removeItem('uavpms.mock_maintenance_tickets');
     } catch {
-      // ignore
     }
 
     this.reload$
@@ -164,7 +163,7 @@ export class MaintenanceList {
 
     if (this.isManager()) {
       this.filters.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.goToPage(0));
-      // Names for the technician column (the list endpoint returns only technicianId).
+
       this.api.technicians().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (technicians) => this.technicianNames.set(new Map(technicians.map((technician) => [technician.id, technician.fullName || technician.email]))),
         error: () => this.technicianNames.set(new Map()),

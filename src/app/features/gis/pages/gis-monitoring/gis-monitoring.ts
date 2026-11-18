@@ -18,13 +18,13 @@ import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import 'leaflet-draw';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { finalize } from 'rxjs';
+import { finalize, timer } from 'rxjs';
 import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
-import { MissionTargetSelection, MissionTargetTower } from '../../../missions/data-access/mission-target-selection';
-import { anomalyStatusLabel } from '../../../towers/data-access/tower-labels';
+import { MissionTargetSelection, MissionTargetTower } from '../../../../core/services/mission-target-selection';
+import { anomalyStatusLabel } from '../../../../shared/utils/tower-labels';
 import {
   GisAlert,
   GisAnomalyFeature,
@@ -67,7 +67,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   /** Area selection / target towers is a manager planning tool (it feeds `/pre-mission/new`). */
   protected readonly canCreateMission = computed(() => isManagerRole(this.auth.user()?.role));
   /** The anomaly drawer links to `/ai-review/:id` only for roles that route allows. */
-  protected readonly canReviewAnomalies = computed(() => canAccess(this.auth.user()?.role, ROUTE_ROLES.aiReview));
+  protected readonly canReviewAnomalies = computed(() => canAccess(this.auth.user()?.role, ROUTE_ROLES.aiReviewDetail));
+  protected readonly isAnalyst = computed(() => this.auth.user()?.role?.toLowerCase() === 'analyst');
 
   private map: L.Map | null = null;
   private currentTileLayer: L.TileLayer | null = null;
@@ -81,7 +82,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private editHandler: L.EditToolbar.Edit | null = null;
   private currentGeometry: GeoJsonPolygon | null = null;
 
-  // Custom Live Drawing Layers & State
   private tempDrawLayer = L.layerGroup();
   private tempRect: L.Rectangle | null = null;
   private rectStartLatLng: L.LatLng | null = null;
@@ -91,10 +91,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private tempRubberband: L.Polyline | null = null;
   private tempVertexMarkers: L.Marker[] = [];
 
-  // Map type state
   protected readonly currentMapType = signal<MapType>('google-streets');
 
-  // GIS remains empty until authorized API data arrives.
   protected readonly towers = signal<readonly GisTower[]>([]);
   protected readonly anomalies = signal<readonly GisAnomalyFeature[]>([]);
   protected readonly alerts = signal<readonly GisAlert[]>([]);
@@ -102,7 +100,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly regionFilter = signal('');
   private readonly regionNames = computed(() => new Map(this.regions().map((region) => [region.id, region.name])));
 
-  // State signals
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly showFilterPanel = signal(false);
@@ -120,7 +117,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     : this.drawMode() === 'polygon' ? 'Nhấp để đặt từng điểm.\nNhấp điểm đầu để hoàn tất.' : '');
   protected readonly missionCtaLabel = computed(() => this.targetSelection.count() ? `Lập đánh giá tiền bay (${this.targetSelection.count()})` : 'Lập đánh giá tiền bay');
 
-  // Popup title computed
   protected readonly popupTitle = computed(() => {
     const state = this.uxState();
     if (state === 'editing') return 'Chỉnh sửa vùng';
@@ -134,14 +130,12 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     return 'Chọn cột điện theo vùng';
   });
 
-  // Check if all spatial candidates are selected
   protected readonly isAllSpatialSelected = computed(() => {
     const list = this.spatialAssets();
     if (!list.length) return false;
     return list.every((a) => this.targetSelection.has(a.towerId));
   });
 
-  // Toggle select all / deselect all spatial candidates
   protected toggleSelectAllSpatial(): void {
     if (this.isAllSpatialSelected()) {
       this.spatialAssets().forEach((a) => this.targetSelection.remove(a.towerId));
@@ -160,17 +154,14 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     };
   }
 
-  // Layer Visibility
   protected readonly showTowersLayer = signal(true);
   protected readonly showDefectsLayer = signal(true);
   protected readonly showAlertsLayer = signal(true);
 
-  // Filters
   protected readonly searchCode = signal('');
   protected readonly severityFilter = signal<string>('');
   protected readonly statusFilter = signal<string>('');
 
-  // Computed metrics
   protected readonly totalTowersCount = computed(() => this.towers().length);
   protected readonly activeDefectsCount = computed(() => this.anomalies().length);
   /** GET /gis/infrastructure only returns alerts that are still Active. */
@@ -199,37 +190,39 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.initLeafletMap();
 
-    // 1. Initialize empty map layers
     this.renderAllLayers();
     this.fitMapBounds();
 
-    // 2. Multi-stage layout synchronization across browser paint lifecycle
-    requestAnimationFrame(() => {
-      if (!this.map) return;
-      this.map.invalidateSize();
-      this.renderAllLayers();
-      this.fitMapBounds();
-    });
+    timer(0)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.map) return;
+        this.map.invalidateSize();
+        this.renderAllLayers();
+        this.fitMapBounds();
+      });
 
-    setTimeout(() => {
-      if (!this.map) return;
-      this.map.invalidateSize();
-      this.renderAllLayers();
-      this.fitMapBounds();
-    }, 200);
+    timer(200)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.map) return;
+        this.map.invalidateSize();
+        this.renderAllLayers();
+        this.fitMapBounds();
+      });
 
-    setTimeout(() => {
-      if (!this.map) return;
-      this.map.invalidateSize();
-      this.renderAllLayers();
-      this.fitMapBounds();
-    }, 500);
+    timer(500)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.map) return;
+        this.map.invalidateSize();
+        this.renderAllLayers();
+        this.fitMapBounds();
+      });
 
-    // 3. Refresh live data from server asynchronously
     this.loadRegions();
     this.loadGisData();
 
-    // 4. Responsive map resize synchronization
     const onResize = () => {
       this.map?.invalidateSize();
     };
@@ -259,13 +252,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       maxBoundsViscosity: 1,
     });
 
-    // Custom zoom control in bottom right
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
 
-    // Apply initial Tile Layer (Google Maps Streets)
     this.setMapType('google-streets');
 
-    // Add Layer Groups
     this.towersLayer.addTo(this.map);
     this.defectsLayer.addTo(this.map);
     this.alertsLayer.addTo(this.map);
@@ -274,7 +264,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.editableLayers.addTo(this.map);
     this.tempDrawLayer.addTo(this.map);
 
-    // When map is ready in DOM, force immediate projection and layer rendering
     this.map.whenReady(() => {
       this.map?.invalidateSize();
       this.map?.fitBounds(vietnamBounds);
@@ -282,7 +271,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       this.fitMapBounds();
     });
 
-    // Register Map Event Listeners for Live Custom Drawing
     this.map.on('mousedown', (e: L.LeafletMouseEvent) => this.onMapMouseDown(e));
     this.map.on('mousemove', (e: L.LeafletMouseEvent) => this.onMapMouseMove(e));
     this.map.on('mouseup', (e: L.LeafletMouseEvent) => this.onMapMouseUp(e));
@@ -368,10 +356,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Custom Live Rectangle & Polygon Drawing Handlers
-  // ─────────────────────────────────────────────────────────────
-
   private onMapMouseDown(e: L.LeafletMouseEvent): void {
     if (this.drawMode() !== 'rectangle' || !this.map) return;
     if (e.originalEvent) {
@@ -397,7 +381,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private onMapMouseMove(e: L.LeafletMouseEvent): void {
     if (!this.map) return;
 
-    // Rectangle live preview during drag
     if (this.drawMode() === 'rectangle' && this.isRectDragging && this.rectStartLatLng && this.tempRect) {
       if (e.originalEvent) {
         L.DomEvent.preventDefault(e.originalEvent);
@@ -407,7 +390,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // Polygon live rubberband guide line
     if (this.drawMode() === 'polygon') {
       const points = this.polygonVertices();
       if (points.length > 0) {
@@ -453,7 +435,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     const currentPoints = this.polygonVertices();
 
-    // Check if clicked near the first point to close polygon
     if (currentPoints.length >= 3) {
       const firstPointPx = this.map.latLngToLayerPoint(currentPoints[0]);
       const clickPx = this.map.latLngToLayerPoint(e.latlng);
@@ -463,11 +444,9 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       }
     }
 
-    // Add new vertex to polygon
     const newPoints = [...currentPoints, e.latlng];
     this.polygonVertices.set(newPoints);
 
-    // Create marker for this vertex
     const isFirst = newPoints.length === 1;
     const markerIcon = L.divIcon({
       className: `leaflet-editing-icon ${isFirst ? 'first-vertex-marker' : ''}`,
@@ -489,7 +468,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     this.tempVertexMarkers.push(marker);
 
-    // Update connecting polyline
     if (!this.tempPolyline) {
       this.tempPolyline = L.polyline(newPoints, {
         color: '#4f46e5',
@@ -514,7 +492,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     if (points.length < 3) return;
 
     const ringCoords = points.map((p) => [p.lng, p.lat] as [number, number]);
-    ringCoords.push([points[0].lng, points[0].lat]); // Close the ring
+    ringCoords.push([points[0].lng, points[0].lat]);
 
     const geojson: GeoJsonPolygon = {
       type: 'Polygon',
@@ -625,7 +603,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected createMission(): void {
-    // POST /missions is gone: towers go into a pre-mission assessment, which reads MissionTargetSelection.
+
     if (this.canCreateMission() && this.targetSelection.count()) void this.router.navigate(['/pre-mission/new']);
   }
 
@@ -634,7 +612,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected cancelActiveTool(): void {
-    // Reset Custom Drawing State
+
     this.isRectDragging = false;
     this.rectStartLatLng = null;
     this.tempRect?.remove();
@@ -944,7 +922,37 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected navigateToReview(anomalyId: string): void {
-    void this.router.navigate(['/ai-review', anomalyId]);
+    const selected = this.selectedEntity();
+    let navState: { anomaly: unknown } | undefined = undefined;
+    if (selected?.type === 'anomaly' && selected.data) {
+      const a = selected.data;
+      navState = {
+        anomaly: {
+          id: a.anomalyId || a.id,
+          mediaUrl: a.imageUrl || '',
+          towerId: a.towerId ?? null,
+          towerCode: a.towerCode || null,
+          missionCode: null,
+          missionName: null,
+          categoryName: a.category,
+          categoryCode: a.category,
+          severity: a.severity ?? null,
+          confidenceScore: a.confidenceScore,
+          validationStatus: a.status || 'Confirmed',
+          analystNotes: '',
+          aiSource: 'Cloud',
+          analysisRunId: null,
+          executionLocation: 'Cloud',
+          supersededById: null,
+          createdAt: a.detectedAt || new Date().toISOString(),
+          isEmergency: false,
+        },
+      };
+    }
+    void this.router.navigate(['/ai-review', anomalyId], {
+      state: { ...navState, from: 'gis' },
+      queryParams: { from: 'gis' },
+    });
   }
 
   protected regionName(regionId: string | undefined): string {

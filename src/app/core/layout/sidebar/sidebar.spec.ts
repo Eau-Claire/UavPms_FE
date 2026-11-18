@@ -6,7 +6,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../auth/auth';
-import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
+import { EmergencyAlertsApi } from '../../services/emergency-alerts-api';
 import { Sidebar } from './sidebar';
 
 describe('Sidebar', () => {

@@ -17,8 +17,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission, MissionAssignment, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
-import { MissionsApi } from '../../data-access/missions-api';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { MissionsApi } from '../../../../core/services/missions-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isInspectorRole, isTechnicianRole, roleLabel } from '../../../../core/auth/roles';
 import {
@@ -246,7 +246,6 @@ export class MissionInspector {
             `Đã xác nhận tiếp nhận vai trò ${assignmentRoleLabel(role)} (${conf}/${total} thành viên đã xác nhận).`,
           );
 
-          // Broadcast real-time event to Manager console & Mission lists
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'CONFIRMED',
@@ -311,7 +310,6 @@ export class MissionInspector {
           this.showPostponeModal.set(false);
           this.actionMessage.set(`Đã gửi yêu cầu hoãn vai trò ${assignmentRoleLabel(role)} tới Quản lý vận hành.`);
 
-          // Broadcast real-time event to Manager console
           this.realtime.broadcastMissionEvent({
             missionId: updated.id,
             type: 'POSTPONED',

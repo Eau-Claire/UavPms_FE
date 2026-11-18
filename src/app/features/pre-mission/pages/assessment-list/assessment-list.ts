@@ -1,4 +1,4 @@
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
 import { Subscription } from 'rxjs';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { PreMissionApi } from '../../data-access/pre-mission-api';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
@@ -37,7 +37,6 @@ export class AssessmentList implements OnDestroy {
   protected readonly totalCount = signal(0);
   protected readonly totalPages = signal(1);
 
-  // Filters
   protected readonly statusFilter = signal('');
   protected readonly regionFilter = signal('');
   protected readonly dateFilter = signal('');
@@ -245,12 +244,12 @@ export class AssessmentList implements OnDestroy {
   }
 
   protected onRegionChange(regionId: string): void {
-    // Backend không lọc theo khu vực: lọc trên trang hiện tại.
+
     this.regionFilter.set(regionId);
   }
 
   protected onDateChange(date: string): void {
-    // Backend không lọc theo ngày: lọc trên trang hiện tại.
+
     this.dateFilter.set(date);
   }
 

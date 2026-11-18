@@ -19,7 +19,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { Observable, catchError, concatMap, finalize, forkJoin, from, of, tap, throwError } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { AiAnalysisApi } from '../../../ai-analysis/data-access/ai-analysis-api';
+import { AiAnalysisApi } from '../../../../core/services/ai-analysis-api';
 import {
   InspectionObjective,
   Mission,
@@ -37,9 +37,9 @@ import {
   AiAnalysisStatusChangedEvent,
   MissionLifecycleRealtimeEvent,
   NotificationsRealtime,
-} from '../../../notifications/data-access/notifications-realtime';
-import { MissionsApi, markMissionAsDispatched } from '../../data-access/missions-api';
-import { UsersApi } from '../../../users/data-access/users-api';
+} from '../../../../core/services/notifications-realtime';
+import { MissionsApi, markMissionAsDispatched } from '../../../../core/services/missions-api';
+import { UsersApi } from '../../../../core/services/users-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
 import {
@@ -188,7 +188,6 @@ export class MissionDetail {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
 
-  // --- Role rules (mirror MissionController's [Authorize] attributes) ---
   private readonly userRole = computed(() => this.auth.user()?.role);
   /** SystemAdmin or Manager: remind, suspend, resume, cancel, reassign, priority. */
   protected readonly isManager = computed(() => isManagerRole(this.userRole()));
@@ -296,7 +295,6 @@ export class MissionDetail {
   protected readonly chatMessage = signal('');
   protected readonly currentTime = signal(Date.now());
 
-  // Multi-Role Team & Reassign State (MF02)
   protected readonly availableUsers = signal<readonly UserRecord[]>([]);
   protected readonly showReassignModal = signal<boolean>(false);
   protected readonly selectedAssignmentToReassign = signal<MissionAssignment | null>(null);
@@ -383,7 +381,7 @@ export class MissionDetail {
   protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
     const user = this.auth.user();
     if (!user) return false;
-    // Managers or Administrators cannot accept assignments on behalf of assigned roles
+
     if (isManagerRole(user.role)) return false;
 
     return !!member.userId && user.id === member.userId;
@@ -473,7 +471,6 @@ export class MissionDetail {
   protected readonly lastUploadBatchId = signal('');
   protected readonly aiRealtimeStatus = signal<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
-  // AI Worker Mock & Pipeline Flow State (Steps: 1: Tải dữ liệu, 2: Trích xuất khung hình, 3: Phát hiện khuyết tật, 4: Lập báo cáo rủi ro)
   protected readonly aiPipelineStep = signal<1 | 2 | 3 | 4>(2);
   protected readonly isAiProcessing = signal<boolean>(false);
   protected readonly isAiProcessingComplete = signal<boolean>(false);
@@ -481,7 +478,6 @@ export class MissionDetail {
     'Hệ thống đang trích xuất khung hình và phân tích khuyết tật thiết bị'
   );
 
-  // Detections & AI Results State
   protected readonly detectionsLoading = signal(false);
   protected readonly detections = signal<readonly MissionDetectionView[]>([]);
   protected readonly displayedDetections = computed(() => {
@@ -539,12 +535,10 @@ export class MissionDetail {
     setTimeout(() => this.renderMissionMap(), 0);
   });
 
-  // Video Inspection Playback State
   protected readonly videoCurrentTime = signal<number>(0);
   protected readonly videoDuration = signal<number>(60);
   protected readonly hoveredMarker = signal<MissionTimelineMarker | null>(null);
 
-  // Video Timeline Markers
   protected readonly videoTimelineMarkers = computed<readonly MissionTimelineMarker[]>(() => {
     const dur = this.videoDuration() || 60;
     return this.videoDetections()
@@ -656,12 +650,10 @@ export class MissionDetail {
     return Math.round((steps.filter((s) => s.state === 'completed').length / steps.length) * 100);
   });
 
-  // Emergency Siren and Banner Alert
   protected readonly activeEmergency = signal<{ title: string; message: string; timestamp: string } | null>(null);
   private audioCtx: AudioContext | null = null;
   private sirenInterval: ReturnType<typeof setInterval> | null = null;
 
-  // Mission Maintenance Recommendations (Derived from Approved Detections or Mission Maintenance API)
   protected readonly maintenanceTasks = signal<readonly MissionMaintenanceTask[]>([]);
 
   private resizeStartX = 0;
@@ -696,8 +688,6 @@ export class MissionDetail {
     const requestedTab = this.isTab(tab) ? tab : null;
     if (requestedTab) this.activeTab.set(this.allowedTab(requestedTab));
 
-    // GET /users is SystemAdmin only and GET /users/assignable is SystemAdmin/Manager: other roles use the
-    // names that come with the mission's assignments instead of calling an endpoint that would return 403.
     const directory = userDirectorySource(this.userRole());
     const users$: Observable<readonly UserRecord[]> | null =
       directory === 'all' ? this.usersApi.getAll() : directory === 'assignable' ? this.usersApi.getAssignable() : null;
@@ -1216,7 +1206,6 @@ export class MissionDetail {
               const errCode = String(errBody?.['errorCode'] ?? errBody?.['code'] ?? '');
               const errMsg = String(errBody?.['message'] ?? httpErr?.message ?? '');
 
-              // Detect duplicate media conflict (409 Conflict with DUPLICATE_MEDIA or duplicate content)
               const isDuplicateConflict =
                 httpErr?.status === 409 &&
                 (errCode === 'DUPLICATE_MEDIA' ||
@@ -1248,7 +1237,7 @@ export class MissionDetail {
           this.loadMediaQueue(missionId);
 
           if (newUploadsCount === 0) {
-            // Không chuyển tab: ở nguyên màn hình 'upload' hiện tại để người dùng biết và chọn tệp khác!
+
             this.uploadProgress.set(0);
             this.uploadMessage.set(
               duplicateCount > 0
@@ -1258,7 +1247,6 @@ export class MissionDetail {
             return;
           }
 
-          // Có ít nhất 1 tệp mới được tải lên thành công:
           this.uploadProgress.set(100);
           this.setTab('processing');
 
@@ -1281,7 +1269,6 @@ export class MissionDetail {
       });
   }
 
-  // JUMP TO DETECTION & VIDEO SEEK
   protected jumpToDetection(detection: MissionDetectionView): void {
     if (this.selectedDetection()?.id === detection.id) {
       this.closeDetectionDetail();
@@ -1382,7 +1369,7 @@ export class MissionDetail {
           this.applyReviewSuccess(selected, backendStatus, missionId);
         },
         error: () => {
-          // Fallback for mock detection IDs / offline API
+
           this.applyReviewSuccess(selected, backendStatus, missionId);
         },
       });
@@ -1538,7 +1525,7 @@ export class MissionDetail {
           });
         },
         error: (err: unknown) => {
-          // REQUIRED_ACCEPTANCE_PENDING, MISSION_START_TOO_EARLY, DRONE_IN_USE, HANDOVER_REJECTED, ... (Vietnamese).
+
           this.actionMessage.set(this.errorMessage(err, 'Không thể bắt đầu chuyến bay.'));
           this.reloadMission(currentMission.id);
         },
@@ -1613,9 +1600,8 @@ export class MissionDetail {
           const newUser = this.availableUsers().find((u) => u.id === newUserId);
           const newName = newUser?.fullName || newUser?.email || 'Thành viên mới';
           this.actionMessage.set(`Đã tái phân công vai trò ${assignmentRoleLabel(assignment.assignmentRole)} cho ${newName}.`);
-          // The backend revokes the old assignment and creates a new one (new id): reload the member list.
-          this.loadAssignmentsOverview(currentMission.id);
 
+          this.loadAssignmentsOverview(currentMission.id);
 
           this.realtime.broadcastMissionEvent({
             missionId: currentMission.id,
@@ -1702,7 +1688,7 @@ export class MissionDetail {
       .subscribe({
         next: (updated) => {
           this.mission.set(updated);
-          // Resume lands in Pending when a required member has not accepted yet.
+
           this.actionMessage.set(
             updated.status === 'Pending' || updated.status === 'PendingAcceptance'
               ? 'Đã khôi phục nhiệm vụ. Còn thành viên bắt buộc chưa chấp nhận nên nhiệm vụ quay về trạng thái Chờ tiếp nhận.'
@@ -1855,10 +1841,9 @@ export class MissionDetail {
     const content = this.chatMessage().trim();
     if (!currentMission || !content) return;
 
-    // The backend resolves the sender's role itself; we send the real one for consistency.
     const role = this.senderRole();
     const senderName = this.senderName();
-    // POST /communications is SystemAdmin/Manager/Inspector only, so Analyst/Technician get no fallback.
+
     const canFallback = this.isManager() || this.isFlightCrew();
 
     this.actionBusy.set(true);
@@ -2490,7 +2475,6 @@ export class MissionDetail {
     }
   }
 
-  // --- AUDIO SYNTHESIS ALERT BEEP ---
   protected playWarningBeep(): void {
     try {
       const ctx = this.audioCtx || new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -2633,10 +2617,6 @@ export class MissionDetail {
       });
   }
 
-  // ==========================================
-  // AI WORKER MOCK & MAINTENANCE FLOW (MF04)
-  // ==========================================
-
   protected isTicketCreatedFor(detectionId: string): boolean {
     return this.maintenanceTasks().some((t) => t.detectionId === detectionId);
   }
@@ -2713,8 +2693,6 @@ export class MissionDetail {
       target.src = this.getDefectFallbackImage(categoryCode);
     }
   }
-
-
 
   private applyReviewSuccess(selected: MissionDetectionView, backendStatus: 'Approved' | 'Rejected', missionId: string): void {
     const updated: MissionDetectionView = {
@@ -2890,7 +2868,6 @@ export class MissionDetail {
           }
         },
         error: () => {
-          // Keep existing queue if network error
         },
       });
   }

@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { AnomalyApi, anomalyErrorMessage, apiErrorCode, AnomalyPage, groupSuperseded, normalizeAnomalyItem } from './anomaly-api';
+import { AnomalyApi, anomalyErrorMessage, apiErrorCode, AnomalyPage, groupSuperseded, normalizeAnomalyItem } from '../../../core/services/anomaly-api';
 
 describe('AnomalyApi', () => {
   let api: AnomalyApi;

@@ -18,8 +18,8 @@ import * as L from 'leaflet';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AssessmentTowerOption, RegionOption } from '../../../../models/pre-mission.models';
-import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
-import { isValidGuid, PreMissionApi } from '../../data-access/pre-mission-api';
+import { MissionTargetSelection } from '../../../../core/services/mission-target-selection';
+import { isValidGuid, PreMissionApi } from '../../../../core/services/pre-mission-api';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 
@@ -38,7 +38,7 @@ function dateWindowValidator(control: AbstractControl): ValidationErrors | null 
 function notInPastValidator(control: AbstractControl): ValidationErrors | null {
   const start = control.get('plannedStart')?.value;
   if (!start) return null;
-  // Cho phép lệch đồng hồ 15 phút.
+
   return new Date(start).getTime() < Date.now() - 15 * 60 * 1000 ? { startInPast: true } : null;
 }
 
@@ -145,7 +145,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     if (sourceId && isValidGuid(sourceId)) {
       this.prefillFromAssessment(sourceId);
     } else {
-      // Cột đã chọn trên bản đồ GIS: tự chọn khu vực của cột đầu tiên.
+
       const gisRegionId = this.targetSelection.selected().find((t) => t.regionId)?.regionId;
       if (gisRegionId) {
         this.form.controls.regionId.setValue(gisRegionId);
@@ -268,8 +268,8 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
 
   protected onQuotaInput(
     name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit',
-    min: number = 1,
-    max: number = 10,
+    min = 1,
+    max = 10,
   ): void {
     const control = this.form.get(name);
     if (!control) return;
@@ -285,7 +285,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     control.markAsDirty();
   }
 
-  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max: number = 10): void {
+  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max = 10): void {
     const control = this.form.get(name);
     if (!control) return;
     const current = Number(control.value) || 1;
@@ -295,7 +295,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min: number = 1): void {
+  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min = 1): void {
     const control = this.form.get(name);
     if (!control) return;
     const current = Number(control.value) || 1;
@@ -318,7 +318,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       return;
     }
     const raw = this.form.getRawValue();
-    // `datetime-local` values are local time; the API sends them as ISO-8601 UTC (`toISOString()`, with `Z`).
+
     const scope = {
       regionId: raw.regionId,
       plannedStart: raw.plannedStart,
@@ -375,7 +375,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     tileLayer.on('tileerror', () => {
       if (!hasFallenBack) {
         hasFallenBack = true;
-        // Fallback to CartoDB Voyager which works reliably in all networks
+
         tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
       }
     });
@@ -436,7 +436,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
         next: (list) => {
           this.towers.set(list);
           const available = new Set(list.map((t) => t.id));
-          // Cột đã chọn trên bản đồ GIS (nếu có) được chọn sẵn.
+
           const fromGis = this.targetSelection.selected().map((t) => t.towerId);
           const wanted = [...preselect, ...fromGis].filter((id, i, all) => available.has(id) && all.indexOf(id) === i);
           if (wanted.length) this.selectedTowerIds.set(wanted);
@@ -527,7 +527,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }, 300);
   }
 
-  private renderMap(fit: boolean = false): void {
+  private renderMap(fit = false): void {
     if (!this.map) {
       this.initMap();
       return;
@@ -539,7 +539,6 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     const selectedSet = new Set(selectedIds);
     const allTowers = this.towers();
 
-    // Determine region anchor coordinates for towers with missing coordinates
     let baseLat = 10.7769;
     let baseLng = 106.7009;
     const regionName = (this.selectedRegion()?.name || '').toLowerCase();
@@ -562,7 +561,6 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       baseLng = firstValid.longitude;
     }
 
-    // Build coordinates map
     const towerCoords = new Map<string, [number, number]>();
     allTowers.forEach((t, idx) => {
       const hasCoords = Number.isFinite(t.latitude) && Number.isFinite(t.longitude) && Math.abs(t.latitude) > 0.1;
@@ -571,7 +569,6 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       towerCoords.set(t.id, [lat, lng]);
     });
 
-    // Draw route polyline in sequence
     const orderedCoords: [number, number][] = [];
     for (const id of selectedIds) {
       const coords = towerCoords.get(id);
@@ -588,7 +585,6 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       this.polylineLayer.addLayer(line);
     }
 
-    // Draw markers
     for (const t of allTowers) {
       const coords = towerCoords.get(t.id);
       if (!coords) continue;

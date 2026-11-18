@@ -6,8 +6,8 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
-import { MissionsApi, normalizeMission } from '../../../missions/data-access/missions-api';
-import { MonitorApi } from '../../data-access/monitor-api';
+import { MissionsApi, normalizeMission } from '../../../../core/services/missions-api';
+import { MonitorApi } from '../../../../core/services/monitor-api';
 import { InspectorHome } from './inspector-home';
 
 const ME = 'aaaaaaaa-0000-0000-0000-000000000001';

@@ -7,12 +7,12 @@ import { catchError, finalize, map, Observable, of, Subject, switchMap, tap } fr
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceProof, MaintenanceTicket } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
-import { ConfirmDialog } from '../../../towers/components/confirm-dialog/confirm-dialog';
+import { ConfirmDialog } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { AssignTechnician } from '../../components/assign-technician/assign-technician';
 import { DefectImage } from '../../components/defect-image/defect-image';
 import { ProofUpload } from '../../components/proof-upload/proof-upload';
 import { TicketTimeline } from '../../components/ticket-timeline/ticket-timeline';
-import { MaintenanceApi, maintenanceErrorMessage, maintenanceErrorStatus, REAL_DB_TECHNICIANS } from '../../data-access/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage, maintenanceErrorStatus, REAL_DB_TECHNICIANS } from '../../../../core/services/maintenance-api';
 import {
   isClosedStatus,
   isMaintenanceManager,
@@ -21,7 +21,7 @@ import {
   maintenancePriorityTone,
   maintenanceStatusLabel,
   maintenanceStatusTone,
-} from '../../data-access/maintenance-labels';
+} from '../../../../shared/utils/maintenance-labels';
 
 export type TicketAction = 'start' | 'submit' | 'close';
 
@@ -93,17 +93,17 @@ export class MaintenanceDetail {
     const ticket = this.ticket();
     const user = this.auth.user();
     if (!this.isTechnician() || !ticket || !ticket.technicianId) return false;
-    // 1. Direct ID match
+
     if (user?.id && (ticket.technicianId === user.id || ticket.technician?.id === user.id)) return true;
-    // 2. Email match
+
     if (user?.email && ticket.technician?.email && ticket.technician.email.toLowerCase() === user.email.toLowerCase()) return true;
-    // 3. Full name match (normalized)
+
     if (user?.fullName && ticket.technician?.fullName) {
       const u = user.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
       const t = ticket.technician.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
       if (u && t && (u === t || u.includes(t) || t.includes(u))) return true;
     }
-    // 4. Known DB Technicians match
+
     const matchedKnownTech = REAL_DB_TECHNICIANS.find((tech) => tech.id === ticket.technicianId);
     if (matchedKnownTech && user?.fullName) {
       const u = user.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();

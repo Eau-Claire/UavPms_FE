@@ -6,9 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
 import { UavRecord } from '../../../../models/drone-management.models';
-import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
-import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
-import { DroneManagementApi } from '../../data-access/drone-management-api';
+import { FlightControllerApi } from '../../../../core/services/flight-controller-api';
+import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { DroneManagementApi } from '../../../../core/services/drone-management-api';
 import { DroneInspection } from './drone-inspection';
 
 const mockDrone = (overrides: Partial<UavRecord> = {}): UavRecord => ({

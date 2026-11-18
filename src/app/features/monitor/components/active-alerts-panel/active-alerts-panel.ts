@@ -5,9 +5,9 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { NotificationLink, notificationLink } from '../../../../core/layout/header/notification-link';
 import { MonitorAlert } from '../../../../models/monitor.models';
-import { NotificationsApi } from '../../../notifications/data-access/notifications-api';
-import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
-import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../data-access/monitor-api';
+import { NotificationsApi } from '../../../../core/services/notifications-api';
+import { NotificationsStore } from '../../../../core/notifications/notifications-store';
+import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../../../core/services/monitor-api';
 
 export interface DailySummaryMetrics {
   missions: number;

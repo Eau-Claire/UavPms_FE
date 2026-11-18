@@ -2,10 +2,6 @@ import { MaintenanceTicket } from '../../../models/maintenance.models';
 import { Mission, normalizeMissionStatus } from '../../../models/missions.models';
 import { UavRecord } from '../../../models/drone-management.models';
 
-// ---------------------------------------------------------------------------
-// Inspector: GET /missions/my
-// ---------------------------------------------------------------------------
-
 export type InspectorGroupKey = 'awaiting' | 'upcoming' | 'flying' | 'paused' | 'completed';
 
 export interface InspectorMissionGroups {
@@ -93,10 +89,6 @@ export const groupInspectorMissions = (missions: readonly Mission[], userId: str
 /** Accept / postpone happens on the inspector page; everything else on the mission detail page. */
 export const inspectorMissionLink = (mission: Mission, group: InspectorGroupKey): readonly string[] =>
   group === 'awaiting' ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id];
-
-// ---------------------------------------------------------------------------
-// Technician: GET /maintenance/tickets/my, GET /drones?detailed=true
-// ---------------------------------------------------------------------------
 
 export type TechnicianTicketGroupKey = 'Open' | 'InProgress' | 'PendingVerification';
 

@@ -21,7 +21,7 @@ const STATUS_VI_LABELS: Record<string, string> = {
   CONSUMED: 'Đã hoàn thành',
   INCOMPLETE: 'Chưa sẵn sàng',
   NOTREADY: 'Chưa sẵn sàng',
-  // Readiness check statuses
+
   PASS: 'Đạt',
   PASSED: 'Đạt',
   FAIL: 'Không đạt',
@@ -33,7 +33,7 @@ const STATUS_VI_LABELS: Record<string, string> = {
   UNAVAILABLE: 'Không khả dụng',
   ELIGIBLE: 'Đủ điều kiện',
   NOT_ELIGIBLE: 'Không đủ điều kiện',
-  // Mission statuses (the backend sends PascalCase, e.g. PendingAcceptance)
+
   PENDINGACCEPTANCE: 'Chờ xác nhận',
   PENDING_ACCEPTANCE: 'Chờ xác nhận',
   ASSIGNED: 'Đã phân công',
@@ -42,7 +42,7 @@ const STATUS_VI_LABELS: Record<string, string> = {
   IN_PROGRESS: 'Đang thực hiện',
   SUSPENDED: 'Tạm dừng',
   POSTPONED: 'Tạm hoãn',
-  // Account & asset statuses
+
   ACTIVE: 'Hoạt động',
   INACTIVE: 'Tạm ngưng',
   LOCKED: 'Đã khóa',
@@ -55,7 +55,7 @@ const STATUS_VI_LABELS: Record<string, string> = {
   FLYING: 'Đang bay',
   OFFLINE: 'Ngoại tuyến',
   ONLINE: 'Trực tuyến',
-  // Approval, alert & ticket statuses
+
   APPROVED: 'Đã duyệt',
   REJECTED: 'Đã bác bỏ',
   OPEN: 'Chờ xử lý',
@@ -64,7 +64,7 @@ const STATUS_VI_LABELS: Record<string, string> = {
   CONFIRMED: 'Đã xác nhận',
   DISMISSED: 'Đã bác bỏ',
   ESCALATED: 'Đã chuyển cấp',
-  // Priority & capability
+
   LOW: 'Thấp',
   MEDIUM: 'Trung bình',
   HIGH: 'Cao',

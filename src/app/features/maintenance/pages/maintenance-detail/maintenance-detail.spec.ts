@@ -6,7 +6,7 @@ import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
 import { buildTimeline } from '../../components/ticket-timeline/ticket-timeline';
-import { MaintenanceApi } from '../../data-access/maintenance-api';
+import { MaintenanceApi } from '../../../../core/services/maintenance-api';
 import { MaintenanceDetail } from './maintenance-detail';
 
 const proof = { id: 'p1', proofType: 'After', fileUrl: 'https://img/p1.jpg', technicianNotes: 'Đã thay', uploadedAt: '2026-10-31T03:00:00Z' };
