@@ -42,6 +42,38 @@ const STATUS_VI_LABELS: Record<string, string> = {
   IN_PROGRESS: 'Đang thực hiện',
   SUSPENDED: 'Tạm dừng',
   POSTPONED: 'Tạm hoãn',
+  // Account & asset statuses
+  ACTIVE: 'Hoạt động',
+  INACTIVE: 'Tạm ngưng',
+  LOCKED: 'Đã khóa',
+  INUSE: 'Đang hoạt động',
+  IN_USE: 'Đang hoạt động',
+  MAINTENANCE: 'Bảo dưỡng',
+  RESERVED: 'Đã giữ chỗ',
+  LOST: 'Mất thiết bị',
+  IDLE: 'Chờ bay',
+  FLYING: 'Đang bay',
+  OFFLINE: 'Ngoại tuyến',
+  ONLINE: 'Trực tuyến',
+  // Approval, alert & ticket statuses
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Đã bác bỏ',
+  OPEN: 'Chờ xử lý',
+  RESOLVED: 'Đã giải quyết',
+  CLOSED: 'Đã đóng',
+  CONFIRMED: 'Đã xác nhận',
+  DISMISSED: 'Đã bác bỏ',
+  ESCALATED: 'Đã chuyển cấp',
+  // Priority & capability
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+  EMERGENCY: 'Khẩn cấp',
+  NORMAL: 'Bình thường',
+  CRITICAL: 'Nghiêm trọng',
+  SUITABLE: 'Phù hợp',
+  UNSUITABLE: 'Không phù hợp',
+  SUITABLE_WITH_SPLIT: 'Phù hợp khi chia chuyến',
 };
 
 export const statusLabel = (status: string): string => {

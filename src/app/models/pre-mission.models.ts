@@ -1,19 +1,18 @@
 /**
  * Trạng thái hồ sơ đánh giá tiền khả thi. Backend (`AssessmentMappingExtensions.ToDto`) trả về
- * chuỗi in hoa: `DRAFT`, `EVALUATING`, `READY`, `NOT_READY`, `EXPIRED`, `COMPLETED`, `CANCELLED`.
+ * chuỗi in hoa: `EVALUATING`, `READY`, `NOT_READY`, `EXPIRED`, `COMPLETED`, `CANCELLED`.
  */
 export type AssessmentStatus =
-  | 'DRAFT'
   | 'EVALUATING'
   | 'READY'
   | 'NOT_READY'
   | 'EXPIRED'
   | 'COMPLETED'
   | 'CANCELLED'
+  | 'DRAFT'
   | string;
 
 export const ASSESSMENT_STATUSES: readonly AssessmentStatus[] = [
-  'DRAFT',
   'EVALUATING',
   'READY',
   'NOT_READY',
@@ -146,6 +145,7 @@ export interface PreMissionAssessment {
   readonly id: string;
   readonly assessmentCode: string;
   readonly managerId: string;
+  readonly managerName?: string | null;
   readonly regionId: string;
   readonly regionName: string;
   readonly plannedStart: string;
