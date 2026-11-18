@@ -142,7 +142,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
   },
   {
     id: 'unregistered-new-fc',
-    name: 'Flight Controller Mới Chưa Đăng Ký (Unregistered)',
+    name: 'Bộ điều khiển bay mới chưa đăng ký',
     uid: 'BF-NEW-FC-UNPAIRED-99',
     boardIdentifier: 'MATEKF405TE',
     firmwareName: 'Betaflight',
@@ -176,7 +176,7 @@ export class BetaflightSerialService {
 
   async connectRealSerial(): Promise<FlightControllerMetadata> {
     if (!this.isWebSerialSupported()) {
-      const err = 'Trình duyệt của bạn không hỗ trợ Web Serial API. Vui lòng sử dụng Google Chrome hoặc Edge, hoặc dùng chế độ Giả lập (Simulator).';
+      const err = 'Trình duyệt của bạn không hỗ trợ Web Serial API. Vui lòng sử dụng Google Chrome hoặc Edge, hoặc dùng chế độ Giả lập.';
       this.errorMessage.set(err);
       this.connectionState.set('error');
       throw new Error(err);

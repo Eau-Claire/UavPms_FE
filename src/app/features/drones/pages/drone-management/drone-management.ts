@@ -113,6 +113,97 @@ export class DroneManagement {
     });
   });
 
+  // Pagination
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly pageSizes = [10, 20, 50] as const;
+
+  protected readonly totalItems = computed(() => this.filteredDrones().length);
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize())));
+
+  protected readonly pagedDrones = computed(() => {
+    const start = (this.page() - 1) * this.pageSize();
+    return this.filteredDrones().slice(start, start + this.pageSize());
+  });
+
+  protected readonly startIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return Math.min(this.page() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.page();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    let end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.statusFilter() || this.healthFilter())
+  );
+
+  protected goToPage(page: number): void {
+    this.page.set(Math.max(1, Math.min(page, this.totalPages())));
+  }
+
+  protected changePageSize(size: string | number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.goToPage(1);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.statusFilter.set('');
+    this.healthFilter.set('');
+    this.goToPage(1);
+  }
+
+  protected operationalStatusTone(status: string): string {
+    switch (status) {
+      case 'Available':
+        return 'success';
+      case 'InUse':
+      case 'Reserved':
+        return 'info';
+      case 'Maintenance':
+        return 'warning';
+      case 'Unavailable':
+      case 'Lost':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected technicalHealthTone(health: string): string {
+    switch (health) {
+      case 'Healthy':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Critical':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
   // Drone Create / Edit Form
   protected readonly droneForm = this.fb.nonNullable.group({
     code: ['', Validators.required],
