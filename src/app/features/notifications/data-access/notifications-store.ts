@@ -181,7 +181,7 @@ export class NotificationsStore {
     const currentRole = (currentUser?.role || '').toLowerCase();
     const isManagerOrAdmin = currentRole.includes('manager') || currentRole.includes('admin') || currentRole.includes('quản lý');
 
-    return this.notificationsState().filter((item) => {
+    const list = this.notificationsState().filter((item) => {
       if (isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && (item.body?.includes('Bạn được phân công') || item.title?.includes('Yêu cầu xác nhận'))) {
         return false;
       }
@@ -199,6 +199,8 @@ export class NotificationsStore {
       }
       return true;
     });
+
+    return sortNotifications(list, 'newest');
   });
 
   readonly unreadCount = computed(() => this.userNotifications().filter((item) => !item.isRead).length);
@@ -273,6 +275,10 @@ export class NotificationsStore {
   }
 
   select(notification: AppNotification): void {
+    if (!notification.isRead) {
+      this.markRead(notification.id);
+    }
+    this.selectedState.set(notification);
     this.detailLoading.set(true);
     this.error.set('');
     this.api
@@ -283,14 +289,12 @@ export class NotificationsStore {
       )
       .subscribe({
         next: (detail) => {
-          const merged = { ...notification, ...detail };
+          const merged = { ...notification, ...detail, isRead: true };
           this.selectedState.set(merged);
           this.upsert(merged);
-          if (!merged.isRead) this.markRead(merged.id);
         },
         error: () => {
-          this.selectedState.set(notification);
-          if (!notification.isRead) this.markRead(notification.id);
+          this.selectedState.set({ ...notification, isRead: true });
         },
       });
   }
@@ -368,8 +372,14 @@ export class NotificationsStore {
   }
 }
 
-const sortNotifications = (items: readonly AppNotification[], sort: NotificationSort) =>
+const parseTime = (iso?: string | null): number => {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+const sortNotifications = (items: readonly AppNotification[], sort: NotificationSort = 'newest') =>
   [...items].sort((a, b) => {
-    const delta = Date.parse(b.createdAt) - Date.parse(a.createdAt);
-    return sort === 'newest' ? delta : -delta;
+    const delta = parseTime(b.createdAt) - parseTime(a.createdAt);
+    return sort === 'oldest' ? -delta : delta;
   });

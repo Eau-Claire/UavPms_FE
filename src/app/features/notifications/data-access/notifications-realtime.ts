@@ -311,9 +311,12 @@ export class NotificationsRealtime {
     connection.on('notification', receive);
 
     // AI Status handler
-    connection.on('AiAnalysisStatusChanged', (payload: unknown) => {
+    const handleAiStatus = (payload: unknown) => {
       this.zone.run(() => this.aiAnalysisStatusSubject.next(normalizeAiAnalysisStatus(payload)));
-    });
+    };
+    connection.on('AiAnalysisStatusChanged', handleAiStatus);
+    connection.on('ai_analysis_status_changed', handleAiStatus);
+    connection.on('aiAnalysisStatusChanged', handleAiStatus);
 
     // MF02 Lifecycle & Dispatch Real-time handlers
     const emitLifecycle = (type: MissionLifecycleEventType, payload: unknown) => {
@@ -375,11 +378,25 @@ export class NotificationsRealtime {
     connection.on('MissionUpdated', (payload: unknown) => emitLifecycle('CONFIRMED', payload));
     connection.on('ReceiveMissionUpdated', (payload: unknown) => emitLifecycle('CONFIRMED', payload));
     connection.on('DetectionReviewed', (payload: unknown) => emitLifecycle('DETECTION_REVIEWED', payload));
+    connection.on('detection_reviewed', (payload: unknown) => emitLifecycle('DETECTION_REVIEWED', payload));
+    connection.on('detectionReviewed', (payload: unknown) => emitLifecycle('DETECTION_REVIEWED', payload));
+
     connection.on('MissionMediaUploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('media_uploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('MediaUploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('MEDIA_UPLOADED', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('mediaUploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('inspection_media_uploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+    connection.on('InspectionMediaUploaded', (payload: unknown) => emitLifecycle('MEDIA_UPLOADED', payload));
+
     connection.on('MaintenanceTaskCreated', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_CREATED', payload));
+    connection.on('maintenance_task_created', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_CREATED', payload));
     connection.on('MaintenanceTaskStatusChanged', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_STATUS_CHANGED', payload));
+    connection.on('maintenance_task_status_changed', (payload: unknown) => emitLifecycle('MAINTENANCE_TASK_STATUS_CHANGED', payload));
+
     connection.on('EmergencyAlert', (payload: unknown) => emitLifecycle('EMERGENCY_ALERT', payload));
     connection.on('EmergencyAlertTriggered', (payload: unknown) => emitLifecycle('EMERGENCY_ALERT', payload));
+    connection.on('emergency_alert', (payload: unknown) => emitLifecycle('EMERGENCY_ALERT', payload));
 
     // MF01 Pre-Mission Assessment Real-time handlers
     const emitAssessment = (defaultType: AssessmentRealtimeEventType, payload: unknown) => {
