@@ -107,6 +107,6 @@ describe('TechnicianHome', () => {
     expect(codes).toEqual(['UAV-BAD', 'UAV-NEW']);
     expect(drones.textContent).toContain('Lỗi - không bay');
     expect(drones.textContent).toContain('Chưa kiểm tra kỹ thuật');
-    expect(drones.querySelector('li.item a')?.getAttribute('href')).toBe('/drones');
+    expect(drones.querySelector('li.item a')?.getAttribute('href')).toBe('/drones/inspection?droneId=UAV-BAD');
   });
 });

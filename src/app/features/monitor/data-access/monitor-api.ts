@@ -66,7 +66,7 @@ export class MonitorApi {
         missionStatus: normalizeMissionStatuses(value.missionStatus),
         alerts: itemsOf(value.alerts)
           .map((item, index) => normalizeAlert(item, index, readSet))
-          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+          .sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt)),
       };
     }));
   }
@@ -77,7 +77,7 @@ export class MonitorApi {
       const readSet = getReadAlertIds();
       return itemsOf(value)
         .map((item, index) => normalizeAlert(item, index, readSet))
-        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+        .sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt));
     }));
   }
 
@@ -172,7 +172,13 @@ const normalizeStatistics = (value: unknown): readonly DefectStatistic[] => {
   });
 };
 
-/** `ActiveAlertDto { notificationId, title, message, createdAt, isRead }` inside `{ items }`. */
+const parseTime = (iso?: string | null): number => {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/** `ActiveAlertDto { notificationId, title, message, createdAt, isRead, type, referenceType, referenceId }` inside `{ items }`. */
 const normalizeAlert = (value: unknown, index: number, readSet: Set<string> = new Set()): MonitorAlert => {
   const s = record(value);
   const id = stringValue(s['notificationId'] ?? s['id'], `alert-${index}`);
@@ -183,6 +189,9 @@ const normalizeAlert = (value: unknown, index: number, readSet: Set<string> = ne
     message: stringValue(s['message']),
     createdAt: stringValue(s['createdAt'], new Date(0).toISOString()),
     isRead,
+    type: stringValue(s['type']) || undefined,
+    referenceType: stringValue(s['referenceType']) || undefined,
+    referenceId: stringValue(s['referenceId']) || undefined,
   };
 };
 

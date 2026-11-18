@@ -70,6 +70,20 @@
           } @else {
             <p class="alert-desc">{{ alert.message }}</p>
           }
+
+          @if (getAlertLink(alert); as link) {
+            <div class="card-action-bar">
+              <button
+                type="button"
+                class="alert-navigate-btn"
+                (click)="navigateToLink(alert, $event)"
+                [title]="link.label"
+              >
+                <span>{{ link.label }}</span>
+                <span nz-icon nzType="arrow-right" aria-hidden="true"></span>
+              </button>
+            </div>
+          }
         </div>
       </article>
     } @empty {
@@ -160,12 +174,12 @@
             Trạng thái: <strong>{{ alert.isRead ? 'Đã xem' : 'Chưa xem' }}</strong>
           </span>
           <div class="modal-actions">
-            @if (!alert.isRead) {
-              <button type="button" class="action-btn secondary" (click)="markAsRead(alert)">
-                Đánh dấu đã đọc
+            @if (getAlertLink(alert); as link) {
+              <button type="button" class="action-btn primary" (click)="navigateToLink(alert, $event)">
+                <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
               </button>
             }
-            <button type="button" class="action-btn primary" (click)="closeModal()">
+            <button type="button" class="action-btn secondary" (click)="closeModal()">
               Đóng
             </button>
           </div>

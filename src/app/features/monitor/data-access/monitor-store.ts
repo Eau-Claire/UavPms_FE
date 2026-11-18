@@ -35,11 +35,17 @@ export class MonitorStore {
     const notifReadMap = new Map(notifs.map((n) => [n.id, n.isRead]));
     const readSet = getReadAlertIds();
 
-    return rawAlerts.map((alert) => {
-      const isReadInNotifs = notifReadMap.get(alert.id);
-      const isRead = alert.isRead || isReadInNotifs === true || readSet.has(alert.id);
-      return isRead === alert.isRead ? alert : { ...alert, isRead };
-    });
+    return rawAlerts
+      .map((alert) => {
+        const isReadInNotifs = notifReadMap.get(alert.id);
+        const isRead = alert.isRead || isReadInNotifs === true || readSet.has(alert.id);
+        return isRead === alert.isRead ? alert : { ...alert, isRead };
+      })
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+      });
   });
 
   startDashboardPolling(): void {

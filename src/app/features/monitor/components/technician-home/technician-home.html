@@ -111,7 +111,7 @@
                     }
                   </p>
                 </div>
-                <a class="action-link secondary" routerLink="/drones" [attr.aria-label]="'Kiểm tra UAV ' + item.drone.code">Kiểm tra</a>
+                <a class="action-link secondary" [routerLink]="['/drones/inspection']" [queryParams]="{ droneId: item.drone.id }" [attr.aria-label]="'Kiểm định UAV ' + item.drone.code">Đo kiểm</a>
               </li>
             }
           </ul>

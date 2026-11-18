@@ -23,7 +23,7 @@ export interface InspectorMissionGroups {
 
 export const RECENT_COMPLETED_LIMIT = 5;
 
-const UPCOMING_STATUSES = new Set(['Assigned', 'Preparing', 'Ready', 'PendingAcceptance']);
+const UPCOMING_STATUSES = new Set(['Ready', 'Assigned', 'Preparing', 'Pending', 'PendingAcceptance']);
 const PAUSED_STATUSES = new Set(['Suspended', 'Postponed']);
 
 const time = (value: string | null | undefined): number => {
@@ -70,7 +70,7 @@ export const groupInspectorMissions = (missions: readonly Mission[], userId: str
       continue;
     }
     const response = myResponseStatus(mission, userId);
-    if (response === 'PENDING' || (response === null && status === 'PendingAcceptance')) {
+    if (response === 'PENDING' || (response === null && (status === 'Pending' || status === 'PendingAcceptance'))) {
       awaiting.push(mission);
     } else if (response === 'POSTPONED' || PAUSED_STATUSES.has(status)) {
       paused.push(mission);

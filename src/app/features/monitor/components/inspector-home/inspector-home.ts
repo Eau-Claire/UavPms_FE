@@ -22,6 +22,7 @@ interface MissionGroupView {
 type Tone = 'info' | 'warning' | 'danger' | 'success' | 'neutral';
 
 const STATUS_TONES: Record<string, Tone> = {
+  Pending: 'warning',
   PendingAcceptance: 'warning',
   Assigned: 'info',
   Preparing: 'info',
