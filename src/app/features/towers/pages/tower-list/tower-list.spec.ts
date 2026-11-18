@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
-import { CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, PlusOutline, ReloadOutline, SearchOutline } from '@ant-design/icons-angular/icons';
+import { ClearOutline, CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, LeftOutline, PlusOutline, ReloadOutline, RightOutline, SearchOutline } from '@ant-design/icons-angular/icons';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -34,7 +34,7 @@ describe('TowerList', () => {
       imports: [TowerList],
       providers: [
         provideRouter([]),
-        provideNzIcons([CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, PlusOutline, ReloadOutline, SearchOutline]),
+        provideNzIcons([ClearOutline, CloseCircleOutline, EditOutline, FileExcelOutline, FilterOutline, HistoryOutline, LeftOutline, PlusOutline, ReloadOutline, RightOutline, SearchOutline]),
         { provide: TowersApi, useValue: api },
         { provide: RegionsApi, useValue: { getAll: () => of([{ id: 'r1', name: 'Hải Phòng' }]) } },
         { provide: Auth, useValue: { user: () => ({ id: 'u1', role: role() }) } },
@@ -109,5 +109,23 @@ describe('TowerList', () => {
     api.list.mockReturnValue(throwError(() => ({ status: 500, error: { message: 'Lỗi máy chủ' } })));
     setup();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Lỗi máy chủ');
+  });
+
+  it('imports towers from csv or excel files', () => {
+    setup();
+    const component = fixture.componentInstance as unknown as TowerListHarness & { importFile: (e: Event) => void };
+
+    // Invalid extension
+    const invalidEvent = { target: { files: [new File([''], 'test.txt')], value: '' } } as unknown as Event;
+    component.importFile(invalidEvent);
+    expect(component.notice()?.text).toContain('Vui lòng chọn tệp định dạng .xlsx hoặc .csv.');
+    expect(api.import).not.toHaveBeenCalled();
+
+    // Valid CSV
+    const csvFile = new File(['region,code,lat,lng\nr1,T-01,21,105'], 'towers.csv', { type: 'text/csv' });
+    const csvEvent = { target: { files: [csvFile], value: '' } } as unknown as Event;
+    component.importFile(csvEvent);
+    expect(api.import).toHaveBeenCalledWith(csvFile);
+    expect(component.notice()?.text).toContain('Đã nhập 3 cột điện');
   });
 });

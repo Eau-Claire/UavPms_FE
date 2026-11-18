@@ -59,6 +59,11 @@ export class TowerFormDialog implements OnInit {
         latitude: tower.latitude,
         longitude: tower.longitude,
       });
+      this.form.controls.regionId.disable();
+      this.form.controls.towerCode.disable();
+    } else {
+      this.form.controls.regionId.enable();
+      this.form.controls.towerCode.enable();
     }
   }
 
