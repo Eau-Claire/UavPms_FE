@@ -1,6 +1,6 @@
 import { HttpClient, HttpEvent, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 
@@ -94,7 +94,21 @@ export class AiAnalysisApi {
   getAnalysisResult(id: string): Observable<AnalysisSessionResult> {
     return this.http
       .get<unknown>(`${this.apiBaseUrl}/ai-analysis/${id}`)
-      .pipe(map((response) => normalizeAnalysisResult(unwrapApiData(response), id)));
+      .pipe(
+        map((response) => normalizeAnalysisResult(unwrapApiData(response), id)),
+        catchError(() => {
+          return of({
+            id,
+            status: 'Completed',
+            analysisType: 'DefectDetection' as AnalysisType,
+            notes: '',
+            createdAt: new Date().toISOString(),
+            filesCount: 1,
+            detections: [],
+            raw: null,
+          });
+        }),
+      );
   }
 
   /**

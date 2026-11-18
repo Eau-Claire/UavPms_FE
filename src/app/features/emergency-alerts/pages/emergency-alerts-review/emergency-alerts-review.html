@@ -1,181 +1,183 @@
-<div class="emergency-alerts-container">
-  <header class="page-header">
-    <div class="header-main">
-      <div class="title-with-badge">
-        <span class="emergency-siren-icon" aria-hidden="true">
-          <span nz-icon nzType="alert" nzTheme="outline"></span>
-        </span>
-        <div class="header-titles">
-          <h1 class="page-title">
-            Thẩm định cảnh báo khẩn cấp
-            @if (activeCount() > 0) {
-              <span class="active-badge-pulse">{{ activeCount() }} CẦN XỬ LÝ</span>
-            }
-          </h1>
-          <p class="page-subtitle">
-            Hàng đợi thẩm định và chuyển cấp các sự cố lưới điện được phát hiện tự động từ UAV theo thời gian thực.
-          </p>
-        </div>
+<div class="pre-mission-page emergency-alerts-page">
+  <!-- EVN Standard Page Header -->
+  <header class="pre-mission-head">
+    <div>
+      <div class="pre-mission-breadcrumb">
+        <span>GIÁM SÁT LƯỚI ĐIỆN</span>
+        <span class="separator">/</span>
+        <strong>CẢNH BÁO KHẨN CẤP EDGE AI</strong>
       </div>
-
-      <div class="header-actions">
-        <div class="realtime-status-chip" title="Nhận cảnh báo mới qua kênh thông báo thời gian thực">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span class="live-text">Thời gian thực</span>
-        </div>
-        <button nz-button nzType="default" class="simulate-btn" [disabled]="activeLoading()" (click)="refresh()">
-          <span nz-icon [nzType]="activeLoading() ? 'loading' : 'reload'" aria-hidden="true"></span>
-          Làm mới
-        </button>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <h1>Thẩm định cảnh báo khẩn cấp</h1>
+        @if (activeCount() > 0) {
+          <span class="evn-status danger" style="padding: 2px 7px; font-size: 10px; animation: badge-pulse 2s infinite;">
+            {{ activeCount() }} CẦN XỬ LÝ
+          </span>
+        }
       </div>
+      <p>Hàng đợi thẩm định các sự cố lưới điện được phát hiện tự động từ UAV theo thời gian thực</p>
     </div>
 
-    @if (!canReview()) {
-      <div class="permission-notice-banner" role="note">
-        <span nz-icon nzType="info-circle" nzTheme="outline" aria-hidden="true"></span>
-        <span>
-          <strong>Chế độ xem:</strong> Bạn đang đăng nhập với vai trò <em>{{ user()?.role }}</em>. Chỉ tài khoản
-          <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền xác nhận, bác bỏ hoặc chuyển cấp cảnh báo.
-        </span>
+    <div class="head-actions">
+      <div class="realtime-status-chip" title="Nhận cảnh báo mới qua kênh thông báo thời gian thực">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span class="live-text">Thời gian thực</span>
       </div>
-    }
+      <button type="button" class="evn-btn secondary" [disabled]="activeLoading()" (click)="refresh()">
+        <span nz-icon [nzType]="activeLoading() ? 'loading' : 'reload'" aria-hidden="true"></span>
+        Làm mới
+      </button>
+    </div>
   </header>
 
-  <div class="alerts-tab-wrapper">
-    <div class="custom-nav-tabs" role="tablist" aria-label="Cảnh báo khẩn cấp">
-      <button
-        type="button"
-        role="tab"
-        class="tab-btn"
-        [class.active]="selectedTab() === 'active'"
-        [attr.aria-selected]="selectedTab() === 'active'"
-        (click)="selectedTab.set('active')"
-      >
-        <span nz-icon nzType="warning" nzTheme="outline" aria-hidden="true"></span>
-        Cảnh báo đang hoạt động
-        @if (activeCount() > 0) {
-          <span class="tab-counter-danger">{{ activeCount() }}</span>
-        }
-      </button>
-
-      <button
-        type="button"
-        role="tab"
-        class="tab-btn"
-        [class.active]="selectedTab() === 'history'"
-        [attr.aria-selected]="selectedTab() === 'history'"
-        (click)="selectedTab.set('history')"
-      >
-        <span nz-icon nzType="history" nzTheme="outline" aria-hidden="true"></span>
-        Lịch sử cảnh báo
-        <span class="tab-counter-neutral">{{ historyPage().totalCount }}</span>
-      </button>
+  <!-- Permissions notice banner for non-analyst -->
+  @if (!canReview()) {
+    <div class="evn-alert" style="background: #eff6ff; border-color: #93c5fd; color: #1e40af; margin-bottom: 6px;" role="note">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+        <span>
+          <strong>Chế độ xem:</strong> Bạn đang đăng nhập với vai trò <em>{{ user()?.role }}</em>. Chỉ tài khoản
+          <strong>Chuyên viên phân tích (Analyst)</strong> mới có quyền xác nhận hoặc bác bỏ cảnh báo khẩn cấp.
+        </span>
+      </div>
     </div>
+  }
 
-    @if (selectedTab() === 'active') {
-      <div class="tab-pane-content" role="tabpanel">
-        @if (activeError()) {
-          <div class="permission-notice-banner" role="alert">
-            <span nz-icon nzType="exclamation-circle" aria-hidden="true"></span>
-            <span>{{ activeError() }}</span>
-          </div>
-        }
+  <!-- EVN Tab Bar -->
+  <div class="evn-tab-bar" role="tablist" aria-label="Cảnh báo khẩn cấp">
+    <button
+      type="button"
+      role="tab"
+      [class.active]="selectedTab() === 'active'"
+      [attr.aria-selected]="selectedTab() === 'active'"
+      (click)="selectedTab.set('active')"
+    >
+      <span nz-icon nzType="warning" aria-hidden="true"></span>
+      Cảnh báo đang hoạt động
+      @if (activeCount() > 0) {
+        <span class="evn-status danger" style="margin-left: 6px; padding: 1px 5px; font-size: 9px;">{{ activeCount() }}</span>
+      }
+    </button>
 
-        @if (activeLoading() && activeAlerts().length === 0) {
-          <div class="empty-state-card" aria-busy="true">
-            <span nz-icon nzType="loading" aria-hidden="true"></span>
-            <p>Đang tải danh sách cảnh báo...</p>
-          </div>
-        } @else if (activeAlerts().length === 0) {
-          <div class="empty-state-card">
-            <span nz-icon nzType="check-circle" class="empty-icon-success" aria-hidden="true"></span>
-            <h3>Không có cảnh báo khẩn cấp nào</h3>
-            <p>Tất cả cảnh báo đã được thẩm định. Cảnh báo mới sẽ hiện ở đây ngay khi được kích hoạt.</p>
-          </div>
-        } @else {
-          <div class="alerts-split-layout">
-            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
-              <div class="queue-header">
+    <button
+      type="button"
+      role="tab"
+      [class.active]="selectedTab() === 'history'"
+      [attr.aria-selected]="selectedTab() === 'history'"
+      (click)="selectedTab.set('history')"
+    >
+      <span nz-icon nzType="history" aria-hidden="true"></span>
+      Lịch sử cảnh báo
+      <span class="evn-status neutral" style="margin-left: 6px; padding: 1px 5px; font-size: 9px;">{{ historyPage().totalCount }}</span>
+    </button>
+  </div>
+
+  <!-- TAB 1: ACTIVE ALERTS -->
+  @if (selectedTab() === 'active') {
+    <div class="tab-pane-content" role="tabpanel">
+      @if (activeError()) {
+        <div class="evn-alert" role="alert" style="margin-top: 4px;">
+          <span>{{ activeError() }}</span>
+          <button type="button" (click)="activeError.set('')">Đóng</button>
+        </div>
+      }
+
+      @if (activeLoading() && activeAlerts().length === 0) {
+        <div class="evn-panel" style="padding: 32px; text-align: center; color: #64748b; margin-top: 0; border-top: 0;" aria-busy="true">
+          <span nz-icon nzType="loading" style="font-size: 24px;" aria-hidden="true"></span>
+          <p style="margin: 8px 0 0; font-size: 11px;">Đang tải danh sách cảnh báo...</p>
+        </div>
+      } @else if (activeAlerts().length === 0) {
+        <div class="evn-panel" style="padding: 40px; text-align: center; margin-top: 0; border-top: 0;">
+          <span nz-icon nzType="check-circle" style="font-size: 32px; color: #16a34a;" aria-hidden="true"></span>
+          <h3 style="margin: 12px 0 4px; font-size: 13px; font-weight: 700; color: #0f2952;">Không có cảnh báo khẩn cấp nào</h3>
+          <p style="margin: 0; font-size: 11px; color: #64748b;">Tất cả cảnh báo đã được thẩm định. Cảnh báo mới sẽ tự động xuất hiện tại đây khi UAV phát hiện.</p>
+        </div>
+      } @else {
+        <div class="alerts-split-layout">
+          <!-- Left: Alerts Queue -->
+          <aside class="alerts-queue-panel evn-panel" aria-label="Danh sách cảnh báo chờ xử lý">
+            <div class="panel-header">
+              <div class="header-title-group">
                 <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
-                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
+                <span class="panel-subinfo">Chọn để kiểm tra bằng chứng hình ảnh</span>
               </div>
+            </div>
 
-              <div class="queue-list-scroll">
-                @for (alert of activeAlerts(); track alert.id) {
-                  <button
-                    type="button"
-                    class="alert-queue-item"
-                    [class.selected]="selectedAlert()?.id === alert.id"
-                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
-                    (click)="selectAlert(alert)"
-                  >
-                    <div class="item-top-row">
-                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
-                        {{ priorityLabels[alert.priority] }}
-                      </span>
-                      <span class="item-time">{{ alert.triggeredAt | date: 'HH:mm dd/MM' }}</span>
-                    </div>
-
-                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
-
-                    <div class="item-meta">
-                      <span class="meta-code">
-                        <span nz-icon nzType="environment" aria-hidden="true"></span>
-                        {{ alert.towerCode || 'Chưa gắn cột' }}
-                      </span>
-                    </div>
-
-                    @if (alert.evidence.confidenceScore !== null) {
-                      <div class="item-confidence-row">
-                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
-                      </div>
-                    }
-                  </button>
-                }
-              </div>
-            </aside>
-
-            @if (selectedAlert(); as alert) {
-              <main class="alert-inspection-panel">
-                <div class="inspection-header">
-                  <div class="header-details">
-                    <div class="category-chip">
-                      <span class="alert-type-label">{{ alert.alertType }}</span>
-                      <span class="severity-pill" [class.critical]="alert.priority === 'Critical'">
-                        Mức độ: {{ priorityLabels[alert.priority] }}
-                      </span>
-                    </div>
-                    <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
-                    <div class="inspection-sub-meta">
-                      <span><strong>Cột điện:</strong> {{ alert.towerCode || 'Chưa gắn cột' }}</span>
-                      <span><strong>Kích hoạt lúc:</strong> {{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
-                      <span><strong>Độ trễ truyền:</strong> {{ alert.deliveryLatencySeconds }} giây</span>
-                    </div>
+            <div class="queue-list-scroll">
+              @for (alert of activeAlerts(); track alert.id) {
+                <button
+                  type="button"
+                  class="alert-queue-item"
+                  [class.selected]="selectedAlert()?.id === alert.id"
+                  [attr.aria-pressed]="selectedAlert()?.id === alert.id"
+                  (click)="selectAlert(alert)"
+                >
+                  <div class="item-top-row">
+                    <span class="evn-status {{ priorityTone(alert.priority) }}">
+                      {{ priorityLabels[alert.priority] }}
+                    </span>
+                    <span class="item-time">{{ alert.triggeredAt | date: 'HH:mm dd/MM' }}</span>
                   </div>
-                </div>
 
+                  <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
+
+                  <div class="item-meta">
+                    <span class="meta-code">
+                      <span nz-icon nzType="environment" aria-hidden="true"></span>
+                      {{ alert.towerCode || 'Chưa gắn cột' }}
+                    </span>
+                    @if (alert.evidence.confidenceScore !== null) {
+                      <span class="meta-conf">Độ tin cậy: <strong>{{ alert.evidence.confidenceScore }}%</strong></span>
+                    }
+                  </div>
+                </button>
+              }
+            </div>
+          </aside>
+
+          <!-- Right: Alert Inspection Panel -->
+          @if (selectedAlert(); as alert) {
+            <main class="alert-inspection-panel evn-panel">
+              <div class="panel-header">
+                <div class="header-title-group">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h3>{{ alert.categoryName || alert.alertType }}</h3>
+                    <span class="evn-status {{ priorityTone(alert.priority) }}">
+                      MỨC ĐỘ: {{ priorityLabels[alert.priority] }}
+                    </span>
+                  </div>
+                  <span class="panel-subinfo">
+                    Cột điện: <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong> · Kích hoạt: <strong>{{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</strong> · Độ trễ: <strong>{{ alert.deliveryLatencySeconds }} giây</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div class="panel-body">
+                <!-- Evidence Visualizer -->
                 <div class="evidence-canvas-wrapper">
                   <div class="canvas-controls">
                     <div class="canvas-title">
                       <span nz-icon nzType="picture" aria-hidden="true"></span>
-                      <span>Ảnh bằng chứng</span>
+                      <span>Ảnh bằng chứng UAV</span>
                     </div>
 
                     @if (alert.evidence.mediaUrl) {
                       <div class="control-buttons">
-                        <button nz-button nzSize="small" (click)="zoomIn()" aria-label="Phóng to">
+                        <button type="button" class="evn-btn secondary" (click)="zoomIn()" aria-label="Phóng to" title="Phóng to">
                           <span nz-icon nzType="zoom-in" aria-hidden="true"></span>
                         </button>
-                        <button nz-button nzSize="small" (click)="zoomOut()" aria-label="Thu nhỏ">
+                        <button type="button" class="evn-btn secondary" (click)="zoomOut()" aria-label="Thu nhỏ" title="Thu nhỏ">
                           <span nz-icon nzType="zoom-out" aria-hidden="true"></span>
                         </button>
-                        <button nz-button nzSize="small" (click)="resetZoom()" aria-label="Đặt lại tỉ lệ">
+                        <button type="button" class="evn-btn secondary" (click)="resetZoom()" aria-label="Đặt lại tỉ lệ" title="Đặt lại tỉ lệ">
                           <span nz-icon nzType="redo" aria-hidden="true"></span>
                         </button>
                         <button
-                          nz-button
-                          nzSize="small"
-                          [nzType]="showBoundingBox() ? 'primary' : 'default'"
+                          type="button"
+                          class="evn-btn"
+                          [class.primary]="showBoundingBox()"
+                          [class.secondary]="!showBoundingBox()"
                           [attr.aria-pressed]="showBoundingBox()"
                           (click)="toggleBoundingBox()"
                         >
@@ -219,378 +221,353 @@
                         }
                       </div>
                     } @else {
-                      <p class="desc-text">Cảnh báo này không kèm ảnh bằng chứng.</p>
+                      <p class="desc-text" style="padding: 24px; text-align: center; color: #64748b;">Cảnh báo này không kèm ảnh bằng chứng.</p>
                     }
                   </div>
                 </div>
 
+                <!-- Incident Details Cards Grid -->
                 <div class="incident-details-grid">
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí</h4>
-                    <ul class="detail-list">
-                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
-                      <li>
-                        <span>Tọa độ GPS:</span>
-                        @if (alert.location.latitude !== null && alert.location.longitude !== null) {
-                          <strong>{{ alert.location.latitude | number: '1.5-5' }}°N, {{ alert.location.longitude | number: '1.5-5' }}°E</strong>
-                        } @else {
-                          <strong>Không có</strong>
-                        }
-                      </li>
-                    </ul>
+                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí &amp; Tọa độ</h4>
+                    <dl class="evn-detail-dl">
+                      <div><dt>Cột điện</dt><dd><strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></dd></div>
+                      <div>
+                        <dt>Tọa độ GPS</dt>
+                        <dd>
+                          @if (alert.location.latitude !== null && alert.location.longitude !== null) {
+                            <span class="evn-code">{{ alert.location.latitude | number: '1.5-5' }}°N, {{ alert.location.longitude | number: '1.5-5' }}°E</span>
+                          } @else {
+                            <span>Không có</span>
+                          }
+                        </dd>
+                      </div>
+                      <div><dt>Độ trễ truyền</dt><dd>{{ alert.deliveryLatencySeconds }} giây</dd></div>
+                    </dl>
                   </div>
 
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="aim" aria-hidden="true"></span> Kết quả nhận diện</h4>
-                    <ul class="detail-list">
-                      <li><span>Loại sự cố:</span> <strong>{{ alert.categoryName || alert.alertType }}</strong></li>
-                      <li>
-                        <span>Độ tin cậy:</span>
-                        <strong class="conf-high">{{ alert.evidence.confidenceScore !== null ? alert.evidence.confidenceScore + '%' : 'Không rõ' }}</strong>
-                      </li>
-                      <li><span>Trạng thái:</span> <span class="status-badge-active">{{ statusLabels[alert.status] }}</span></li>
-                    </ul>
+                    <h4><span nz-icon nzType="aim" aria-hidden="true"></span> Nhận diện Edge AI</h4>
+                    <dl class="evn-detail-dl">
+                      <div><dt>Loại sự cố</dt><dd><strong>{{ alert.categoryName || alert.alertType }}</strong></dd></div>
+                      <div>
+                        <dt>Độ tin cậy</dt>
+                        <dd>
+                          <strong style="color: #0284c7;">{{ alert.evidence.confidenceScore !== null ? alert.evidence.confidenceScore + '%' : 'Không rõ' }}</strong>
+                        </dd>
+                      </div>
+                      <div><dt>Trạng thái</dt><dd><span class="evn-status danger">{{ statusLabels[alert.status] }}</span></dd></div>
+                    </dl>
                   </div>
                 </div>
 
+                <!-- Analyst Review Action Bar -->
                 <div class="analyst-action-bar">
                   <div class="action-bar-label">
                     <span nz-icon nzType="audit" aria-hidden="true"></span>
-                    <span>Quyết định thẩm định:</span>
+                    <span>Quyết định thẩm định chuyên môn:</span>
                   </div>
 
-                  <div class="action-buttons-group">
-                    <button
-                      nz-button
-                      nzType="primary"
-                      class="btn-action-confirm"
-                      [disabled]="!canReview() || actionBusy()"
-                      (click)="openConfirmModal()"
-                    >
-                      <span nz-icon nzType="check-circle" aria-hidden="true"></span>
-                      Xác nhận sự cố
-                    </button>
-                    <button
-                      nz-button
-                      nzType="default"
-                      class="btn-action-reject"
-                      [disabled]="!canReview() || actionBusy()"
-                      (click)="openDismissModal()"
-                    >
-                      <span nz-icon nzType="close-circle" aria-hidden="true"></span>
-                      Bác bỏ cảnh báo
-                    </button>
-                    <button
-                      nz-button
-                      nzType="primary"
-                      nzDanger
-                      class="btn-action-escalate"
-                      [disabled]="!canReview() || actionBusy()"
-                      (click)="openEscalateModal()"
-                    >
-                      <span nz-icon nzType="thunderbolt" aria-hidden="true"></span>
-                      Chuyển cấp
-                    </button>
-                  </div>
+                  @if (canReview()) {
+                    <div class="action-buttons-group">
+                      <button
+                        type="button"
+                        class="evn-btn primary"
+                        style="height: 30px; font-size: 12px; padding: 0 16px;"
+                        [disabled]="actionBusy()"
+                        (click)="openConfirmModal()"
+                      >
+                        <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+                        Xác nhận sự cố
+                      </button>
+                      <button
+                        type="button"
+                        class="evn-btn danger"
+                        style="height: 30px; font-size: 12px; padding: 0 16px;"
+                        [disabled]="actionBusy()"
+                        (click)="openDismissModal()"
+                      >
+                        <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+                        Bác bỏ cảnh báo
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="readonly-badge">
+                      <span nz-icon nzType="lock" aria-hidden="true"></span>
+                      <span>Chế độ chỉ đọc (Chỉ Chuyên viên phân tích mới có quyền phê duyệt)</span>
+                    </div>
+                  }
                 </div>
-              </main>
-            }
-          </div>
-        }
-      </div>
-    }
-
-    @if (selectedTab() === 'history') {
-      <div class="history-content-container" role="tabpanel">
-        <div class="history-filter-bar">
-          <div class="filter-group">
-            <label for="history-status-filter">Lọc theo trạng thái:</label>
-            <nz-select id="history-status-filter" [formControl]="historyStatus" style="width: 220px;">
-              <nz-option nzValue="" nzLabel="Tất cả trạng thái"></nz-option>
-              <nz-option nzValue="Active" nzLabel="Đang hoạt động"></nz-option>
-              <nz-option nzValue="Confirmed" nzLabel="Đã xác nhận"></nz-option>
-              <nz-option nzValue="Escalated" nzLabel="Đã chuyển cấp"></nz-option>
-              <nz-option nzValue="Dismissed" nzLabel="Đã bác bỏ"></nz-option>
-            </nz-select>
-          </div>
-          <span class="history-total">Tổng số: <strong>{{ historyPage().totalCount }}</strong> bản ghi</span>
+              </div>
+            </main>
+          }
         </div>
+      }
+    </div>
+  }
 
-        @if (historyError()) {
-          <div class="permission-notice-banner" role="alert">
-            <span nz-icon nzType="exclamation-circle" aria-hidden="true"></span>
-            <span>{{ historyError() }}</span>
-          </div>
-        }
+  <!-- TAB 2: ALERT HISTORY -->
+  @if (selectedTab() === 'history') {
+    <div class="tab-pane-content" role="tabpanel">
+      <!-- EVN Filter Toolbar -->
+      <section class="pre-mission-filters" aria-label="Bộ lọc lịch sử cảnh báo">
+        <label>
+          <span>Trạng thái:</span>
+          <select [formControl]="historyStatus">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Active">Đang hoạt động</option>
+            <option value="Confirmed">Đã xác nhận</option>
+            <option value="Escalated">Đã chuyển cấp</option>
+            <option value="Dismissed">Đã bác bỏ</option>
+          </select>
+        </label>
 
-        <div class="history-table-wrapper">
-          <nz-table
-            #historyTable
-            [nzData]="historyPage().items"
-            [nzFrontPagination]="false"
-            [nzLoading]="historyLoading()"
-            [nzTotal]="historyPage().totalCount"
-            [nzPageIndex]="historyPage().page"
-            [nzPageSize]="historyPage().pageSize"
-            [nzBordered]="true"
-            nzSize="middle"
-            (nzPageIndexChange)="loadHistory($event)"
-          >
+        <button type="button" class="evn-btn secondary" [disabled]="historyLoading()" (click)="loadHistory(1)">
+          <span nz-icon nzType="reload"></span> Làm mới
+        </button>
+      </section>
+
+      <!-- Summary Strip -->
+      <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu">
+        <div class="summary-item">
+          <span>Tổng số:</span>
+          <strong>{{ historyPage().totalCount }}</strong>
+          <span>bản ghi</span>
+        </div>
+      </section>
+
+      @if (historyError()) {
+        <div class="evn-alert" role="alert">
+          <span>{{ historyError() }}</span>
+          <button type="button" (click)="historyError.set('')">Đóng</button>
+        </div>
+      }
+
+      <!-- EVN Bordered Data Table Card -->
+      <section class="pre-mission-table-card" [class.is-loading]="historyLoading()" [attr.aria-busy]="historyLoading()">
+        <div class="table-scroll">
+          <table>
             <thead>
               <tr>
-                <th nzWidth="160px">Thời gian</th>
+                <th style="width: 150px;">Thời gian</th>
                 <th>Loại cảnh báo</th>
-                <th nzWidth="150px">Cột điện</th>
-                <th nzWidth="120px">Mức độ</th>
-                <th nzWidth="140px">Trạng thái</th>
+                <th style="width: 140px;">Cột điện</th>
+                <th style="width: 110px;">Mức độ</th>
+                <th style="width: 130px;">Trạng thái</th>
                 <th>Người xử lý &amp; ghi chú</th>
-                <th nzWidth="110px" nzAlign="center">Chi tiết</th>
+                <th style="width: 80px;" class="text-center">Chi tiết</th>
               </tr>
             </thead>
             <tbody>
-              @for (item of historyTable.data; track item.id) {
+              @for (item of historyPage().items; track item.id) {
                 <tr>
                   <td>
                     <div class="table-id-col">
                       <strong>{{ item.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</strong>
                       @if (item.resolvedAt) {
-                        <small>Xử lý: {{ item.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
+                        <small style="color: #64748b; font-size: 10px; display: block;">Xử lý: {{ item.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
                       }
                     </div>
                   </td>
                   <td>
-                    <div class="table-title-col">
-                      <strong>{{ item.alertType }}</strong>
-                    </div>
+                    <strong>{{ item.alertType }}</strong>
                   </td>
                   <td>
-                    <div class="table-loc-col">
-                      <span>{{ item.towerCode || 'Chưa gắn cột' }}</span>
-                    </div>
+                    <span class="evn-code">{{ item.towerCode || 'Chưa gắn cột' }}</span>
                   </td>
                   <td>
-                    <span class="severity-tag" [class.critical]="item.priority === 'Critical'" [class.high]="item.priority === 'High'">
+                    <span class="evn-status {{ priorityTone(item.priority) }}">
                       {{ priorityLabels[item.priority] }}
                     </span>
                   </td>
                   <td>
-                    <nz-tag [nzColor]="statusColor(item.status)">{{ statusLabels[item.status] }}</nz-tag>
+                    <span class="evn-status {{ statusTone(item.status) }}">
+                      {{ statusLabels[item.status] }}
+                    </span>
                   </td>
                   <td>
                     <div class="review-log-cell">
                       @if (item.reviewedBy) {
-                        <div class="reviewer-badge">
+                        <span style="font-weight: 600; color: #174f83;">
                           <span nz-icon nzType="user" aria-hidden="true"></span> {{ item.reviewedBy }}
-                        </div>
+                        </span>
                       }
                       @if (item.notes) {
-                        <p class="review-notes-text">{{ item.notes }}</p>
+                        <span style="display: block; color: #475569; font-size: 10px;">{{ item.notes }}</span>
                       }
                       @if (!item.reviewedBy && !item.notes) {
-                        <span class="text-muted">Chưa có thông tin thẩm định.</span>
+                        <span style="color: #94a3b8; font-style: italic;">Chưa có ghi chú thẩm định</span>
                       }
                     </div>
                   </td>
-                  <td nzAlign="center">
-                    <button nz-button nzSize="small" nzType="link" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
+                  <td class="text-center">
+                    <button type="button" class="evn-btn secondary" style="height: 22px; min-height: 22px; padding: 0 8px; font-size: 10px;" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
                       Xem
                     </button>
                   </td>
                 </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="text-center" style="padding: 24px; color: #64748b;">
+                    Không tìm thấy bản ghi lịch sử cảnh báo nào phù hợp.
+                  </td>
+                </tr>
               }
             </tbody>
-          </nz-table>
+          </table>
+        </div>
+
+        <footer>
+          <span>Trang {{ historyPage().page }} · Hiển thị tối đa {{ historyPage().pageSize }} bản ghi/trang</span>
+          <div class="evn-pagination">
+            <button
+              type="button"
+              [disabled]="historyPage().page <= 1 || historyLoading()"
+              (click)="loadHistory(historyPage().page - 1)"
+            >
+              &lt; Trước
+            </button>
+            <button type="button" class="active">{{ historyPage().page }}</button>
+            <button
+              type="button"
+              [disabled]="historyPage().items.length < historyPage().pageSize || historyLoading()"
+              (click)="loadHistory(historyPage().page + 1)"
+            >
+              Sau &gt;
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  }
+
+  <!-- MODAL 1: CONFIRM (EVN Classic Enterprise Style) -->
+  @if (isConfirmModalVisible()) {
+    <div class="evn-modal-backdrop" tabindex="-1" (click)="$event.target === $event.currentTarget && closeConfirmModal()" (keydown.escape)="closeConfirmModal()">
+      <div class="evn-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="evn-modal-header">
+          <div class="modal-title-group">
+            <span nz-icon nzType="check-circle" style="color: #1d4f91; font-size: 15px;" aria-hidden="true"></span>
+            <h3 id="confirm-modal-title">Xác nhận sự cố khẩn cấp</h3>
+          </div>
+          <button type="button" class="evn-modal-close" aria-label="Đóng" (click)="closeConfirmModal()">&times;</button>
+        </div>
+        <div class="evn-modal-body">
+          <form [formGroup]="confirmForm">
+            <div class="evn-modal-info-box">
+              <span nz-icon nzType="question-circle" style="color: #0284c7; font-size: 18px;" aria-hidden="true"></span>
+              <div>
+                <strong>Xác nhận cảnh báo là sự cố thật</strong>
+                <p style="margin: 3px 0 0; font-size: 11px; color: #475569;">
+                  Cảnh báo <strong>{{ selectedAlert()?.categoryName || selectedAlert()?.alertType }}</strong> tại cột
+                  <strong>{{ selectedAlert()?.towerCode || 'chưa xác định' }}</strong> sẽ được đánh dấu là hợp lệ.
+                </p>
+              </div>
+            </div>
+            <div style="margin-top: 10px;">
+              <label for="confirm-notes" style="display: block; font-size: 11px; font-weight: 600; color: #174f83; margin-bottom: 4px;">Ghi chú thẩm định:</label>
+              <textarea id="confirm-notes" rows="3" formControlName="notes" style="width: 100%; border: 1px solid #9fc3e4; border-radius: 2px; padding: 6px; font-size: 11px;" placeholder="Nhập nhận định chuyên môn..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeConfirmModal()" [disabled]="actionBusy()">Hủy</button>
+          <button type="button" class="evn-btn primary" (click)="executeConfirm()" [disabled]="actionBusy()">
+            @if (actionBusy()) {
+              <span nz-icon nzType="loading" aria-hidden="true"></span>
+            }
+            Xác nhận
+          </button>
         </div>
       </div>
-    }
-  </div>
+    </div>
+  }
 
-  <!-- MODAL 1: CONFIRM -->
-  <nz-modal
-    [nzVisible]="isConfirmModalVisible()"
-    nzTitle="Xác nhận sự cố khẩn cấp"
-    (nzOnCancel)="closeConfirmModal()"
-    (nzOnOk)="executeConfirm()"
-    [nzOkLoading]="actionBusy()"
-    nzOkText="Xác nhận"
-    nzCancelText="Hủy"
-  >
-    <ng-container *nzModalContent>
-      <form [formGroup]="confirmForm" class="modal-form-content">
-        <div class="modal-alert-info">
-          <span nz-icon nzType="question-circle" class="modal-info-icon" aria-hidden="true"></span>
-          <div>
-            <h4>Xác nhận cảnh báo là sự cố thật</h4>
-            <p>
-              Cảnh báo <strong>{{ selectedAlert()?.categoryName || selectedAlert()?.alertType }}</strong> tại
-              <strong>{{ selectedAlert()?.towerCode || 'cột chưa xác định' }}</strong> sẽ được đánh dấu là hợp lệ.
+  <!-- MODAL 2: DISMISS (EVN Classic Enterprise Style) -->
+  @if (isDismissModalVisible()) {
+    <div class="evn-modal-backdrop" tabindex="-1" (click)="$event.target === $event.currentTarget && closeDismissModal()" (keydown.escape)="closeDismissModal()">
+      <div class="evn-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="dismiss-modal-title">
+        <div class="evn-modal-header danger">
+          <div class="modal-title-group">
+            <span nz-icon nzType="close-circle" style="color: #dc2626; font-size: 15px;" aria-hidden="true"></span>
+            <h3 id="dismiss-modal-title" style="color: #991b1b;">Bác bỏ cảnh báo khẩn cấp</h3>
+          </div>
+          <button type="button" class="evn-modal-close" aria-label="Đóng" (click)="closeDismissModal()">&times;</button>
+        </div>
+        <div class="evn-modal-body">
+          <form [formGroup]="dismissForm">
+            <p style="margin: 0 0 10px; font-size: 11px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; padding: 6px 10px; border-radius: 2px;">
+              Vui lòng nêu rõ lý do bác bỏ để lưu trữ hồ sơ thẩm định kỹ thuật.
             </p>
-          </div>
-        </div>
-        <div class="form-field-group">
-          <label for="confirm-notes">Ghi chú thẩm định:</label>
-          <textarea id="confirm-notes" nz-input rows="3" formControlName="notes" placeholder="Nhập nhận định chuyên môn..."></textarea>
-        </div>
-      </form>
-    </ng-container>
-  </nz-modal>
-
-  <!-- MODAL 2: DISMISS -->
-  <nz-modal
-    [nzVisible]="isDismissModalVisible()"
-    nzTitle="Bác bỏ cảnh báo khẩn cấp"
-    (nzOnCancel)="closeDismissModal()"
-    (nzOnOk)="executeDismiss()"
-    [nzOkLoading]="actionBusy()"
-    nzOkText="Bác bỏ"
-    [nzOkDanger]="true"
-    nzCancelText="Hủy"
-  >
-    <ng-container *nzModalContent>
-      <form [formGroup]="dismissForm" class="modal-form-content">
-        <p class="modal-desc-warn">Vui lòng nêu rõ lý do bác bỏ để lưu trữ hồ sơ thẩm định kỹ thuật.</p>
-        <div class="form-field-group">
-          <label for="dismiss-reason">Lý do bác bỏ:</label>
-          <nz-select id="dismiss-reason" formControlName="reason" style="width: 100%;">
-            @for (reason of dismissReasons; track reason) {
-              <nz-option [nzValue]="reason" [nzLabel]="reason"></nz-option>
-            }
-          </nz-select>
-        </div>
-        <div class="form-field-group">
-          <label for="dismiss-notes">Chi tiết bổ sung:</label>
-          <textarea id="dismiss-notes" nz-input rows="3" formControlName="notes" placeholder="Nhập thêm chi tiết phân tích..."></textarea>
-        </div>
-      </form>
-    </ng-container>
-  </nz-modal>
-
-  <!-- MODAL 3: ESCALATE -->
-  <nz-modal
-    [nzVisible]="isEscalateModalVisible()"
-    nzTitle="Chuyển cấp cảnh báo khẩn cấp"
-    (nzOnCancel)="closeEscalateModal()"
-    (nzOnOk)="executeEscalate()"
-    [nzOkLoading]="actionBusy()"
-    nzOkText="Chuyển cấp"
-    [nzOkDanger]="true"
-    nzCancelText="Hủy"
-  >
-    <ng-container *nzModalContent>
-      <form [formGroup]="escalateForm" class="modal-form-content">
-        <div class="modal-escalate-callout">
-          <span nz-icon nzType="warning" class="callout-icon" aria-hidden="true"></span>
-          <div>
-            <h4>Chuyển cảnh báo cho cấp quản lý</h4>
-            <p>Người nhận sẽ được thông báo ngay và cảnh báo chuyển sang trạng thái "Đã chuyển cấp".</p>
-          </div>
-        </div>
-
-        <div class="form-field-group">
-          @if (escalationTargetsUnavailable()) {
-            <label class="required" for="escalate-target-id">ID người nhận (Manager):</label>
-            <input
-              id="escalate-target-id"
-              aria-describedby="escalate-target-hint"
-              nz-input
-              formControlName="escalatedToUserId"
-              placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
-            />
-            <small id="escalate-target-hint">Chỉ Quản trị viên tra cứu được danh sách người dùng. Nhập ID tài khoản Quản lý nhận cảnh báo (hỏi Quản trị viên nếu chưa có).</small>
-          } @else {
-            <label class="required" for="escalate-target">Người nhận:</label>
-            <nz-select
-              id="escalate-target"
-              formControlName="escalatedToUserId"
-              style="width: 100%;"
-              nzPlaceHolder="Chọn Manager / quản trị viên"
-              [nzLoading]="escalationTargets() === null"
-            >
-              @for (target of escalationTargets() ?? []; track target.id) {
-                <nz-option [nzValue]="target.id" [nzLabel]="target.fullName + ' (' + target.role + ')'"></nz-option>
-              }
-            </nz-select>
-          }
-          @if (escalateForm.controls.escalatedToUserId.touched && escalateForm.controls.escalatedToUserId.invalid) {
-            <small class="escalate-reason-text" role="alert">Vui lòng chọn hoặc nhập người nhận hợp lệ.</small>
-          }
-        </div>
-
-        <div class="form-field-group">
-          <label for="escalate-urgency">Cấp độ khẩn cấp kiến nghị:</label>
-          <nz-select id="escalate-urgency" formControlName="urgencyLevel" style="width: 100%;">
-            @for (level of urgencyLevels; track level) {
-              <nz-option [nzValue]="level" [nzLabel]="level"></nz-option>
-            }
-          </nz-select>
-        </div>
-
-        <div class="form-field-group">
-          <label class="required" for="escalate-reason">Lý do chuyển cấp và đề xuất xử lý:</label>
-          <textarea
-            id="escalate-reason"
-            nz-input
-            rows="3"
-            formControlName="reason"
-            placeholder="Nêu rõ diễn biến sự cố và lý do cần cấp quản lý can thiệp..."
-          ></textarea>
-          @if (escalateForm.controls.reason.touched && escalateForm.controls.reason.invalid) {
-            <small class="escalate-reason-text" role="alert">Lý do cần tối thiểu 10 ký tự.</small>
-          }
-        </div>
-
-        @if (escalateError()) {
-          <p class="escalate-reason-text" role="alert">{{ escalateError() }}</p>
-        }
-      </form>
-    </ng-container>
-  </nz-modal>
-
-  <!-- MODAL 4: ALERT DETAIL -->
-  @if (detail(); as d) {
-    <nz-modal
-      [nzVisible]="true"
-      [nzTitle]="'Chi tiết cảnh báo: ' + (d.categoryName || d.alertType)"
-      (nzOnCancel)="closeDetail()"
-      [nzFooter]="null"
-      nzWidth="750px"
-    >
-      <ng-container *nzModalContent>
-        <div class="history-detail-modal-body">
-          @if (d.evidence.mediaUrl) {
-            <div class="modal-evidence-preview">
-              <img [src]="d.evidence.mediaUrl" alt="Ảnh bằng chứng sự cố" class="modal-preview-img" />
+            <div>
+              <label for="dismiss-reason" style="display: block; font-size: 11px; font-weight: 600; color: #174f83; margin-bottom: 4px;">Lý do bác bỏ:</label>
+              <select id="dismiss-reason" formControlName="reason" style="width: 100%; height: 26px; border: 1px solid #9fc3e4; border-radius: 2px; padding: 0 6px; font-size: 11px;">
+                @for (reason of dismissReasons; track reason) {
+                  <option [value]="reason">{{ reason }}</option>
+                }
+              </select>
             </div>
-          }
+            <div style="margin-top: 10px;">
+              <label for="dismiss-notes" style="display: block; font-size: 11px; font-weight: 600; color: #174f83; margin-bottom: 4px;">Chi tiết bổ sung:</label>
+              <textarea id="dismiss-notes" rows="3" formControlName="notes" style="width: 100%; border: 1px solid #9fc3e4; border-radius: 2px; padding: 6px; font-size: 11px;" placeholder="Nhập thêm chi tiết phân tích..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeDismissModal()" [disabled]="actionBusy()">Hủy</button>
+          <button type="button" class="evn-btn danger" (click)="executeDismiss()" [disabled]="actionBusy()">
+            @if (actionBusy()) {
+              <span nz-icon nzType="loading" aria-hidden="true"></span>
+            }
+            Bác bỏ
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 
-          <div class="history-audit-box">
-            <h4>Thông tin xử lý</h4>
-            <p><strong>Cột điện:</strong> {{ d.towerCode || 'Chưa gắn cột' }}</p>
-            <p><strong>Mức độ:</strong> {{ priorityLabels[d.priority] }}</p>
-            <p><strong>Trạng thái:</strong> <nz-tag [nzColor]="statusColor(d.status)">{{ statusLabels[d.status] }}</nz-tag></p>
-            <p><strong>Kích hoạt:</strong> {{ d.triggeredAt | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
-            @if (d.receivedAt) {
-              <p><strong>Nhận lúc:</strong> {{ d.receivedAt | date: 'dd/MM/yyyy HH:mm:ss' }}</p>
+  <!-- MODAL 3: ALERT DETAIL -->
+  @if (detail(); as d) {
+    <div class="evn-modal-backdrop" tabindex="-1" (click)="$event.target === $event.currentTarget && closeDetail()" (keydown.escape)="closeDetail()">
+      <div class="evn-modal-dialog" style="max-width: 620px;" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+        <div class="evn-modal-header">
+          <div class="modal-title-group">
+            <span nz-icon nzType="info-circle" style="color: #1d4f91; font-size: 15px;" aria-hidden="true"></span>
+            <h3 id="detail-modal-title">Chi tiết cảnh báo: {{ d.categoryName || d.alertType }}</h3>
+          </div>
+          <button type="button" class="evn-modal-close" aria-label="Đóng" (click)="closeDetail()">&times;</button>
+        </div>
+        <div class="evn-modal-body">
+          <div class="history-detail-modal-body">
+            @if (d.evidence.mediaUrl) {
+              <div class="modal-evidence-preview">
+                <img [src]="d.evidence.mediaUrl" alt="Ảnh bằng chứng sự cố" class="modal-preview-img" />
+              </div>
             }
-            @if (d.reviewedByName) {
-              <p><strong>Người thẩm định:</strong> {{ d.reviewedByName }}@if (d.resolvedAt) { ({{ d.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}) }</p>
-            }
-            @if (d.notes) {
-              <p><strong>Ghi chú:</strong> {{ d.notes }}</p>
-            }
-            @if (d.escalations.length) {
-              <h4>Lịch sử chuyển cấp</h4>
-              @for (esc of d.escalations; track esc.id) {
-                <p class="escalate-target-text">
-                  <strong>{{ esc.escalatedByName }}</strong> → <strong>{{ esc.escalatedToName }}</strong>
-                  ({{ esc.escalatedAt | date: 'dd/MM/yyyy HH:mm' }})
-                </p>
-                <p class="escalate-reason-text"><em>"{{ esc.reason }}"</em></p>
-              }
-            }
+
+            <div class="history-audit-box">
+              <dl class="evn-detail-dl">
+                <div><dt>Cột điện</dt><dd><strong>{{ d.towerCode || 'Chưa gắn cột' }}</strong></dd></div>
+                <div><dt>Mức độ</dt><dd><span class="evn-status {{ priorityTone(d.priority) }}">{{ priorityLabels[d.priority] }}</span></dd></div>
+                <div><dt>Trạng thái</dt><dd><span class="evn-status {{ statusTone(d.status) }}">{{ statusLabels[d.status] }}</span></dd></div>
+                <div><dt>Kích hoạt lúc</dt><dd>{{ d.triggeredAt | date: 'dd/MM/yyyy HH:mm:ss' }}</dd></div>
+                @if (d.receivedAt) {
+                  <div><dt>Nhận lúc</dt><dd>{{ d.receivedAt | date: 'dd/MM/yyyy HH:mm:ss' }}</dd></div>
+                }
+                @if (d.reviewedByName) {
+                  <div><dt>Người thẩm định</dt><dd><strong>{{ d.reviewedByName }}</strong> @if (d.resolvedAt) { ({{ d.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}) }</dd></div>
+                }
+                @if (d.notes) {
+                  <div><dt>Ghi chú</dt><dd>{{ d.notes }}</dd></div>
+                }
+              </dl>
+            </div>
           </div>
         </div>
-      </ng-container>
-    </nz-modal>
+        <div class="evn-modal-footer">
+          <button type="button" class="evn-btn secondary" (click)="closeDetail()">Đóng</button>
+        </div>
+      </div>
+    </div>
   }
 </div>

@@ -6,7 +6,6 @@ import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzNotificationService } from 'ng-zorro-antd/notification';
@@ -60,7 +59,6 @@ export const URGENCY_LEVELS = [
     NzIconModule,
     NzButtonModule,
     NzTagModule,
-    NzModalModule,
     NzInputModule,
     NzSelectModule,
     NzTableModule,
@@ -109,8 +107,8 @@ export class EmergencyAlertsReview {
 
   // --- Permissions ---
   protected readonly user = computed(() => this.auth.user());
-  /** `PUT /alerts/{id}/review` and `POST /alerts/{id}/escalate`: SystemAdmin, Manager, Analyst. */
-  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.emergencyAlerts));
+  /** Chỉ tài khoản Analyst mới có quyền xác nhận hoặc bác bỏ cảnh báo khẩn cấp. */
+  protected readonly canReview = computed(() => this.user()?.role?.toLowerCase() === 'analyst');
 
   // --- Evidence viewer ---
   protected readonly zoomLevel = signal(1);
@@ -266,6 +264,32 @@ export class EmergencyAlertsReview {
       width: (box.width / w) * 100,
       height: (box.height / h) * 100,
     };
+  }
+
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'Active':
+        return 'danger';
+      case 'Confirmed':
+        return 'success';
+      case 'Dismissed':
+        return 'neutral';
+      case 'Escalated':
+        return 'warning';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected priorityTone(priority: string): string {
+    switch (priority) {
+      case 'Critical':
+        return 'danger';
+      case 'High':
+        return 'warning';
+      default:
+        return 'info';
+    }
   }
 
   protected statusColor(status: AlertStatus): string {

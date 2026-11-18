@@ -38,9 +38,10 @@ export class DetectionList {
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly page = signal(1);
-  protected readonly pageSize = signal(12);
+  protected readonly pageSize = signal(10);
+  protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly search = signal('');
-  protected readonly viewMode = signal<'grid' | 'table'>('grid');
+  protected readonly viewMode = signal<'table' | 'grid'>('table');
   protected readonly showSuperseded = signal(false);
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
@@ -48,7 +49,7 @@ export class DetectionList {
     items: [],
     totalCount: 0,
     pageIndex: 1,
-    pageSize: 12,
+    pageSize: 10,
     totalPages: 1,
   });
 
@@ -62,6 +63,38 @@ export class DetectionList {
 
   protected readonly pageNumbers = computed(() =>
     Array.from({ length: this.response().totalPages }, (_, index) => index + 1),
+  );
+
+  protected readonly startIndex = computed(() => {
+    const total = this.response().totalCount;
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.response().totalCount;
+    if (!total) return 0;
+    return Math.min(this.page() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.response().totalPages;
+    const curr = this.page();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    let end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.showSuperseded())
   );
 
   protected readonly criticalCount = computed(() =>
@@ -126,6 +159,31 @@ export class DetectionList {
     if (nextPage < 1 || nextPage > this.response().totalPages || nextPage === this.page()) return;
     this.page.set(nextPage);
     this.load();
+  }
+
+  protected changePageSize(size: string | number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.setPage(1);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.showSuperseded.set(false);
+    this.setPage(1);
+  }
+
+  protected confidenceTone(score: number): string {
+    if (score >= 90) return 'success';
+    if (score >= 75) return 'info';
+    return 'warning';
+  }
+
+  protected statusTone(item: AnomalyItem): string {
+    if (item.supersededById) return 'neutral';
+    if (item.validationStatus === 'Confirmed') return 'success';
+    if (item.validationStatus === 'Resolved') return 'info';
+    if (item.validationStatus === 'Rejected') return 'danger';
+    return 'warning';
   }
 
   protected confidenceClass(score: number): string {

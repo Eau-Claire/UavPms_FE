@@ -108,17 +108,17 @@ export interface AnalysisRunInfo {
 }
 
 export const REJECT_REASONS = [
-  { value: 'False Positive', label: 'Dương tính giả (False Positive) - Không có sự cố' },
-  { value: 'Wrong Class', label: 'Sai phân loại (Wrong Class) - AI nhận diện nhầm loại lỗi' },
-  { value: 'Poor Image Quality', label: 'Chất lượng ảnh kém (Poor Quality) - Mờ/Nhiễu/Thiếu sáng' },
-  { value: 'Duplicate', label: 'Trùng lặp (Duplicate) - Đã được ghi nhận ở góc chụp khác' },
-  { value: 'Insufficient Evidence', label: 'Chưa đủ chứng cứ (Insufficient Evidence)' },
-  { value: 'Other', label: 'Lý do khác (Other)' },
+  { value: 'False Positive', label: 'Dương tính giả - Không có sự cố' },
+  { value: 'Wrong Class', label: 'Sai phân loại - Nhận diện nhầm loại lỗi' },
+  { value: 'Poor Image Quality', label: 'Chất lượng ảnh kém - Mờ / Nhiễu / Thiếu sáng' },
+  { value: 'Duplicate', label: 'Trùng lặp - Đã được ghi nhận ở góc chụp khác' },
+  { value: 'Insufficient Evidence', label: 'Chưa đủ chứng cứ xác định' },
+  { value: 'Other', label: 'Lý do khác' },
 ] as const;
 
 export const EXECUTION_LOCATION_LABELS: Record<AnomalyExecutionLocation, string> = {
-  Edge: 'Edge (trên UAV)',
-  Cloud: 'Cloud (máy chủ)',
+  Edge: 'Thiết bị bay UAV',
+  Cloud: 'Máy chủ trung tâm',
   Manual: 'Tạo thủ công',
 };
 

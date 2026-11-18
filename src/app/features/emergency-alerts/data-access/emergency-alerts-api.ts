@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import {
@@ -112,17 +112,28 @@ export class EmergencyAlertsApi {
   }
 
   /**
-   * Users an alert can be escalated to (Manager / SystemAdmin). Uses `GET /users`, which the
-   * backend currently restricts to SystemAdmin; other roles get 403 and must enter the user ID.
+   * Users an alert can be escalated to (Manager / SystemAdmin).
+   * Prefers `GET /users/assignable` (accessible by Analyst & Manager),
+   * falling back to `GET /users` (SystemAdmin) or empty list if unpermitted.
    */
   getEscalationTargets(): Observable<readonly EscalationTarget[]> {
-    const params = new HttpParams().set('page', 1).set('pageSize', 100);
-    return this.http.get<unknown>(`${environment.apiBaseUrl}/users`, { params }).pipe(
+    return this.http.get<unknown>(`${environment.apiBaseUrl}/users/assignable`).pipe(
       map((response) =>
         arrayOf(unwrapApiData(response))
           .map(normalizeUser)
           .filter((user) => user.id && ESCALATION_ROLES.has(user.role.toLowerCase())),
       ),
+      catchError(() => {
+        const params = new HttpParams().set('page', 1).set('pageSize', 100);
+        return this.http.get<unknown>(`${environment.apiBaseUrl}/users`, { params }).pipe(
+          map((response) =>
+            arrayOf(unwrapApiData(response))
+              .map(normalizeUser)
+              .filter((user) => user.id && ESCALATION_ROLES.has(user.role.toLowerCase())),
+          ),
+          catchError(() => of([])),
+        );
+      }),
     );
   }
 

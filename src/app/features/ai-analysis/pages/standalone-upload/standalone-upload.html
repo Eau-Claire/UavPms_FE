@@ -4,9 +4,9 @@
       <div class="forbidden-icon-wrap">
         <span nz-icon nzType="lock" class="forbidden-icon" aria-hidden="true"></span>
       </div>
-      <h1 class="forbidden-title">Quyền truy cập bị từ chối (403 Forbidden)</h1>
+      <h1 class="forbidden-title">Quyền truy cập bị từ chối</h1>
       <p class="forbidden-desc">
-        Chức năng kiểm tra dữ liệu độc lập chỉ dành cho các tài khoản có vai trò <strong>Chuyên viên phân tích (Analyst)</strong>, <strong>Quản lý (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong>.
+        Chức năng kiểm tra dữ liệu độc lập chỉ dành cho các tài khoản có vai trò <strong>Chuyên viên phân tích</strong>, <strong>Quản lý</strong> hoặc <strong>Quản trị viên</strong>.
       </p>
       <div class="forbidden-actions">
         <a routerLink="/dashboard" class="btn-return-dashboard">
@@ -40,7 +40,7 @@
             [attr.aria-selected]="workflowMode() === 'image'"
           >
             <span nz-icon nzType="picture" aria-hidden="true"></span>
-            <span>Hình ảnh (Image)</span>
+            <span>Hình ảnh</span>
           </button>
           <button
             type="button"
@@ -194,10 +194,10 @@
                 <div class="form-field-group">
                   <label for="analysisTypeSelect">Loại kiểm tra kỹ thuật:</label>
                   <select id="analysisTypeSelect" formControlName="analysisType" class="studio-select">
-                    <option value="DefectDetection">Phát hiện khuyết tật thiết bị (DefectDetection)</option>
-                    <option value="VegetationIntrusion">Kiểm tra vi phạm hành lang tuyến (VegetationIntrusion)</option>
-                    <option value="ThermalAnomaly">Kiểm tra bất thường nhiệt (ThermalAnomaly)</option>
-                    <option value="General">Kiểm tra tổng hợp (General)</option>
+                    <option value="DefectDetection">Phát hiện khuyết tật thiết bị</option>
+                    <option value="VegetationIntrusion">Kiểm tra vi phạm hành lang tuyến</option>
+                    <option value="ThermalAnomaly">Kiểm tra bất thường nhiệt</option>
+                    <option value="General">Kiểm tra tổng hợp</option>
                   </select>
                 </div>
 
@@ -569,7 +569,7 @@
               <div class="inspector-body">
                 <div class="comparison-container">
                   <div class="crop-view-box">
-                    <span class="comp-label">Ảnh cận cảnh (Crop)</span>
+                    <span class="comp-label">Ảnh cận cảnh</span>
                     <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" class="crop-img" />
                   </div>
                   <div class="original-view-box">
@@ -600,7 +600,7 @@
                   </div>
 
                   <div class="meta-row">
-                    <span class="meta-label">Vị trí Cột (Tower)</span>
+                    <span class="meta-label">Vị trí cột</span>
                     <span class="meta-val">{{ selected.tower }}</span>
                   </div>
 

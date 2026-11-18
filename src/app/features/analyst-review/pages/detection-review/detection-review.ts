@@ -42,7 +42,7 @@ interface ReviewNavigationState {
   readonly superseded?: readonly AnomalyItem[];
 }
 
-const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'administrator']);
+const REVIEW_ROLES = new Set(['analyst']);
 
 @Component({
   selector: 'app-detection-review',
