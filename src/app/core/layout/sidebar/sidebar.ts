@@ -23,6 +23,7 @@ const EMERGENCY_ALERTS_PATH = '/emergency-alerts';
 export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   admin: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
     { path: '/towers', icon: 'thunderbolt', label: 'Cột điện' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
@@ -36,6 +37,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   manager: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
     { path: '/towers', icon: 'thunderbolt', label: 'Cột điện' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
@@ -49,6 +51,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   inspector: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
     { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
     { path: '/towers', icon: 'thunderbolt', label: 'Cột điện' },
@@ -57,7 +60,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   analyst: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
-    { path: EMERGENCY_ALERTS_PATH, icon: 'exclamation-circle', label: 'Cảnh báo khẩn cấp' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
     { path: '/ai-analysis/upload', icon: 'cloud-upload', label: 'Kiểm tra dữ liệu độc lập' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
@@ -68,7 +71,9 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   technician: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì của tôi' },
+    { path: '/drones/inspection', icon: 'dashboard', label: 'Kiểm định kỹ thuật UAV' },
     { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
     { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
@@ -78,6 +83,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   other: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'alert', label: 'Cảnh báo khẩn cấp' },
     { path: '/towers', icon: 'thunderbolt', label: 'Cột điện' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
     { path: '/inspections', icon: 'history', label: 'Lịch sử kiểm tra' },
