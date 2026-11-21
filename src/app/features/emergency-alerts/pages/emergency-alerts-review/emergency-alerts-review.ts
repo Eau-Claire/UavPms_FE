@@ -18,6 +18,7 @@ import { isAdminRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
+import { ToastService } from '../../../../core/toast/toast.service';
 import {
   ActiveEmergencyAlert,
   ALERT_PRIORITY_LABELS,
@@ -77,6 +78,7 @@ export class EmergencyAlertsReview {
   private readonly api = inject(EmergencyAlertsApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly notification = inject(NzNotificationService);
+  private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly statusLabels = ALERT_STATUS_LABELS;
@@ -361,12 +363,12 @@ export class EmergencyAlertsReview {
           this.selectedAlertId.set(null);
           this.loadHistory(1);
           if (status === 'Confirmed') {
-            this.notification.success('Đã xác nhận cảnh báo', `Cảnh báo tại ${alert.towerCode || 'cột chưa xác định'} đã được xác nhận.`);
+            this.toast.success(`Đã xác nhận sự cố tại ${alert.towerCode || 'cột chưa xác định'}.`);
           } else {
-            this.notification.info('Đã bác bỏ cảnh báo', `Cảnh báo tại ${alert.towerCode || 'cột chưa xác định'} đã được bác bỏ.`);
+            this.toast.info(`Đã bác bỏ cảnh báo tại ${alert.towerCode || 'cột chưa xác định'}.`);
           }
         },
-        error: (err: unknown) => this.notification.error('Lỗi thẩm định', alertErrorMessage(err, 'Không thể xử lý yêu cầu thẩm định.')),
+        error: (err: unknown) => this.toast.error(alertErrorMessage(err, 'Không thể xử lý yêu cầu thẩm định.')),
       });
   }
 
@@ -433,11 +435,7 @@ export class EmergencyAlertsReview {
           this.isEscalateModalVisible.set(false);
           this.selectedAlertId.set(null);
           this.loadHistory(1);
-          this.notification.warning(
-            'Đã chuyển cấp cảnh báo',
-            `Cảnh báo đã được chuyển tới ${escalation.escalatedToName || 'người nhận'}.`,
-            { nzDuration: 7000 },
-          );
+          this.toast.success(`Đã chuyển cấp cảnh báo tới ${escalation.escalatedToName || 'người nhận'}.`);
         },
         error: (err: unknown) => this.escalateError.set(alertErrorMessage(err, 'Không thể chuyển cấp cảnh báo.')),
       });
@@ -460,5 +458,37 @@ export class EmergencyAlertsReview {
 
   protected closeDetail(): void {
     this.detail.set(null);
+  protected formatReviewNotes(notes?: string | null): string {
+    if (!notes) return 'Chưa có thông tin thẩm định.';
+    const raw = notes.trim();
+    if (raw.startsWith('AI evaluation:')) {
+      const sevMatch = raw.match(/severity=([a-zA-Z]+)/);
+      const confMatch = raw.match(/confidence\s+([\d.]+)\s*%/);
+      const catMatch = raw.match(/Category\s+([A-Za-z0-9_]+)/);
+
+      const sevMap: Record<string, string> = { High: 'Cao', Medium: 'Trung bình', Low: 'Thấp', Critical: 'Khẩn cấp' };
+      const catMap: Record<string, string> = {
+        BROKEN_INSULATOR: 'Bát cách điện vỡ',
+        DAMAGED_INSULATOR: 'Cách điện hỏng',
+        RUST: 'Rỉ sét kim loại',
+        BIRD_NEST: 'Tổ chim trên cột',
+        FOREIGN_OBJECT: 'Dị vật vướng lưới',
+        HOTSPOT: 'Quá nhiệt mối nối',
+      };
+
+      const sev = sevMatch ? (sevMap[sevMatch[1]] || sevMatch[1]) : '';
+      const conf = confMatch ? `${confMatch[1]}%` : '';
+      const cat = catMatch ? (catMap[catMatch[1]] || catMatch[1]) : '';
+
+      const parts: string[] = [];
+      if (cat) parts.push(`Sự cố: ${cat}`);
+      if (sev) parts.push(`Mức độ: ${sev}`);
+      if (conf) parts.push(`Độ tin cậy: ${conf}`);
+
+      if (parts.length > 0) {
+        return `Đánh giá AI (${parts.join(' · ')})`;
+      }
+    }
+    return raw;
   }
 }

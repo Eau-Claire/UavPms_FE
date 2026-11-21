@@ -94,47 +94,6 @@
           </div>
         } @else {
           <div class="alerts-split-layout">
-            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
-              <div class="queue-header">
-                <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
-                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
-              </div>
-
-              <div class="queue-list-scroll">
-                @for (alert of activeAlerts(); track alert.id) {
-                  <button
-                    type="button"
-                    class="alert-queue-item"
-                    [class.selected]="selectedAlert()?.id === alert.id"
-                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
-                    (click)="selectAlert(alert)"
-                  >
-                    <div class="item-top-row">
-                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
-                        {{ priorityLabels[alert.priority] }}
-                      </span>
-                      <span class="item-time">{{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-                    </div>
-
-                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
-
-                    <div class="item-meta">
-                      <span class="meta-code">
-                        <span nz-icon nzType="environment" aria-hidden="true"></span>
-                        {{ alert.towerCode || 'Chưa gắn cột' }}
-                      </span>
-                    </div>
-
-                    @if (alert.evidence.confidenceScore !== null) {
-                      <div class="item-confidence-row">
-                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
-                      </div>
-                    }
-                  </button>
-                }
-              </div>
-            </aside>
-
             @if (selectedAlert(); as alert) {
               <main class="alert-inspection-panel">
                 <div class="inspection-header">
@@ -302,7 +261,56 @@
                   </div>
                 </div>
               </main>
+            } @else {
+              <main class="alert-inspection-panel empty-selection">
+                <div class="empty-state-card">
+                  <span nz-icon nzType="picture" class="empty-icon-neutral" aria-hidden="true"></span>
+                  <h3>Chưa chọn cảnh báo</h3>
+                  <p>Chọn một cảnh báo từ danh sách chờ xử lý bên phải để xem bằng chứng hình ảnh và thực hiện thẩm định.</p>
+                </div>
+              </main>
             }
+
+            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
+              <div class="queue-header">
+                <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
+                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
+              </div>
+
+              <div class="queue-list-scroll">
+                @for (alert of activeAlerts(); track alert.id) {
+                  <button
+                    type="button"
+                    class="alert-queue-item"
+                    [class.selected]="selectedAlert()?.id === alert.id"
+                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
+                    (click)="selectAlert(alert)"
+                  >
+                    <div class="item-top-row">
+                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
+                        {{ priorityLabels[alert.priority] }}
+                      </span>
+                      <span class="item-time">{{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+
+                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
+
+                    <div class="item-meta">
+                      <span class="meta-code">
+                        <span nz-icon nzType="environment" aria-hidden="true"></span>
+                        {{ alert.towerCode || 'Chưa gắn cột' }}
+                      </span>
+                    </div>
+
+                    @if (alert.evidence.confidenceScore !== null) {
+                      <div class="item-confidence-row">
+                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
+                      </div>
+                    }
+                  </button>
+                }
+              </div>
+            </aside>
           </div>
         }
       </div>
@@ -312,14 +320,19 @@
       <div class="history-content-container" role="tabpanel">
         <div class="history-filter-bar">
           <div class="filter-group">
-            <label for="history-status-filter">Lọc theo trạng thái:</label>
-            <nz-select id="history-status-filter" [formControl]="historyStatus" style="width: 220px;">
-              <nz-option nzValue="" nzLabel="Tất cả trạng thái"></nz-option>
-              <nz-option nzValue="Active" nzLabel="Đang hoạt động"></nz-option>
-              <nz-option nzValue="Confirmed" nzLabel="Đã xác nhận"></nz-option>
-              <nz-option nzValue="Escalated" nzLabel="Đã chuyển cấp"></nz-option>
-              <nz-option nzValue="Dismissed" nzLabel="Đã bác bỏ"></nz-option>
-            </nz-select>
+            <label for="history-status-filter" class="filter-label">Lọc theo trạng thái:</label>
+            <select
+              id="history-status-filter"
+              class="history-native-select"
+              [value]="historyStatus.value"
+              (change)="historyStatus.setValue($any($event.target).value)"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="Active">Đang hoạt động</option>
+              <option value="Confirmed">Đã xác nhận</option>
+              <option value="Escalated">Đã chuyển cấp</option>
+              <option value="Dismissed">Đã bác bỏ</option>
+            </select>
           </div>
           <span class="history-total">Tổng số: <strong>{{ historyPage().totalCount }}</strong> bản ghi</span>
         </div>
@@ -352,7 +365,7 @@
                 <th nzWidth="120px">Mức độ</th>
                 <th nzWidth="140px">Trạng thái</th>
                 <th>Người xử lý &amp; ghi chú</th>
-                <th nzWidth="110px" nzAlign="center">Chi tiết</th>
+                <th nzWidth="120px" nzAlign="center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -392,7 +405,7 @@
                         </div>
                       }
                       @if (item.notes) {
-                        <p class="review-notes-text">{{ item.notes }}</p>
+                        <p class="review-notes-text">{{ formatReviewNotes(item.notes) }}</p>
                       }
                       @if (!item.reviewedBy && !item.notes) {
                         <span class="text-muted">Chưa có thông tin thẩm định.</span>
@@ -400,8 +413,8 @@
                     </div>
                   </td>
                   <td nzAlign="center">
-                    <button nz-button nzSize="small" nzType="link" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
-                      Xem
+                    <button type="button" class="button secondary small" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
+                      Chi tiết
                     </button>
                   </td>
                 </tr>
