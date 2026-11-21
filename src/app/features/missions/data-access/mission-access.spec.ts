@@ -196,7 +196,7 @@ describe('mission access rules', () => {
     });
 
     it('translates enums', () => {
-      expect(assignmentRoleLabel('INSPECTOR')).toBe('Phi công / Inspector');
+      expect(assignmentRoleLabel('INSPECTOR')).toBe('Phi công kiểm tra');
       expect(missionPriorityLabel('EMERGENCY')).toBe('Khẩn cấp');
       expect(towerInspectionStatusLabel('Inspected')).toBe('Đã kiểm tra');
       expect(maintenanceStatusLabel('Pending')).toBe('Chờ xử lý');

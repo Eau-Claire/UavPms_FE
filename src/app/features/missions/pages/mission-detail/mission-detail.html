@@ -989,10 +989,8 @@
                     <div class="field-wide"><span>Loại khuyết tật</span><p class="defect-type-value">{{ selected.title }}</p></div>
                     <div class="field-wide"><span>Mô tả phát hiện</span><p>{{ selected.description }}</p></div>
                     <div class="confidence-field"><span>Độ tin cậy</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
-                    <div><span>Vị trí Cột</span><p class="font-bold">{{ selected.tower }}</p></div>
+                    <div><span>Vị trí cột</span><p class="font-bold">{{ selected.tower || 'Chưa gắn cột' }}</p></div>
                     <div><span>Tọa độ GPS</span><p class="font-mono">{{ selected.gps }}</p></div>
-                    <div><span>Mã cột</span><p class="font-mono">{{ selected.towerId || 'Chưa gắn cột' }}</p></div>
-                    <div><span>Mã danh mục</span><p class="font-mono">{{ selected.categoryCode }}</p></div>
                     <div><span>Thời điểm phát hiện</span><p class="font-mono">{{ selected.timestampLabel }} ({{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }})</p></div>
                     <div><span>Mức độ nguy cấp</span><p class="font-semibold">{{ selected.isEmergency ? 'Khẩn cấp' : 'Bình thường' }}</p></div>
                     <div class="field-wide"><span>Trạng thái kiểm duyệt</span><p>{{ detectionStatusLabel(selected.status) }}</p></div>
