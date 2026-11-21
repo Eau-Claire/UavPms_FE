@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -64,6 +65,7 @@ export const URGENCY_LEVELS = [
     NzInputModule,
     NzSelectModule,
     NzTableModule,
+    RouterLink,
   ],
   templateUrl: './emergency-alerts-review.html',
   styleUrl: './emergency-alerts-review.scss',
@@ -147,6 +149,18 @@ export class EmergencyAlertsReview {
   private audioCtx: AudioContext | null = null;
 
   constructor() {
+    const route = inject(ActivatedRoute);
+    route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const id = params.get('id') || params.get('alertId');
+      if (id) {
+        this.selectedAlertId.set(id);
+      }
+      const tab = params.get('tab');
+      if (tab === 'history' || tab === 'active') {
+        this.selectedTab.set(tab);
+      }
+    });
+
     this.loadActive();
     this.loadHistory(1);
 
@@ -165,6 +179,12 @@ export class EmergencyAlertsReview {
         finalize(() => this.activeLoading.set(false)),
       )
       .subscribe({
+        next: (alerts) => {
+          const targetId = this.selectedAlertId();
+          if (targetId && alerts.length > 0 && !alerts.some((a) => a.id === targetId)) {
+            this.viewDetail(targetId);
+          }
+        },
         error: (err: unknown) => this.activeError.set(alertErrorMessage(err, 'Không thể tải danh sách cảnh báo đang hoạt động.')),
       });
   }

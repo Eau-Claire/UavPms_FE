@@ -147,7 +147,7 @@
 
               <div class="notification-detail-actions">
                 @if (selectedLink(); as link) {
-                  <a class="notification-go-mission-btn" [routerLink]="link.commands" (click)="closeNotifications()">
+                  <a class="notification-go-mission-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" (click)="closeNotifications()">
                     <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
                   </a>
                 }

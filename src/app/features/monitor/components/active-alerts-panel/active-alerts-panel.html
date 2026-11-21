@@ -160,6 +160,9 @@
             Trạng thái: <strong>{{ alert.isRead ? 'Đã xem' : 'Chưa xem' }}</strong>
           </span>
           <div class="modal-actions">
+            <a [routerLink]="['/emergency-alerts']" [queryParams]="{ id: alert.id }" class="action-btn secondary" (click)="closeModal()">
+              Xem vị trí sự cố →
+            </a>
             @if (!alert.isRead) {
               <button type="button" class="action-btn secondary" (click)="markAsRead(alert)">
                 Đánh dấu đã đọc

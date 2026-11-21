@@ -226,9 +226,17 @@
 
                 <div class="incident-details-grid">
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí</h4>
+                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí sự cố</h4>
                     <ul class="detail-list">
-                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
+                      <li>
+                        <span>Cột điện:</span>
+                        <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong>
+                        @if (alert.towerCode) {
+                          <a [routerLink]="['/gis']" [queryParams]="{ towerCode: alert.towerCode, lat: alert.location.latitude, lng: alert.location.longitude }" class="link-to-location" title="Xem trên bản đồ GIS" style="margin-left: 8px; color: #0284c7; text-decoration: underline; font-size: 12px;">
+                            Xem trên GIS →
+                          </a>
+                        }
+                      </li>
                       <li>
                         <span>Tọa độ GPS:</span>
                         @if (alert.location.latitude !== null && alert.location.longitude !== null) {

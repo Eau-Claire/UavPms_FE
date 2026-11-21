@@ -140,7 +140,7 @@ export class Header {
     const link = notificationLink(notification, this.user()?.role);
     if (link) {
       this.closeNotifications();
-      void this.router.navigate(link.commands);
+      void this.router.navigate(link.commands, { queryParams: link.queryParams });
     } else {
       this.notifications.select(notification);
     }

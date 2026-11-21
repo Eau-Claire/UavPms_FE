@@ -5,6 +5,7 @@ import { isFieldRole } from '../../auth/roles';
 
 export interface NotificationLink {
   readonly commands: readonly string[];
+  readonly queryParams?: Record<string, string>;
   readonly label: string;
 }
 
@@ -47,7 +48,13 @@ export const notificationLink = (notification: NotificationRef, role: RoleInput)
     case 'detectedanomaly':
       return id && canAccess(role, ROUTE_ROLES.aiReview) ? { commands: ['/ai-review', id], label: 'Thẩm định phát hiện AI' } : null;
     case 'emergencyalert':
-      return canAccess(role, ROUTE_ROLES.emergencyAlerts) ? { commands: ['/emergency-alerts'], label: 'Mở cảnh báo khẩn cấp' } : null;
+      return canAccess(role, ROUTE_ROLES.emergencyAlerts)
+        ? {
+            commands: ['/emergency-alerts'],
+            queryParams: id ? { id } : undefined,
+            label: 'Mở cảnh báo khẩn cấp',
+          }
+        : null;
     default:
       return null;
   }
