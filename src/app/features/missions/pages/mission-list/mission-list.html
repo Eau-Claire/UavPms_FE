@@ -145,7 +145,7 @@
               <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
               <td>
                 <div class="mission-row-actions">
-                  <a class="mission-row-action" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Xem nhiệm vụ ' + mission.missionCode">{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Xem' }}</a>
+                  <a class="button secondary small" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Chi tiết nhiệm vụ ' + mission.missionCode">{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Chi tiết' }}</a>
                 </div>
               </td>
             </tr>

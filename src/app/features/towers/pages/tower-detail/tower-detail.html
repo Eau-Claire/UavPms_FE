@@ -1,11 +1,14 @@
 <header class="page-heading">
   <div class="heading-left">
-    <nav class="page-breadcrumb" aria-label="Breadcrumb">
+    <nav class="page-breadcrumb" aria-label="Đường dẫn">
+      <a routerLink="/dashboard">TỔNG QUAN</a>
+      <span class="separator">/</span>
       @if (from() === 'gis') {
-        <a routerLink="/gis">BẢN ĐỒ GIS</a><span>/</span>
+        <a routerLink="/gis">BẢN ĐỒ GIS</a>
       } @else {
-        <a routerLink="/towers">CỘT ĐIỆN</a><span>/</span>
+        <a routerLink="/towers">CỘT ĐIỆN</a>
       }
+      <span class="separator">/</span>
       <strong>{{ tower()?.towerCode || 'CHI TIẾT' }}</strong>
     </nav>
     <h1>{{ tower() ? 'Cột ' + tower()!.towerCode : 'Chi tiết cột điện' }}</h1>

@@ -243,7 +243,7 @@ const SENDER_LABELS: Record<ActivitySenderKind, string> = {
 export const activitySenderLabel = (kind: ActivitySenderKind): string => SENDER_LABELS[kind];
 
 const ASSIGNMENT_ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công / Inspector',
+  INSPECTOR: 'Phi công kiểm tra',
   PILOT: 'Phi công',
   CO_PILOT: 'Phi công phụ',
   COPILOT: 'Phi công phụ',

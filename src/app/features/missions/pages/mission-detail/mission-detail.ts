@@ -325,6 +325,11 @@ export class MissionDetail {
     });
   });
 
+  private cleanDisplayName(name: string): string {
+    if (!name) return '';
+    return name.replace(/\s*\((Analyst|Inspector|Technician|Manager|Admin|SystemAdmin|Chuyên viên|Phi công|Kỹ thuật viên)[^)]*\)/gi, '').trim();
+  }
+
   protected roleText(assignmentRole: string): string {
     return assignmentRoleLabel(assignmentRole);
   }
@@ -334,7 +339,7 @@ export class MissionDetail {
     if (member.userId && users.length > 0) {
       const found = users.find((u) => u.id === member.userId || u.username === member.userId);
       if (found) {
-        return found.fullName || found.username || found.email;
+        return this.cleanDisplayName(found.fullName || found.username || found.email);
       }
     }
     if (member.userName && users.length > 0) {
@@ -342,10 +347,10 @@ export class MissionDetail {
         (u) => u.username.toLowerCase() === member.userName.toLowerCase() || u.id === member.userName,
       );
       if (found) {
-        return found.fullName || found.username || found.email;
+        return this.cleanDisplayName(found.fullName || found.username || found.email);
       }
     }
-    return member.userFullName || member.userName || member.assignmentRole || 'Thành viên';
+    return this.cleanDisplayName(member.userFullName || member.userName || member.assignmentRole || 'Thành viên');
   }
 
   protected getAssignedPilotDisplayName(): string {
@@ -355,7 +360,7 @@ export class MissionDetail {
     if (m.assignedToUserId && users.length > 0) {
       const found = users.find((u) => u.id === m.assignedToUserId || u.username === m.assignedToUserId);
       if (found) {
-        return found.fullName || found.username || found.email;
+        return this.cleanDisplayName(found.fullName || found.username || found.email);
       }
     }
     if (m.assignedToUsername && users.length > 0) {
@@ -363,10 +368,10 @@ export class MissionDetail {
         (u) => u.username.toLowerCase() === m.assignedToUsername.toLowerCase() || u.id === m.assignedToUsername,
       );
       if (found) {
-        return found.fullName || found.username || found.email;
+        return this.cleanDisplayName(found.fullName || found.username || found.email);
       }
     }
-    return m.assignedToUsername || 'Chưa phân công';
+    return this.cleanDisplayName(m.assignedToUsername || 'Chưa phân công');
   }
 
   protected canAcceptMemberAssignment(member: MissionAssignment): boolean {
@@ -1756,11 +1761,11 @@ export class MissionDetail {
   protected priorityLabel(priority?: MissionPriority): string {
     switch ((priority || '').toUpperCase()) {
       case 'EMERGENCY':
-        return 'Khẩn cấp (EMERGENCY)';
+        return 'Khẩn cấp';
       case 'HIGH':
-        return 'Ưu tiên cao (HIGH)';
+        return 'Ưu tiên cao';
       default:
-        return 'Bình thường (NORMAL)';
+        return 'Bình thường';
     }
   }
 
@@ -1778,13 +1783,13 @@ export class MissionDetail {
   protected objectiveLabel(obj?: string): string {
     switch (obj) {
       case 'PERIODIC_INSPECTION':
-        return 'Kiểm tra định kỳ (PERIODIC_INSPECTION)';
+        return 'Kiểm tra định kỳ';
       case 'TARGETED_REINSPECTION':
-        return 'Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)';
+        return 'Kiểm tra lại mục tiêu';
       case 'INCIDENT_FOLLOW_UP':
-        return 'Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)';
+        return 'Theo dõi xử lý sự cố';
       case 'EMERGENCY_INSPECTION':
-        return 'Khảo sát khẩn cấp (EMERGENCY_INSPECTION)';
+        return 'Khảo sát khẩn cấp';
       default:
         return obj || 'Kiểm tra định kỳ';
     }

@@ -31,6 +31,13 @@
     }
     <header class="mission-live-header">
       <div class="header-main-info">
+        <nav class="page-breadcrumb" aria-label="Đường dẫn">
+          <a routerLink="/dashboard">TỔNG QUAN</a>
+          <span class="separator">/</span>
+          <a routerLink="/missions">NHIỆM VỤ BAY</a>
+          <span class="separator">/</span>
+          <strong>{{ mission.missionCode }}</strong>
+        </nav>
         <div class="header-title-row">
           <strong class="header-mission-code">Nhiệm vụ: {{ mission.missionCode }}</strong>
           <span class="mission-live-badge status-primary">{{ statusLabel(mission.status) }}</span>
