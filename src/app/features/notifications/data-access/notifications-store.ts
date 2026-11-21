@@ -4,177 +4,9 @@ import { finalize } from 'rxjs';
 import { Auth } from '../../../core/auth/auth';
 import { AppNotification, NotificationFilters, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { NotificationsApi } from './notifications-api';
-import { MissionLifecycleRealtimeEvent, NotificationsRealtime } from './notifications-realtime';
+import { NotificationsRealtime } from './notifications-realtime';
 
 import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../monitor/data-access/monitor-api';
-
-const LOCAL_STORAGE_NOTIFS_KEY = 'uav_pms_notifications_v1';
-
-function getLocalNotifications(): AppNotification[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_NOTIFS_KEY) || sessionStorage.getItem(LOCAL_STORAGE_NOTIFS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed as AppNotification[];
-      }
-    }
-  } catch {
-    // Ignore storage read errors
-  }
-  return [];
-}
-
-function normalizeEmail(email?: string | null): string {
-  if (!email) return '';
-  const trimmed = email.trim().toLowerCase();
-  const parts = trimmed.split('@');
-  if (parts.length !== 2) return trimmed;
-  let [local, domain] = parts;
-  if (domain === 'gmail.com' || domain === 'googlemail.com') {
-    local = local.split('+')[0].replace(/\./g, '');
-  }
-  return `${local}@${domain}`;
-}
-
-function saveLocalNotifications(list: readonly AppNotification[]): void {
-  try {
-    const json = JSON.stringify(list);
-    localStorage.setItem(LOCAL_STORAGE_NOTIFS_KEY, json);
-    sessionStorage.setItem(LOCAL_STORAGE_NOTIFS_KEY, json);
-  } catch {
-    // Ignore storage write errors
-  }
-}
-
-function convertMissionEventToNotification(
-  event: MissionLifecycleRealtimeEvent,
-  currentUserId?: string,
-  currentUserRole?: string,
-): AppNotification | null {
-  const now = event.timestamp || new Date().toISOString();
-  const missionId = event.missionId;
-  const actor = event.actorName || (event.actorRole ? `[${event.actorRole}]` : 'Hệ thống');
-  const role = (currentUserRole || '').toLowerCase();
-  const isManagerOrAdmin = role.includes('manager') || role.includes('admin') || role.includes('quản lý');
-
-  switch (event.type) {
-    case 'DISPATCHED':
-    case 'ASSIGNED':
-    case 'CREATED':
-    case 'REASSIGNED':
-      if (isManagerOrAdmin) {
-        return {
-          id: `notif-disp-${missionId}`,
-          userId: currentUserId,
-          title: `Đã ban hành nhiệm vụ ${missionId}`,
-          body: `Nhiệm vụ đã được gửi tới đội ngũ vận hành. Hạn chót xác nhận: ${event.confirmationDeadline ? new Date(event.confirmationDeadline).toLocaleString('vi-VN') : 'Trước giờ bay'}.`,
-          type: 'MISSION_DISPATCH',
-          referenceType: 'MISSION',
-          referenceId: missionId,
-          createdAt: now,
-          isRead: true,
-        };
-      }
-      return {
-        id: `notif-disp-${missionId}`,
-        userId: currentUserId,
-        title: `Yêu cầu xác nhận nhiệm vụ ${missionId}`,
-        body: `Bạn được phân công tham gia nhiệm vụ. Hạn chót xác nhận: ${event.confirmationDeadline ? new Date(event.confirmationDeadline).toLocaleString('vi-VN') : 'Trước giờ bay'}.${event.managerInstructions ? ` Chỉ thị: "${event.managerInstructions}"` : ''}`,
-        type: 'MISSION_DISPATCH',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'CONFIRMED':
-      return {
-        id: `notif-conf-${missionId}-${event.actorRole || 'MEMBER'}`,
-        userId: currentUserId,
-        title: `${actor} đã xác nhận nhiệm vụ ${missionId}`,
-        body: `Tiến độ: ${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3}. ${event.allConfirmed ? 'Tất cả vai trò đã sẵn sàng.' : 'Đang chờ các vai trò còn lại.'}`,
-        type: 'MISSION_CONFIRMED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'POSTPONED':
-      return {
-        id: `notif-post-${missionId}`,
-        userId: currentUserId,
-        title: `${actor} đề xuất hoãn nhiệm vụ ${missionId}`,
-        body: `Lý do hoãn: "${event.reason || 'Bận việc đột xuất'}".`,
-        type: 'MISSION_POSTPONED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'SUSPENDED':
-      return {
-        id: `notif-susp-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} bị tạm dừng`,
-        body: event.reason || 'Quản lý đã ra lệnh tạm dừng chuyến bay.',
-        type: 'MISSION_SUSPENDED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'REMINDER':
-      return {
-        id: `notif-rem-${missionId}`,
-        userId: currentUserId,
-        title: `Nhắc nhở tiếp nhận nhiệm vụ ${missionId}`,
-        body: event.reason || 'Vui lòng xác nhận tiếp nhận trước hạn chót.',
-        type: 'MISSION_REMINDER',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'CHECKED_IN':
-      return {
-        id: `notif-checkin-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} đã check-in hiện trường`,
-        body: `${actor} đã có mặt tại điểm bay. Trạng thái: Sẵn sàng bay.`,
-        type: 'MISSION_STARTED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'STARTED':
-      return {
-        id: `notif-start-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} bắt đầu bay`,
-        body: 'UAV đã cất cánh và đang thực hiện hành trình bay kiểm tra.',
-        type: 'MISSION_STARTED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'COMPLETED':
-      return {
-        id: `notif-comp-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} đã hoàn tất khảo sát`,
-        body: 'UAV đã hạ cánh an toàn. Đã mở khóa cổng nạp dữ liệu ảnh/video.',
-        type: 'MISSION_COMPLETED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    default:
-      return null;
-  }
-}
 
 @Injectable({
   providedIn: 'root',
@@ -184,7 +16,7 @@ export class NotificationsStore {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly notificationsState = signal<readonly AppNotification[]>(getLocalNotifications());
+  private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
   private realtimeStarted = false;
 
@@ -199,48 +31,15 @@ export class NotificationsStore {
   readonly types = computed(() => Array.from(new Set(this.notificationsState().map((item) => item.type).filter(Boolean))).sort() as string[]);
 
   readonly userNotifications = computed(() => {
-    const currentUser = this.auth.user();
-    const currentUserId = currentUser?.id?.toLowerCase();
-    const currentUserEmail = currentUser?.email?.toLowerCase();
-    const currentNormEmail = normalizeEmail(currentUserEmail);
-    const currentRole = (currentUser?.role || '').toLowerCase();
-    const isManagerOrAdmin = currentRole.includes('manager') || currentRole.includes('admin') || currentRole.includes('quản lý');
-
-    const filtered = this.notificationsState().filter((item) => {
-      if (isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && (item.body?.includes('Bạn được phân công') || item.title?.includes('Yêu cầu xác nhận'))) {
-        return false;
-      }
-
-      if (!isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && item.title?.includes('Đã ban hành nhiệm vụ')) {
-        return false;
-      }
-
-      if (item.userId && currentUserId) {
-        const target = item.userId.toLowerCase();
-        const matches =
-          target === currentUserId ||
-          (currentUserEmail && target === currentUserEmail) ||
-          (currentNormEmail && normalizeEmail(target) === currentNormEmail);
-        if (!matches) return false;
-      }
-      return true;
-    });
-
+    const list = this.notificationsState();
     const seenIds = new Set<string>();
-    const seenSignatures = new Set<string>();
     const deduped: AppNotification[] = [];
 
-    for (const item of filtered) {
+    for (const item of list) {
       if (seenIds.has(item.id)) continue;
       seenIds.add(item.id);
-
-      const sig = `${item.type || ''}|${item.referenceId || ''}|${(item.title || '').trim().toLowerCase()}|${(item.body || '').trim().toLowerCase()}`;
-      if (seenSignatures.has(sig)) continue;
-      seenSignatures.add(sig);
-
       deduped.push(item);
     }
-
     return deduped;
   });
 
@@ -265,13 +64,6 @@ export class NotificationsStore {
     this.realtime.notifications$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((notification) => this.upsert(notification));
-    this.realtime.missionEvents$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => {
-        const u = this.auth.user();
-        const notif = convertMissionEventToNotification(event, u?.id, u?.role);
-        if (notif) this.upsert(notif);
-      });
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => this.realtimeStatus.set(status));
@@ -302,15 +94,14 @@ export class NotificationsStore {
         next: (items) => {
           const merged = sortNotifications(items, this.filters().sort);
           this.notificationsState.set(merged);
-          saveLocalNotifications(merged);
           const readIds = merged.filter((item) => item.isRead).map((item) => item.id);
           if (readIds.length > 0) {
             markAllAlertIdsAsReadLocally(readIds);
           }
         },
         error: () => {
-          const local = getLocalNotifications();
-          this.notificationsState.set(sortNotifications(local, this.filters().sort));
+          this.notificationsState.set([]);
+          this.error.set('Không thể tải danh sách thông báo từ máy chủ.');
         },
       });
   }
@@ -326,52 +117,68 @@ export class NotificationsStore {
       )
       .subscribe({
         next: (detail) => {
-          const merged = { ...notification, ...detail };
-          this.selectedState.set(merged);
-          this.upsert(merged);
-          if (!merged.isRead) this.markRead(merged.id);
+          this.selectedState.set(detail);
+          this.patch(detail.id, detail);
+          if (!detail.isRead) {
+            this.markRead(detail.id);
+          }
         },
         error: () => {
           this.selectedState.set(notification);
-          if (!notification.isRead) this.markRead(notification.id);
+          if (!notification.isRead) {
+            this.markRead(notification.id);
+          }
         },
       });
   }
 
-  clearSelection(): void {
+  closeDetail(): void {
     this.selectedState.set(null);
   }
 
+  clearSelection(): void {
+    this.closeDetail();
+  }
+
   setReadFilter(read: NotificationReadFilter): void {
-    this.filters.update((value) => ({ ...value, read }));
+    this.filters.update((f) => ({ ...f, read }));
   }
 
   setTypeFilter(type: string): void {
-    this.filters.update((value) => ({ ...value, type }));
+    this.filters.update((f) => ({ ...f, type }));
+  }
+
+  setSort(sort: NotificationSort): void {
+    this.filters.update((f) => ({ ...f, sort }));
+    this.notificationsState.update((items) => sortNotifications(items, sort));
   }
 
   setSortFilter(sort: NotificationSort): void {
-    this.filters.update((value) => ({ ...value, sort }));
+    this.setSort(sort);
   }
 
   markRead(id: string): void {
     markAlertIdAsReadLocally(id);
+    this.patch(id, { isRead: true });
     this.api
       .markRead(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.patch(id, { isRead: true }),
-        error: () => this.patch(id, { isRead: true }),
+        error: () => {},
       });
   }
 
-  markAllAsRead(): void {
-    const unread = this.userNotifications().filter((item) => !item.isRead);
+  markAllRead(): void {
+    const unread = this.notificationsState().filter((item) => !item.isRead);
     const ids = unread.map((item) => item.id);
     if (ids.length > 0) {
       markAllAlertIdsAsReadLocally(ids);
       ids.forEach((id) => this.markRead(id));
     }
+  }
+
+  markAllAsRead(): void {
+    this.markAllRead();
   }
 
   delete(id: string): void {
@@ -393,22 +200,14 @@ export class NotificationsStore {
 
   private patch(id: string, patch: Partial<AppNotification>): void {
     this.notificationsState.update((items) => {
-      const updated = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      saveLocalNotifications(updated);
-      return updated;
+      return items.map((item) => (item.id === id ? { ...item, ...patch } : item));
     });
     if (this.selectedState()?.id === id) this.selectedState.update((item) => (item ? { ...item, ...patch } : item));
   }
 
   upsert(notification: AppNotification): void {
     this.notificationsState.update((items) => {
-      const notifSig = `${notification.type || ''}|${notification.referenceId || ''}|${(notification.title || '').trim().toLowerCase()}|${(notification.body || '').trim().toLowerCase()}`;
-      const existingIndex = items.findIndex((item) => {
-        if (item.id === notification.id) return true;
-        const itemSig = `${item.type || ''}|${item.referenceId || ''}|${(item.title || '').trim().toLowerCase()}|${(item.body || '').trim().toLowerCase()}`;
-        return itemSig === notifSig;
-      });
-
+      const existingIndex = items.findIndex((item) => item.id === notification.id);
       let nextList: AppNotification[];
       if (existingIndex >= 0) {
         nextList = [...items];
@@ -416,10 +215,7 @@ export class NotificationsStore {
       } else {
         nextList = [notification, ...items];
       }
-
-      const updated = sortNotifications(nextList, this.filters().sort);
-      saveLocalNotifications(updated);
-      return updated;
+      return sortNotifications(nextList, this.filters().sort);
     });
     if (this.selectedState()?.id === notification.id) this.selectedState.set(notification);
   }

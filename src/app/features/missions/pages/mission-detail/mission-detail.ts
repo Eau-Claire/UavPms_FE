@@ -38,7 +38,6 @@ import {
   NotificationsRealtime,
 } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
-import { saveStoredMockTicket } from '../../../maintenance/data-access/maintenance-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
@@ -766,10 +765,10 @@ export class MissionDetail {
           this.isAiProcessingComplete.set(true);
           this.aiPipelineStep.set(4);
           this.aiPipelineStatusText.set(
-            `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${this.detections().length} khuyết tật và lập báo cáo rủi ro thành công.`
+            `✅ Đã có ${this.detections().length} khuyết tật được phát hiện từ phân tích AI.`
           );
-        } else if (this.mediaQueue().length > 0 && !this.isAiProcessing()) {
-          setTimeout(() => this.runAiWorkerMock(), 400);
+        } else {
+          this.aiPipelineStatusText.set('Hệ thống đang sẵn sàng xử lý dữ liệu hình ảnh và video.');
         }
       }
     } else if (tab === 'maintenance') {
@@ -1150,10 +1149,9 @@ export class MissionDetail {
           this.uploadMessage.set(
             duplicates
               ? `Đã tải lên ${media.length - duplicates}/${media.length} tệp, ${duplicates} tệp trùng đã bỏ qua.`
-              : `Đã tải lên ${media.length} tệp. Hệ thống đang phân tích.`,
+              : `Đã tải lên ${media.length} tệp. Hệ thống AI đang phân tích dữ liệu.`,
           );
           this.setTab('processing');
-          this.runAiWorkerMock();
         },
         error: (error: unknown) => {
           this.setQueueProgress('Tải lên lỗi', this.uploadProgress());
@@ -1983,31 +1981,22 @@ export class MissionDetail {
       )
       .subscribe({
         next: (detections) => {
-          let mapped = detections.map((item) => this.mapDetection(item));
-          if (!mapped.length) {
-            const saved = this.loadSavedMockDetections(missionId);
-            if (saved.length) mapped = saved;
-          }
+          const mapped = detections.map((item) => this.mapDetection(item));
           this.resultPage.set(1);
           this.detections.set(mapped);
           this.selectedDetection.set(mapped[0] ?? null);
           this.loadMediaQueue(missionId);
         },
         error: () => {
-          const saved = this.loadSavedMockDetections(missionId);
           this.resultPage.set(1);
-          this.detections.set(saved);
-          this.selectedDetection.set(saved[0] ?? null);
+          this.detections.set([]);
+          this.selectedDetection.set(null);
           this.loadMediaQueue(missionId);
         },
       });
   }
 
   private loadMaintenanceTasks(missionId: string): void {
-    const savedImmediate = this.loadSavedMockMaintenanceTasks(missionId);
-    if (savedImmediate.length && !this.maintenanceTasks().length) {
-      this.maintenanceTasks.set(savedImmediate);
-    }
     this.api
       .getMissionMaintenanceTasks(missionId)
       .pipe(
@@ -2016,7 +2005,7 @@ export class MissionDetail {
       )
       .subscribe({
         next: (tasks) => {
-          let mapped: MissionMaintenanceTask[] = tasks.map((t) => ({
+          const mapped: MissionMaintenanceTask[] = tasks.map((t) => ({
             id: t.id,
             title: t.title,
             priority: (t.priority === 'Urgent' || t.priority === 'High' || t.priority === 'Medium' || t.priority === 'Scheduled'
@@ -2031,26 +2020,10 @@ export class MissionDetail {
             assignedTeam: t.assignedTeam || '—',
             detectionId: t.detectionId,
           }));
-          const currentInMemory = this.maintenanceTasks();
-          const currentSaved = this.loadSavedMockMaintenanceTasks(missionId);
-          const allKnown = [...currentInMemory];
-          for (const s of currentSaved) {
-            if (!allKnown.some((k) => k.id === s.id)) {
-              allKnown.push(s);
-            }
-          }
-          if (allKnown.length) {
-            const existingIds = new Set(mapped.map((m) => m.id));
-            mapped = [...mapped, ...allKnown.filter((s) => !existingIds.has(s.id))];
-          }
           this.maintenanceTasks.set(mapped);
-          this.saveMockMaintenanceTasks(missionId, mapped);
         },
         error: () => {
-          const currentSaved = this.loadSavedMockMaintenanceTasks(missionId);
-          if (currentSaved.length) {
-            this.maintenanceTasks.set(currentSaved);
-          }
+          this.maintenanceTasks.set([]);
         },
       });
   }
@@ -2469,58 +2442,10 @@ export class MissionDetail {
     return this.maintenanceTasks().some((t) => t.detectionId === detectionId);
   }
 
-  protected runAiWorkerMock(): void {
+  protected refreshAiDetections(): void {
     const mission = this.mission();
     if (!mission) return;
-    const missionId = mission.id;
-    const queue = this.mediaQueue();
-
-    this.isAiProcessing.set(true);
-    this.isAiProcessingComplete.set(false);
-    this.aiPipelineStep.set(2);
-    this.aiPipelineStatusText.set('Đang trích xuất khung hình chất lượng cao từ UAV (Frame Extraction)...');
-    this.setQueueProgress('Đang trích xuất khung hình (45%)', 45);
-
-    // Stage 1 -> Stage 2 (Frame extraction to YOLO detection)
-    setTimeout(() => {
-      this.aiPipelineStep.set(3);
-      this.aiPipelineStatusText.set('Mô hình AI YOLOv8 đang quét ảnh/video và nhận diện khuyết tật thiết bị điện...');
-      this.setQueueProgress('Đang nhận diện khuyết tật AI (80%)', 80);
-
-      // Stage 2 -> Stage 3 (Defect detection to Risk Report)
-      setTimeout(() => {
-        this.aiPipelineStep.set(4);
-        this.aiPipelineStatusText.set('Đang phân tích mức độ nghiêm trọng, tổng hợp ma trận rủi ro và lập báo cáo...');
-        this.setQueueProgress('Đang lập báo cáo rủi ro (95%)', 95);
-
-        // Stage 3 -> Completed
-        setTimeout(() => {
-          this.isAiProcessing.set(false);
-          this.isAiProcessingComplete.set(true);
-          this.aiPipelineStatusText.set(
-            '✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện khuyết tật và lập báo cáo rủi ro thành công.'
-          );
-
-          const generated = this.generateMockDetections(mission, queue);
-          this.detections.set(generated);
-          this.selectedDetection.set(generated[0] ?? null);
-          this.saveMockDetections(missionId, generated);
-
-          this.mediaQueue.update((items) =>
-            items.map((item) => ({
-              ...item,
-              status: 'Đã phân tích khuyết tật (Hoàn tất)',
-              progress: 100,
-            }))
-          );
-          this.saveMockMediaQueue(missionId, this.mediaQueue());
-
-          this.uploadMessage.set(
-            `AI Worker đã hoàn tất phân tích. Đã phát hiện ${generated.length} khuyết tật cần chuyên viên giám định.`
-          );
-        }, 1200);
-      }, 1400);
-    }, 1200);
+    this.loadDetections(mission.id);
   }
 
   protected getDefectFallbackImage(categoryCode?: string): string {
@@ -2553,143 +2478,6 @@ export class MissionDetail {
     }
   }
 
-  private generateMockDetections(mission: Mission, media: readonly MissionMediaPreview[]): MissionDetectionView[] {
-    const targets = (mission.targets && mission.targets.length > 0) ? mission.targets : [];
-    const t0 = targets[0];
-    const t1 = targets[1] || targets[0];
-    const tower1Code = t0?.towerCode || 'HCM-TB-T01';
-    const tower1Id = t0?.towerId || crypto.randomUUID();
-    const tower2Code = t1?.towerCode || t0?.towerCode || 'HCM-TB-T02';
-    const tower2Id = t1?.towerId || t0?.towerId || crypto.randomUUID();
-
-    const def1Img = (media[0]?.url && !media[0].url.startsWith('blob:')) ? media[0].url : '/images/defect-insulator-dirty.png';
-    const def2Img = (media[1]?.url && !media[1].url.startsWith('blob:')) ? media[1].url : '/images/defect-insulator-crack.png';
-    const def3Img = (media[0]?.url && !media[0].url.startsWith('blob:')) ? media[0].url : '/images/defect-bolt-missing.png';
-    const def4Img = (media[2]?.url && !media[2].url.startsWith('blob:')) ? media[2].url : '/images/defect-corridor-tree.png';
-
-    const now = new Date();
-    const ts = (minsAgo: number) => new Date(now.getTime() - minsAgo * 60000).toISOString();
-
-    return [
-      {
-        id: crypto.randomUUID(),
-        mediaId: media[0]?.id || crypto.randomUUID(),
-        title: 'Rỉ sét và ăn mòn kim loại thanh giằng',
-        confidence: 94,
-        timestampLabel: 'Ảnh UAV',
-        timestampSeconds: null,
-        frameIndex: null,
-        videoDurationLabel: 'Ảnh đơn',
-        status: 'Pending',
-        mediaStatus: 'Analyzed',
-        categoryCode: 'CORROSION',
-        severityWeight: 2,
-        isEmergency: false,
-        aiSource: 'SERVER_YOLO_V8',
-        mediaType: 'image',
-        sourceUrl: def1Img,
-        imageUrl: def1Img,
-        cropImageUrl: def1Img,
-        boundingBox: { x: 26, y: 32, width: 34, height: 26 },
-        missionId: mission.id,
-        towerId: tower1Id,
-        tower: tower1Code,
-        gps: `${t0?.latitude ? t0.latitude.toFixed(5) : '10.79812'}, ${t0?.longitude ? t0.longitude.toFixed(5) : '106.65430'}`,
-        description: 'Phát hiện oxy hóa rỉ sét ăn mòn bề mặt lớp mạ kẽm tại thanh giằng chịu lực số 2 của cột. Cần cạo gỉ và sơn phủ mạ kẽm bảo vệ.',
-        notes: '',
-        detectedAt: ts(12),
-        validatedAt: '',
-      },
-      {
-        id: crypto.randomUUID(),
-        mediaId: media[1]?.id || media[0]?.id || crypto.randomUUID(),
-        title: 'Nứt vỡ bát sứ cách điện pha B',
-        confidence: 89,
-        timestampLabel: 'Ảnh UAV',
-        timestampSeconds: null,
-        frameIndex: null,
-        videoDurationLabel: 'Ảnh đơn',
-        status: 'Pending',
-        mediaStatus: 'Analyzed',
-        categoryCode: 'INSULATOR_CRACK',
-        severityWeight: 4,
-        isEmergency: true,
-        aiSource: 'SERVER_YOLO_V8',
-        mediaType: 'image',
-        sourceUrl: def2Img,
-        imageUrl: def2Img,
-        cropImageUrl: def2Img,
-        boundingBox: { x: 42, y: 18, width: 28, height: 28 },
-        missionId: mission.id,
-        towerId: tower2Id,
-        tower: tower2Code,
-        gps: `${t1?.latitude ? t1.latitude.toFixed(5) : '10.79950'}, ${t1?.longitude ? t1.longitude.toFixed(5) : '106.65580'}`,
-        description: 'Bát sứ cách điện thứ 3 chuỗi néo pha B bị nứt xuyên tâm, nguy cơ phóng điện vầng quang khi trời mưa ẩm.',
-        notes: '',
-        detectedAt: ts(8),
-        validatedAt: '',
-      },
-      {
-        id: crypto.randomUUID(),
-        mediaId: media[0]?.id || crypto.randomUUID(),
-        title: 'Mất bu-lông liên kết thanh giằng xà ngang',
-        confidence: 96,
-        timestampLabel: 'Ảnh UAV',
-        timestampSeconds: null,
-        frameIndex: null,
-        videoDurationLabel: 'Ảnh đơn',
-        status: 'Pending',
-        mediaStatus: 'Analyzed',
-        categoryCode: 'MISSING_BOLT',
-        severityWeight: 3,
-        isEmergency: false,
-        aiSource: 'SERVER_YOLO_V8',
-        mediaType: 'image',
-        sourceUrl: def3Img,
-        imageUrl: def3Img,
-        cropImageUrl: def3Img,
-        boundingBox: { x: 38, y: 54, width: 20, height: 20 },
-        missionId: mission.id,
-        towerId: tower1Id,
-        tower: tower1Code,
-        gps: `${t0?.latitude ? t0.latitude.toFixed(5) : '10.79812'}, ${t0?.longitude ? t0.longitude.toFixed(5) : '106.65430'}`,
-        description: 'Vị trí bản mã nút giằng xà ngang bị khuyết 01 bu-lông mạ kẽm M20, có dấu hiệu rơ lắc dưới tác động rung của gió.',
-        notes: '',
-        detectedAt: ts(5),
-        validatedAt: '',
-      },
-      {
-        id: crypto.randomUUID(),
-        mediaId: media[2]?.id || media[0]?.id || crypto.randomUUID(),
-        title: 'Cây cối xâm phạm khoảng cách an toàn hành lang',
-        confidence: 92,
-        timestampLabel: 'Ảnh UAV',
-        timestampSeconds: null,
-        frameIndex: null,
-        videoDurationLabel: 'Ảnh đơn',
-        status: 'Pending',
-        mediaStatus: 'Analyzed',
-        categoryCode: 'VEGETATION_CLEARANCE',
-        severityWeight: 2,
-        isEmergency: false,
-        aiSource: 'SERVER_YOLO_V8',
-        mediaType: 'image',
-        sourceUrl: def4Img,
-        imageUrl: def4Img,
-        cropImageUrl: def4Img,
-        boundingBox: { x: 58, y: 36, width: 32, height: 34 },
-        missionId: mission.id,
-        towerId: tower2Id,
-        tower: tower2Code,
-        gps: `${t1?.latitude ? t1.latitude.toFixed(5) : '10.79950'}, ${t1?.longitude ? t1.longitude.toFixed(5) : '106.65580'}`,
-        description: 'Cành cây cao tiến sát dây dẫn pha biên, khoảng cách thực tế ước tính 2.2m (vi phạm ngưỡng an toàn quy định >= 4m).',
-        notes: '',
-        detectedAt: ts(2),
-        validatedAt: '',
-      },
-    ];
-  }
-
   private applyReviewSuccess(selected: MissionDetectionView, backendStatus: 'Approved' | 'Rejected', missionId: string): void {
     const updated: MissionDetectionView = {
       ...selected,
@@ -2699,7 +2487,6 @@ export class MissionDetail {
     };
     this.selectedDetection.set(updated);
     this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
-    this.saveMockDetections(missionId, this.detections());
 
     if (backendStatus === 'Approved') {
       this.resultMessage.set('Đã duyệt khuyết tật. Đang tự động lập phiếu bảo trì (MF04)...');
@@ -2796,71 +2583,9 @@ export class MissionDetail {
     };
     this.selectedDetection.set(updatedDetection);
     this.detections.update((items) => items.map((d) => (d.id === detection.id ? updatedDetection : d)));
-    this.saveMockDetections(missionId, this.detections());
 
     // Update maintenance tasks
     this.maintenanceTasks.update((tasks) => [newTask, ...tasks]);
-    this.saveMockMaintenanceTasks(missionId, this.maintenanceTasks());
-
-    const realTowerId =
-      detection.towerId && detection.towerId !== 't-1' && detection.towerId !== 't-2'
-        ? detection.towerId
-        : mission.targets?.[0]?.towerId || crypto.randomUUID();
-
-    // Save globally to localStorage for /maintenance page
-    saveStoredMockTicket({
-      id: taskId,
-      ticketCode,
-      anomalyId: detection.id,
-      towerId: realTowerId,
-      managerId: realManagerId,
-      technicianId: realTechId,
-      status: 'Open',
-      priority: detection.isEmergency ? 'Emergency' : 'High',
-      description: `${newTask.title}. ${newTask.defectDescription}. Biện pháp kỹ thuật: ${newTask.suggestedAction}`,
-      createdAt: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 7 * 86400000).toISOString(),
-      manager: {
-        id: realManagerId,
-        fullName: realManagerName,
-        email: realManagerEmail,
-      },
-      technician: {
-        id: realTechId,
-        fullName: realTechName,
-        email: realTechEmail,
-      },
-      tower: {
-        id: realTowerId,
-        towerCode: detection.tower,
-        regionId: mission.regionId,
-      },
-      anomaly: {
-        id: detection.id,
-        validationStatus: 'Confirmed',
-        confidenceScore: detection.confidence,
-        mediaId: detection.mediaId,
-        missionId: mission.id,
-        categoryName: detection.title,
-        categoryCode: detection.categoryCode,
-        isEmergencyClass: detection.isEmergency,
-        imageUrl: detection.imageUrl || '/images/defect-preview-frame.png',
-        cropUrl: detection.cropImageUrl || detection.imageUrl || '/images/defect-preview-frame.png',
-        analystNotes: detection.notes,
-        validatedAt: detection.validatedAt || new Date().toISOString(),
-        boundingBox: detection.boundingBox
-          ? {
-              x: detection.boundingBox.x,
-              y: detection.boundingBox.y,
-              width: detection.boundingBox.width,
-              height: detection.boundingBox.height,
-              isNormalized: true,
-            }
-          : undefined,
-      },
-      proofs: [],
-      materials: [],
-    });
 
     // Notify backend API of review decision to keep database synced
     if (triggerReviewApi) {
@@ -2903,54 +2628,7 @@ export class MissionDetail {
           });
       }
     });
-    this.saveMockMaintenanceTasks(missionId, this.maintenanceTasks());
     this.resultMessage.set(`✅ Đã lập thành công ${count} phiếu bảo trì từ các khuyết tật AI.`);
-  }
-
-  private loadSavedMockDetections(missionId: string): MissionDetectionView[] {
-    try {
-      const raw = localStorage.getItem(`uavpms.mock_detections_${missionId}`);
-      if (!raw) return [];
-      const list = JSON.parse(raw) as MissionDetectionView[];
-      const sanitized = list.map((item) => ({
-        ...item,
-        mediaType: item.mediaType || 'image',
-        timestampSeconds: (item.mediaType || '').toLowerCase().includes('video') ? item.timestampSeconds : null,
-        imageUrl: this.sanitizeDetectionImageUrl(item.imageUrl, item.categoryCode),
-        cropImageUrl: this.sanitizeDetectionImageUrl(item.cropImageUrl, item.categoryCode),
-        sourceUrl: this.sanitizeDetectionImageUrl(item.sourceUrl, item.categoryCode),
-      }));
-      // Resave to clean any expired blob: URLs permanently
-      this.saveMockDetections(missionId, sanitized);
-      return sanitized;
-    } catch {
-      return [];
-    }
-  }
-
-  private saveMockDetections(missionId: string, items: readonly MissionDetectionView[]): void {
-    try {
-      localStorage.setItem(`uavpms.mock_detections_${missionId}`, JSON.stringify(items));
-    } catch {
-      // ignore
-    }
-  }
-
-  private loadSavedMockMaintenanceTasks(missionId: string): MissionMaintenanceTask[] {
-    try {
-      const raw = localStorage.getItem(`uavpms.mock_maintenance_tasks_${missionId}`);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private saveMockMaintenanceTasks(missionId: string, items: readonly MissionMaintenanceTask[]): void {
-    try {
-      localStorage.setItem(`uavpms.mock_maintenance_tasks_${missionId}`, JSON.stringify(items));
-    } catch {
-      // ignore
-    }
   }
 
   private loadMediaQueue(missionId: string): void {
@@ -2969,7 +2647,7 @@ export class MissionDetail {
     }
 
     // Auto-restore uploaded files if detections exist for this mission or mission completed
-    const detections = this.detections().length > 0 ? this.detections() : this.loadSavedMockDetections(missionId);
+    const detections = this.detections();
     const mission = this.mission();
     const isCompletedOrHasDetections =
       detections.length > 0 ||

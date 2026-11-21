@@ -18,8 +18,6 @@ import {
 } from '../../../models/maintenance.models';
 import { parseBoundingBox } from '../../analyst-review/data-access/anomaly-api';
 
-const MOCK_TICKETS_KEY = 'uavpms.mock_maintenance_tickets';
-
 export function sanitizeTicketImage(url?: string | null, categoryCode?: string): string {
   if (!url || url.startsWith('blob:')) {
     switch ((categoryCode || '').toUpperCase()) {
@@ -38,72 +36,16 @@ export function sanitizeTicketImage(url?: string | null, categoryCode?: string):
   return url;
 }
 
-export function getStoredMockTickets(): MaintenanceTicket[] {
-  try {
-    const raw = localStorage.getItem(MOCK_TICKETS_KEY);
-    if (!raw) return [];
-    const tickets = JSON.parse(raw) as MaintenanceTicket[];
-    return tickets.map((t) => {
-      const sanitizedProofs = (t.proofs || []).map((p) => {
-        if (!p.fileUrl || p.fileUrl.startsWith('blob:')) {
-          return {
-            ...p,
-            fileUrl: '/images/defect-insulator-crack.png',
-          };
-        }
-        return p;
-      });
-      if (!t.anomaly) return { ...t, proofs: sanitizedProofs };
-      return {
-        ...t,
-        proofs: sanitizedProofs,
-        anomaly: {
-          ...t.anomaly,
-          imageUrl: sanitizeTicketImage(t.anomaly.imageUrl, t.anomaly.categoryCode),
-          cropUrl: sanitizeTicketImage(t.anomaly.cropUrl, t.anomaly.categoryCode),
-        },
-      };
-    });
-  } catch {
-    return [];
-  }
-}
-
-export function saveStoredMockTicket(ticket: MaintenanceTicket): void {
-  try {
-    const sanitizedTicket: MaintenanceTicket = ticket.anomaly
-      ? {
-          ...ticket,
-          anomaly: {
-            ...ticket.anomaly,
-            imageUrl: sanitizeTicketImage(ticket.anomaly.imageUrl, ticket.anomaly.categoryCode),
-            cropUrl: sanitizeTicketImage(ticket.anomaly.cropUrl, ticket.anomaly.categoryCode),
-          },
-        }
-      : ticket;
-    const existing = getStoredMockTickets();
-    const idx = existing.findIndex((t) => t.id === sanitizedTicket.id);
-    if (idx >= 0) {
-      existing[idx] = sanitizedTicket;
-    } else {
-      existing.unshift(sanitizedTicket);
-    }
-    localStorage.setItem(MOCK_TICKETS_KEY, JSON.stringify(existing));
-  } catch {
-    // ignore
-  }
-}
-
 export const REAL_DB_TECHNICIANS: readonly TechnicianSummary[] = [
   {
     id: '5c2d008d-b68e-4975-9a0d-93c42cd306b4',
-    fullName: 'Regression Technician',
+    fullName: 'Kỹ thuật viên kiểm thử',
     email: 'tech.regression@uavpms.local',
     activeTicketCount: 1,
   },
   {
     id: '55555555-5555-5555-5555-555555555555',
-    fullName: 'Nguyen Nhat An (Technician)',
+    fullName: 'Nguyễn Nhật An',
     email: 'an.technician@uavpms.local',
     activeTicketCount: 0,
   },
@@ -124,28 +66,17 @@ export class MaintenanceApi {
       map((response) => {
         const data = asRecord(unwrapApiData(response));
         const backendItems = arrayOf(Array.isArray(data) ? data : data['items']).map(normalizeTicket);
-        const mockTickets = getStoredMockTickets().filter((t) => {
-          if (filters.status && t.status !== filters.status) return false;
-          if (filters.priority && t.priority !== filters.priority) return false;
-          return true;
-        });
-        const merged = [...mockTickets.filter((m) => !backendItems.some((b) => b.id === m.id)), ...backendItems];
         return {
-          items: merged,
-          totalCount: (numberOf(data['totalCount']) || backendItems.length) + mockTickets.length,
+          items: backendItems,
+          totalCount: numberOf(data['totalCount']) || backendItems.length,
           pageIndex: numberOf(data['pageIndex'] ?? filters.pageIndex),
           pageSize: numberOf(data['pageSize']) || filters.pageSize,
         };
       }),
       catchError(() => {
-        const mockTickets = getStoredMockTickets().filter((t) => {
-          if (filters.status && t.status !== filters.status) return false;
-          if (filters.priority && t.priority !== filters.priority) return false;
-          return true;
-        });
         return of({
-          items: mockTickets,
-          totalCount: mockTickets.length,
+          items: [],
+          totalCount: 0,
           pageIndex: filters.pageIndex,
           pageSize: filters.pageSize,
         });
@@ -161,11 +92,6 @@ export class MaintenanceApi {
   get(id: string): Observable<MaintenanceTicket> {
     return this.http.get<unknown>(`${this.url}/${id}`).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) return of(mock);
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -212,46 +138,12 @@ export class MaintenanceApi {
     const body = { technicianId: request.technicianId, dueDate: request.dueDate ? toDueDateIso(request.dueDate) : undefined };
     return this.http.put<unknown>(`${this.url}/${id}/assign`, body).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const matchedTech = REAL_DB_TECHNICIANS.find((t) => t.id === request.technicianId);
-          const updated: MaintenanceTicket = {
-            ...mock,
-            technicianId: request.technicianId,
-            technician: matchedTech
-              ? { id: matchedTech.id, fullName: matchedTech.fullName, email: matchedTech.email }
-              : mock.technician?.id === request.technicianId
-              ? mock.technician
-              : { id: request.technicianId, fullName: 'Regression Technician', email: 'tech.regression@uavpms.local' },
-            dueDate: request.dueDate ? toDueDateIso(request.dueDate) : mock.dueDate,
-            assignedAt: new Date().toISOString(),
-            status: 'Open',
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
   updateStatus(id: string, status: 'InProgress' | 'PendingVerification'): Observable<MaintenanceTicket> {
     return this.http.put<unknown>(`${this.url}/${id}/status`, { status }).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            status,
-            startedAt: status === 'InProgress' ? new Date().toISOString() : mock.startedAt,
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -261,45 +153,6 @@ export class MaintenanceApi {
     form.append('technicianNotes', technicianNotes.trim());
     return this.http.post<unknown>(`${this.url}/${id}/proof`, form).pipe(
       map((response) => normalizeProof(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          return new Observable<MaintenanceProof>((subscriber) => {
-            const handleSuccess = (url: string) => {
-              const proof: MaintenanceProof = {
-                id: crypto.randomUUID(),
-                proofType: 'RepairAfter',
-                fileUrl: url,
-                technicianNotes: technicianNotes.trim() || 'Minh chứng sửa chữa hoàn tất',
-                uploadedAt: new Date().toISOString(),
-              };
-              const nextStatus = mock.status === 'Open' ? 'InProgress' : mock.status;
-              const updated: MaintenanceTicket = {
-                ...mock,
-                proofs: [...mock.proofs, proof],
-                status: nextStatus,
-              };
-              saveStoredMockTicket(updated);
-              subscriber.next(proof);
-              subscriber.complete();
-            };
-
-            if (file && file.size < 5 * 1024 * 1024 && typeof FileReader !== 'undefined') {
-              const reader = new FileReader();
-              reader.onload = () => {
-                handleSuccess((reader.result as string) || URL.createObjectURL(file));
-              };
-              reader.onerror = () => {
-                handleSuccess(URL.createObjectURL(file));
-              };
-              reader.readAsDataURL(file);
-            } else {
-              handleSuccess(URL.createObjectURL(file));
-            }
-          });
-        }
-        return throwError(() => error);
-      }),
     );
   }
 
@@ -313,45 +166,12 @@ export class MaintenanceApi {
     };
     return this.http.post<unknown>(`${this.url}/${id}/materials`, body).pipe(
       map((response) => normalizeMaterial(unwrapApiData(response))),
-      catchError(() => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        const log: MaterialLog = {
-          id: crypto.randomUUID(),
-          componentName: request.componentName.trim(),
-          componentCode: request.componentCode?.trim() || 'VT-01',
-          quantityUsed: Math.trunc(Number(request.quantityUsed)),
-          unit: request.unit.trim(),
-          fieldObservations: request.fieldObservations?.trim() || '',
-          loggedAt: new Date().toISOString(),
-        };
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            materials: [...mock.materials, log],
-          };
-          saveStoredMockTicket(updated);
-        }
-        return of(log);
-      }),
     );
   }
 
   close(id: string): Observable<MaintenanceTicket> {
     return this.http.put<unknown>(`${this.url}/${id}/close`, {}).pipe(
       map((response) => normalizeTicket(unwrapApiData(response))),
-      catchError((error) => {
-        const mock = getStoredMockTickets().find((t) => t.id === id);
-        if (mock) {
-          const updated: MaintenanceTicket = {
-            ...mock,
-            status: 'Closed',
-            resolvedAt: new Date().toISOString(),
-          };
-          saveStoredMockTicket(updated);
-          return of(updated);
-        }
-        return throwError(() => error);
-      }),
     );
   }
 }

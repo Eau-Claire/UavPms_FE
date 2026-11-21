@@ -711,12 +711,12 @@
                 <div class="proc-actions">
                   @if (isAiProcessing()) {
                     <span class="ai-processing-pill">
-                      <span nz-icon nzType="loading"></span> AI Worker đang phân tích...
+                      <span nz-icon nzType="loading"></span> AI đang phân tích dữ liệu...
                     </span>
                   } @else {
-                    <button type="button" class="btn-ai-worker-trigger" (click)="runAiWorkerMock()">
-                      <span nz-icon nzType="thunderbolt"></span>
-                      {{ detections().length ? 'Chạy lại AI Worker Mock' : 'Kích hoạt AI Worker Mock' }}
+                    <button type="button" class="btn-ai-worker-trigger" (click)="refreshAiDetections()">
+                      <span nz-icon nzType="reload"></span>
+                      Làm mới kết quả AI
                     </button>
                   }
                 </div>
@@ -1451,7 +1451,7 @@
                     [checked]="editPriority() === 'HIGH'"
                     (change)="editPriority.set('HIGH')" />
                   <div class="priority-label-block">
-                    <strong>Ưu tiên cao (HIGH)</strong>
+                    <strong>Ưu tiên cao</strong>
                     <small>Theo dõi khuyết tật đã phát hiện, bất thường lặp lại</small>
                   </div>
                 </label>
@@ -1463,7 +1463,7 @@
                     [checked]="editPriority() === 'EMERGENCY'"
                     (change)="editPriority.set('EMERGENCY')" />
                   <div class="priority-label-block">
-                    <strong>Khẩn cấp (EMERGENCY)</strong>
+                    <strong>Khẩn cấp</strong>
                     <small>Sự cố hạ tầng lưới điện, khuyết tật nguy hiểm</small>
                   </div>
                 </label>
@@ -1473,7 +1473,7 @@
             @if (editPriority() === 'EMERGENCY') {
               <div class="form-field-group emergency-field-box">
                 <label for="editEmergencyReason">
-                  Lý do khẩn cấp (Emergency Reason) <span class="required">*</span>
+                  Lý do khẩn cấp <span class="required">*</span>
                   <small class="field-hint">(Bắt buộc theo BR-06, tối thiểu 10 ký tự)</small>
                 </label>
                 <textarea
@@ -1490,16 +1490,16 @@
             }
 
             <div class="form-field-group">
-              <label for="editInspectionObjective">Mục tiêu kiểm tra (Inspection Objective)</label>
+              <label for="editInspectionObjective">Mục tiêu kiểm tra</label>
               <select
                 id="editInspectionObjective"
                 class="form-control-input"
                 [value]="editObjective()"
                 (change)="editObjective.set($any($event.target).value)">
-                <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ (PERIODIC_INSPECTION)</option>
-                <option value="TARGETED_REINSPECTION">Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)</option>
-                <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)</option>
-                <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp (EMERGENCY_INSPECTION)</option>
+                <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ</option>
+                <option value="TARGETED_REINSPECTION">Kiểm tra lại mục tiêu</option>
+                <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố</option>
+                <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp</option>
               </select>
             </div>
           </div>

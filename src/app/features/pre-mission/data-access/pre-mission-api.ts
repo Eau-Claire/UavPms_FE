@@ -273,22 +273,6 @@ export class PreMissionApi {
       .post<unknown>(`${this.baseUrl}/drone-technical-inspections`, payload)
       .pipe(
         map((response) => normalizeInspectionResult(unwrapApiData(response), droneId)),
-        tap((res) => {
-          if (typeof localStorage !== 'undefined' && res?.droneId) {
-            try {
-              localStorage.setItem(
-                `${INSPECTION_STORAGE_PREFIX}${res.droneId.toLowerCase()}`,
-                JSON.stringify({
-                  status: res.status,
-                  overallHealth: res.overallHealth,
-                  eligibility: res.eligibility,
-                  inspectionId: res.id,
-                  timestamp: Date.now(),
-                }),
-              );
-            } catch {}
-          }
-        }),
       );
   }
 
@@ -434,58 +418,13 @@ function technicalEligibilityOf(d: Record<string, unknown>, reasonCode: string |
   return 'UNKNOWN';
 }
 
-const INSPECTION_STORAGE_PREFIX = 'uavpms_inspection_';
-
-export function getLocalDroneInspectionOverride(droneId: string): {
-  status: string;
-  overallHealth: string;
-  eligibility: string;
-  inspectionId: string;
-} | null {
-  if (typeof localStorage === 'undefined' || !droneId) return null;
-  try {
-    const raw = localStorage.getItem(`${INSPECTION_STORAGE_PREFIX}${droneId.toLowerCase()}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && Date.now() - Number(parsed['timestamp'] || 0) < 7 * 86400 * 1000) {
-      return {
-        status: String(parsed['status'] || ''),
-        overallHealth: String(parsed['overallHealth'] || ''),
-        eligibility: String(parsed['eligibility'] || ''),
-        inspectionId: String(parsed['inspectionId'] || ''),
-      };
-    }
-  } catch {}
-  return null;
-}
-
 const normalizeDrone = (value: unknown): UavCandidate => {
   const d = objectOf(value);
   const droneId = stringOf(d['droneId']);
-  const override = getLocalDroneInspectionOverride(droneId);
-
-  let rawHealth = stringOf(d['technicalHealth'], 'Unknown');
-  let rawInspectionId = optionalStringOf(d['technicalInspectionId']);
-  let rawReasonCode = optionalStringOf(d['reasonCode']);
-  let rawEligible = d['isEligible'] === true;
-
-  if (override) {
-    rawHealth = override.overallHealth;
-    if (override.inspectionId) rawInspectionId = override.inspectionId;
-    const isOverrideCritical =
-      override.overallHealth?.toUpperCase() === 'CRITICAL' ||
-      override.status?.toLowerCase() === 'failed' ||
-      override.eligibility !== 'ELIGIBLE';
-    if (isOverrideCritical) {
-      rawReasonCode = 'TECHNICAL_HEALTH_CRITICAL';
-      rawEligible = false;
-    } else if (override.eligibility === 'ELIGIBLE' && override.status?.toLowerCase() === 'passed') {
-      if (rawReasonCode === 'TECHNICAL_HEALTH_CRITICAL' || rawReasonCode === 'NO_VALID_TECHNICAL_INSPECTION') {
-        rawReasonCode = null;
-      }
-      rawEligible = true;
-    }
-  }
+  const rawHealth = stringOf(d['technicalHealth'], 'Unknown');
+  const rawInspectionId = optionalStringOf(d['technicalInspectionId']);
+  const rawReasonCode = optionalStringOf(d['reasonCode']);
+  const rawEligible = d['isEligible'] === true;
 
   const operationalStatus = stringOf(d['operationalStatus'], 'Unknown');
   const code = (rawReasonCode ?? '').toUpperCase();
@@ -493,11 +432,7 @@ const normalizeDrone = (value: unknown): UavCandidate => {
     typeof d['isAvailable'] === 'boolean'
       ? d['isAvailable']
       : operationalStatus.toUpperCase() === 'AVAILABLE' && code !== 'DRONE_NOT_AVAILABLE' && code !== 'SCHEDULE_CONFLICT';
-  const techElig = technicalEligibilityOf(
-    { ...d, technicalHealth: rawHealth, technicalEligibilityStatus: override ? override.eligibility : d['technicalEligibilityStatus'] },
-    rawReasonCode,
-    isAvailable,
-  );
+  const techElig = technicalEligibilityOf(d, rawReasonCode, isAvailable);
   const isCritical = rawHealth.toUpperCase() === 'CRITICAL' || techElig === 'CRITICAL' || code === 'TECHNICAL_HEALTH_CRITICAL';
   const isEligible = rawEligible && !isCritical && isAvailable && techElig === 'ELIGIBLE';
 
