@@ -648,6 +648,26 @@ export class DroneManagement {
   }
 
   // --- Helpers ---
+  protected statusLabel(status: string): string {
+    const s = (status || '').toUpperCase();
+    if (s === 'AVAILABLE') return 'Khả dụng';
+    if (s === 'INUSE') return 'Đang làm nhiệm vụ';
+    if (s === 'RESERVED') return 'Đã giữ chỗ';
+    if (s === 'MAINTENANCE') return 'Bảo dưỡng';
+    if (s === 'UNAVAILABLE') return 'Tạm ngưng';
+    if (s === 'LOST') return 'Mất thiết bị';
+    return status || 'Chưa rõ';
+  }
+
+  protected healthLabel(health: string): string {
+    const h = (health || '').toUpperCase();
+    if (h === 'HEALTHY') return 'Đạt an toàn';
+    if (h === 'WARNING') return 'Cảnh báo';
+    if (h === 'CRITICAL') return 'Lỗi - không bay';
+    if (h === 'UNKNOWN') return 'Chưa kiểm tra';
+    return health || 'Chưa kiểm tra';
+  }
+
   protected statusBadgeClass(status: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'AVAILABLE') return 'badge-available';

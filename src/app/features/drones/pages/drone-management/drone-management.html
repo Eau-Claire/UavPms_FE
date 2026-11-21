@@ -121,7 +121,7 @@
         >
           <option value="">Tất cả trạng thái</option>
           @for (opt of operationalStatuses; track opt.value) {
-            <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+            <option [value]="opt.value">{{ opt.label }}</option>
           }
         </select>
       </div>
@@ -134,7 +134,7 @@
         >
           <option value="">Tất cả sức khỏe</option>
           @for (opt of technicalHealths; track opt.value) {
-            <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+            <option [value]="opt.value">{{ opt.label }}</option>
           }
         </select>
       </div>
@@ -196,7 +196,7 @@
               <!-- Operational Status -->
               <td>
                 <span class="badge" [class]="statusBadgeClass(drone.operationalStatus)">
-                  {{ drone.operationalStatus }}
+                  {{ statusLabel(drone.operationalStatus) }}
                 </span>
               </td>
 
@@ -210,7 +210,7 @@
                   } @else if (drone.technicalHealth === 'Warning') {
                     <span nz-icon nzType="warning"></span>
                   }
-                  {{ drone.technicalHealth }}
+                  {{ healthLabel(drone.technicalHealth) }}
                 </span>
                 @if (drone.technicalHealth === 'Critical') {
                   <div class="critical-notice">Không được phép bay</div>
@@ -437,7 +437,7 @@
               <label>Trạng thái vận hành</label>
               <select formControlName="operationalStatus">
                 @for (opt of operationalStatuses; track opt.value) {
-                  <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+                  <option [value]="opt.value">{{ opt.label }}</option>
                 }
               </select>
             </div>
@@ -445,7 +445,7 @@
               <label>Sức khỏe kỹ thuật</label>
               <select formControlName="technicalHealth">
                 @for (opt of technicalHealths; track opt.value) {
-                  <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+                  <option [value]="opt.value">{{ opt.label }}</option>
                 }
               </select>
             </div>

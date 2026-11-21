@@ -66,5 +66,5 @@ export const AUDIT_ACTION_OPTIONS: readonly ActionOption[] = [
   { value: 'Added', label: 'Tạo mới / Thêm' },
   { value: 'Modified', label: 'Cập nhật / Thay đổi' },
   { value: 'Deleted', label: 'Xóa' },
-  { value: 'Evaluating', label: 'Đang đánh giá (Evaluating)' },
+  { value: 'Evaluating', label: 'Đang đánh giá' },
 ];
