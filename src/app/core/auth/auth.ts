@@ -235,6 +235,91 @@ export class Auth {
     return { user, tokens: { accessToken, refreshToken } };
   }
 
+  loginDemo(role: UserRole = 'Admin'): void {
+    const demoUsers: Record<UserRole, AuthUser> = {
+      Admin: {
+        id: 'u-admin-demo',
+        email: 'admin@uavpms.vn',
+        fullName: 'Quản trị viên Hệ thống (Demo)',
+        role: 'Admin',
+        mustChangePassword: false,
+      },
+      Manager: {
+        id: 'u-mgr-demo',
+        email: 'manager@uavpms.vn',
+        fullName: 'Trưởng phòng Kỹ thuật (Demo)',
+        role: 'Manager',
+        mustChangePassword: false,
+      },
+      Inspector: {
+        id: 'u-insp-demo',
+        email: 'inspector@uavpms.vn',
+        fullName: 'Thanh tra viên Hiện trường (Demo)',
+        role: 'Inspector',
+        mustChangePassword: false,
+      },
+      Technician: {
+        id: 'u-tech-demo',
+        email: 'technician@uavpms.vn',
+        fullName: 'Kỹ thuật viên Bảo trì (Demo)',
+        role: 'Technician',
+        mustChangePassword: false,
+      },
+      Analyst: {
+        id: 'u-analyst-demo',
+        email: 'analyst@uavpms.vn',
+        fullName: 'Chuyên viên Phân tích Dữ liệu (Demo)',
+        role: 'Analyst',
+        mustChangePassword: false,
+      },
+      SystemAdmin: {
+        id: 'u-admin-demo',
+        email: 'admin@uavpms.vn',
+        fullName: 'Quản trị viên Hệ thống (Demo)',
+        role: 'Admin',
+        mustChangePassword: false,
+      },
+      Supervisor: {
+        id: 'u-mgr-demo',
+        email: 'manager@uavpms.vn',
+        fullName: 'Trưởng phòng Kỹ thuật (Demo)',
+        role: 'Manager',
+        mustChangePassword: false,
+      },
+      MaintenanceTechnician: {
+        id: 'u-tech-demo',
+        email: 'technician@uavpms.vn',
+        fullName: 'Kỹ thuật viên Bảo trì (Demo)',
+        role: 'Technician',
+        mustChangePassword: false,
+      },
+    };
+
+    const user = demoUsers[role] || demoUsers.Admin;
+    const exp = Math.floor(Date.now() / 1000) + 86400; // 24h
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(
+      JSON.stringify({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.fullName,
+        exp,
+      }),
+    );
+    const mockToken = `${header}.${payload}.mockSignature`;
+
+    const session: AuthSession = {
+      tokens: {
+        accessToken: mockToken,
+        refreshToken: `refresh-demo-${Date.now()}`,
+      },
+      user,
+    };
+
+    this.setSession(session);
+  }
+
   private parseRoleFromToken(token: string): UserRole | undefined {
     try {
       const parts = token.split('.');

@@ -224,7 +224,8 @@ export class MissionList {
 
   protected objectiveLabel(objective?: string): string {
     if (!objective) return '';
-    const normalized = objective
+    const clean = objective.trim();
+    const normalized = clean
       .replace(/([a-z])([A-Z])/g, '$1_$2')
       .replace(/[\s-]/g, '_')
       .toUpperCase();
@@ -236,8 +237,12 @@ export class MissionList {
       ROUTINE_PATROL: 'Tuần tra định kỳ',
       EMERGENCY_SURVEY: 'Khảo sát khẩn cấp',
       THERMAL_AUDIT: 'Kiểm tra nhiệt',
+      THERMAL_INSPECTION: 'Kiểm tra nhiệt lượng',
+      DEFECT_INSPECTION: 'Kiểm tra khuyết tật',
+      DEFECT_REPORT: 'Báo cáo khuyết tật',
+      CORRIDOR_OVERVIEW: 'Tổng quan hành lang',
     };
-    return map[normalized] || map[objective] || objective;
+    return map[normalized] || map[clean] || 'Kiểm tra kỹ thuật';
   }
 
   protected priorityClass(priority?: string): string {

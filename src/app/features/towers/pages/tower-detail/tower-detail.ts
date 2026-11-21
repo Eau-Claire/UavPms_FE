@@ -66,7 +66,10 @@ export class TowerDetail {
 
   protected formatAiSource(source?: string): string {
     if (!source) return '—';
-    if (source.toLowerCase().includes('yolo')) return 'Mô hình AI';
+    const s = source.toLowerCase();
+    if (s.includes('yolo') || s.includes('curated') || s.includes('ai') || s.includes('model') || s.includes('detect')) {
+      return 'Mô hình AI';
+    }
     return source;
   }
 

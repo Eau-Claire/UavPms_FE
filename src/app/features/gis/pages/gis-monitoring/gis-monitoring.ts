@@ -190,7 +190,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected focusTowerAsset(tower: TowerAsset): void {
+  protected focusTowerAsset(tower: GisTower): void {
     if (this.map) {
       this.map.flyTo([tower.latitude, tower.longitude], 17, { duration: 0.8 });
       this.selectedEntity.set({ type: 'tower', data: tower });

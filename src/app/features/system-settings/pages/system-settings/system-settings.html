@@ -89,7 +89,7 @@
                       (input)="editValue.set($any($event.target).value)"
                       (keydown.enter)="saveEdit()"
                       (keydown.escape)="cancelEdit()"
-                      autoFocus
+                      autofocus
                     />
                     <button type="button" class="btn-save-inline" (click)="saveEdit()" [disabled]="savingKey() === item.key">
                       <span nz-icon nzType="check"></span>

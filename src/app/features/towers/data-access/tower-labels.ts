@@ -41,8 +41,31 @@ const TICKET_STATUS_TONES: Record<string, Tone> = {
 const PRIORITY_LABELS: Record<string, string> = { Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Emergency: 'Khẩn cấp' };
 const PRIORITY_TONES: Record<string, Tone> = { Low: 'neutral', Medium: 'info', High: 'warning', Emergency: 'danger' };
 
-export const anomalyStatusLabel = (status: string): string => ANOMALY_LABELS[status] ?? status;
-export const anomalyStatusTone = (status: string): Tone => ANOMALY_TONES[status] ?? 'neutral';
+export const anomalyStatusLabel = (status: string): string => {
+  if (!status) return '—';
+  const raw = status.trim();
+  if (ANOMALY_LABELS[raw]) return ANOMALY_LABELS[raw];
+  const normalized = raw.toLowerCase().replace(/[\s_-]/g, '');
+  if (normalized === 'pending' || normalized === 'choduyet') return 'Chờ duyệt';
+  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'chothamdinh' || normalized === 'review') return 'Chờ thẩm định';
+  if (normalized === 'confirmed' || normalized === 'daxacnhan') return 'Đã xác nhận';
+  if (normalized === 'rejected' || normalized === 'dismissed' || normalized === 'dabacbo') return 'Đã bác bỏ';
+  if (normalized === 'resolved' || normalized === 'dakhacphuc' || normalized === 'closed') return 'Đã khắc phục';
+  return raw;
+};
+
+export const anomalyStatusTone = (status: string): Tone => {
+  if (!status) return 'neutral';
+  const raw = status.trim();
+  if (ANOMALY_TONES[raw]) return ANOMALY_TONES[raw];
+  const normalized = raw.toLowerCase().replace(/[\s_-]/g, '');
+  if (normalized === 'pending') return 'warning';
+  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'review') return 'warning';
+  if (normalized === 'confirmed') return 'danger';
+  if (normalized === 'rejected' || normalized === 'dismissed') return 'neutral';
+  if (normalized === 'resolved' || normalized === 'closed') return 'success';
+  return 'neutral';
+};
 export const ticketStatusLabel = (status: string): string => TICKET_STATUS_LABELS[status] ?? status;
 export const ticketStatusTone = (status: string): Tone => TICKET_STATUS_TONES[status] ?? 'neutral';
 export const ticketPriorityLabel = (priority: string): string => PRIORITY_LABELS[priority] ?? priority;

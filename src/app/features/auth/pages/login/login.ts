@@ -5,6 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
+import { UserRole } from '../../../../models/auth.models';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
@@ -38,6 +39,7 @@ export class Login implements OnInit {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly unverifiedEmail = signal(false);
+  protected readonly isApiUnreachable = signal(false);
   protected readonly sendingOtp = signal(false);
   protected readonly passwordVisible = signal(false);
   protected readonly form = this.fb.nonNullable.group({
@@ -140,12 +142,19 @@ export class Login implements OnInit {
           } else if (httpError?.status === 400 || httpError?.status === 401) {
             this.error.set('Tên đăng nhập hoặc mật khẩu không chính xác.');
           } else if (httpError?.status === 0) {
-            this.error.set('Không thể kết nối đến máy chủ API. Vui lòng kiểm tra mạng hoặc kết nối server.');
+            this.isApiUnreachable.set(true);
+            this.error.set('Không thể kết nối đến máy chủ API (máy chủ ngoại tuyến hoặc lỗi kết nối mạng). Bạn có thể chọn đăng nhập thử nghiệm bên dưới để trải nghiệm.');
           } else {
             this.error.set(`Đăng nhập thất bại (Mã lỗi ${httpError?.status || 'Unknown'}). Vui lòng thử lại.`);
           }
         },
       });
+  }
+
+  protected loginAsDemo(role: UserRole): void {
+    this.auth.loginDemo(role);
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
+    void this.router.navigateByUrl(returnUrl);
   }
 
   protected sendActivationOtp(): void {

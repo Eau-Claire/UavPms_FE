@@ -277,7 +277,7 @@ export class DroneManagement {
         next: (binding) => {
           this.showNotification(`Đã cập nhật Flight Controller UID ${binding.flightControllerUid} cho UAV ${drone.code}.`);
           this.closeFcModal();
-          this.load();
+          this.loadDrones();
         },
         error: (err: unknown) => {
           this.fcError.set(describeHttpError(err, 'Không thể ghép nối Flight Controller.'));
@@ -303,7 +303,7 @@ export class DroneManagement {
         next: () => {
           this.showNotification(`Đã hủy ghép nối Flight Controller khỏi UAV ${drone.code}.`);
           this.closeFcModal();
-          this.load();
+          this.loadDrones();
         },
         error: (err: unknown) => {
           this.fcError.set(describeHttpError(err, 'Không thể hủy ghép nối Flight Controller.'));

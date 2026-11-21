@@ -118,11 +118,13 @@
                 <span class="mission-priority-badge {{ priorityClass(mission.priority) }}">
                   {{ priorityLabel(mission.priority) }}
                 </span>
+              </td>
+              <td>
+                <strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong>
                 @if (mission.objective) {
                   <small class="mission-objective-text">{{ objectiveLabel(mission.objective) }}</small>
                 }
               </td>
-              <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
               <td>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</td>
               <td>{{ routeLabel(mission) }}</td>
               <td><span>{{ mission.assignedToUsername }}</span><small>{{ mission.droneCode }}</small></td>
