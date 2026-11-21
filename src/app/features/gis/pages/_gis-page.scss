@@ -615,18 +615,19 @@
   width: 360px;
   z-index: 510;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   .drawer-head {
-    padding: 16px 20px;
-    background: #0f172a;
-    color: #ffffff;
+    padding: 14px 18px;
+    background: #f0f5fc;
+    border-bottom: 1px solid #d0e1fd;
+    color: #0f2952;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -637,24 +638,24 @@
       gap: 2px;
 
       span.badge-tag {
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
-        color: #38bdf8;
+        color: #0369a1;
       }
 
       h3 {
         margin: 0;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
-        color: #ffffff;
+        color: #0f2952;
       }
     }
 
     button.btn-close-drawer {
-      border: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
       width: 28px;
       height: 28px;
       border-radius: 6px;
@@ -663,7 +664,10 @@
       align-items: center;
       justify-content: center;
 
-      &:hover { background: rgba(255, 255, 255, 0.2); }
+      &:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
     }
   }
 
@@ -725,7 +729,7 @@
   }
 
   .drawer-footer {
-    padding: 14px 20px;
+    padding: 12px 18px;
     background: #f8fafc;
     border-top: 1px solid #e2e8f0;
     display: flex;
@@ -734,7 +738,7 @@
     button, a {
       flex: 1;
       height: 38px;
-      border-radius: 8px;
+      border-radius: 6px;
       font-size: 13px;
       font-weight: 600;
       display: inline-flex;
@@ -742,20 +746,21 @@
       justify-content: center;
       gap: 6px;
       text-decoration: none;
-      border: none;
       cursor: pointer;
+      transition: all 0.15s ease;
 
       &.btn-primary {
-        background: #0284c7;
+        background: #10387d;
         color: #ffffff;
-        &:hover { background: #0369a1; }
+        border: 1px solid #10387d;
+        &:hover { background: #0c2b62; border-color: #0c2b62; }
       }
 
       &.btn-outline {
         background: #ffffff;
         border: 1px solid #cbd5e1;
         color: #334155;
-        &:hover { background: #f1f5f9; }
+        &:hover { background: #f1f5f9; border-color: #94a3b8; }
       }
     }
   }
