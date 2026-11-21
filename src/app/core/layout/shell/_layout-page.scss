@@ -109,15 +109,19 @@
   }
 
   .gis-page-wrapper {
-    flex: 1 1 auto;
-    min-height: 440px;
-    height: 100%;
+    height: calc(100vh - 210px);
+    min-height: 480px;
+    max-height: calc(100vh - 210px);
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
   }
 
   .app-footer {
-    margin-top: 28px;
+    position: relative;
+    z-index: 10;
+    background: var(--color-surface-app, #f3f7fb);
+    margin-top: 24px;
     padding-top: 16px;
     padding-bottom: 20px;
     flex-shrink: 0;
@@ -690,6 +694,9 @@ table {
    Enterprise EVN Footer (Scroll to bottom of content)
    ------------------------------------------------------------- */
 .app-footer {
+  position: relative;
+  z-index: 10;
+  background: var(--color-surface-app, #f3f7fb);
   margin-top: 36px;
   padding-top: 18px;
   padding-bottom: 24px;
