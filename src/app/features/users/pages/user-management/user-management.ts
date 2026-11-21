@@ -55,8 +55,11 @@ export class UserManagement {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(10);
 
-  protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'];
+  protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
+
+  protected readonly generatedPassword = signal('');
+  protected readonly copied = signal(false);
 
   /** GET/POST/PATCH /users are SystemAdmin-only in IdentityService. */
   readonly isAdmin = computed(() => ADMIN_ROLES.includes((this.auth.user()?.role ?? '').toLowerCase()));
@@ -98,12 +101,45 @@ export class UserManagement {
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     phone: '',
-    role: ['Viewer' as UserRole, Validators.required],
+    role: ['Inspector' as UserRole, Validators.required],
     status: ['Active' as UserStatus, Validators.required],
   });
 
   constructor() {
     this.load();
+  }
+
+  protected generateSecurePassword(): string {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const specials = '!@#$%&*';
+    const all = upper + lower + digits + specials;
+    const chars = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      specials[Math.floor(Math.random() * specials.length)],
+    ];
+    for (let i = 0; i < 6; i++) {
+      chars.push(all[Math.floor(Math.random() * all.length)]);
+    }
+    return chars.sort(() => 0.5 - Math.random()).join('');
+  }
+
+  protected regeneratePassword(): void {
+    this.generatedPassword.set(this.generateSecurePassword());
+    this.copied.set(false);
+  }
+
+  protected copyPassword(): void {
+    const pwd = this.generatedPassword();
+    if (pwd && navigator.clipboard) {
+      void navigator.clipboard.writeText(pwd);
+      this.copied.set(true);
+      this.toast.info('Đã sao chép mật khẩu vào bộ nhớ tạm.');
+      setTimeout(() => this.copied.set(false), 2000);
+    }
   }
 
   /** Admins see every user; Managers only get the active Inspectors from /users/assignable (the full list is admin-only). */
@@ -149,7 +185,8 @@ export class UserManagement {
 
   protected openCreate(): void {
     this.editing.set(null);
-    this.form.reset({ fullName: '', email: '', phone: '', role: 'Viewer', status: 'Active' });
+    this.form.reset({ fullName: '', email: '', phone: '', role: 'Inspector', status: 'Active' });
+    this.regeneratePassword();
     this.modalOpen.set(true);
   }
 
@@ -186,12 +223,14 @@ export class UserManagement {
     }
     this.busy.set(true);
     const raw = this.form.getRawValue();
+    const temporaryPassword = this.generatedPassword() || this.generateSecurePassword();
     this.api
       .create({
         fullName: raw.fullName,
         email: raw.email,
         phone: raw.phone,
         role: raw.role,
+        password: temporaryPassword,
       })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -201,7 +240,11 @@ export class UserManagement {
         next: (user) => {
           this.users.update((users) => [user, ...users]);
           this.closeModal();
-          this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu mặc định: Pms@2026!`);
+          this.credential.set({
+            username: user.email,
+            temporaryPassword,
+          });
+          this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu khởi tạo: ${temporaryPassword}`);
         },
         error: () => this.toast.error('Không thể tạo người dùng mới.'),
       });
@@ -324,7 +367,6 @@ export class UserManagement {
       Inspector: 'Thanh tra',
       Technician: 'Kỹ thuật viên',
       Analyst: 'Phân tích viên',
-      Viewer: 'Người xem',
     };
     return labels[role] ?? String(role);
   }

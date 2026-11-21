@@ -218,6 +218,10 @@ export class MissionList {
 
   protected objectiveLabel(objective?: string): string {
     if (!objective) return '';
+    const normalized = objective
+      .replace(/([a-z])([A-Z])/g, '$1_$2')
+      .replace(/[\s-]/g, '_')
+      .toUpperCase();
     const map: Record<string, string> = {
       PERIODIC_INSPECTION: 'Kiểm tra định kỳ',
       INCIDENT_INVESTIGATION: 'Điều tra sự cố',
@@ -227,7 +231,7 @@ export class MissionList {
       EMERGENCY_SURVEY: 'Khảo sát khẩn cấp',
       THERMAL_AUDIT: 'Kiểm tra nhiệt',
     };
-    return map[objective] || objective;
+    return map[normalized] || map[objective] || objective;
   }
 
   protected priorityClass(priority?: string): string {

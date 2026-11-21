@@ -198,9 +198,6 @@ describe('GisMonitoring tower selection', () => {
 
     authMock.user.set({ id: 'u5', email: 'tech@evn.vn', role: 'Technician' });
     expect(component.canCreateMission()).toBe(false);
-
-    authMock.user.set({ id: 'u6', email: 'viewer@evn.vn', role: 'Viewer' });
-    expect(component.canCreateMission()).toBe(false);
   });
 
   it('offers the AI review link only to roles allowed on /ai-review', () => {

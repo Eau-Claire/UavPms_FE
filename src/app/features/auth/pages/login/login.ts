@@ -37,6 +37,8 @@ export class Login implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  protected readonly unverifiedEmail = signal(false);
+  protected readonly sendingOtp = signal(false);
   protected readonly passwordVisible = signal(false);
   protected readonly form = this.fb.nonNullable.group({
     username: ['', [Validators.required, Validators.email]],
@@ -71,6 +73,7 @@ export class Login implements OnInit {
     }
     this.busy.set(true);
     this.error.set('');
+    this.unverifiedEmail.set(false);
     this.auth
       .login(this.form.getRawValue())
       .pipe(
@@ -118,6 +121,20 @@ export class Login implements OnInit {
             }
           }
 
+          const msgLower = (serverMessage || '').toLowerCase();
+          if (
+            msgLower.includes('email') &&
+            (msgLower.includes('not verified') ||
+              msgLower.includes('not confirmed') ||
+              msgLower.includes('chưa xác thực') ||
+              msgLower.includes('chưa được xác minh') ||
+              msgLower.includes('unconfirmed'))
+          ) {
+            this.unverifiedEmail.set(true);
+            this.error.set('Tài khoản của bạn chưa xác thực email để kích hoạt đăng nhập.');
+            return;
+          }
+
           if (serverMessage) {
             this.error.set(serverMessage);
           } else if (httpError?.status === 400 || httpError?.status === 401) {
@@ -127,6 +144,30 @@ export class Login implements OnInit {
           } else {
             this.error.set(`Đăng nhập thất bại (Mã lỗi ${httpError?.status || 'Unknown'}). Vui lòng thử lại.`);
           }
+        },
+      });
+  }
+
+  protected sendActivationOtp(): void {
+    const email = this.form.controls.username.value.trim();
+    if (!email) return;
+    this.sendingOtp.set(true);
+    this.auth
+      .sendOtp({ email, purpose: 'VerifyEmail' })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.sendingOtp.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          void this.router.navigate(['/otp'], {
+            queryParams: { email, purpose: 'VerifyEmail' },
+          });
+        },
+        error: () => {
+          void this.router.navigate(['/otp'], {
+            queryParams: { email, purpose: 'VerifyEmail' },
+          });
         },
       });
   }

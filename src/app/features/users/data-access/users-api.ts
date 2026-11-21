@@ -28,14 +28,15 @@ function normalizeScopes(value: unknown, userId: string): UserGeographicScopes {
 }
 
 function normalizeRole(rawRole?: string): UserRole {
-  if (!rawRole) return 'Viewer';
+  if (!rawRole) return 'Inspector';
   if (rawRole === 'SystemAdmin') return 'Admin';
+  if (rawRole === 'Viewer') return 'Inspector';
   return rawRole as UserRole;
 }
 
 function mapBackendUser(raw: unknown): UserRecord {
   const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  let role: UserRole = 'Viewer';
+  let role: UserRole = 'Inspector';
   if (Array.isArray(item['roles']) && item['roles'].length > 0) {
     role = normalizeRole(String(item['roles'][0]));
   } else if (item['role']) {
@@ -131,13 +132,19 @@ export class UsersApi {
 
   create(request: CreateUserRequest): Observable<UserRecord> {
     const roleValue = request.role === 'Admin' ? 'SystemAdmin' : request.role;
+    const password = request.password || 'Pms@2026!';
     const payload = {
       fullName: request.fullName,
       email: request.email,
       phone: request.phone || '',
-      password: 'Pms@2026!',
+      password,
       role: roleValue,
       roles: [roleValue],
+      emailConfirmed: true,
+      isEmailVerified: true,
+      emailVerified: true,
+      mustChangePassword: true,
+      status: 'Active',
     };
     return this.http.post<unknown>(this.url, payload).pipe(
       map((value) => {

@@ -35,6 +35,7 @@ export const ROUTE_ROLES = {
  */
 export const canAccess = (role: RoleInput, allowed: readonly (UserRole | string)[]): boolean => {
   const family = roleFamily(role);
+  if (family === 'admin') return true; // Administrator has full access to ALL features!
   const raw = (role ?? '').toString().trim().toLowerCase();
   if (!raw) return false;
   return allowed.some((target) => {

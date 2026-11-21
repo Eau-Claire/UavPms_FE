@@ -29,10 +29,14 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
     { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
     { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
     { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
+    { path: EMERGENCY_ALERTS_PATH, icon: 'exclamation-circle', label: 'Cảnh báo khẩn cấp' },
+    { path: '/ai-analysis/upload', icon: 'cloud-upload', label: 'Kiểm tra dữ liệu AI' },
     { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì' },
     { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
     { path: '/admin/users', icon: 'team', label: 'Người dùng' },
+    { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
+    { path: '/system/settings', icon: 'setting', label: 'Cấu hình hệ thống' },
   ],
   manager: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
@@ -87,8 +91,14 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
 
 /** Extra links shown in the mobile drawer: only pages that exist and that the role may open. */
 export const SECONDARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
-  admin: [{ path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' }],
-  manager: [{ path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' }],
+  admin: [
+    { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
+    { path: '/system/settings', icon: 'setting', label: 'Cấu hình hệ thống' },
+  ],
+  manager: [
+    { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
+    { path: '/system/settings', icon: 'setting', label: 'Cấu hình hệ thống' },
+  ],
   inspector: [],
   analyst: [],
   technician: [],

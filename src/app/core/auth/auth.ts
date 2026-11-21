@@ -4,12 +4,14 @@ import { finalize, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { unwrapApiData } from '../../models/api.models';
 import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } from '../../models/auth.models';
+import { TrustedDeviceService } from './trusted-device.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class Auth {
   private readonly http = inject(HttpClient);
+  private readonly trustedDevice = inject(TrustedDeviceService);
   private readonly sessionKey = 'uavpms.session';
   private readonly sessionState = signal<AuthSession | null>(this.readSession());
   private readonly refreshingState = signal(false);
@@ -54,10 +56,14 @@ export class Auth {
 
   login(credentials: { username: string; password: string }) {
     const rawUsername = this.normalizeUsername(credentials.username);
+    const deviceId = this.trustedDevice.getDeviceId();
+    const isTrusted = this.trustedDevice.isDeviceTrusted(rawUsername);
     const normalizedCredentials = {
       username: rawUsername,
       email: rawUsername,
       password: credentials.password,
+      deviceId,
+      isTrustedDevice: isTrusted,
     };
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
       map((response): LoginResult => {
@@ -86,13 +92,21 @@ export class Auth {
   sendOtp(request: { email: string; purpose: string }) {
     return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, { ...request, email: this.normalizeEmail(request.email) });
   }
-  verifyOtp(request: { email: string; otp: string; purpose: string }) {
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, { ...request, email: this.normalizeEmail(request.email) }).pipe(
+  verifyOtp(request: { email: string; otp: string; purpose: string; trustDevice?: boolean; deviceId?: string }) {
+    const deviceId = request.deviceId || this.trustedDevice.getDeviceId();
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, {
+      ...request,
+      deviceId,
+      email: this.normalizeEmail(request.email),
+    }).pipe(
       map((response): OtpResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const authPayload = payload['authResult'] as Record<string, unknown> | null | undefined;
         if (authPayload && this.hasTokens(authPayload)) {
           this.setSession(this.normalizeSession(authPayload));
+          if (request.trustDevice) {
+            this.trustedDevice.trustDevice(request.email, 30);
+          }
           return { authenticated: true };
         }
         return {
@@ -156,9 +170,9 @@ export class Auth {
       const value = localStorage.getItem(this.sessionKey);
       if (!value) return null;
       const session = JSON.parse(value) as AuthSession;
-      if (session?.tokens?.accessToken && (!session.user?.role || session.user.role === 'Viewer')) {
+      if (session?.tokens?.accessToken) {
         const tokenRole = this.parseRoleFromToken(session.tokens.accessToken);
-        if (tokenRole && tokenRole !== 'Viewer') {
+        if (tokenRole && session.user?.role !== tokenRole) {
           const updatedSession: AuthSession = {
             ...session,
             user: { ...session.user, role: tokenRole },
@@ -196,7 +210,7 @@ export class Auth {
       complexRoles?.[0]?.roleName ??
       (rawUser['role'] as string | undefined) ??
       tokenRole ??
-      'Viewer';
+      'Inspector';
 
     const normalizedRole: UserRole =
       extractedRole.toLowerCase() === 'systemadmin' || extractedRole.toLowerCase() === 'admin' || extractedRole.toLowerCase() === 'administrator'
@@ -209,7 +223,7 @@ export class Auth {
         ? 'Inspector'
         : extractedRole.toLowerCase() === 'analyst'
         ? 'Analyst'
-        : (extractedRole as UserRole);
+        : 'Inspector';
 
     const user: AuthUser = {
       id: String(rawUser['id'] ?? ''),

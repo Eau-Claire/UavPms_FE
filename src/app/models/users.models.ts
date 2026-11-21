@@ -1,4 +1,4 @@
-﻿import { UserRole } from './auth.models';
+import { UserRole } from './auth.models';
 
 export type UserStatus = 'Active' | 'Inactive' | 'Locked';
 
@@ -18,6 +18,7 @@ export interface CreateUserRequest {
   readonly email: string;
   readonly phone?: string;
   readonly role: UserRole;
+  readonly password?: string;
 }
 
 /** A region in a user's default geographic scope (UserGeographicScopeRegionDto). */

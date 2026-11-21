@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, interval } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
+import { TrustedDeviceService } from '../../../../core/auth/trusted-device.service';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -18,10 +19,21 @@ import { NzInputModule } from 'ng-zorro-antd/input';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Otp {
-  private readonly otpDurationSeconds = 180;
-  private readonly resendCooldownSeconds = 30;
-  private readonly fb = inject(FormBuilder); private readonly auth = inject(Auth); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly destroyRef = inject(DestroyRef);
-  protected readonly email = this.route.snapshot.queryParamMap.get('email') ?? ''; protected readonly purpose = this.route.snapshot.queryParamMap.get('purpose') ?? 'Login'; protected readonly busy = signal(false); protected readonly resendBusy = signal(false); protected readonly error = signal('');
+  private readonly otpDurationSeconds = 900; // 15 phút theo Otp:ExpiryMinutes: 15
+  private readonly resendCooldownSeconds = 30; // 30s theo Otp:CooldownSeconds: 30
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(Auth);
+  private readonly trustedDevice = inject(TrustedDeviceService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  protected readonly email = this.route.snapshot.queryParamMap.get('email') ?? '';
+  protected readonly purpose = this.route.snapshot.queryParamMap.get('purpose') ?? 'Login';
+  protected readonly busy = signal(false);
+  protected readonly resendBusy = signal(false);
+  protected readonly error = signal('');
+  protected readonly trustThisDevice = signal(true);
   protected readonly digits = signal(['', '', '', '', '', '']);
   protected readonly remainingSeconds = signal(this.otpDurationSeconds);
   protected readonly resendRemainingSeconds = signal(this.resendCooldownSeconds);
@@ -95,9 +107,34 @@ export class Otp {
   }
   protected submit(): void {
     if (this.busy()) return;
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    this.busy.set(true); this.error.set('');
-    this.auth.verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: (result) => { if (result.authenticated) { void this.router.navigate(['/dashboard']); return; } void this.router.navigate(this.purpose === 'ForgotPassword' ? ['/reset-password'] : ['/login'], { queryParams: result.verificationToken ? { token: result.verificationToken } : undefined }); }, error: () => this.error.set('Code is invalid or expired.') });
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    this.auth
+      .verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.busy.set(false)),
+      )
+      .subscribe({
+        next: (result) => {
+          if (result.authenticated) {
+            if (this.trustThisDevice() && this.email) {
+              this.trustedDevice.trustDevice(this.email, 30);
+            }
+            void this.router.navigate(['/dashboard']);
+            return;
+          }
+          void this.router.navigate(
+            this.purpose === 'ForgotPassword' ? ['/reset-password'] : ['/login'],
+            { queryParams: result.verificationToken ? { token: result.verificationToken } : undefined },
+          );
+        },
+        error: () => this.error.set('Mã xác nhận OTP không đúng hoặc đã hết hạn.'),
+      });
   }
   protected resendCode(): void {
     if (this.resendRemainingSeconds() > 0 || this.resendBusy()) return;

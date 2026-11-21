@@ -8,8 +8,8 @@ describe('canAccess', () => {
     expect(canAccess('Supervisor', ['Manager'])).toBe(true);
     expect(canAccess('Pilot', ['Inspector'])).toBe(true);
     expect(canAccess('MaintenanceTechnician', ['Technician'])).toBe(true);
-    expect(canAccess('Viewer', ['Viewer'])).toBe(true);
-    expect(canAccess('Viewer', ['Admin', 'Manager'])).toBe(false);
+    expect(canAccess('Inspector', ['Inspector'])).toBe(true);
+    expect(canAccess('Inspector', ['Admin', 'Manager'])).toBe(false);
     expect(canAccess(undefined, ['Admin'])).toBe(false);
   });
 

@@ -288,6 +288,36 @@
                   }
                 </select>
               </label>
+            } @else {
+              <div class="form-field full-width generated-password-field">
+                <span class="field-label">Mật khẩu khởi tạo ngẫu nhiên (An toàn & Đạt chuẩn)</span>
+                <div class="generated-pwd-box">
+                  <span nz-icon nzType="lock" class="pwd-icon"></span>
+                  <code class="pwd-code">{{ generatedPassword() }}</code>
+                  <div class="pwd-actions">
+                    <button
+                      type="button"
+                      class="button secondary small"
+                      (click)="regeneratePassword()"
+                      title="Đổi mật khẩu ngẫu nhiên khác"
+                    >
+                      <span nz-icon nzType="sync"></span> Tạo lại
+                    </button>
+                    <button
+                      type="button"
+                      class="button secondary small"
+                      (click)="copyPassword()"
+                      title="Sao chép mật khẩu"
+                    >
+                      <span nz-icon [nzType]="copied() ? 'check' : 'copy'"></span> {{ copied() ? 'Đã sao chép' : 'Sao chép' }}
+                    </button>
+                  </div>
+                </div>
+                <small class="pwd-field-hint">
+                  <span nz-icon nzType="check-circle" style="color: #16a34a;"></span>
+                  Tài khoản được cấu hình tự xác thực email (Email Confirmed) để tránh lỗi không đăng nhập được.
+                </small>
+              </div>
             }
           </div>
 

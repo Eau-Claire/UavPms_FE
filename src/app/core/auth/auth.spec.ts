@@ -44,7 +44,7 @@ describe('Auth', () => {
   it('normalizes login username email before sending credentials', () => {
     auth.login({ username: '  OPERATOR@EVN.VN  ', password: 'secret12' }).subscribe();
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
-    expect(request.request.body).toEqual({ username: 'OPERATOR@EVN.VN', email: 'OPERATOR@EVN.VN', password: 'secret12' });
+    expect(request.request.body).toMatchObject({ username: 'OPERATOR@EVN.VN', email: 'OPERATOR@EVN.VN', password: 'secret12' });
     request.flush({ data: { otpRequired: true, email: 'OPERATOR@EVN.VN' } });
   });
 

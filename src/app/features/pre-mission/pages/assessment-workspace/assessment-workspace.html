@@ -3,13 +3,13 @@
     <!-- Header Bar -->
     <header class="pre-mission-head">
       <div>
-        <div class="pre-mission-breadcrumb">
-          <span>TIỀN NHIỆM VỤ</span>
+        <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+          <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
           <span class="separator">/</span>
-          <a routerLink="/pre-mission" style="color: #64748b; text-decoration: none;">DANH SÁCH</a>
+          <a routerLink="/pre-mission" class="breadcrumb-link">TIỀN NHIỆM VỤ</a>
           <span class="separator">/</span>
-          <strong>KHÔNG GIAN ĐÁNH GIÁ MỨC SẴN SÀNG</strong>
-        </div>
+          <strong>KHÔNG GIAN ĐÁNH GIÁ SẴN SÀNG</strong>
+        </nav>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <h1>{{ a.assessmentCode }}</h1>
           <span class="evn-status {{ statusTone(a.status) }}">
