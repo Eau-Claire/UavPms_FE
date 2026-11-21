@@ -43,7 +43,7 @@ export interface AiDetection {
   readonly boundingBox?: DetectionBoundingBox;
   readonly severityWeight: number;
   readonly isEmergency: boolean;
-  readonly status: 'Pending' | 'Approved' | 'Rejected';
+  readonly status: 'Pending' | 'Evaluating' | 'Approved' | 'Confirmed' | 'Rejected' | string;
   readonly analystNotes?: string;
   readonly detectedAt: string;
 }

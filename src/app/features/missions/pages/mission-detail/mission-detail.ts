@@ -2206,7 +2206,7 @@ export class MissionDetail {
 
         return {
           ...curr,
-          status: isAllConfirmed ? 'Assigned' : 'PendingAcceptance',
+          status: isAllConfirmed ? 'Confirmed' : 'PendingAcceptance',
           confirmedAt: isAllConfirmed ? (event.timestamp || new Date().toISOString()) : (curr.confirmedAt ?? null),
           allConfirmed: isAllConfirmed,
           confirmedCount: confCount,
@@ -2429,8 +2429,9 @@ export class MissionDetail {
 
   private aiStatusLabel(event: AiAnalysisStatusChangedEvent): string {
     const status = event.status.trim().toLowerCase();
-    if (status === 'completed') return `AI hoàn tất - ${event.savedDetections} detection`;
+    if (status === 'completed') return `AI hoàn tất - ${event.savedDetections} phát hiện`;
     if (status === 'failed') return event.errorMessage ? `AI lỗi - ${event.errorMessage}` : 'AI lỗi';
+    if (status === 'evaluating' || status === 'processing' || status === 'running') return 'AI đang phân tích đánh giá';
     if (status === 'pending') return 'Đang chờ AI xử lý';
     return event.status || 'Đang xử lý AI';
   }
