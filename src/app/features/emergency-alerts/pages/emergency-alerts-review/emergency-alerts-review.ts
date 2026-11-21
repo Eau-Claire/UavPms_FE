@@ -458,6 +458,8 @@ export class EmergencyAlertsReview {
 
   protected closeDetail(): void {
     this.detail.set(null);
+  }
+
   protected formatReviewNotes(notes?: string | null): string {
     if (!notes) return 'Chưa có thông tin thẩm định.';
     const raw = notes.trim();
