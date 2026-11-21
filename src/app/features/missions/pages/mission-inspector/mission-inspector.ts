@@ -109,7 +109,7 @@ export class MissionInspector {
 
   protected readonly isReadyToFly = computed(() => {
     const status = normalizeMissionStatus(this.mission()?.status);
-    return status === 'Assigned' || status === 'Preparing' || status === 'Ready';
+    return status === 'Confirmed' || status === 'Ready' || status === 'Assigned' || status === 'Preparing';
   });
 
   protected readonly confirmationDeadlineDate = computed(() => {

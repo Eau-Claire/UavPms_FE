@@ -22,6 +22,7 @@ export const PRIORITY_DEFECT_CATEGORIES = [
 export type MissionStatus =
   | 'Draft'
   | 'PendingAcceptance'
+  | 'Confirmed'
   | 'Assigned'
   | 'Preparing'
   | 'Ready'
@@ -35,6 +36,7 @@ export type MissionStatus =
 export const MISSION_STATUSES: readonly MissionStatus[] = [
   'Draft',
   'PendingAcceptance',
+  'Confirmed',
   'Assigned',
   'Preparing',
   'Ready',
@@ -48,6 +50,7 @@ export const MISSION_STATUSES: readonly MissionStatus[] = [
 const MISSION_STATUS_LABELS: Record<string, string> = {
   Draft: 'Bản nháp',
   PendingAcceptance: 'Chờ thành viên tiếp nhận',
+  Confirmed: 'Đã xác nhận',
   Assigned: 'Đã tiếp nhận',
   Preparing: 'Đang chuẩn bị',
   Ready: 'Sẵn sàng bay',
@@ -78,8 +81,9 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
     case 'PENDINGACCEPTANCE':
     case 'PENDINGCONFIRMATION':
       return 'PendingAcceptance';
-    case 'ASSIGNED':
     case 'CONFIRMED':
+      return 'Confirmed';
+    case 'ASSIGNED':
     case 'RESUMED':
       return 'Assigned';
     case 'PREPARING':

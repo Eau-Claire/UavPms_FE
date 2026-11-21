@@ -106,7 +106,31 @@
         <p class="kicker">HỒ SƠ VẬN HÀNH</p>
         <h2>Danh mục báo cáo</h2>
       </div>
-      <span class="record-badge">{{ totalItems() }} báo cáo</span>
+      <div class="table-header-right">
+        <div class="report-selection-actions">
+          <button
+            type="button"
+            class="button secondary small btn-top-dl"
+            [disabled]="!selectedReportId() || isDownloading() !== null"
+            (click)="downloadSelected('pdf')"
+            title="Tải PDF báo cáo đang chọn"
+          >
+            <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-pdf' ? 'loading' : 'file-pdf'"></span>
+            <span>Tải PDF</span>
+          </button>
+          <button
+            type="button"
+            class="button secondary small btn-top-dl"
+            [disabled]="!selectedReportId() || isDownloading() !== null"
+            (click)="downloadSelected('excel')"
+            title="Tải Excel báo cáo đang chọn"
+          >
+            <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-excel' ? 'loading' : 'file-excel'"></span>
+            <span>Tải Excel</span>
+          </button>
+        </div>
+        <span class="record-badge">{{ totalItems() }} báo cáo</span>
+      </div>
     </div>
 
     @if (isLoading()) {
@@ -131,7 +155,7 @@
           </thead>
           <tbody>
             @for (item of reports(); track item.id) {
-              <tr>
+              <tr [class.is-selected]="selectedReportId() === item.id" (click)="selectReport(item)" style="cursor: pointer;">
                 <td>
                   <div class="report-title-cell">
                     <strong>{{ item.title }}</strong>
@@ -169,12 +193,12 @@
                     }
                   </div>
                 </td>
-                <td class="actions-col">
+                <td class="actions-col" (click)="$event.stopPropagation()">
                   <div class="download-dropdown-wrap">
                     <button
                       type="button"
                       class="button secondary small btn-download-trigger"
-                      (click)="toggleDownloadMenu(item.id)"
+                      (click)="toggleDownloadMenu(item.id, $event)"
                       [attr.aria-expanded]="activeDownloadMenuId() === item.id"
                       title="Tùy chọn tải báo cáo"
                     >

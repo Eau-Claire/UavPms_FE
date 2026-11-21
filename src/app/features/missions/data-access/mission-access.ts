@@ -74,13 +74,13 @@ export const findMyAssignment = (mission: Mission | null | undefined, userId: st
  * Mission statuses in which a member can still accept or ask to postpone their assignment. The backend answers
  * `409 INVALID_MISSION_STATE` outside PendingAcceptance/Assigned/Preparing/Ready (e.g. Draft, Postponed).
  */
-const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
+const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Confirmed', 'Preparing', 'Ready'];
 
 /** `POST /missions/{id}/postpone` (the whole mission) is Manager/SystemAdmin only; members use `/assignments/postpone`. */
 export const canPostponeWholeMission = (role: RoleInput): boolean => isManagerRole(role);
 
 /** Statuses from which `POST /missions/{id}/start` is accepted. */
-const STARTABLE_STATUSES = ['Assigned', 'Preparing', 'Ready'];
+const STARTABLE_STATUSES = ['Ready', 'Assigned', 'Preparing', 'Confirmed'];
 
 /** `Mission:StartToleranceMinutes`: a mission may start at most 2 hours before its planned start. */
 export const START_TOLERANCE_MINUTES = 120;

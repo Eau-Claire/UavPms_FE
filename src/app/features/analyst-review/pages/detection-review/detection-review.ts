@@ -350,10 +350,10 @@ export class DetectionReview {
 
   protected statusText(item: AnomalyItem): string {
     if (item.supersededById) return 'Đã bị kết quả Cloud thay thế';
-    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận (Official Defect)';
+    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận';
     if (item.validationStatus === 'Resolved') return 'Đã xử lý xong';
-    if (item.validationStatus === 'Rejected') return 'Đã từ chối (Rejected)';
-    return 'Chờ thẩm định (Pending)';
+    if (item.validationStatus === 'Rejected') return 'Đã từ chối';
+    return 'Chờ thẩm định';
   }
 
   protected confidenceClass(score: number): string {

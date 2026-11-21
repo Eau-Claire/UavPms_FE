@@ -36,6 +36,7 @@ export type MissionLifecycleEventType =
   | 'CANCELLED'
   | 'REMINDER'
   | 'COMMUNICATION'
+  | 'CHECKED_IN'
   | 'STARTED'
   | 'COMPLETED'
   | 'OVERDUE'

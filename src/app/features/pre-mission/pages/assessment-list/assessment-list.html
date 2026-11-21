@@ -102,27 +102,31 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 140px;">Mã đánh giá</th>
+              <th style="width: 125px;">Mã đánh giá</th>
               <th>Phạm vi (Khu vực / Cột)</th>
-              <th style="width: 160px;">Khung giờ dự kiến</th>
-              <th style="width: 280px;" class="text-center">Điều kiện sẵn sàng</th>
-              <th style="width: 125px;" class="text-center">Tổng thể</th>
-              <th style="width: 130px;">Hiệu lực đến</th>
-              <th style="width: 160px;" class="text-center">Thao tác</th>
+              <th style="width: 145px;">Khung giờ dự kiến</th>
+              <th style="width: 85px;" class="text-center">Mặt bằng</th>
+              <th style="width: 85px;" class="text-center">Nhân sự</th>
+              <th style="width: 85px;" class="text-center">UAV</th>
+              <th style="width: 85px;" class="text-center">Kỹ thuật</th>
+              <th style="width: 110px;" class="text-center">Tổng thể</th>
+              <th style="width: 125px;">Hiệu lực đến</th>
+              <th style="width: 110px;" class="text-center">Nhiệm vụ</th>
+              <th style="width: 110px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             @if (loading()) {
               @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
                 <tr class="skeleton-row">
-                  <td colspan="7" class="text-center" style="color: #64748b; font-style: italic;">
+                  <td colspan="11" class="text-center" style="color: #64748b; font-style: italic;">
                     Đang tải dữ liệu đánh giá...
                   </td>
                 </tr>
               }
             } @else if (!filteredItems().length) {
               <tr>
-                <td colspan="7" class="text-center" style="padding: 24px; color: #64748b;">
+                <td colspan="11" class="text-center" style="padding: 24px; color: #64748b;">
                   Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
                 </td>
               </tr>
@@ -142,20 +146,24 @@
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
                   </td>
                   <td class="text-center">
-                    <div class="readiness-pills-row">
-                      <span class="sub-pill {{ statusTone(item.site.status) }}" title="Mặt bằng bay: {{ statusLabel(item.site.status) }}">
-                        MB: {{ item.site.status === 'READY' ? 'Đạt' : 'Chưa' }}
-                      </span>
-                      <span class="sub-pill {{ statusTone(item.personnel.status) }}" title="Nhân sự vận hành: {{ statusLabel(item.personnel.status) }}">
-                        NS: {{ item.personnel.status === 'READY' ? 'Đạt' : 'Chưa' }}
-                      </span>
-                      <span class="sub-pill {{ statusTone(item.uav.status) }}" title="Thiết bị UAV: {{ statusLabel(item.uav.status) }}">
-                        UAV: {{ item.uav.status === 'READY' ? 'Đạt' : 'Chưa' }}
-                      </span>
-                      <span class="sub-pill {{ statusTone(item.technical.status) }}" title="Kiểm định kỹ thuật: {{ statusLabel(item.technical.status) }}">
-                        KT: {{ item.technical.status === 'READY' ? 'Đạt' : 'Chưa' }}
-                      </span>
-                    </div>
+                    <span class="sub-pill {{ statusTone(item.site.status) }}" [title]="'Mặt bằng: ' + statusLabel(item.site.status)">
+                      {{ item.site.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span class="sub-pill {{ statusTone(item.personnel.status) }}" [title]="'Nhân sự: ' + statusLabel(item.personnel.status)">
+                      {{ item.personnel.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span class="sub-pill {{ statusTone(item.uav.status) }}" [title]="'Thiết bị UAV: ' + statusLabel(item.uav.status)">
+                      {{ item.uav.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span class="sub-pill {{ statusTone(item.technical.status) }}" [title]="'Kiểm định KT: ' + statusLabel(item.technical.status)">
+                      {{ item.technical.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    </span>
                   </td>
                   <td class="text-center">
                     <span class="evn-status {{ statusTone(item.status) }}">
@@ -168,6 +176,20 @@
                     </span>
                   </td>
                   <td class="text-center">
+                    @if (item.completedMissionId) {
+                      <a
+                        [routerLink]="['/missions', item.completedMissionId]"
+                        class="assessment-btn-mission"
+                        title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
+                      >
+                        <span nz-icon nzType="send" aria-hidden="true"></span>
+                        <span>Nhiệm vụ</span>
+                      </a>
+                    } @else {
+                      <span style="color: #94a3b8; font-size: 12px;">—</span>
+                    }
+                  </td>
+                  <td class="text-center">
                     <div class="assessment-actions-group">
                       <a
                         [routerLink]="['/pre-mission', item.id]"
@@ -177,16 +199,6 @@
                         <span nz-icon nzType="eye" aria-hidden="true"></span>
                         <span>Chi tiết</span>
                       </a>
-                      @if (item.completedMissionId) {
-                        <a
-                          [routerLink]="['/missions', item.completedMissionId]"
-                          class="assessment-btn-mission"
-                          title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
-                        >
-                          <span nz-icon nzType="send" aria-hidden="true"></span>
-                          <span>Nhiệm vụ</span>
-                        </a>
-                      }
                       @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"

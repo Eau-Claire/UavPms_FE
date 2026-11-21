@@ -1375,6 +1375,39 @@ export class MissionDetail {
       });
   }
 
+  protected checkInFlight(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+    this.actionMessage.set('');
+
+    this.api
+      .checkIn(currentMission.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.mission.update((curr) => (curr ? { ...curr, status: 'Ready' } : null));
+          this.actionMessage.set('Đã hoàn tất check-in tại điểm bay. Trạng thái: Sẵn sàng bay.');
+          this.realtime.broadcastMissionEvent({
+            missionId: currentMission.id,
+            type: 'CHECKED_IN',
+            status: 'Ready',
+            actorRole: this.senderRole(),
+            actorId: this.auth.user()?.id,
+            actorName: this.senderName(),
+            reason: 'Thanh tra viên đã check-in hiện trường điểm bay.',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => {
+          this.actionMessage.set(this.errorMessage(err, 'Không thể check-in tại điểm bay.'));
+        },
+      });
+  }
+
   protected startFlight(): void {
     const currentMission = this.mission();
     if (!currentMission) return;

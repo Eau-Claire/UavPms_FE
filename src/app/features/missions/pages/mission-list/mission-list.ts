@@ -269,7 +269,7 @@ export class MissionList {
   protected statusClass(status: string): string {
     const normalized = normalizeMissionStatus(status);
     if (this.isFailed(normalized)) return 'danger';
-    if (['Completed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
+    if (['Completed', 'Confirmed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
     if (this.isInProgress(normalized) || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
     return 'neutral';
   }

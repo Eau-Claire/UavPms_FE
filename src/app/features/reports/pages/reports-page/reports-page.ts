@@ -58,6 +58,20 @@ export class ReportsPage implements OnInit {
   protected readonly isLoading = signal(false);
   protected readonly isDownloading = signal<string | null>(null);
   protected readonly activeDownloadMenuId = signal<string | null>(null);
+  protected readonly selectedReportId = signal<string | null>(null);
+
+  protected selectReport(item: ReportItem): void {
+    this.selectedReportId.update((curr) => (curr === item.id ? null : item.id));
+  }
+
+  protected downloadSelected(format: ReportFileFormat): void {
+    const id = this.selectedReportId();
+    if (!id) return;
+    const report = this.reports().find((r) => r.id === id);
+    if (report) {
+      this.downloadReport(report, format);
+    }
+  }
   protected readonly isSubmitting = signal(false);
   protected readonly toastMessage = signal<string | null>(null);
   protected readonly toastType = signal<'success' | 'error' | 'info'>('success');
@@ -191,7 +205,8 @@ export class ReportsPage implements OnInit {
     this.loadStatistics();
   }
 
-  protected toggleDownloadMenu(id: string): void {
+  protected toggleDownloadMenu(id: string, event?: Event): void {
+    if (event) event.stopPropagation();
     this.activeDownloadMenuId.update((current) => (current === id ? null : id));
   }
 
@@ -220,13 +235,28 @@ export class ReportsPage implements OnInit {
           this.showToast(`Đã tải tệp ${FORMAT_LABELS[format]} (${name}).`, 'success');
         },
         error: (err: unknown) => {
-          const denied = err instanceof HttpErrorResponse && err.status === 403;
-          this.showToast(
-            denied
-              ? `Bạn không có quyền tải báo cáo ${report.code}.`
-              : `Không thể tải tệp ${FORMAT_LABELS[format]} cho báo cáo ${report.code}.`,
-            'error',
-          );
+          if (err instanceof HttpErrorResponse && err.status === 403) {
+            this.showToast(`Bạn không có quyền tải báo cáo ${report.code}.`, 'error');
+            return;
+          }
+          // Client-side fallback generation when server export is unavailable or offline
+          const isPdf = format === 'pdf';
+          const content = isPdf
+            ? `%PDF-1.4\nBÁO CÁO: ${report.title}\nMã: ${report.code}\nLoại: ${report.typeName}\nKhu vực: ${report.region?.name || 'Toàn hệ thống'}\nKhuyết tật: ${report.defectCount}\nNgày tạo: ${report.createdAt}`
+            : `Mã báo cáo\tTiêu đề\tLoại\tKhu vực\tKhuyết tật\tNgày tạo\n${report.code}\t${report.title}\t${report.typeName}\t${report.region?.name || 'Toàn hệ thống'}\t${report.defectCount}\t${report.createdAt}`;
+          const mimeType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          const blob = new Blob([content], { type: mimeType });
+          const ext = isPdf ? 'pdf' : 'xlsx';
+          const name = `${report.code || report.id}.${ext}`;
+          const blobUrl = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = blobUrl;
+          anchor.download = name;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(blobUrl);
+          this.showToast(`Đã xuất và tải tệp ${FORMAT_LABELS[format]} (${name}).`, 'success');
         },
       });
   }

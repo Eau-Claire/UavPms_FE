@@ -25,6 +25,18 @@ function getLocalNotifications(): AppNotification[] {
   return [];
 }
 
+function normalizeEmail(email?: string | null): string {
+  if (!email) return '';
+  const trimmed = email.trim().toLowerCase();
+  const parts = trimmed.split('@');
+  if (parts.length !== 2) return trimmed;
+  let [local, domain] = parts;
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    local = local.split('+')[0].replace(/\./g, '');
+  }
+  return `${local}@${domain}`;
+}
+
 function saveLocalNotifications(list: readonly AppNotification[]): void {
   try {
     const json = JSON.stringify(list);
@@ -77,7 +89,7 @@ function convertMissionEventToNotification(
       };
     case 'CONFIRMED':
       return {
-        id: `notif-conf-${missionId}-${event.actorRole || 'MEMBER'}-${Date.now()}`,
+        id: `notif-conf-${missionId}-${event.actorRole || 'MEMBER'}`,
         userId: currentUserId,
         title: `${actor} đã xác nhận nhiệm vụ ${missionId}`,
         body: `Tiến độ: ${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3}. ${event.allConfirmed ? 'Tất cả vai trò đã sẵn sàng.' : 'Đang chờ các vai trò còn lại.'}`,
@@ -113,11 +125,23 @@ function convertMissionEventToNotification(
       };
     case 'REMINDER':
       return {
-        id: `notif-rem-${missionId}-${Date.now()}`,
+        id: `notif-rem-${missionId}`,
         userId: currentUserId,
         title: `Nhắc nhở tiếp nhận nhiệm vụ ${missionId}`,
         body: event.reason || 'Vui lòng xác nhận tiếp nhận trước hạn chót.',
         type: 'MISSION_REMINDER',
+        referenceType: 'MISSION',
+        referenceId: missionId,
+        createdAt: now,
+        isRead: false,
+      };
+    case 'CHECKED_IN':
+      return {
+        id: `notif-checkin-${missionId}`,
+        userId: currentUserId,
+        title: `Nhiệm vụ ${missionId} đã check-in hiện trường`,
+        body: `${actor} đã có mặt tại điểm bay. Trạng thái: Sẵn sàng bay.`,
+        type: 'MISSION_STARTED',
         referenceType: 'MISSION',
         referenceId: missionId,
         createdAt: now,
@@ -178,10 +202,11 @@ export class NotificationsStore {
     const currentUser = this.auth.user();
     const currentUserId = currentUser?.id?.toLowerCase();
     const currentUserEmail = currentUser?.email?.toLowerCase();
+    const currentNormEmail = normalizeEmail(currentUserEmail);
     const currentRole = (currentUser?.role || '').toLowerCase();
     const isManagerOrAdmin = currentRole.includes('manager') || currentRole.includes('admin') || currentRole.includes('quản lý');
 
-    return this.notificationsState().filter((item) => {
+    const filtered = this.notificationsState().filter((item) => {
       if (isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && (item.body?.includes('Bạn được phân công') || item.title?.includes('Yêu cầu xác nhận'))) {
         return false;
       }
@@ -194,11 +219,29 @@ export class NotificationsStore {
         const target = item.userId.toLowerCase();
         const matches =
           target === currentUserId ||
-          (currentUserEmail && target === currentUserEmail);
+          (currentUserEmail && target === currentUserEmail) ||
+          (currentNormEmail && normalizeEmail(target) === currentNormEmail);
         if (!matches) return false;
       }
       return true;
     });
+
+    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
+    const deduped: AppNotification[] = [];
+
+    for (const item of filtered) {
+      if (seenIds.has(item.id)) continue;
+      seenIds.add(item.id);
+
+      const sig = `${item.type || ''}|${item.referenceId || ''}|${(item.title || '').trim().toLowerCase()}|${(item.body || '').trim().toLowerCase()}`;
+      if (seenSignatures.has(sig)) continue;
+      seenSignatures.add(sig);
+
+      deduped.push(item);
+    }
+
+    return deduped;
   });
 
   readonly unreadCount = computed(() => this.userNotifications().filter((item) => !item.isRead).length);
@@ -359,8 +402,22 @@ export class NotificationsStore {
 
   upsert(notification: AppNotification): void {
     this.notificationsState.update((items) => {
-      const exists = items.some((item) => item.id === notification.id);
-      const updated = sortNotifications(exists ? items.map((item) => (item.id === notification.id ? notification : item)) : [notification, ...items], this.filters().sort);
+      const notifSig = `${notification.type || ''}|${notification.referenceId || ''}|${(notification.title || '').trim().toLowerCase()}|${(notification.body || '').trim().toLowerCase()}`;
+      const existingIndex = items.findIndex((item) => {
+        if (item.id === notification.id) return true;
+        const itemSig = `${item.type || ''}|${item.referenceId || ''}|${(item.title || '').trim().toLowerCase()}|${(item.body || '').trim().toLowerCase()}`;
+        return itemSig === notifSig;
+      });
+
+      let nextList: AppNotification[];
+      if (existingIndex >= 0) {
+        nextList = [...items];
+        nextList[existingIndex] = { ...items[existingIndex], ...notification };
+      } else {
+        nextList = [notification, ...items];
+      }
+
+      const updated = sortNotifications(nextList, this.filters().sort);
       saveLocalNotifications(updated);
       return updated;
     });

@@ -259,7 +259,17 @@
               <div class="manager-action-buttons">
                 <!-- Flight lifecycle: managers and the mission's flight crew -->
                 @if (canOperateFlight()) {
-                  @if (mission.status === 'Assigned' || mission.status === 'Preparing' || mission.status === 'Ready') {
+                  @if (mission.status === 'Confirmed' || (mission.status === 'Assigned' && allRolesConfirmed())) {
+                    <button
+                      type="button"
+                      class="btn-manager-primary"
+                      [disabled]="actionBusy()"
+                      (click)="checkInFlight()">
+                      <span nz-icon nzType="environment" aria-hidden="true"></span> Check-in tại điểm bay
+                    </button>
+                  }
+
+                  @if (mission.status === 'Ready' || mission.status === 'Preparing' || (!allRolesConfirmed() && mission.status === 'Assigned')) {
                     <button
                       type="button"
                       class="btn-flight-start"

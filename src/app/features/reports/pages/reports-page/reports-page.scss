@@ -353,6 +353,30 @@
       margin-top: 1px;
     }
 
+    .table-header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .report-selection-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      .btn-top-dl {
+        height: 26px;
+        padding: 0 10px;
+        font-size: 11.5px;
+        font-weight: 600;
+        border-radius: 4px;
+
+        span[nz-icon] {
+          font-size: 13px;
+        }
+      }
+    }
+
     .record-badge {
       color: #64748b;
       font-size: 11px;
@@ -405,8 +429,20 @@
       }
     }
 
-    tbody tr:hover {
-      background: #f8fafc;
+    tbody tr {
+      transition: background 0.15s ease;
+
+      &:hover {
+        background: #f8fafc;
+      }
+
+      &.is-selected {
+        background: #eff6ff;
+
+        td {
+          border-top-color: #bfdbfe;
+        }
+      }
     }
   }
 }
@@ -531,6 +567,53 @@
   }
 }
 
+.direct-download-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+
+  .btn-dl {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    transition: all 0.15s ease;
+
+    &.btn-dl-pdf {
+      color: #b91c1c;
+      border-color: #fca5a5;
+      background: #fef2f2;
+      &:hover:not(:disabled) {
+        background: #fee2e2;
+        border-color: #ef4444;
+      }
+    }
+
+    &.btn-dl-excel {
+      color: #15803d;
+      border-color: #86efac;
+      background: #f0fdf4;
+      &:hover:not(:disabled) {
+        background: #dcfce7;
+        border-color: #22c55e;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
 .download-dropdown-wrap {
   position: relative;
   display: inline-flex;
@@ -548,9 +631,9 @@
 
   .download-dropdown-menu {
     position: absolute;
-    top: calc(100% + 4px);
+    bottom: calc(100% + 4px);
     right: 0;
-    z-index: 100;
+    z-index: 1000;
     min-width: 175px;
     background: #ffffff;
     border: 1px solid #e2e8f0;

@@ -301,17 +301,74 @@ export class AuditLogViewer {
     URL.revokeObjectURL(url);
   }
 
+  protected parseUserAgent(ua?: string): string {
+    if (!ua) return 'Không rõ';
+    const os = ua.includes('Windows')
+      ? 'Windows'
+      : ua.includes('Macintosh')
+      ? 'macOS'
+      : ua.includes('Linux')
+      ? 'Linux'
+      : ua.includes('Android')
+      ? 'Android'
+      : ua.includes('iPhone')
+      ? 'iOS'
+      : 'Hệ điều hành khác';
+    const browser = ua.includes('Edg')
+      ? 'Microsoft Edge'
+      : ua.includes('Chrome')
+      ? 'Google Chrome'
+      : ua.includes('Firefox')
+      ? 'Mozilla Firefox'
+      : ua.includes('Safari')
+      ? 'Apple Safari'
+      : 'Trình duyệt web';
+    return `${browser} (${os})`;
+  }
+
+  protected fieldLabel(key: string): string {
+    const map: Record<string, string> = {
+      createdAt: 'Thời gian tạo',
+      createdBy: 'Người tạo',
+      updatedAt: 'Thời gian cập nhật',
+      updatedBy: 'Người cập nhật',
+      deviceId: 'Mã thiết bị',
+      email: 'Địa chỉ Email',
+      username: 'Tên tài khoản',
+      fullName: 'Họ và tên',
+      role: 'Vai trò',
+      status: 'Trạng thái',
+      isTrusted: 'Thiết bị tin cậy',
+      expiresAt: 'Thời hạn hiệu lực',
+      title: 'Tiêu đề',
+      description: 'Mô tả',
+      name: 'Tên',
+      code: 'Mã hiệu',
+      priority: 'Mức độ ưu tiên',
+      regionId: 'Khu vực',
+      latitude: 'Vĩ độ',
+      longitude: 'Kinh độ',
+    };
+    return map[key] || map[key.toLowerCase()] || key;
+  }
+
   private parseDiff(oldVal: string | null, newVal: string | null): FieldDiff[] {
     const oldObj = this.safeParseJson(oldVal);
     const newObj = this.safeParseJson(newVal);
 
-    const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)])).sort();
+    const rawKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)])).sort();
+    // Filter out internal null deletedAt artifacts
+    const allKeys = rawKeys.filter((k) => {
+      const lower = k.toLowerCase();
+      if (lower === 'deletedat' && (!newObj[k] || newObj[k] === 'null')) return false;
+      return true;
+    });
 
     if (allKeys.length === 0) {
       if (!oldVal && !newVal) return [];
       return [
         {
-          key: 'Dữ liệu thô',
+          key: 'Dữ liệu thay đổi',
           oldValue: oldVal ?? '-',
           newValue: newVal ?? '-',
           status: !oldVal ? 'added' : !newVal ? 'deleted' : 'modified',

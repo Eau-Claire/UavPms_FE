@@ -427,6 +427,12 @@ export const normalizeMission = (source: unknown): Mission => {
   const totalRequiredCount = required.length;
   const allConfirmed = totalRequiredCount > 0 && confirmedCount >= totalRequiredCount;
 
+  const rawStatus = stringValue(r['status']);
+  let status = normalizeMissionStatus(rawStatus);
+  if (allConfirmed && (status === 'Assigned' || status === 'PendingAcceptance' || rawStatus === 'Assigned' || rawStatus === 'CONFIRMED')) {
+    status = 'Confirmed';
+  }
+
   return {
     id,
     missionCode: stringValue(r['missionCode'], id),
@@ -436,7 +442,7 @@ export const normalizeMission = (source: unknown): Mission => {
     assignedToUsername: stringValue(pick(r, 'assignedToUsername', 'assignedToEmail', 'inspectorEmail')),
     droneCode: stringValue(r['droneCode']),
     droneId: optionalString(pick(r, 'droneId', 'uavId')) ?? null,
-    status: normalizeMissionStatus(stringValue(r['status'])),
+    status,
     description: stringValue(r['description']),
     managerId: stringValue(r['managerId']),
     managerUsername: stringValue(r['managerEmail']),

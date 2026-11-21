@@ -286,147 +286,108 @@
           <section class="meta-section" aria-label="Thông tin tổng quan bản ghi">
             <div class="meta-item">
               <span class="meta-label">Thời gian:</span>
-              <span class="meta-value">{{ selected.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }} (Asia/Ho_Chi_Minh)</span>
+              <span class="meta-value font-medium">{{ selected.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Người thực hiện:</span>
-              <span class="meta-value font-medium">{{ selected.operatorEmail }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">ID Người dùng:</span>
-              <span class="meta-value">{{ selected.userId || 'System (Hệ thống)' }}</span>
+              <span class="meta-value font-medium">{{ selected.operatorEmail || 'Hệ thống' }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Đối tượng tác động:</span>
-              <span class="meta-value">{{ tableLabel(selected.tableName) }} ({{ selected.tableName }})</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">ID Bản ghi (Record ID):</span>
-              <span class="meta-value copyable">
-                <code>{{ selected.recordId }}</code>
-                <button
-                  type="button"
-                  class="btn-copy-sm"
-                  (click)="copyText(selected.recordId, 'modal-rec-id')"
-                  aria-label="Sao chép ID"
-                >
-                  <span
-                    nz-icon
-                    [nzType]="copiedId() === 'modal-rec-id' ? 'check' : 'copy'"
-                    aria-hidden="true"
-                  ></span>
-                </button>
-              </span>
+              <span class="meta-value font-medium">{{ tableLabel(selected.tableName) }}</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Địa chỉ IP:</span>
-              <span class="meta-value">{{ selected.ipAddress }}</span>
+              <span class="meta-value">{{ selected.ipAddress || '—' }}</span>
             </div>
             <div class="meta-item full-width">
-              <span class="meta-label">User Agent:</span>
-              <span class="meta-value font-mono">{{ selected.userAgent }}</span>
+              <span class="meta-label">Thiết bị &amp; Trình duyệt:</span>
+              <span class="meta-value font-medium">{{ parseUserAgent(selected.userAgent) }}</span>
             </div>
           </section>
 
-          <!-- Tabs: Diff vs Raw JSON -->
-          <div class="modal-tabs" role="tablist" aria-label="Xem dữ liệu thay đổi">
+          <!-- Section: Business Change Summary -->
+          <section class="diff-section" aria-label="Bảng so sánh giá trị cũ và mới">
+            <h3 class="section-heading" style="font-size: 13px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0; display: flex; align-items: center; gap: 6px;">
+              <span nz-icon nzType="profile" aria-hidden="true"></span>
+              <span>Chi tiết dữ liệu thay đổi</span>
+            </h3>
+
+            @if (currentDiff().length === 0) {
+              <div class="diff-empty">
+                Không có dữ liệu thay đổi thuộc tính hoặc thao tác không làm thay đổi giá trị bản ghi.
+              </div>
+            } @else {
+              <table class="diff-table">
+                <thead>
+                  <tr>
+                    <th scope="col" class="diff-th-key">Thuộc tính</th>
+                    <th scope="col" class="diff-th-old">Giá trị trước</th>
+                    <th scope="col" class="diff-th-new">Giá trị sau</th>
+                    <th scope="col" class="diff-th-status">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (diff of currentDiff(); track diff.key) {
+                    <tr class="diff-row" [class]="'diff-row-' + diff.status">
+                      <td class="diff-td-key">
+                        <strong style="color: #0f2952; font-size: 12.5px;">{{ fieldLabel(diff.key) }}</strong>
+                        <small style="color: #64748b; font-size: 10.5px; display: block;">{{ diff.key }}</small>
+                      </td>
+                      <td class="diff-td-old">
+                        @if (diff.oldValue === '[MASKED]') {
+                          <span class="val-masked">[Mật khẩu được ẩn]</span>
+                        } @else if (diff.status === 'added') {
+                          <span class="val-null">—</span>
+                        } @else {
+                          <span class="val-old">{{ diff.oldValue }}</span>
+                        }
+                      </td>
+                      <td class="diff-td-new">
+                        @if (diff.newValue === '[MASKED]') {
+                          <span class="val-masked">[Mật khẩu được ẩn]</span>
+                        } @else if (diff.status === 'deleted') {
+                          <span class="val-null">—</span>
+                        } @else {
+                          <span class="val-new" style="font-weight: 600;">{{ diff.newValue }}</span>
+                        }
+                      </td>
+                      <td class="diff-td-status">
+                        <span class="diff-pill" [class]="'diff-pill-' + diff.status">
+                          @switch (diff.status) {
+                            @case ('added') { Thêm mới }
+                            @case ('deleted') { Đã xóa }
+                            @case ('modified') { Cập nhật }
+                            @default { Không đổi }
+                          }
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </section>
+
+          <!-- Drawer Toggle for Technical JSON -->
+          <div style="margin-top: 14px; text-align: right;">
             <button
               type="button"
-              role="tab"
-              class="tab-btn"
-              [class.tab-active]="activeDetailTab() === 'diff'"
-              [attr.aria-selected]="activeDetailTab() === 'diff'"
-              (click)="activeDetailTab.set('diff')"
+              style="background: transparent; border: none; font-size: 11.5px; color: #64748b; cursor: pointer; text-decoration: underline;"
+              (click)="activeDetailTab.set(activeDetailTab() === 'raw' ? 'diff' : 'raw')"
             >
-              <span nz-icon nzType="diff" aria-hidden="true"></span>
-              So sánh thay đổi (Diff)
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class="tab-btn"
-              [class.tab-active]="activeDetailTab() === 'raw'"
-              [attr.aria-selected]="activeDetailTab() === 'raw'"
-              (click)="activeDetailTab.set('raw')"
-            >
-              <span nz-icon nzType="code" aria-hidden="true"></span>
-              Dữ liệu JSON thô
+              {{ activeDetailTab() === 'raw' ? 'Ẩn dữ liệu JSON thô' : 'Xem dữ liệu JSON kỹ thuật' }}
             </button>
           </div>
 
-          <!-- Tab Content: Diff View -->
-          @if (activeDetailTab() === 'diff') {
-            <section class="diff-section" aria-label="Bảng so sánh giá trị cũ và mới">
-              @if (currentDiff().length === 0) {
-                <div class="diff-empty">
-                  Không có dữ liệu thay đổi thuộc tính hoặc hành động không phát sinh giá trị diff.
-                </div>
-              } @else {
-                <table class="diff-table">
-                  <thead>
-                    <tr>
-                      <th scope="col" class="diff-th-key">Trường dữ liệu</th>
-                      <th scope="col" class="diff-th-old">Giá trị trước thay đổi (Old)</th>
-                      <th scope="col" class="diff-th-new">Giá trị sau thay đổi (New)</th>
-                      <th scope="col" class="diff-th-status">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (diff of currentDiff(); track diff.key) {
-                      <tr class="diff-row" [class]="'diff-row-' + diff.status">
-                        <td class="diff-td-key">
-                          <code>{{ diff.key }}</code>
-                        </td>
-                        <td class="diff-td-old">
-                          @if (diff.oldValue === '[MASKED]') {
-                            <span class="val-masked">[MASKED - Mật khẩu được ẩn]</span>
-                          } @else if (diff.status === 'added') {
-                            <span class="val-null">-</span>
-                          } @else {
-                            <span class="val-old">{{ diff.oldValue }}</span>
-                          }
-                        </td>
-                        <td class="diff-td-new">
-                          @if (diff.newValue === '[MASKED]') {
-                            <span class="val-masked">[MASKED - Mật khẩu được ẩn]</span>
-                          } @else if (diff.status === 'deleted') {
-                            <span class="val-null">-</span>
-                          } @else {
-                            <span class="val-new">{{ diff.newValue }}</span>
-                          }
-                        </td>
-                        <td class="diff-td-status">
-                          <span class="diff-pill" [class]="'diff-pill-' + diff.status">
-                            @switch (diff.status) {
-                              @case ('added') { Thêm mới }
-                              @case ('deleted') { Đã xóa }
-                              @case ('modified') { Thay đổi }
-                              @default { Không đổi }
-                            }
-                          </span>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              }
-            </section>
-          }
-
-          <!-- Tab Content: Raw JSON View -->
           @if (activeDetailTab() === 'raw') {
-            <section class="raw-section" aria-label="Dữ liệu JSON gốc">
+            <section class="raw-section" aria-label="Dữ liệu JSON gốc" style="margin-top: 10px;">
               <div class="raw-block">
-                <div class="raw-block-header">
-                  <span>Giá trị cũ (oldValues):</span>
-                </div>
+                <div class="raw-block-header"><span>Giá trị cũ:</span></div>
                 <pre class="raw-code"><code>{{ selected.oldValues || 'null' }}</code></pre>
               </div>
-
               <div class="raw-block">
-                <div class="raw-block-header">
-                  <span>Giá trị mới (newValues):</span>
-                </div>
+                <div class="raw-block-header"><span>Giá trị mới:</span></div>
                 <pre class="raw-code"><code>{{ selected.newValues || 'null' }}</code></pre>
               </div>
             </section>
