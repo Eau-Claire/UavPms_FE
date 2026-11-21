@@ -114,7 +114,7 @@ export class Otp {
     this.busy.set(true);
     this.error.set('');
     this.auth
-      .verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose })
+      .verifyOtp({ email: this.email, otp: this.form.controls.otp.value, purpose: this.purpose, trustDevice: this.trustThisDevice() })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.busy.set(false)),

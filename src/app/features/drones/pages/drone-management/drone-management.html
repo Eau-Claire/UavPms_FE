@@ -153,7 +153,7 @@
           <th>Năng lực bay</th>
           <th>Phần cứng Flight Controller</th>
           <th>Lần đo kiểm gần nhất</th>
-          <th style="text-align: right;">Hành động</th>
+          <th style="text-align: right; width: 160px;">Thao tác</th>
         </tr>
       </thead>
       <tbody>
@@ -277,17 +277,18 @@
                 <div class="actions-cell">
                   <button
                     type="button"
-                    class="action-btn history"
+                    class="action-btn-text"
                     (click)="openHistory(drone)"
                     title="Lịch sử kiểm định kỹ thuật"
                     [attr.aria-label]="'Lịch sử kiểm định kỹ thuật của ' + drone.code"
                   >
-                    <span nz-icon nzType="history" aria-hidden="true"></span>
+                    <span nz-icon nzType="eye" aria-hidden="true"></span>
+                    <span>Chi tiết</span>
                   </button>
                   @if (canEditDrone()) {
                     <button
                       type="button"
-                      class="action-btn check"
+                      class="action-btn-icon check"
                       (click)="openTechCheck(drone)"
                       title="Kiểm định kỹ thuật an toàn (Checklist)"
                       [attr.aria-label]="'Kiểm định kỹ thuật an toàn của ' + drone.code"
@@ -296,16 +297,7 @@
                     </button>
                     <button
                       type="button"
-                      class="action-btn fc"
-                      (click)="openFcModal(drone)"
-                      title="Cập nhật Flight Controller (FC)"
-                      [attr.aria-label]="'Cập nhật FC của ' + drone.code"
-                    >
-                      <span nz-icon nzType="usb" aria-hidden="true"></span>
-                    </button>
-                    <button
-                      type="button"
-                      class="action-btn edit"
+                      class="action-btn-icon edit"
                       (click)="openEdit(drone)"
                       title="Chỉnh sửa thông số UAV"
                       [attr.aria-label]="'Chỉnh sửa ' + drone.code"
@@ -316,7 +308,7 @@
                   @if (canManageFleet()) {
                     <button
                       type="button"
-                      class="action-btn delete"
+                      class="action-btn-icon delete"
                       (click)="deleteDrone(drone)"
                       [disabled]="drone.operationalStatus === 'InUse'"
                       title="Xóa UAV"

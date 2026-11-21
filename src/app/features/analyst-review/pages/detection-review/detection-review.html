@@ -252,7 +252,7 @@
               @if (item.isEmergency) {
                 <button
                   type="button"
-                  class="btn-reject"
+                  class="btn-emergency-trigger"
                   [disabled]="actionBusy()"
                   (click)="triggerEmergencyAlert()"
                 >
@@ -261,11 +261,22 @@
                 </button>
               }
             } @else {
-              <div style="padding: 12px; background: #f8fafc; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0;">
-                <p style="margin: 0; font-size: 13px; color: #64748b;">
+              <div style="padding: 14px; background: #f8fafc; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0;">
+                <p style="margin: 0; font-size: 13px; color: #475569;">
                   Sự cố này đã được thẩm định với trạng thái:
                   <strong style="color: #0f172a;">{{ statusText(item) }}</strong>.
                 </p>
+                <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                  @if (nextPendingId()) {
+                    <button type="button" class="action-btn" style="background: #10387d; color: #ffffff; border: none; padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goToNextPending()">
+                      <span>Duyệt mục tiếp theo</span>
+                      <span nz-icon nzType="arrow-right" style="margin-left: 6px;"></span>
+                    </button>
+                  }
+                  <button type="button" class="action-btn btn-outline" style="padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goBack()">
+                    <span>Về danh sách</span>
+                  </button>
+                </div>
               </div>
             }
           </section>

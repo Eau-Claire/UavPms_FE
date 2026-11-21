@@ -133,7 +133,18 @@ export class Header {
       this.menuOpen.set(false);
     }
   }
-  protected selectNotification(notification: AppNotification): void { this.notifications.select(notification); }
+  protected selectNotification(notification: AppNotification): void {
+    if (!notification.isRead) {
+      this.notifications.markRead(notification.id);
+    }
+    const link = notificationLink(notification, this.user()?.role);
+    if (link) {
+      this.closeNotifications();
+      void this.router.navigate(link.commands);
+    } else {
+      this.notifications.select(notification);
+    }
+  }
   protected deleteNotification(event: Event, id: string): void { event.stopPropagation(); this.notifications.delete(id); }
   protected updateReadFilter(event: Event): void { this.notifications.setReadFilter(((event.target as HTMLSelectElement | null)?.value ?? 'all') as NotificationReadFilter); }
   protected updateTypeFilter(event: Event): void { this.notifications.setTypeFilter((event.target as HTMLSelectElement | null)?.value ?? ''); }

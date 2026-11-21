@@ -156,9 +156,6 @@
                     <span nz-icon nzType="check"></span> Đánh dấu đã đọc
                   </button>
                 }
-                <button type="button" class="danger notif-btn-danger" [disabled]="notifications.deletingId() === selected.id" (click)="deleteNotification($event, selected.id)">
-                  <span nz-icon nzType="delete"></span> Xóa
-                </button>
               </div>
             </article>
           } @else if (notifications.loading()) {

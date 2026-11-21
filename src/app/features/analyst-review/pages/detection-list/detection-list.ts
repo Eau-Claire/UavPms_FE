@@ -41,17 +41,18 @@ export class DetectionList {
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly page = signal(1);
-  protected readonly pageSize = signal(12);
+  protected readonly pageSize = signal(15);
   protected readonly search = signal('');
   protected readonly viewMode = signal<'grid' | 'table'>('grid');
   protected readonly showSuperseded = signal(false);
+  protected readonly statusFilter = signal<'ALL' | 'Pending' | 'Confirmed' | 'Rejected'>('Pending');
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
   protected readonly response = signal<AnomalyPage>({
     items: [],
     totalCount: 0,
     pageIndex: 1,
-    pageSize: 12,
+    pageSize: 15,
     totalPages: 1,
   });
 
@@ -59,9 +60,12 @@ export class DetectionList {
 
   protected readonly hiddenSupersededCount = computed(() => this.grouping().hiddenCount);
 
-  protected readonly displayedItems = computed<readonly AnomalyItem[]>(() =>
-    this.showSuperseded() ? this.response().items : this.grouping().visible,
-  );
+  protected readonly displayedItems = computed<readonly AnomalyItem[]>(() => {
+    const base = this.showSuperseded() ? this.response().items : this.grouping().visible;
+    const filter = this.statusFilter();
+    if (filter === 'ALL') return base;
+    return base.filter((item) => item.validationStatus === filter);
+  });
 
   protected readonly pageNumbers = computed(() =>
     Array.from({ length: this.response().totalPages }, (_, index) => index + 1),

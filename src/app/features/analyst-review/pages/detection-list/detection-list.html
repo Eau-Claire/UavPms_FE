@@ -48,6 +48,45 @@
     </div>
   </section>
 
+  <div class="review-status-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Pending'"
+      [class.secondary]="statusFilter() !== 'Pending'"
+      (click)="statusFilter.set('Pending')"
+    >
+      Chờ duyệt ({{ response().totalCount }})
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Confirmed'"
+      [class.secondary]="statusFilter() !== 'Confirmed'"
+      (click)="statusFilter.set('Confirmed')"
+    >
+      Đã duyệt
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Rejected'"
+      [class.secondary]="statusFilter() !== 'Rejected'"
+      (click)="statusFilter.set('Rejected')"
+    >
+      Đã từ chối
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'ALL'"
+      [class.secondary]="statusFilter() !== 'ALL'"
+      (click)="statusFilter.set('ALL')"
+    >
+      Tất cả
+    </button>
+  </div>
+
   <section class="review-filter-bar" aria-label="Bộ lọc kết quả">
     <div class="search-input-wrap">
       <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>

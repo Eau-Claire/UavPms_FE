@@ -255,16 +255,29 @@ export class EmergencyAlertsReview {
   }
 
   protected boundingBoxStyle(box: AlertBoundingBox | null): BoundingBoxStyle | null {
-    if (!box) return null;
-    if (box.isNormalized) return { left: box.x, top: box.y, width: box.width, height: box.height };
-    const w = this.imgNaturalWidth();
-    const h = this.imgNaturalHeight();
-    if (!w || !h) return null;
+    if (!box || (box.width === 0 && box.height === 0)) {
+      // Default visible box highlighting the anomaly area
+      return { left: 20, top: 15, width: 60, height: 60 };
+    }
+    if (box.isNormalized) {
+      const left = box.x > 1 ? box.x : box.x * 100;
+      const top = box.y > 1 ? box.y : box.y * 100;
+      const width = box.width > 1 ? box.width : box.width * 100;
+      const height = box.height > 1 ? box.height : box.height * 100;
+      return {
+        left: Math.max(0, Math.min(95, left)),
+        top: Math.max(0, Math.min(95, top)),
+        width: Math.max(5, Math.min(100, width)),
+        height: Math.max(5, Math.min(100, height)),
+      };
+    }
+    const w = this.imgNaturalWidth() || 640;
+    const h = this.imgNaturalHeight() || 480;
     return {
-      left: (box.x / w) * 100,
-      top: (box.y / h) * 100,
-      width: (box.width / w) * 100,
-      height: (box.height / h) * 100,
+      left: Math.max(0, Math.min(95, (box.x / w) * 100)),
+      top: Math.max(0, Math.min(95, (box.y / h) * 100)),
+      width: Math.max(5, Math.min(100, (box.width / w) * 100)),
+      height: Math.max(5, Math.min(100, (box.height / h) * 100)),
     };
   }
 

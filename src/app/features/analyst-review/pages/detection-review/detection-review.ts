@@ -79,6 +79,18 @@ export class DetectionReview {
   protected readonly canOpenMaintenance = computed(() => isMaintenanceManager(this.auth.user()?.role));
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
+  // Queue & Navigation controls
+  protected readonly queueIds = signal<string[]>([]);
+  protected readonly nextPendingId = computed(() => {
+    const list = this.queueIds();
+    const current = this.detectionId();
+    const idx = list.indexOf(current);
+    if (idx !== -1 && idx + 1 < list.length) {
+      return list[idx + 1];
+    }
+    return list.find((id) => id !== current) ?? null;
+  });
+
   // Viewer controls
   protected readonly zoomLevel = signal(1);
   protected readonly showBoundingBox = signal(true);
@@ -140,6 +152,7 @@ export class DetectionReview {
       )
       .subscribe({
         next: (res) => {
+          this.queueIds.set(res.items.map((it) => it.id));
           const found = res.items.find((it) => it.id === currentId);
           if (found) {
             this.setDetection(found, groupSuperseded(res.items).supersededByReplacement.get(found.id) ?? []);
@@ -154,7 +167,9 @@ export class DetectionReview {
   private setDetection(item: AnomalyItem, superseded: readonly AnomalyItem[]): void {
     this.detection.set(item);
     this.supersededItems.set(superseded);
-    this.generalNotes.set(item.analystNotes);
+    const rawNotes = item.analystNotes || '';
+    const isAiSlop = /^ai\s/i.test(rawNotes) || /severity=/i.test(rawNotes) || /evaluation:/i.test(rawNotes);
+    this.generalNotes.set(isAiSlop ? '' : rawNotes);
     if (item.analysisRunId) {
       this.api
         .getAnalysisRun(item.analysisRunId)
@@ -208,7 +223,7 @@ export class DetectionReview {
       return;
     }
 
-    const notes = this.generalNotes().trim() || 'Xác nhận khuyết tật chính xác bởi Analyst.';
+    const notes = this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
     this.maintenanceLinkVisible.set(false);
@@ -236,6 +251,16 @@ export class DetectionReview {
           this.toast.error(msg);
         },
       });
+  }
+
+  protected goToNextPending(): void {
+    const nextId = this.nextPendingId();
+    if (nextId) {
+      void this.router.navigate(['/ai-review', nextId]);
+    } else {
+      this.toast.info('Đã hoàn thành toàn bộ hàng đợi thẩm định.');
+      void this.router.navigate(['/ai-review']);
+    }
   }
 
   // --- REJECT FLOW ---
