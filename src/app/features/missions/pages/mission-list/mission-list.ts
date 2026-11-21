@@ -60,11 +60,17 @@ export class MissionList {
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
+    const isPending = (s: string) => ['Preparing', 'Ready', 'PendingAcceptance', 'Draft', 'Assigned'].includes(normalizeMissionStatus(s));
+    const isInProgress = (s: string) => ['InProgress', 'Flying', 'Dispatched'].includes(normalizeMissionStatus(s));
+    const isCompleted = (s: string) => normalizeMissionStatus(s) === 'Completed';
+    const isFailed = (s: string) => this.isFailed(s);
+
     return [
-      { label: 'Tổng nhiệm vụ', value: this.statsTotalCount(), tone: 'total', icon: 'file-text' },
-      { label: 'Đang xử lý / Chờ bay', value: items.filter((item) => this.isInProgress(item.status)).length, tone: 'warning', icon: 'reload' },
-      { label: 'Đã hoàn thành', value: items.filter((item) => item.status === 'Completed').length, tone: 'success', icon: 'check-circle' },
-      { label: 'Cảnh báo lỗi', value: items.filter((item) => this.isFailed(item.status)).length, tone: 'danger', icon: 'exclamation-circle' },
+      { label: 'Tổng nhiệm vụ', value: this.statsTotalCount(), tone: 'total' },
+      { label: 'Chờ xử lý', value: items.filter((item) => isPending(item.status)).length, tone: 'warning' },
+      { label: 'Đang bay', value: items.filter((item) => isInProgress(item.status)).length, tone: 'info' },
+      { label: 'Hoàn thành', value: items.filter((item) => isCompleted(item.status)).length, tone: 'success' },
+      { label: 'Sự cố / Hủy', value: items.filter((item) => isFailed(item.status)).length, tone: 'danger' },
     ];
   });
 

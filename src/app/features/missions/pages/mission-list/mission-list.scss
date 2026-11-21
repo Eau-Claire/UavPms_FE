@@ -303,50 +303,7 @@
   }
 }
 
-/* Dedicated Summary Stats Sub-Strip across bottom of toolbar card */
-.mission-list-page .mission-summary-strip {
-  display: flex !important;
-  align-items: center !important;
-  gap: 24px !important;
-  flex-wrap: wrap !important;
-  padding: 10px 18px !important;
-  border-top: 1px solid #f1f5f9 !important;
-  border-left: none !important;
-  background: #f8fafc !important;
-  min-height: 38px !important;
-  margin: 0 !important;
-}
 
-.mission-list-page .summary-stat-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 7px !important;
-  font-size: 12px !important;
-  color: #334155 !important;
-  white-space: nowrap !important;
-
-  .stat-badge-dot {
-    width: 7px !important;
-    height: 7px !important;
-    border-radius: 50% !important;
-  }
-
-  .stat-badge-val {
-    font-weight: 700 !important;
-    color: #0f172a !important;
-    font-size: 13.5px !important;
-  }
-
-  .stat-badge-label {
-    color: #64748b !important;
-    font-weight: 500 !important;
-  }
-
-  &.tone-total .stat-badge-dot { background: #10387d !important; }
-  &.tone-warning .stat-badge-dot { background: #d97706 !important; }
-  &.tone-success .stat-badge-dot { background: #166534 !important; }
-  &.tone-danger .stat-badge-dot { background: #dc2626 !important; }
-}
 
 .mission-objective-text {
   display: block;
@@ -428,11 +385,38 @@
 }
 
 .mission-list-page .mission-status {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+
+  &.success {
+    background: #f0fdf4 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+  }
+
+  &.warning {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+  }
+
+  &.danger {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+    color: #b91c1c !important;
+  }
+
+  &.neutral {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #475569 !important;
+  }
 }
 
 .mission-list-page .mission-row-actions {

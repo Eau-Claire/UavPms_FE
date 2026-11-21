@@ -29,22 +29,22 @@
   <section class="review-status-bar" aria-label="Thống kê thẩm định">
     <div class="status-item">
       <span class="status-label">Chờ thẩm định</span>
-      <strong class="status-value">{{ response().totalCount }}</strong>
+      <strong class="status-value text-total">{{ response().totalCount }}</strong>
     </div>
     <div class="status-sep" aria-hidden="true"></div>
     <div class="status-item">
       <span class="status-label">Sự cố khẩn cấp (trang này)</span>
-      <strong class="status-value">{{ criticalCount() }}</strong>
+      <strong class="status-value text-danger">{{ criticalCount() }}</strong>
     </div>
     <div class="status-sep" aria-hidden="true"></div>
     <div class="status-item">
       <span class="status-label">Độ tin cậy cao (≥90%)</span>
-      <strong class="status-value">{{ highConfidenceCount() }}</strong>
+      <strong class="status-value text-approved">{{ highConfidenceCount() }}</strong>
     </div>
     <div class="status-sep" aria-hidden="true"></div>
     <div class="status-item">
       <span class="status-label">Chưa gắn cột điện</span>
-      <strong class="status-value">{{ missingTowerCount() }}</strong>
+      <strong class="status-value text-pending">{{ missingTowerCount() }}</strong>
     </div>
   </section>
 

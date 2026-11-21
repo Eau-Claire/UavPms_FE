@@ -16,6 +16,34 @@
 
   @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
 
+  <!-- Unified Enterprise KPI Status Bar -->
+  <section class="mission-kpi-bar" aria-label="Thống kê nhiệm vụ bay">
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Tổng nhiệm vụ</span>
+      <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Chờ xử lý</span>
+      <strong class="kpi-bar-value text-pending">{{ stats()[1].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Đang bay</span>
+      <strong class="kpi-bar-value text-info">{{ stats()[2].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Hoàn thành</span>
+      <strong class="kpi-bar-value text-approved">{{ stats()[3].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Sự cố / Hủy</span>
+      <strong class="kpi-bar-value text-danger">{{ stats()[4].value }}</strong>
+    </div>
+  </section>
+
   <div class="mission-toolbar-card">
     <div class="mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
       <div class="mission-scope-tabs" role="group" aria-label="Phạm vi nhiệm vụ">
@@ -67,16 +95,6 @@
           <span nz-icon nzType="reload" aria-hidden="true"></span> Tải lại
         </button>
       </div>
-    </div>
-
-    <div class="mission-summary-strip" aria-label="Tổng quan nhiệm vụ">
-      @for (item of stats(); track item.label) {
-        <div class="summary-stat-badge tone-{{ item.tone }}">
-          <span class="stat-badge-dot"></span>
-          <strong class="stat-badge-val">{{ item.value }}</strong>
-          <span class="stat-badge-label">{{ item.label }}</span>
-        </div>
-      }
     </div>
   </div>
 

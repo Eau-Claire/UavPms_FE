@@ -19,6 +19,29 @@
     }
   </header>
 
+    <!-- Unified Enterprise KPI Status Bar -->
+    <section class="pre-mission-kpi-bar" aria-label="Tổng quan số liệu đánh giá">
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Tổng số đánh giá</span>
+        <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
+      </div>
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Sẵn sàng bay</span>
+        <strong class="kpi-bar-value text-approved">{{ stats()[1].value }}</strong>
+      </div>
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Chưa sẵn sàng</span>
+        <strong class="kpi-bar-value text-pending">{{ stats()[2].value }}</strong>
+      </div>
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Hết hạn / Hủy</span>
+        <strong class="kpi-bar-value text-danger">{{ stats()[3].value }}</strong>
+      </div>
+    </section>
+
     <!-- Light Blue Filter Toolbar -->
     <section class="pre-mission-filters" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
       <div class="search-input-wrap">
@@ -71,15 +94,7 @@
       }
     </section>
 
-    <!-- Summary Metric Strip -->
-    <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu">
-      @for (stat of stats(); track stat.label) {
-        <div class="summary-item">
-          <strong>{{ stat.value }}</strong>
-          <span>{{ stat.label }}</span>
-        </div>
-      }
-    </section>
+
 
     <!-- Dense EVN Bordered Table Card -->
     <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">

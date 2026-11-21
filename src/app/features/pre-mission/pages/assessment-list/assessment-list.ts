@@ -91,10 +91,10 @@ export class AssessmentList implements OnDestroy {
     const list = this.items();
     return [
       { label: 'Tổng số đánh giá', value: this.totalCount() || list.length },
-      { label: 'Sẵn sàng', value: list.filter((x) => x.status === 'READY').length },
+      { label: 'Sẵn sàng bay', value: list.filter((x) => x.status === 'READY').length },
       { label: 'Chưa sẵn sàng', value: list.filter((x) => x.status === 'NOT_READY').length },
       {
-        label: 'Hết hạn / Hoàn thành / Hủy',
+        label: 'Hết hạn / Hủy',
         value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || x.status === 'CANCELLED').length,
       },
     ];
