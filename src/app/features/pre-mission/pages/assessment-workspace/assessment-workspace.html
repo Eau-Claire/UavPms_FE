@@ -826,7 +826,7 @@
       <div class="evn-panel">
         <div class="panel-header">
           <div class="header-title-group">
-            <h3>Danh sách thiết bị bay ứng viên (UAV Candidates)</h3>
+            <h3>Danh sách thiết bị bay khả dụng</h3>
             <span class="panel-subinfo">
               Đủ điều kiện = sẵn sàng vận hành + kiểm định kỹ thuật còn hạn tại giờ bay + phạm vi không vượt năng lực bay
             </span>
@@ -941,7 +941,7 @@
       <div class="evn-panel">
         <div class="panel-header">
           <div class="header-title-group">
-            <h3>Bảng kiểm định kỹ thuật UAV (Drone Technical Inspection)</h3>
+            <h3>Bảng kiểm định kỹ thuật UAV</h3>
             <span class="panel-subinfo">Kiểm định chuyên sâu 6 hệ thống con, vi điều khiển, nguồn pin và an toàn bay</span>
           </div>
 
@@ -1013,7 +1013,7 @@
                 @if (mockSubmitting() && mockPreset() === 'healthy') {
                   <span nz-icon nzType="loading"></span> Đang lưu CSDL...
                 } @else {
-                  <span nz-icon nzType="check-circle"></span> Mock Đạt chuẩn 100% (Bypass MF01)
+                  <span nz-icon nzType="check-circle"></span> Đo kiểm đạt chuẩn 100%
                 }
               </button>
               <button
@@ -1027,7 +1027,7 @@
                 @if (mockSubmitting() && mockPreset() === 'critical') {
                   <span nz-icon nzType="loading"></span> Đang lưu CSDL...
                 } @else {
-                  <span nz-icon nzType="close-circle"></span> Mock Không đạt (Critical)
+                  <span nz-icon nzType="close-circle"></span> Đo kiểm không đạt
                 }
               </button>
               <button
@@ -1050,7 +1050,7 @@
               <div class="fc-title-group">
                 <span nz-icon nzType="thunderbolt" style="font-size: 16px; color: #174f83;"></span>
                 <div>
-                  <h4>Nhận diện & Ghép nối Flight Controller (Betaflight MSP_UID)</h4>
+                  <h4>Nhận diện & ghép nối Flight Controller</h4>
                   <div style="font-size: 10px; color: #64748b;">
                     Đọc phần cứng UID qua giao thức MSP để xác định UAV và đối soát với đợt thẩm định bay
                   </div>
@@ -1139,7 +1139,7 @@
             @if (fcMetadata(); as meta) {
               <div class="fc-meta-grid">
                 <div class="fc-meta-item">
-                  <span class="fc-label">Hardware UID (MSP_UID):</span>
+                  <span class="fc-label">Mã định danh phần cứng (UID):</span>
                   <span class="fc-val mono">{{ meta.uid }}</span>
                 </div>
                 <div class="fc-meta-item">
@@ -1151,7 +1151,7 @@
                   <span class="fc-val">{{ meta.firmwareName }} v{{ meta.firmwareVersion }}</span>
                 </div>
                 <div class="fc-meta-item">
-                  <span class="fc-label">Tên thiết bị (FC Name):</span>
+                  <span class="fc-label">Tên thiết bị:</span>
                   <span class="fc-val">{{ meta.deviceName || 'UAV-Drone' }}</span>
                 </div>
                 <div class="fc-meta-item">
@@ -1180,7 +1180,7 @@
                       <div class="banner-desc">
                         Phần cứng UID <strong>{{ meta.uid }}</strong> đã được liên kết với 
                         <strong>{{ fcDrone()?.code }} ({{ fcDrone()?.name }})</strong>.
-                        Hệ thống đã cập nhật thời điểm nhận diện (LastSeenAt). Đủ điều kiện tiến hành đo kiểm kỹ thuật an toàn bay.
+                        Hệ thống đã cập nhật thời điểm nhận diện thiết bị. Đủ điều kiện tiến hành đo kiểm kỹ thuật an toàn bay.
                       </div>
                     </div>
                   </div>
@@ -1270,7 +1270,7 @@
           <!-- Telemetry System Banner -->
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 3px solid #16a34a; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; font-size: 11px; color: #166534; display: flex; align-items: center; justify-content: space-between;">
             <div>
-              <strong>Hệ thống đo kiểm viễn trắc (Pre-flight Telemetry BIST):</strong> Dữ liệu kiểm tra vi điều khiển, cảm biến IMU kép, chênh lệch điện áp cell pin và liên kết vô tuyến trước giờ bay.
+              <strong>Hệ thống đo kiểm viễn trắc trước chuyến bay:</strong> Dữ liệu kiểm tra vi điều khiển, cảm biến IMU kép, chênh lệch điện áp cell pin và liên kết vô tuyến trước giờ bay.
             </div>
             <span class="evn-status pass" style="font-weight: 700;">TELEMETRY ACTIVE</span>
           </div>
@@ -1317,7 +1317,7 @@
 
             <!-- 6 Subsystem Checklist Grid -->
             <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 8px;">
-              Tình trạng 6 hệ thống con trọng yếu (Subsystem Health):
+              Tình trạng 6 hệ thống con trọng yếu:
             </h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-bottom: 16px;">
               @for (sub of insp.subsystems; track sub.id) {
@@ -1335,7 +1335,7 @@
 
             <!-- Technical Metric Table -->
             <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0 0 6px;">
-              Bảng thông số kiểm tra chi tiết (Technical Metric Table):
+              Bảng thông số kiểm tra chi tiết:
             </h4>
             <div class="pre-mission-table-card" style="border: 0;">
               <div class="table-scroll">
@@ -1577,7 +1577,7 @@
                 style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
                 (click)="applyMockPreset('warning')"
               >
-                <strong>⚠ Cảnh báo (Warning)</strong>
+                <strong>⚠ Cảnh báo</strong>
                 <span style="font-size: 10px; color: #64748b;">Pin 68%, GPS Float</span>
               </button>
 
@@ -1591,7 +1591,7 @@
                 style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
                 (click)="applyMockPreset('critical')"
               >
-                <strong>✕ Không đạt (Critical)</strong>
+                <strong>✕ Không đạt</strong>
                 <span style="font-size: 10px; color: #64748b;">Pin 28%, Lỗi IMU</span>
               </button>
             </div>

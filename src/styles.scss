@@ -122,10 +122,10 @@ html, body, button, input, select, textarea {
   gap: 6px !important;
   margin: 0 0 4px 0 !important;
   color: #64748b !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 
   span {
@@ -189,11 +189,11 @@ html, body, button, input, select, textarea {
     .kpi-bar-label,
     .status-label {
       display: block !important;
-      font-size: 11px !important;
+      font-size: 11.5px !important;
       font-weight: 600 !important;
       color: #64748b !important;
-      text-transform: uppercase !important;
-      letter-spacing: 0.03em !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
       white-space: nowrap !important;
     }
 
@@ -203,6 +203,7 @@ html, body, button, input, select, textarea {
       font-weight: 700 !important;
       line-height: 1.15 !important;
       color: #0f172a !important;
+      font-variant-numeric: tabular-nums !important;
       font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif !important;
 
       &.text-total,

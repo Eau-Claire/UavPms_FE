@@ -1419,17 +1419,17 @@
         <div class="modal-dialog modal-dialog-lg" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
           <div class="modal-header">
             <h3 id="priority-modal-title">
-              <span nz-icon nzType="setting"></span> Điều chỉnh Mức độ Ưu tiên (MF02)
+              <span nz-icon nzType="setting"></span> Điều chỉnh mức độ ưu tiên
             </h3>
             <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closePriorityModal()">&times;</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">
-              Điều chỉnh mức độ ưu tiên cho nhiệm vụ. Lưu ý: Độ ưu tiên <strong>EMERGENCY</strong> không được tự động chiếm đoạt tài nguyên của nhiệm vụ khác hoặc bỏ qua điều kiện an toàn (BR-04, BR-05).
+              Điều chỉnh mức độ ưu tiên cho nhiệm vụ. Lưu ý: Độ ưu tiên <strong>Khẩn cấp</strong> không được tự động chiếm đoạt tài nguyên của nhiệm vụ khác hoặc bỏ qua điều kiện an toàn (BR-04, BR-05).
             </p>
 
             <div class="form-field-group">
-              <span class="form-group-label" id="editPriorityLabel">Mức độ ưu tiên (Mission Priority) <span class="required">*</span></span>
+              <span class="form-group-label" id="editPriorityLabel">Mức độ ưu tiên <span class="required">*</span></span>
               <div class="priority-radio-group" role="radiogroup" aria-labelledby="editPriorityLabel">
                 <label class="priority-option-card" [class.selected]="editPriority() === 'NORMAL'">
                   <input
@@ -1439,7 +1439,7 @@
                     [checked]="editPriority() === 'NORMAL'"
                     (change)="editPriority.set('NORMAL')" />
                   <div class="priority-label-block">
-                    <strong>Bình thường (NORMAL)</strong>
+                    <strong>Bình thường</strong>
                     <small>Khảo sát định kỳ tuyến, kiểm tra định kỳ cột</small>
                   </div>
                 </label>

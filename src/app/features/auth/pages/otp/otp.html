@@ -11,7 +11,7 @@
         <h1>Nhập Mã OTP</h1>
         <p>Mã xác nhận đã được gửi đến {{ email }}</p>
       </header>
-      <div class="otp-label">NHẬP MÃ XÁC NHẬN (OTP)</div>
+      <div class="otp-label">Nhập mã xác nhận OTP</div>
       @if (error()) {
         <div class="auth-alert" role="alert">{{ error() }}</div>
       }
@@ -40,7 +40,7 @@
       </div>
 
       <div class="otp-dev-hint">
-        Mã kiểm thử hệ thống (Bypass code): <code>123456</code>
+        Mã kiểm thử hệ thống: <code>123456</code>
       </div>
 
       <button nz-button nzType="primary" nzSize="large" [nzBlock]="true" class="evn-primary-button" type="button" [nzLoading]="busy()" (click)="submit()">Xác nhận OTP <span nz-icon nzType="arrow-right"></span></button>

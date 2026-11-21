@@ -36,7 +36,7 @@
 
   @if (!isAdmin() && canManageScopes()) {
     <div class="user-scope-hint">
-      <span nz-icon nzType="info-circle"></span> Danh sách gồm các thanh tra viên khả dụng. Chỉ Quản trị viên hệ thống (Admin) mới có quyền tạo mới, chỉnh sửa thông tin hoặc khóa/đình chỉ tài khoản.
+      <span nz-icon nzType="info-circle"></span> Danh sách gồm các thanh tra viên khả dụng. Chỉ Quản trị viên hệ thống mới có quyền tạo mới, chỉnh sửa thông tin hoặc khóa/đình chỉ tài khoản.
     </div>
   }
 
@@ -70,7 +70,7 @@
       <div class="metric-icon"><span nz-icon nzType="lock"></span></div>
       <div class="metric-body">
         <div class="metric-val">{{ stats().locked }}</div>
-        <div class="metric-lbl">Đã khóa (Đình chỉ)</div>
+        <div class="metric-lbl">Đã khóa tài khoản</div>
       </div>
     </div>
   </div>
@@ -315,7 +315,7 @@
                 </div>
                 <small class="pwd-field-hint">
                   <span nz-icon nzType="check-circle" style="color: #16a34a;"></span>
-                  Tài khoản được cấu hình tự xác thực email (Email Confirmed) để tránh lỗi không đăng nhập được.
+                  Tài khoản được cấu hình tự động xác thực email để tránh lỗi đăng nhập.
                 </small>
               </div>
             }

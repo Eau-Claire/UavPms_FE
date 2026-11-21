@@ -181,7 +181,7 @@ export const REPORT_TEMPLATES: readonly ReportTemplateConfig[] = [
   {
     reportType: 'CorridorOverview',
     code: 'TPL-CORRIDOR-03',
-    name: 'Báo cáo giám sát hành lang tuyến điện (Corridor Overview)',
+    name: 'Báo cáo giám sát hành lang tuyến điện',
     description: 'Đánh giá vi phạm khoảng cách an toàn cây xanh, công trình dân sinh và nguy cơ cháy nổ dưới hành lang điện.',
     defaultTitle: 'Báo cáo an toàn hành lang bảo vệ an toàn lưới điện cao thế',
     sections: [
@@ -195,15 +195,15 @@ export const REPORT_TEMPLATES: readonly ReportTemplateConfig[] = [
   {
     reportType: 'ThermalInspection',
     code: 'TPL-THERMAL-04',
-    name: 'Báo cáo đo nhiệt hồng ngoại mối nối (Thermal Inspection)',
+    name: 'Báo cáo đo nhiệt hồng ngoại mối nối',
     description: 'Ghi nhận phân bố nhiệt độ máy biến áp, chuỗi sứ, điểm tiếp xúc lèo và kẹp cực để phát hiện quá nhiệt sớm.',
     defaultTitle: 'Báo cáo kiểm tra phát nhiệt mối nối và thiết bị trạm/cột bằng camera nhiệt',
     sections: [
       { title: '1. Bảng đo nhiệt độ các điểm tiếp xúc', desc: 'Nhiệt độ môi trường, nhiệt độ điểm đo, chênh lệch pha so sánh', icon: 'fire' },
-      { title: '2. Ảnh nhiệt hồng ngoại (Radiometric Thermal)', desc: 'Ảnh chụp quang phổ nhiệt kèm dải màu nhiệt kế (°C)', icon: 'camera' },
+      { title: '2. Ảnh nhiệt hồng ngoại', desc: 'Ảnh chụp quang phổ nhiệt kèm dải màu nhiệt kế (°C)', icon: 'camera' },
       { title: '3. Phân cấp mức độ nguy cơ quá nhiệt', desc: 'Theo dõi thường kỳ, cần bảo trì trong 7 ngày, hoặc ngắt điện khẩn cấp', icon: 'warning' },
     ],
-    requiredData: ['Chuyến bay sử dụng camera nhiệt (Thermal Payload)', 'Dữ liệu đo nhiệt'],
+    requiredData: ['Chuyến bay sử dụng camera nhiệt', 'Dữ liệu đo nhiệt'],
     defaultExportFormats: ['pdf', 'excel'],
   },
 ];

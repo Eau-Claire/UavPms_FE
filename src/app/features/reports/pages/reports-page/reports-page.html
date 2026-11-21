@@ -277,7 +277,7 @@
 
           <div class="modal-grid-2">
             <div class="modal-field">
-              <label for="new-type">Mẫu báo cáo (Template Config)</label>
+              <label for="new-type">Mẫu báo cáo</label>
               <select id="new-type" [value]="selectedFormType()" (change)="onFormTypeChange($any($event.target).value)">
                 @for (type of reportTypes; track type) {
                   <option [value]="type">{{ typeLabels[type] || type }}</option>
