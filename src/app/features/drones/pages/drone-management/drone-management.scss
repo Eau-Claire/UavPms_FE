@@ -519,6 +519,36 @@
   font-style: italic;
 }
 
+.fc-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #10387d;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  width: fit-content;
+
+  &.pair {
+    color: #0284c7;
+  }
+
+  &:hover {
+    color: #0d2e67;
+  }
+}
+
+.fc-quick-connect-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
 .insp-cell {
   font-size: 11px;
   .insp-status {

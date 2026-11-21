@@ -41,6 +41,16 @@
         <p class="header-sub-desc">{{ mission.title || mission.description }}</p>
       </div>
       <div class="mission-live-actions">
+        @if (canEditDraft(mission.status)) {
+          <a
+            [routerLink]="['/missions/new']"
+            [queryParams]="{ editMissionId: mission.id, assessmentId: mission.sourceAssessmentId }"
+            class="btn-back-link"
+            style="background: #0284c7; color: #ffffff; border-color: #0284c7; font-weight: 600;"
+          >
+            <span nz-icon nzType="edit" aria-hidden="true"></span> Chỉnh sửa nhiệm vụ (Quay lại tạo)
+          </a>
+        }
         @if (mission.sourceAssessmentId && canOpenPreMission()) {
           <a [routerLink]="['/pre-mission', mission.sourceAssessmentId]" class="btn-back-link">
             <span nz-icon nzType="file-done"></span> Hồ sơ tiền nhiệm vụ
@@ -1476,21 +1486,6 @@
                 <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)</option>
                 <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp (EMERGENCY_INSPECTION)</option>
               </select>
-            </div>
-
-            <div class="form-field-group">
-              <span class="form-group-label" id="editDefectsLabel">Danh mục khiếm khuyết trọng tâm (Priority Defects)</span>
-              <div class="defects-checklist" role="group" aria-labelledby="editDefectsLabel">
-                @for (cat of priorityDefectCategories; track cat.key) {
-                  <label class="defect-checkbox-item">
-                    <input
-                      type="checkbox"
-                      [checked]="editPriorityDefects().includes(cat.key)"
-                      (change)="toggleEditDefect(cat.key)" />
-                    <span>{{ cat.label }}</span>
-                  </label>
-                }
-              </div>
             </div>
           </div>
           <div class="modal-footer">

@@ -253,10 +253,10 @@
 
           <div class="modal-grid-2">
             <div class="modal-field">
-              <label for="new-type">Phân loại báo cáo</label>
-              <select id="new-type" formControlName="type">
+              <label for="new-type">Mẫu báo cáo (Template Config)</label>
+              <select id="new-type" [value]="selectedFormType()" (change)="onFormTypeChange($any($event.target).value)">
                 @for (type of reportTypes; track type) {
-                  <option [value]="type">{{ typeLabels[type] }}</option>
+                  <option [value]="type">{{ typeLabels[type] || type }}</option>
                 }
               </select>
             </div>
@@ -281,6 +281,33 @@
               <input id="new-date-to" type="date" formControlName="dateTo" />
             </div>
           </div>
+
+          <!-- Template Configuration Preview -->
+          @if (selectedTemplate(); as tpl) {
+            <div class="template-config-preview">
+              <div class="tpl-head">
+                <span class="tpl-code-badge">{{ tpl.code }}</span>
+                <span class="tpl-name">{{ tpl.name }}</span>
+              </div>
+              <p class="tpl-desc">{{ tpl.description }}</p>
+              <div class="tpl-sections-label">Các phần nội dung báo cáo tự động:</div>
+              <div class="tpl-sections-grid">
+                @for (sec of tpl.sections; track sec.title) {
+                  <div class="tpl-sec-item">
+                    <span nz-icon [nzType]="sec.icon" class="sec-icon" aria-hidden="true"></span>
+                    <div class="sec-text">
+                      <strong>{{ sec.title }}</strong>
+                      <p>{{ sec.desc }}</p>
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="tpl-footer-info">
+                <span>Dữ liệu bắt buộc: <em>{{ tpl.requiredData.join(' · ') }}</em></span>
+                <span>Hỗ trợ xuất: <strong>PDF, Excel</strong></span>
+              </div>
+            </div>
+          }
 
           <div class="modal-field full-width">
             <label for="new-desc">Ghi chú / Mô tả</label>

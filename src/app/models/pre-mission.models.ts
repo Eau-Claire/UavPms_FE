@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 /**
  * Trạng thái hồ sơ đánh giá tiền khả thi. Backend (`AssessmentMappingExtensions.ToDto`) trả về
  * chuỗi in hoa: `DRAFT`, `EVALUATING`, `READY`, `NOT_READY`, `EXPIRED`, `COMPLETED`, `CANCELLED`.
@@ -142,7 +144,7 @@ export interface DroneTechnicalInspectionResult {
 }
 
 /** Hồ sơ đánh giá tiền khả thi (`PreMissionAssessmentDto`). */
-export interface PreMissionAssessment {
+export interface PreMissionAssessment extends BaseAuditableEntity {
   readonly id: string;
   readonly assessmentCode: string;
   readonly managerId: string;
@@ -168,6 +170,8 @@ export interface PreMissionAssessment {
   readonly technical: ReadinessCheck;
   readonly createdAt: string;
   readonly updatedAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
 }
 
 /** `GET /pre-mission-assessments/{id}/resource-readiness` (`ResourceReadinessDto`). */

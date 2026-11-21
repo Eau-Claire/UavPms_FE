@@ -206,6 +206,11 @@ export class MissionDetail {
   protected readonly canOpenEmergencyCenter = computed(() => canOpenEmergencyAlerts(this.userRole()));
   protected readonly canOpenPreMission = computed(() => canOpenPreMissionAssessment(this.userRole()));
   protected readonly canOpenMaintenance = computed(() => canOpenMaintenanceTicket(this.userRole()));
+
+  protected canEditDraft(status: string | null | undefined): boolean {
+    const s = normalizeMissionStatus(status);
+    return s === 'Draft' || s === 'PendingAcceptance' || s === 'Preparing' || s === 'Ready';
+  }
   /** The signed-in user's assignment on this mission, if any. */
   protected readonly myAssignment = computed(() => findMyAssignment(this.mission(), this.auth.user()?.id));
   /** Start/complete flight: managers, or an Inspector who is on this mission's team. */

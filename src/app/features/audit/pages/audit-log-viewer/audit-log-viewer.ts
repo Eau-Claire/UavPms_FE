@@ -242,6 +242,7 @@ export class AuditLogViewer {
 
   protected actionBadgeClass(action: string): string {
     const lower = action.toLowerCase();
+    if (lower.includes('evaluat')) return 'audit-badge-evaluating';
     if (lower.includes('add') || lower.includes('create')) return 'audit-badge-added';
     if (lower.includes('delete') || lower.includes('remove')) return 'audit-badge-deleted';
     return 'audit-badge-modified';

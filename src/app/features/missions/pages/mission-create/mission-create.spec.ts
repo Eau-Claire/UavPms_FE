@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons-angular/icons';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
+import { MissionsApi } from '../../data-access/missions-api';
 import { MissionCreate } from './mission-create';
 
 const ASSESSMENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -74,6 +75,13 @@ describe('MissionCreate', () => {
             getResourceReadiness,
             reEvaluate,
             createMission,
+          },
+        },
+        {
+          provide: MissionsApi,
+          useValue: {
+            get: vi.fn(() => of({})),
+            update: vi.fn(() => of({})),
           },
         },
         provideNzIcons([ArrowLeftOutline, UnorderedListOutline, SyncOutline, SendOutline, LoadingOutline]),

@@ -30,6 +30,7 @@ import {
   UpdateUavRequest,
 } from '../../../../models/drone-management.models';
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
+import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
@@ -45,6 +46,7 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 export class DroneManagement {
   private readonly api = inject(DroneManagementApi);
   private readonly fcSerial = inject(BetaflightSerialService);
+  private readonly fcApi = inject(FlightControllerApi);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(Auth);
@@ -180,6 +182,134 @@ export class DroneManagement {
     corridorLengthKm: [5.0, [Validators.required, Validators.min(0.1)]],
     assetCount: [12, [Validators.required, Validators.min(1)]],
   });
+
+  // Flight Controller (FC) Update & Pairing Modal State
+  protected readonly fcModalOpen = signal(false);
+  protected readonly targetDroneForFc = signal<UavRecord | null>(null);
+  protected readonly fcBusy = signal(false);
+  protected readonly fcError = signal('');
+  protected readonly fcForm = this.fb.nonNullable.group({
+    flightControllerUid: ['', [Validators.required]],
+    boardIdentifier: ['Betaflight STM32F405'],
+    firmwareName: ['Betaflight'],
+    firmwareVersion: ['4.5.1'],
+  });
+
+  protected openFcModal(drone: UavRecord): void {
+    this.targetDroneForFc.set(drone);
+    this.fcError.set('');
+    const currentFc = drone.activeFlightController;
+    this.fcForm.reset({
+      flightControllerUid: currentFc?.flightControllerUid || '',
+      boardIdentifier: currentFc?.boardIdentifier || 'Betaflight STM32F405',
+      firmwareName: currentFc?.firmwareName || 'Betaflight',
+      firmwareVersion: currentFc?.firmwareVersion || '4.5.1',
+    });
+    this.fcModalOpen.set(true);
+  }
+
+  protected closeFcModal(): void {
+    this.fcModalOpen.set(false);
+    this.targetDroneForFc.set(null);
+  }
+
+  protected async scanFcFromUsb(): Promise<void> {
+    try {
+      this.fcBusy.set(true);
+      this.fcError.set('');
+      const meta = await this.fcSerial.connectRealSerial();
+      this.fcForm.patchValue({
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier || 'Betaflight Board',
+        firmwareName: meta.firmwareName || 'Betaflight',
+        firmwareVersion: meta.firmwareVersion || '4.5.1',
+      });
+      this.showNotification(`Đã nhận diện FC UID: ${meta.uid}`);
+    } catch (err: unknown) {
+      this.fcError.set(describeHttpError(err, 'Không thể kết nối Flight Controller qua cổng USB.'));
+    } finally {
+      this.fcBusy.set(false);
+    }
+  }
+
+  protected async simulateFcConnect(): Promise<void> {
+    try {
+      this.fcBusy.set(true);
+      this.fcError.set('');
+      const meta = await this.fcSerial.connectSimulated();
+      this.fcForm.patchValue({
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier || 'Betaflight STM32F405',
+        firmwareName: meta.firmwareName || 'Betaflight',
+        firmwareVersion: meta.firmwareVersion || '4.5.1',
+      });
+      this.showNotification(`Đã mô phỏng kết nối FC UID: ${meta.uid}`);
+    } catch (err: unknown) {
+      this.fcError.set('Lỗi mô phỏng kết nối.');
+    } finally {
+      this.fcBusy.set(false);
+    }
+  }
+
+  protected saveFcBinding(): void {
+    const drone = this.targetDroneForFc();
+    if (!drone) return;
+    if (this.fcForm.invalid) {
+      this.fcError.set('Vui lòng nhập UID phần cứng FC hợp lệ.');
+      return;
+    }
+    const val = this.fcForm.getRawValue();
+    this.fcBusy.set(true);
+    this.fcError.set('');
+
+    this.fcApi
+      .pairFlightController(drone.id, {
+        flightControllerUid: val.flightControllerUid.trim(),
+        boardIdentifier: val.boardIdentifier.trim() || undefined,
+        firmwareName: val.firmwareName.trim() || undefined,
+        firmwareVersion: val.firmwareVersion.trim() || undefined,
+      })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.fcBusy.set(false)),
+      )
+      .subscribe({
+        next: (binding) => {
+          this.showNotification(`Đã cập nhật Flight Controller UID ${binding.flightControllerUid} cho UAV ${drone.code}.`);
+          this.closeFcModal();
+          this.load();
+        },
+        error: (err: unknown) => {
+          this.fcError.set(describeHttpError(err, 'Không thể ghép nối Flight Controller.'));
+        },
+      });
+  }
+
+  protected unpairFc(): void {
+    const drone = this.targetDroneForFc();
+    if (!drone) return;
+    if (!confirm(`Bạn có chắc chắn muốn hủy ghép nối Flight Controller khỏi UAV ${drone.code}?`)) return;
+
+    this.fcBusy.set(true);
+    this.fcError.set('');
+
+    this.fcApi
+      .unpairFlightController(drone.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.fcBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.showNotification(`Đã hủy ghép nối Flight Controller khỏi UAV ${drone.code}.`);
+          this.closeFcModal();
+          this.load();
+        },
+        error: (err: unknown) => {
+          this.fcError.set(describeHttpError(err, 'Không thể hủy ghép nối Flight Controller.'));
+        },
+      });
+  }
 
   constructor() {
     this.loadDrones();

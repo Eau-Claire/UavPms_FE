@@ -79,6 +79,16 @@
     <button
       type="button"
       class="tool-btn"
+      [class.active]="showAssetsPanel()"
+      title="Danh sách tài sản lưới điện (Cột điện)"
+      aria-label="Danh sách tài sản lưới điện"
+      (click)="toggleAssetsPanel()"
+    >
+      <span nz-icon nzType="cluster"></span>
+    </button>
+    <button
+      type="button"
+      class="tool-btn"
       [class.active]="showFilterPanel()"
       title="Bộ lọc & Phân lớp dữ liệu"
       aria-label="Bộ lọc & Phân lớp dữ liệu"
@@ -107,6 +117,60 @@
     </button>
 
   </aside>
+
+  <!-- Assets Floating Panel (Danh sách tài sản lưới điện) -->
+  @if (showAssetsPanel()) {
+    <section class="gis-filter-panel gis-assets-panel" aria-label="Danh sách tài sản cột điện">
+      <div class="panel-header">
+        <h3>
+          <span nz-icon nzType="cluster"></span>
+          Tài sản lưới điện ({{ filteredAssets().length }} cột)
+        </h3>
+        <button type="button" class="btn-close-panel" (click)="showAssetsPanel.set(false)">✕</button>
+      </div>
+
+      <div class="filter-group">
+        <label for="asset-search-input">Tìm kiếm tài sản:</label>
+        <div class="search-input-wrap">
+          <span nz-icon nzType="search" class="search-icon"></span>
+          <input
+            id="asset-search-input"
+            type="search"
+            placeholder="Tìm theo mã cột, loại cột, địa chỉ..."
+            [ngModel]="assetSearchQuery()"
+            (ngModelChange)="assetSearchQuery.set($event)"
+          />
+        </div>
+      </div>
+
+      <div class="assets-scroll-list" role="list">
+        @for (tower of filteredAssets(); track tower.id) {
+          <div class="asset-list-card" (click)="focusTowerAsset(tower)">
+            <div class="asset-card-head">
+              <span class="asset-code">{{ tower.towerCode }}</span>
+              @if (openAnomaliesForTower(tower.id); as anomalyCount) {
+                <span class="anomaly-tag-badge">{{ anomalyCount }} sự cố</span>
+              }
+            </div>
+            <div class="asset-meta-line">{{ regionName(tower.regionId) || 'Khu vực chưa định danh' }} · {{ tower.poleType || 'Cột điện' }}</div>
+            @if (tower.address) {
+              <div class="asset-address-line" [title]="tower.address">{{ tower.address }}</div>
+            }
+            <div class="asset-card-actions">
+              <button type="button" class="btn-focus-asset">
+                <span nz-icon nzType="aim"></span> Xem vị trí
+              </button>
+              <a [routerLink]="['/towers', tower.id]" [queryParams]="{ from: 'gis' }" class="btn-link-detail" (click)="$event.stopPropagation()">
+                <span nz-icon nzType="eye"></span> Chi tiết
+              </a>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-assets">Không tìm thấy cột điện nào phù hợp.</div>
+        }
+      </div>
+    </section>
+  }
 
   <!-- Filter Floating Panel -->
   @if (showFilterPanel()) {

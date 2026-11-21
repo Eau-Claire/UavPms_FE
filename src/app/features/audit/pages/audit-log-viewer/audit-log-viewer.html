@@ -158,7 +158,9 @@
                 <!-- Action Type Badge -->
                 <td class="td-action">
                   <span class="audit-badge" [class]="actionBadgeClass(row.actionType)">
-                    @if (row.actionType.toLowerCase().includes('add') || row.actionType.toLowerCase().includes('create')) {
+                    @if (row.actionType.toLowerCase().includes('evaluat')) {
+                      <span nz-icon nzType="radar-chart" class="badge-icon" aria-hidden="true"></span>
+                    } @else if (row.actionType.toLowerCase().includes('add') || row.actionType.toLowerCase().includes('create')) {
                       <span nz-icon nzType="plus-circle" class="badge-icon" aria-hidden="true"></span>
                     } @else if (row.actionType.toLowerCase().includes('delete') || row.actionType.toLowerCase().includes('remove')) {
                       <span nz-icon nzType="delete" class="badge-icon" aria-hidden="true"></span>

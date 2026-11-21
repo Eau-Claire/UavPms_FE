@@ -4,15 +4,19 @@
       <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
         <a routerLink="/missions">NHIỆM VỤ BAY</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>TẠO NHIỆM VỤ (MF02)</strong>
+        <strong>{{ editingMissionId() ? 'CHỈNH SỬA THÔNG TIN NHIỆM VỤ (BẢN NHÁP)' : 'TẠO NHIỆM VỤ (BẢN NHÁP)' }}</strong>
       </nav>
-      <h1>Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi</h1>
+      <h1>{{ editingMissionId() ? 'Chỉnh sửa thông tin nhiệm vụ bản nháp' : 'Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi' }}</h1>
       <p>
-        Nhiệm vụ chỉ được tạo từ hồ sơ đánh giá ở trạng thái <strong>READY</strong>. Phạm vi cột, khung giờ bay và danh
-        sách ứng viên nhân sự, drone được kế thừa từ hồ sơ.
+        {{ editingMissionId() ? 'Cập nhật tiêu đề, mô tả, mức ưu tiên và chỉ thị quản lý cho nhiệm vụ đang ở trạng thái bản nháp.' : 'Nhiệm vụ được tạo ở trạng thái bản nháp (Draft) từ hồ sơ đánh giá READY. Phạm vi cột, khung giờ bay và nguồn lực được kế thừa từ hồ sơ.' }}
       </p>
     </div>
     <div class="head-actions">
+      @if (editingMissionId(); as mid) {
+        <a class="evn-btn secondary" [routerLink]="['/missions', mid]">
+          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Quay lại chi tiết nhiệm vụ
+        </a>
+      }
       @if (assessment(); as a) {
         <a class="evn-btn secondary" [routerLink]="['/pre-mission', a.id]">
           <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Về hồ sơ đánh giá
@@ -163,16 +167,6 @@
             </select>
           </div>
 
-          <fieldset class="form-field-row option-group">
-            <legend class="field-label">Nhóm khuyết tật trọng tâm</legend>
-            @for (defect of defectCategories; track defect.key) {
-              <label class="checkbox-line">
-                <input type="checkbox" [checked]="isDefectSelected(defect.key)" (change)="toggleDefect(defect.key)" />
-                {{ defect.label }}
-              </label>
-            }
-          </fieldset>
-
           <label class="checkbox-line">
             <input type="checkbox" formControlName="isImmediate" />
             Thực hiện ngay (bỏ qua thời gian chờ thành viên xác nhận)
@@ -314,14 +308,17 @@
 
       <footer class="workspace-footer">
         <p class="footer-left">
-          Sau khi tạo, nhiệm vụ chuyển sang trạng thái <strong>Chờ thành viên tiếp nhận</strong>, hồ sơ đánh giá chuyển
-          sang <strong>COMPLETED</strong> và các thành viên nhận thông báo.
+          {{ editingMissionId() ? 'Sau khi lưu thay đổi, thông tin nhiệm vụ bản nháp sẽ được cập nhật trong hệ thống.' : 'Sau khi lưu, nhiệm vụ khởi tạo ở trạng thái Bản nháp (Draft) và chờ xác nhận trước khi chuyển sang bay.' }}
         </p>
         <div class="footer-right">
-          <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || !isAssessmentUsable()">
-            <span nz-icon [nzType]="busy() ? 'loading' : 'send'" aria-hidden="true"></span>
-            {{ busy() ? 'Đang tạo nhiệm vụ...' : 'Tạo nhiệm vụ' }}
+          @if (editingMissionId(); as mid) {
+            <a class="evn-btn secondary" [routerLink]="['/missions', mid]">Hủy bỏ</a>
+          } @else {
+            <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
+          }
+          <button type="submit" class="evn-btn primary" [disabled]="busy() || (!editingMissionId() && !isAssessmentUsable())">
+            <span nz-icon [nzType]="busy() ? 'loading' : 'check'" aria-hidden="true"></span>
+            {{ busy() ? 'Đang lưu...' : (editingMissionId() ? 'Lưu thay đổi nhiệm vụ (Bản nháp)' : 'Lưu bản nháp nhiệm vụ') }}
           </button>
         </div>
       </footer>

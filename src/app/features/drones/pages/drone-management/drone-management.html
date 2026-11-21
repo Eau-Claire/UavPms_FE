@@ -240,9 +240,21 @@
                     @if (fc.lastSeenAt) {
                       <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'dd/MM/yyyy HH:mm' }}</div>
                     }
+                    @if (canEditDrone()) {
+                      <button type="button" class="fc-btn-link" (click)="openFcModal(drone)">
+                        <span nz-icon nzType="edit"></span> Cập nhật FC
+                      </button>
+                    }
                   </div>
                 } @else {
-                  <span class="fc-unpaired">Chưa ghép nối FC</span>
+                  <div class="fc-unpaired-wrap">
+                    <span class="fc-unpaired">Chưa ghép nối FC</span>
+                    @if (canEditDrone()) {
+                      <button type="button" class="fc-btn-link pair" (click)="openFcModal(drone)">
+                        <span nz-icon nzType="plus"></span> Ghép nối FC
+                      </button>
+                    }
+                  </div>
                 }
               </td>
 
@@ -281,6 +293,15 @@
                       [attr.aria-label]="'Kiểm định kỹ thuật an toàn của ' + drone.code"
                     >
                       <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn fc"
+                      (click)="openFcModal(drone)"
+                      title="Cập nhật Flight Controller (FC)"
+                      [attr.aria-label]="'Cập nhật FC của ' + drone.code"
+                    >
+                      <span nz-icon nzType="usb" aria-hidden="true"></span>
                     </button>
                     <button
                       type="button"
@@ -827,6 +848,85 @@
 
       <div class="modal-footer">
         <button type="button" class="button secondary" (click)="closeGisModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= MODAL: FLIGHT CONTROLLER (FC) BINDING ================= -->
+@if (fcModalOpen()) {
+  <div class="modal-backdrop" (click)="closeFcModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <span nz-icon nzType="usb"></span>
+          Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}
+        </h3>
+        <button type="button" class="close-x" (click)="closeFcModal()" [disabled]="fcBusy()">
+          <span nz-icon nzType="close"></span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        @if (fcError()) {
+          <div class="error-banner" role="alert">
+            <span nz-icon nzType="alert"></span> {{ fcError() }}
+          </div>
+        }
+
+        <div class="fc-quick-connect-bar">
+          <button type="button" class="sub-action-btn check" (click)="scanFcFromUsb()" [disabled]="fcBusy()">
+            <span nz-icon nzType="usb"></span> Quét USB MSP (Betaflight)
+          </button>
+          <button type="button" class="sub-action-btn history" (click)="simulateFcConnect()" [disabled]="fcBusy()">
+            <span nz-icon nzType="thunderbolt"></span> Mô phỏng UID
+          </button>
+          @if (targetDroneForFc()?.activeFlightController) {
+            <button type="button" class="sub-action-btn danger" (click)="unpairFc()" [disabled]="fcBusy()">
+              <span nz-icon nzType="disconnect"></span> Hủy ghép nối FC
+            </button>
+          }
+        </div>
+
+        <form [formGroup]="fcForm" (ngSubmit)="saveFcBinding()">
+          <div class="form-group">
+            <label>Mã UID phần cứng FC (Hardware UID) <span class="req">*</span></label>
+            <input
+              type="text"
+              formControlName="flightControllerUid"
+              placeholder="Ví dụ: 002100373038510b34313936"
+              style="font-family: monospace;"
+            />
+            <small class="field-hint">Chuỗi định danh độc nhất đọc từ vi điều khiển STM32 qua lệnh MSP_UID.</small>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tên bo mạch (Board Identifier)</label>
+              <input type="text" formControlName="boardIdentifier" placeholder="Ví dụ: Betaflight STM32F405" />
+            </div>
+            <div class="form-group">
+              <label>Phần mềm / Firmware</label>
+              <input type="text" formControlName="firmwareName" placeholder="Ví dụ: Betaflight" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Phiên bản Firmware (Version)</label>
+            <input type="text" formControlName="firmwareVersion" placeholder="Ví dụ: 4.5.1" />
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="button secondary" (click)="closeFcModal()" [disabled]="fcBusy()">Hủy</button>
+            <button type="submit" class="button primary" [disabled]="fcBusy()">
+              @if (fcBusy()) {
+                <span nz-icon nzType="loading"></span> Đang lưu...
+              } @else {
+                <span nz-icon nzType="save"></span> Lưu ghép nối FC
+              }
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

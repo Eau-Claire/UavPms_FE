@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 /**
  * Infrastructure models after ERD v2.2: Region → Tower only.
  * Substations, transmission lines, management units, asset components,
@@ -5,7 +7,7 @@
  */
 
 /** Mirrors the backend TowerDto. */
-export interface TowerSummary {
+export interface TowerSummary extends BaseAuditableEntity {
   readonly id: string;
   readonly regionId: string;
   readonly regionName?: string;
@@ -14,6 +16,10 @@ export interface TowerSummary {
   readonly address?: string;
   readonly latitude: number;
   readonly longitude: number;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 export interface TowerFilters {
@@ -62,7 +68,7 @@ export interface TowerHistoryFilters {
   readonly to?: string;
 }
 
-export interface TowerAnomaly {
+export interface TowerAnomaly extends BaseAuditableEntity {
   readonly id: string;
   readonly mediaId: string;
   readonly missionId: string;
@@ -75,6 +81,10 @@ export interface TowerAnomaly {
   readonly cropUrl?: string;
   readonly detectedAt: string;
   readonly validatedAt?: string;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 export interface TowerMaintenanceProof {

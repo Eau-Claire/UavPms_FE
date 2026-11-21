@@ -167,6 +167,36 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly showDefectsLayer = signal(true);
   protected readonly showAlertsLayer = signal(true);
 
+  // Assets panel state
+  protected readonly showAssetsPanel = signal(false);
+  protected readonly assetSearchQuery = signal('');
+  protected readonly filteredAssets = computed(() => {
+    const q = this.assetSearchQuery().trim().toLowerCase();
+    const list = this.towers();
+    if (!q) return list;
+    return list.filter((t) =>
+      t.towerCode.toLowerCase().includes(q) ||
+      (t.poleType || '').toLowerCase().includes(q) ||
+      (t.address || '').toLowerCase().includes(q) ||
+      this.regionName(t.regionId).toLowerCase().includes(q),
+    );
+  });
+
+  protected toggleAssetsPanel(): void {
+    this.showAssetsPanel.update((v) => !v);
+    if (this.showAssetsPanel()) {
+      this.showFilterPanel.set(false);
+      this.showLegendPanel.set(false);
+    }
+  }
+
+  protected focusTowerAsset(tower: TowerAsset): void {
+    if (this.map) {
+      this.map.flyTo([tower.latitude, tower.longitude], 17, { duration: 0.8 });
+      this.selectedEntity.set({ type: 'tower', data: tower });
+    }
+  }
+
   // Filters
   protected readonly searchCode = signal('');
   protected readonly severityFilter = signal<string>('');
