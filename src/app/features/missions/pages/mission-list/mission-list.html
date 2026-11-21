@@ -88,8 +88,22 @@
         <button type="button" class="button primary mission-action-btn" (click)="applyFilters()">
           <span nz-icon nzType="filter"></span> Lọc
         </button>
-        <button type="button" class="button secondary mission-action-btn" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên">
-          <span nz-icon nzType="thunderbolt"></span> Xếp theo ưu tiên
+        <button
+          type="button"
+          class="button secondary mission-action-btn"
+          [class.active]="sortBy() === 'priority'"
+          (click)="togglePrioritySort()"
+          [title]="sortBy() === 'priority' ? (sortDescending() ? 'Đang xếp: Ưu tiên Cao → Thấp (bấm để đổi Thấp → Cao)' : 'Đang xếp: Ưu tiên Thấp → Cao (bấm để hủy xếp)') : 'Bấm để xếp theo độ ưu tiên'"
+        >
+          @if (sortBy() === 'priority') {
+            @if (sortDescending()) {
+              <span nz-icon nzType="thunderbolt"></span> Ưu tiên: Cao → Thấp ↓
+            } @else {
+              <span nz-icon nzType="thunderbolt"></span> Ưu tiên: Thấp → Cao ↑
+            }
+          } @else {
+            <span nz-icon nzType="thunderbolt"></span> Xếp theo ưu tiên
+          }
         </button>
         <button type="button" class="button secondary mission-action-btn" [disabled]="loading()" (click)="refreshList()" title="Tải lại danh sách">
           <span nz-icon nzType="reload" aria-hidden="true"></span> Tải lại

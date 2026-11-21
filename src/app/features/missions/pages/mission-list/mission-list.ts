@@ -254,7 +254,12 @@ export class MissionList {
 
   protected togglePrioritySort(): void {
     if (this.sortBy() === 'priority') {
-      this.sortDescending.set(!this.sortDescending());
+      if (this.sortDescending()) {
+        this.sortDescending.set(false);
+      } else {
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(true);
+      }
     } else {
       this.sortBy.set('priority');
       this.sortDescending.set(true);

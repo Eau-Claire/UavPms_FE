@@ -35,7 +35,6 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
     { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
     { path: '/admin/users', icon: 'team', label: 'Người dùng' },
-    { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
     { path: '/system/settings', icon: 'setting', label: 'Cấu hình hệ thống' },
   ],
   manager: [

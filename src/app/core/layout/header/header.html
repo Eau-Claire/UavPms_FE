@@ -286,6 +286,10 @@
           </div>
           <div class="profile-menu-divider"></div>
           @if (canViewAuditLogs()) {
+            <button type="button" class="profile-menu-item" routerLink="/system/audit-logs" (click)="menuOpen.set(false)" role="menuitem">
+              <span nz-icon nzType="history"></span>
+              <span>Nhật ký hệ thống</span>
+            </button>
             <button type="button" class="profile-menu-item" routerLink="/system/settings" (click)="menuOpen.set(false)" role="menuitem">
               <span nz-icon nzType="setting"></span>
               <span>Cấu hình hệ thống</span>
