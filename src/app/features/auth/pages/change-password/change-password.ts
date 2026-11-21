@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { Auth } from '../../../../core/auth/auth';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -23,6 +24,7 @@ export class ChangePassword {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly form = this.fb.nonNullable.group({
@@ -44,7 +46,10 @@ export class ChangePassword {
         finalize(() => this.busy.set(false)),
       )
       .subscribe({
-        next: () => void this.router.navigate(['/dashboard']),
+        next: () => {
+          this.toast.success('Đổi mật khẩu thành công!');
+          void this.router.navigate(['/dashboard']);
+        },
         error: () => this.error.set('Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.'),
       });
   }

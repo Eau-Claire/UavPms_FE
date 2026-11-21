@@ -9,10 +9,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
@@ -23,7 +25,7 @@ const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [ReactiveFormsModule, NzIconModule, UserScopeDialog],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -35,6 +37,7 @@ export class UserManagement {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
 
   protected readonly users = signal<readonly UserRecord[]>([]);
   protected readonly loading = signal(true);
@@ -48,6 +51,9 @@ export class UserManagement {
   protected readonly editing = signal<UserRecord | null>(null);
   protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);
   protected readonly scopeUser = signal<UserRecord | null>(null);
+
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
 
   protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
@@ -78,6 +84,16 @@ export class UserManagement {
     });
   });
 
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredUsers().length / this.pageSize())),
+  );
+
+  protected readonly paginatedUsers = computed(() => {
+    const p = this.page();
+    const s = this.pageSize();
+    return this.filteredUsers().slice((p - 1) * s, p * s);
+  });
+
   protected readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
@@ -102,7 +118,10 @@ export class UserManagement {
       )
       .subscribe({
         next: (users) => this.users.set(users),
-        error: () => this.error.set('Không thể tải danh sách người dùng.'),
+        error: () => {
+          this.error.set('Không thể tải danh sách người dùng.');
+          this.toast.error('Không thể tải danh sách người dùng.');
+        },
       });
   }
 
@@ -110,13 +129,22 @@ export class UserManagement {
     this.search.set('');
     this.roleFilter.set('');
     this.statusFilter.set('');
+    this.page.set(1);
   }
 
-  protected getInitials(name: string): string {
-    if (!name) return 'U';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  protected onSearchChange(term: string): void {
+    this.search.set(term);
+    this.page.set(1);
+  }
+
+  protected onRoleFilterChange(role: UserRole | ''): void {
+    this.roleFilter.set(role);
+    this.page.set(1);
+  }
+
+  protected onStatusFilterChange(status: UserStatus | ''): void {
+    this.statusFilter.set(status);
+    this.page.set(1);
   }
 
   protected openCreate(): void {
@@ -173,9 +201,9 @@ export class UserManagement {
         next: (user) => {
           this.users.update((users) => [user, ...users]);
           this.closeModal();
-          this.notice.set(`Đã tạo thành công tài khoản ${user.fullName || user.email}. Mật khẩu mặc định là: Pms@2026!`);
+          this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu mặc định: Pms@2026!`);
         },
-        error: () => this.error.set('Không thể tạo người dùng.'),
+        error: () => this.toast.error('Không thể tạo người dùng mới.'),
       });
   }
 
@@ -198,7 +226,7 @@ export class UserManagement {
         next: (updated) => {
           this.users.update((users) => users.map((item) => (item.id === updated.id ? updated : item)));
           this.closeModal();
-          this.notice.set(`Đã cập nhật thông tin người dùng ${updated.fullName || updated.email}.`);
+          this.toast.success(`Đã cập nhật thông tin người dùng ${updated.fullName || updated.email}.`);
 
           if (newStatus === 'Locked' || newStatus === 'Inactive') {
             this.auth.broadcastUserSuspended(user.id, newStatus === 'Locked' ? 'suspended' : 'inactive');
@@ -210,7 +238,7 @@ export class UserManagement {
             }
           }
         },
-        error: () => this.error.set('Không thể cập nhật người dùng.'),
+        error: () => this.toast.error('Không thể cập nhật người dùng.'),
       });
   }
 
@@ -227,13 +255,13 @@ export class UserManagement {
             : { ...user, status };
 
         this.users.update((users) => users.map((item) => (item.id === user.id ? updatedUser : item)));
-        this.notice.set(
+        const msg =
           status === 'Active'
             ? `Đã kích hoạt tài khoản ${user.fullName || user.email}.`
             : status === 'Locked'
             ? `Đã khóa (đình chỉ) tài khoản ${user.fullName || user.email}.`
-            : `Đã vô hiệu hóa tài khoản ${user.fullName || user.email}.`,
-        );
+            : `Đã vô hiệu hóa tài khoản ${user.fullName || user.email}.`;
+        this.toast.success(msg);
 
         if (status === 'Locked' || status === 'Inactive') {
           this.auth.broadcastUserSuspended(user.id, status === 'Locked' ? 'suspended' : 'inactive');
@@ -245,7 +273,7 @@ export class UserManagement {
           }
         }
       },
-      error: () => this.error.set('Không thể cập nhật trạng thái người dùng.'),
+      error: () => this.toast.error('Không thể cập nhật trạng thái người dùng.'),
     });
   }
 
@@ -255,13 +283,15 @@ export class UserManagement {
       .resetPassword(user.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (value) => this.credential.set(value),
-        error: () => this.error.set('Không thể đặt lại mật khẩu.'),
+        next: (value) => {
+          this.credential.set(value);
+          this.toast.success(`Đã tạo mật khẩu tạm thời cho ${user.fullName || user.email}`);
+        },
+        error: () => this.toast.error('Không thể đặt lại mật khẩu.'),
       });
   }
 
   protected openScopes(user: UserRecord): void {
-    this.notice.set('');
     this.scopeUser.set(user);
   }
 
@@ -272,7 +302,7 @@ export class UserManagement {
   protected onScopesSaved(scopes: UserGeographicScopes): void {
     const user = this.scopeUser();
     this.scopeUser.set(null);
-    this.notice.set(
+    this.toast.success(
       `Đã cập nhật phạm vi ${scopes.regions.length} khu vực cho ${user?.fullName || user?.email || 'người dùng'}.`,
     );
   }
@@ -303,3 +333,4 @@ export class UserManagement {
     return ({ Active: 'Hoạt động', Inactive: 'Tạm ngưng', Locked: 'Đã khóa' } as const)[status];
   }
 }
+

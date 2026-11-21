@@ -1,6 +1,10 @@
 <header class="page-heading">
   <div class="heading-left">
-    <div class="page-breadcrumb"><span>VẬN HÀNH</span><span>/</span><strong>PHIẾU BẢO TRÌ</strong></div>
+    <nav class="page-breadcrumb" aria-label="Đường dẫn">
+      <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+      <span class="separator">/</span>
+      <strong>PHIẾU BẢO TRÌ</strong>
+    </nav>
     <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
     <p class="review-subtitle">
       @if (isManager()) {
@@ -89,8 +93,10 @@
             <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
               <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
               <td class="td-m-desc" [title]="ticket.description">
-                <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
-                @if (ticket.tower) { <span class="tower-muted maintenance-sub">Cột {{ ticket.tower.towerCode }}</span> }
+                <div class="maintenance-desc-wrap">
+                  <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
+                  @if (ticket.tower) { <span class="maintenance-tower-tag">Cột {{ ticket.tower.towerCode }}</span> }
+                </div>
               </td>
               <td><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
               <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
@@ -101,14 +107,16 @@
                   <span class="maintenance-unassigned">Chưa giao</span>
                 }
               </td>
-              <td [class.maintenance-overdue]="isOverdue(ticket)">
-                {{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}
-                @if (isOverdue(ticket)) { <span class="maintenance-sub">Quá hạn</span> }
+              <td>
+                <div class="maintenance-date-wrap" [class.maintenance-overdue]="isOverdue(ticket)">
+                  <span class="maintenance-date-val">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</span>
+                  @if (isOverdue(ticket)) { <span class="maintenance-overdue-tag">Quá hạn</span> }
+                </div>
               </td>
-              <td>{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
+              <td><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
               <td class="td-m-actions">
-                <a class="tower-icon-button" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
-                  <span nz-icon nzType="right" aria-hidden="true"></span>
+                <a class="maintenance-btn-open" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
+                  Chi tiết
                 </a>
               </td>
             </tr>

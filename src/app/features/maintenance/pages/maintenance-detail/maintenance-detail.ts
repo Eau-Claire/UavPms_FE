@@ -13,6 +13,7 @@ import { DefectImage } from '../../components/defect-image/defect-image';
 import { MaterialForm } from '../../components/material-form/material-form';
 import { ProofUpload } from '../../components/proof-upload/proof-upload';
 import { TicketTimeline } from '../../components/ticket-timeline/ticket-timeline';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { MaintenanceApi, maintenanceErrorMessage, maintenanceErrorStatus } from '../../data-access/maintenance-api';
 import {
   isClosedStatus,
@@ -66,6 +67,7 @@ export class MaintenanceDetail {
   private readonly api = inject(MaintenanceApi);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly request$ = new Subject<string>();
 
   /** Route parameter (bound through withComponentInputBinding). */
@@ -180,15 +182,23 @@ export class MaintenanceDetail {
     request$.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.actionBusy.set(false))).subscribe({
       next: () => {
         this.pendingAction.set(null);
-        this.notice.set({ tone: 'success', text: ACTIONS[action].success });
+        const msg = ACTIONS[action].success;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         this.load();
       },
-      error: (error: unknown) => this.actionError.set(maintenanceErrorMessage(error, `Không thể thực hiện "${ACTIONS[action].label}".`)),
+      error: (error: unknown) => {
+        const msg = maintenanceErrorMessage(error, `Không thể thực hiện "${ACTIONS[action].label}".`);
+        this.actionError.set(msg);
+        this.toast.error(msg);
+      },
     });
   }
 
   protected onAssigned(): void {
-    this.notice.set({ tone: 'success', text: 'Đã giao kỹ thuật viên cho phiếu. Kỹ thuật viên sẽ nhận được thông báo.' });
+    const msg = 'Đã giao kỹ thuật viên cho phiếu. Kỹ thuật viên sẽ nhận được thông báo.';
+    this.notice.set({ tone: 'success', text: msg });
+    this.toast.success(msg);
     this.load();
   }
 

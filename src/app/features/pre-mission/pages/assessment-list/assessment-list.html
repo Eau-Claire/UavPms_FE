@@ -2,11 +2,11 @@
   <!-- EVN Header Bar -->
   <header class="pre-mission-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <span>TIỀN NHIỆM VỤ</span>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
         <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG (MF01)</strong>
-      </div>
+      </nav>
       <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
       <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
     </div>
@@ -18,20 +18,6 @@
       </div>
     }
   </header>
-
-    <!-- Feedback Alerts -->
-    @if (error()) {
-      <div class="evn-alert" role="alert">
-        <span>{{ error() }}</span>
-        <button type="button" (click)="error.set('')">Đóng</button>
-      </div>
-    }
-    @if (successMessage()) {
-      <div class="evn-alert" style="background: #f0fdf4; border-color: #86efac; color: #166534;" role="status">
-        <span>{{ successMessage() }}</span>
-        <button type="button" style="color: #166534;" (click)="successMessage.set('')">Đóng</button>
-      </div>
-    }
 
     <!-- Light Blue Filter Toolbar -->
     <section class="pre-mission-filters" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
@@ -134,17 +120,17 @@
               @for (item of filteredItems(); track item.id) {
                 <tr>
                   <td>
-                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
-                      {{ item.assessmentCode }}
-                    </a>
-                    @if (item.completedMissionId) {
-                      <div style="margin-top: 2px;">
-                        <a [routerLink]="['/missions', item.completedMissionId]" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; font-weight: 600; color: #1d4ed8; text-decoration: none;" title="Xem nhiệm vụ bay đã tạo">
-                          <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span>
-                          #{{ item.completedMissionId }}
+                    <div class="assessment-code-wrap">
+                      <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
+                        {{ item.assessmentCode }}
+                      </a>
+                      @if (item.completedMissionId) {
+                        <a [routerLink]="['/missions', item.completedMissionId]" class="linked-mission-pill" title="Xem nhiệm vụ bay đã tạo">
+                          <span nz-icon nzType="send" aria-hidden="true"></span>
+                          <span>Nhiệm vụ</span>
                         </a>
-                      </div>
-                    }
+                      }
+                    </div>
                   </td>
                   <td>
                     <strong>{{ item.regionName }}</strong>
@@ -190,39 +176,33 @@
                     </span>
                   </td>
                   <td class="text-center">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    <div class="assessment-actions-group">
                       <a
                         [routerLink]="['/pre-mission', item.id]"
-                        class="evn-btn secondary"
-                        style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
-                        title="Mở chi tiết đánh giá"
+                        class="assessment-btn-open"
+                        title="Xem chi tiết đánh giá"
                       >
-                        Mở
+                        <span nz-icon nzType="eye" aria-hidden="true"></span>
+                        <span>Chi tiết</span>
                       </a>
                       @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
-                          class="evn-btn secondary"
-                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
+                          class="assessment-btn-sub"
                           [disabled]="actionBusyId() === item.id"
                           (click)="reevaluateItem(item, $event)"
                           title="Đánh giá lại sẵn sàng"
+                          aria-label="Đánh giá lại sẵn sàng"
                         >
-                          @if (actionBusyId() === item.id) {
-                            <span nz-icon nzType="loading"></span>
-                          } @else {
-                            <span nz-icon nzType="reload"></span>
-                          }
+                          <span nz-icon [nzType]="actionBusyId() === item.id ? 'loading' : 'reload'"></span>
                         </button>
-                      }
-                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
-                          class="evn-btn secondary"
-                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #dc2626;"
+                          class="assessment-btn-sub danger"
                           [disabled]="actionBusyId() === item.id"
                           (click)="cancelItem(item, $event)"
                           title="Hủy bản đánh giá"
+                          aria-label="Hủy bản đánh giá"
                         >
                           <span nz-icon nzType="close"></span>
                         </button>
@@ -237,37 +217,14 @@
       </div>
 
       <!-- Table Footer with Pagination -->
-      <footer>
-        <span>
-          Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ totalCount() || items().length }} đánh giá
-        </span>
-        <div class="evn-pagination">
-          <button
-            type="button"
-            [disabled]="page() <= 1"
-            (click)="goToPage(page() - 1)"
-            aria-label="Trang trước"
-          >
-            <span nz-icon nzType="left"></span>
-          </button>
-          @for (p of pageButtons(); track p) {
-            <button
-              type="button"
-              [class.active]="p === page()"
-              (click)="goToPage(p)"
-            >
-              {{ p }}
-            </button>
-          }
-          <button
-            type="button"
-            [disabled]="page() >= totalPages()"
-            (click)="goToPage(page() + 1)"
-            aria-label="Trang tiếp"
-          >
-            <span nz-icon nzType="right"></span>
-          </button>
-        </div>
+      <footer class="assessment-pagination-wrap">
+        <app-pagination
+          [page]="page()"
+          [totalPages]="totalPages()"
+          [totalCount]="totalCount() || items().length"
+          [pageSize]="pageSize()"
+          (pageChanged)="goToPage($event)"
+        />
       </footer>
     </section>
   

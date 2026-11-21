@@ -1,6 +1,6 @@
 import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { GisApi, GisDataSnapshot } from '../../data-access/gis-api';
@@ -70,6 +70,7 @@ describe('GisMonitoring tower selection', () => {
     TestBed.configureTestingModule({
       imports: [GisMonitoring],
       providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {}, params: {} } } },
         { provide: GisApi, useValue: api },
         { provide: Router, useValue: router },
         { provide: Auth, useValue: authMock },

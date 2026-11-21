@@ -1,7 +1,11 @@
 <div class="mission-page mission-list-page">
   <div class="mission-page-head">
     <div>
-      <div class="mission-breadcrumb"><span>NHIỆM VỤ BAY</span><span>/</span><strong>DANH SÁCH NHIỆM VỤ</strong></div>
+      <nav class="mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>DANH SÁCH NHIỆM VỤ</strong>
+      </nav>
       <h1>Danh sách nhiệm vụ bay</h1>
       <p>Quản lý và giám sát tiến độ các đợt khảo sát hạ tầng điện</p>
     </div>
@@ -45,9 +49,9 @@
           <span class="filter-lbl">Độ ưu tiên:</span>
           <select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()" title="Lọc theo độ ưu tiên">
             <option value="">Tất cả</option>
-            <option value="EMERGENCY">⚡ Khẩn cấp</option>
-            <option value="HIGH">🔥 Cao</option>
-            <option value="NORMAL">○ Bình thường</option>
+            <option value="EMERGENCY">Khẩn cấp</option>
+            <option value="HIGH">Cao</option>
+            <option value="NORMAL">Bình thường</option>
           </select>
         </label>
       </div>
@@ -97,7 +101,7 @@
                   {{ priorityLabel(mission.priority) }}
                 </span>
                 @if (mission.objective) {
-                  <small style="display: block; font-size: 9.5px; color: #64748b; margin-top: 1px;">{{ mission.objective }}</small>
+                  <small class="mission-objective-text">{{ objectiveLabel(mission.objective) }}</small>
                 }
               </td>
               <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
@@ -115,15 +119,14 @@
         </tbody>
       </table>
     </div>
-    <footer>
-      <span>Hiển thị {{ startIndex() }} - {{ endIndex() }} của {{ response().totalCount }} nhiệm vụ</span>
-      <div class="mission-pagination">
-        <button type="button" [disabled]="page() <= 1" (click)="goToPage(page() - 1)"><span nz-icon nzType="left"></span></button>
-        @for (item of pageButtons(); track $index) {
-          <button type="button" class="page-number" [class.active]="item === page()" (click)="goToPage(item)">{{ item }}</button>
-        }
-        <button type="button" [disabled]="page() >= response().totalPages" (click)="goToPage(page() + 1)"><span nz-icon nzType="right"></span></button>
-      </div>
+    <footer class="mission-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="response().totalPages"
+        [totalCount]="response().totalCount"
+        [pageSize]="pageSize()"
+        (pageChanged)="goToPage($event)"
+      />
     </footer>
   </section>
 </div>

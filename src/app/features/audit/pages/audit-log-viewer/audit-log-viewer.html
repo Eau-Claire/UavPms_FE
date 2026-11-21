@@ -2,11 +2,11 @@
   <!-- Page Header (Standardized layout like AI Review) -->
   <header class="page-header audit-page-head">
     <div class="page-heading-group">
-      <div class="page-breadcrumb">
-        <span>HỆ THỐNG</span>
-        <span>/</span>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
         <strong>NHẬT KÝ HỆ THỐNG</strong>
-      </div>
+      </nav>
       <h1 class="page-title">Nhật ký hệ thống</h1>
       <p class="page-subtitle">
         Theo dõi lịch sử thay đổi, kiểm tra và xác thực các thao tác dữ liệu của người dùng và dịch vụ nền trong toàn hệ thống UAV-PMS.
@@ -136,7 +136,7 @@
                     {{ row.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}
                   </div>
                   <div class="time-secondary" [title]="row.createdAt">
-                    {{ row.createdAt | date: 'z' }}
+                    Asia/Ho_Chi_Minh (UTC+7)
                   </div>
                 </td>
 
@@ -283,8 +283,8 @@
           <!-- Metadata Grid -->
           <section class="meta-section" aria-label="Thông tin tổng quan bản ghi">
             <div class="meta-item">
-              <span class="meta-label">Thời gian (UTC):</span>
-              <span class="meta-value">{{ selected.createdAt | date: 'yyyy-MM-dd HH:mm:ss (z)' }}</span>
+              <span class="meta-label">Thời gian:</span>
+              <span class="meta-value">{{ selected.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }} (Asia/Ho_Chi_Minh)</span>
             </div>
             <div class="meta-item">
               <span class="meta-label">Người thực hiện:</span>

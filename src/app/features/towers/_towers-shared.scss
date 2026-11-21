@@ -482,7 +482,42 @@
 
   .tower-row-actions {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .tower-action-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #10387d;
+    background: #f0f5fc;
+    border: 1px solid #bfdbfe;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #10387d;
+      color: #ffffff;
+      border-color: #10387d;
+    }
+  }
+
+  .button.danger-outline {
+    border: 1px solid #fecaca;
+    background: #ffffff;
+    color: #dc2626;
+
+    &:hover:not(:disabled) {
+      background: #fef2f2;
+      border-color: #dc2626;
+    }
   }
 
   .tower-icon-button {

@@ -5,6 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import {
@@ -22,7 +24,7 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 
 @Component({
   selector: 'app-mission-list',
-  imports: [DatePipe, RouterLink, NzIconModule],
+  imports: [DatePipe, RouterLink, NzIconModule, Pagination],
   templateUrl: './mission-list.html',
   styleUrl: './mission-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -33,6 +35,7 @@ export class MissionList {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly searchInput = new Subject<string>();
 
   protected readonly user = computed(() => this.auth.user());
@@ -208,9 +211,23 @@ export class MissionList {
 
   protected priorityLabel(priority?: string): string {
     const p = (priority || 'NORMAL').toUpperCase();
-    if (p === 'EMERGENCY') return '⚡ KHẨN CẤP';
-    if (p === 'HIGH') return '🔥 CAO';
-    return '○ BÌNH THƯỜNG';
+    if (p === 'EMERGENCY') return 'Khẩn cấp';
+    if (p === 'HIGH') return 'Cao';
+    return 'Bình thường';
+  }
+
+  protected objectiveLabel(objective?: string): string {
+    if (!objective) return '';
+    const map: Record<string, string> = {
+      PERIODIC_INSPECTION: 'Kiểm tra định kỳ',
+      INCIDENT_INVESTIGATION: 'Điều tra sự cố',
+      CORRIDOR_MONITORING: 'Giám sát hành lang',
+      POST_REPAIR_INSPECTION: 'Kiểm tra sau sửa chữa',
+      ROUTINE_PATROL: 'Tuần tra định kỳ',
+      EMERGENCY_SURVEY: 'Khảo sát khẩn cấp',
+      THERMAL_AUDIT: 'Kiểm tra nhiệt',
+    };
+    return map[objective] || objective;
   }
 
   protected priorityClass(priority?: string): string {

@@ -113,7 +113,7 @@
                       <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
                         {{ priorityLabels[alert.priority] }}
                       </span>
-                      <span class="item-time">{{ alert.triggeredAt | date: 'HH:mm dd/MM' }}</span>
+                      <span class="item-time">{{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
                     </div>
 
                     <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>

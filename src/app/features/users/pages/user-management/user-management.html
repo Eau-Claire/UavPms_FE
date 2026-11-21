@@ -2,7 +2,11 @@
   <!-- Header Banner -->
   <header class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>HỆ THỐNG</span><span>/</span><strong>NGƯỜI DÙNG</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>QUẢN LÝ NGƯỜI DÙNG</strong>
+      </nav>
       <h1 class="page-title">{{ isAdmin() ? 'Quản lý người dùng' : 'Phân quyền khu vực' }}</h1>
       <p class="review-subtitle">
         {{ isAdmin() ? 'Quản lý tài khoản, vai trò, trạng thái truy cập và phạm vi khu vực của nhân sự hệ thống' : 'Phân quyền khu vực hoạt động cho các thanh tra viên' }}
@@ -29,24 +33,6 @@
       }
     </div>
   </header>
-
-  <!-- Notice Alert Banner -->
-  @if (notice()) {
-    <div class="alert-banner success" role="status">
-      <span nz-icon nzType="check-circle"></span>
-      <span>{{ notice() }}</span>
-      <button type="button" class="alert-close" aria-label="Đóng thông báo" (click)="notice.set('')">×</button>
-    </div>
-  }
-
-  <!-- Error Alert Banner -->
-  @if (error()) {
-    <div class="alert-banner error" role="alert">
-      <span nz-icon nzType="close-circle"></span>
-      <span>{{ error() }}</span>
-      <button type="button" class="alert-close" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
-    </div>
-  }
 
   @if (!isAdmin() && canManageScopes()) {
     <div class="user-scope-hint">
@@ -162,7 +148,7 @@
           </tr>
         }
 
-        @for (user of filteredUsers(); track user.id) {
+        @for (user of paginatedUsers(); track user.id) {
           <tr [class.user-row-locked]="user.status === 'Locked'" [class.user-row-inactive]="user.status === 'Inactive'">
             <td>
               <div class="user-cell">
@@ -171,7 +157,7 @@
                   [class.avatar-admin]="user.role === 'Admin'"
                   [class.avatar-locked]="user.status === 'Locked'"
                 >
-                  {{ getInitials(user.fullName || user.email) }}
+                  <span nz-icon nzType="user" aria-hidden="true"></span>
                 </div>
                 <div class="user-info">
                   <div class="user-name">{{ user.fullName || 'Chưa đặt tên' }}</div>
@@ -202,86 +188,25 @@
 
             <td>
               <div class="table-actions">
-                <!-- Scope Assignment Button -->
-                @if (canManageScopes()) {
-                  <button
-                    type="button"
-                    class="action-btn scope-btn"
-                    [attr.aria-label]="'Phạm vi khu vực của ' + (user.fullName || user.email)"
-                    title="Phạm vi khu vực"
-                    (click)="openScopes(user)"
-                  >
-                    <span nz-icon nzType="environment"></span>
-                  </button>
-                }
-
                 @if (isAdmin()) {
-                  <!-- Edit User Button (opens centered modal) -->
                   <button
                     type="button"
-                    class="action-btn edit-btn"
-                    aria-label="Cập nhật thông tin người dùng"
-                    title="Cập nhật thông tin"
+                    class="action-edit-btn"
                     (click)="openEdit(user)"
+                    title="Chỉnh sửa thông tin"
                   >
-                    <span nz-icon nzType="edit"></span>
+                    <span nz-icon nzType="edit" aria-hidden="true"></span>
+                    <span>Chỉnh sửa</span>
                   </button>
-
-                  <!-- Quick Status Actions: Enable / Disable / Suspend -->
-                  @if (user.status === 'Locked') {
-                    <button
-                      type="button"
-                      class="action-btn unlock-btn"
-                      title="Mở khóa tài khoản (Activate)"
-                      (click)="changeStatus(user, 'Active')"
-                    >
-                      <span nz-icon nzType="unlock"></span>
-                    </button>
-                  } @else if (user.status === 'Inactive') {
-                    <button
-                      type="button"
-                      class="action-btn enable-btn"
-                      title="Kích hoạt tài khoản (Enable)"
-                      (click)="changeStatus(user, 'Active')"
-                    >
-                      <span nz-icon nzType="check-circle"></span>
-                    </button>
-                    <button
-                      type="button"
-                      class="action-btn suspend-btn"
-                      title="Khóa / Đình chỉ tài khoản (Suspend)"
-                      (click)="changeStatus(user, 'Locked')"
-                    >
-                      <span nz-icon nzType="lock"></span>
-                    </button>
-                  } @else {
-                    <button
-                      type="button"
-                      class="action-btn disable-btn"
-                      title="Vô hiệu hóa tài khoản (Disable)"
-                      (click)="changeStatus(user, 'Inactive')"
-                    >
-                      <span nz-icon nzType="pause-circle"></span>
-                    </button>
-                    <button
-                      type="button"
-                      class="action-btn suspend-btn"
-                      title="Khóa / Đình chỉ tài khoản (Suspend)"
-                      (click)="changeStatus(user, 'Locked')"
-                    >
-                      <span nz-icon nzType="lock"></span>
-                    </button>
-                  }
-
-                  <!-- Reset Password Button -->
+                } @else if (canManageScopes()) {
                   <button
                     type="button"
-                    class="action-btn reset-btn"
-                    aria-label="Đặt lại mật khẩu"
-                    title="Đặt lại mật khẩu"
-                    (click)="resetPassword(user)"
+                    class="action-edit-btn"
+                    (click)="openScopes(user)"
+                    title="Phân quyền khu vực"
                   >
-                    <span nz-icon nzType="key"></span>
+                    <span nz-icon nzType="environment" aria-hidden="true"></span>
+                    <span>Phân quyền</span>
                   </button>
                 }
               </div>
@@ -290,6 +215,16 @@
         }
       </tbody>
     </table>
+
+    <footer class="user-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [totalCount]="filteredUsers().length"
+        [pageSize]="pageSize()"
+        (pageChanged)="page.set($event)"
+      />
+    </footer>
   </section>
 
   <!-- User Create / Edit Centered Dialog Modal -->
@@ -355,6 +290,32 @@
               </label>
             }
           </div>
+
+          @if (editing(); as user) {
+            <div class="modal-secondary-tools">
+              <span class="tools-title">Tác vụ khác:</span>
+              <div class="tools-btn-group">
+                <button
+                  type="button"
+                  class="button secondary small"
+                  (click)="resetPassword(user)"
+                  title="Đặt lại mật khẩu"
+                >
+                  <span nz-icon nzType="key" aria-hidden="true"></span> Đặt lại mật khẩu
+                </button>
+                @if (canManageScopes()) {
+                  <button
+                    type="button"
+                    class="button secondary small"
+                    (click)="openScopes(user); closeModal()"
+                    title="Phân quyền khu vực"
+                  >
+                    <span nz-icon nzType="environment" aria-hidden="true"></span> Phân quyền khu vực
+                  </button>
+                }
+              </div>
+            </div>
+          }
 
           <footer class="modal-footer">
             <button type="button" class="button secondary" (click)="closeModal()">Hủy bỏ</button>

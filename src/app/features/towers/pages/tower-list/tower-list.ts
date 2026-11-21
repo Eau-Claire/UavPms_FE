@@ -12,6 +12,7 @@ import { Pagination } from '../../../../shared/components/pagination/pagination'
 import { ConfirmDialog } from '../../components/confirm-dialog/confirm-dialog';
 import { TowerFormDialog } from '../../components/tower-form-dialog/tower-form-dialog';
 import { RegionsApi } from '../../data-access/regions-api';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { canManageInfrastructure } from '../../data-access/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
@@ -30,6 +31,7 @@ export class TowerList {
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly reload$ = new Subject<TowerFilters>();
 
   protected readonly pageSizes = [10, 20, 50, 100] as const;
@@ -169,7 +171,9 @@ export class TowerList {
     request$.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.saving.set(false))).subscribe({
       next: (tower) => {
         this.closeForm();
-        this.notice.set({ tone: 'success', text: current ? `Đã cập nhật cột ${tower.towerCode || request.towerCode}.` : `Đã thêm cột ${tower.towerCode || request.towerCode}.` });
+        const msg = current ? `Đã cập nhật cột ${tower.towerCode || request.towerCode}.` : `Đã thêm cột ${tower.towerCode || request.towerCode}.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         this.load();
       },
       error: (error: unknown) => this.formError.set(apiErrorMessage(error, current ? 'Không thể cập nhật cột điện.' : 'Không thể tạo cột điện.')),
@@ -189,7 +193,9 @@ export class TowerList {
     this.api.delete(tower.id).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.deleteBusy.set(false))).subscribe({
       next: () => {
         this.deleting.set(null);
-        this.notice.set({ tone: 'success', text: `Đã xóa cột ${tower.towerCode}.` });
+        const msg = `Đã xóa cột ${tower.towerCode}.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         const onlyRowOnPage = this.result().items.length === 1 && this.page() > 1;
         this.goToPage(onlyRowOnPage ? this.page() - 1 : this.page());
       },
@@ -210,10 +216,16 @@ export class TowerList {
     this.notice.set(null);
     this.api.import(file).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.importing.set(false))).subscribe({
       next: (result) => {
-        this.notice.set({ tone: 'success', text: `Đã nhập ${result.importedCount} cột điện, bỏ qua ${result.skippedCount} dòng không hợp lệ hoặc trùng mã.` });
+        const msg = `Đã nhập ${result.importedCount} cột điện, bỏ qua ${result.skippedCount} dòng không hợp lệ hoặc trùng mã.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         this.goToPage(1);
       },
-      error: (error: unknown) => this.notice.set({ tone: 'error', text: apiErrorMessage(error, 'Không thể nhập tệp Excel.') }),
+      error: (error: unknown) => {
+        const msg = apiErrorMessage(error, 'Không thể nhập tệp Excel.');
+        this.notice.set({ tone: 'error', text: msg });
+        this.toast.error(msg);
+      },
     });
   }
 }

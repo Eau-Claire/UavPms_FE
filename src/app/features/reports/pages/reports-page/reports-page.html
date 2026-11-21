@@ -2,7 +2,11 @@
   <!-- Header Banner -->
   <header class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>BÁO CÁO</span><span>/</span><strong>BÁO CÁO & PHÂN TÍCH</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>BÁO CÁO & PHÂN TÍCH</strong>
+      </nav>
       <h1 class="page-title">Báo cáo và phân tích vận hành</h1>
       <p class="review-subtitle">Tổng hợp báo cáo kiểm tra theo khu vực, thống kê khuyết tật và xuất dữ liệu báo cáo vận hành.</p>
     </div>
@@ -25,14 +29,6 @@
       </button>
     </div>
   </header>
-
-  <!-- Notice Alert Banner -->
-  @if (toastMessage(); as msg) {
-    <div class="alert-banner" [class.success]="toastType() === 'info' || toastType() === 'success'" [class.error]="toastType() === 'error'" role="status">
-      <span nz-icon [nzType]="toastType() === 'error' ? 'close-circle' : 'check-circle'"></span>
-      <span>{{ msg }}</span>
-    </div>
-  }
 
   <!-- KPI Status Summary Bar -->
   <section class="reports-status-bar" aria-label="Thống kê báo cáo">
@@ -205,19 +201,14 @@
         </table>
       </div>
 
-      <footer class="pagination-bar">
-        <div class="pagination-info">
-          Trang <strong>{{ currentPage() }}</strong> / <strong>{{ totalPages() }}</strong> (tổng <strong>{{ totalItems() }}</strong> báo cáo)
-        </div>
-        <div class="pagination-controls">
-          <button type="button" class="btn-page" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)" aria-label="Trang trước">
-            <span nz-icon nzType="left" aria-hidden="true"></span> Trước
-          </button>
-          <span class="current-page-display">{{ currentPage() }}</span>
-          <button type="button" class="btn-page" [disabled]="currentPage() >= totalPages()" (click)="goToPage(currentPage() + 1)" aria-label="Trang tiếp theo">
-            Sau <span nz-icon nzType="right" aria-hidden="true"></span>
-          </button>
-        </div>
+      <footer class="reports-pagination-wrap">
+        <app-pagination
+          [page]="currentPage()"
+          [totalPages]="totalPages()"
+          [totalCount]="totalItems()"
+          [pageSize]="pageSize()"
+          (pageChanged)="goToPage($event)"
+        />
       </footer>
     } @else {
       <div class="empty-state">

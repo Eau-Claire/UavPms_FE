@@ -3,8 +3,11 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import {
   RegionOption,
   REPORT_TYPE_LABELS,
@@ -28,7 +31,7 @@ const dayBoundary = (value: string, end: boolean): string | undefined => {
 
 @Component({
   selector: 'app-reports-page',
-  imports: [ReactiveFormsModule, NzIconModule, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, Pagination],
   templateUrl: './reports-page.html',
   styleUrl: './reports-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +40,7 @@ export class ReportsPage implements OnInit {
   private readonly reportsApi = inject(ReportsApi);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
 
   protected readonly typeLabels = REPORT_TYPE_LABELS;
   protected readonly reportTypes = Object.keys(REPORT_TYPE_LABELS) as ReportType[];
@@ -258,10 +262,12 @@ export class ReportsPage implements OnInit {
   }
 
   protected showToast(msg: string, type: 'success' | 'error' | 'info' = 'success'): void {
-    this.toastMessage.set(msg);
-    this.toastType.set(type);
-    setTimeout(() => {
-      if (this.toastMessage() === msg) this.toastMessage.set(null);
-    }, 4000);
+    if (type === 'error') {
+      this.toast.error(msg);
+    } else if (type === 'info') {
+      this.toast.info(msg);
+    } else {
+      this.toast.success(msg);
+    }
   }
 }

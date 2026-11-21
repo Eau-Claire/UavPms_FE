@@ -1,1 +1,55 @@
-<nav aria-label="Phân trang"><span>{{ totalCount() }} bản ghi</span><div><button type="button" aria-label="Trang trước" [disabled]="page() <= 1" (click)="pageChanged.emit(page() - 1)">‹</button>@for (item of pages(); track item) { <button type="button" [class.active]="item === page()" [attr.aria-current]="item === page() ? 'page' : null" (click)="pageChanged.emit(item)">{{ item }}</button> }<button type="button" aria-label="Trang sau" [disabled]="page() >= totalPages()" (click)="pageChanged.emit(page() + 1)">›</button></div></nav>
+<nav class="pagination-container" aria-label="Phân trang dữ liệu">
+  <div class="pagination-info">
+    @if (totalCount() > 0) {
+      <span>
+        Hiển thị <strong>{{ startIndex() }}</strong> – <strong>{{ endIndex() }}</strong> trên <strong>{{ totalCount() }}</strong> bản ghi
+      </span>
+    } @else {
+      <span>Không có bản ghi</span>
+    }
+  </div>
+
+  @if (totalPages() > 1) {
+    <div class="pagination-controls">
+      <!-- Previous Button -->
+      <button
+        type="button"
+        class="pagination-btn pagination-nav-btn"
+        [disabled]="page() <= 1"
+        (click)="prevPage()"
+        aria-label="Trang trước"
+      >
+        <span nz-icon nzType="left" aria-hidden="true"></span>
+      </button>
+
+      <!-- Page Numbers -->
+      @for (item of visiblePages(); track $index) {
+        @if (item === '...') {
+          <span class="pagination-ellipsis" aria-hidden="true">…</span>
+        } @else {
+          <button
+            type="button"
+            class="pagination-btn pagination-num-btn"
+            [class.active]="item === page()"
+            [attr.aria-current]="item === page() ? 'page' : null"
+            [attr.aria-label]="'Trang ' + item"
+            (click)="goToPage(item)"
+          >
+            {{ item }}
+          </button>
+        }
+      }
+
+      <!-- Next Button -->
+      <button
+        type="button"
+        class="pagination-btn pagination-nav-btn"
+        [disabled]="page() >= totalPages()"
+        (click)="nextPage()"
+        aria-label="Trang sau"
+      >
+        <span nz-icon nzType="right" aria-hidden="true"></span>
+      </button>
+    </div>
+  }
+</nav>

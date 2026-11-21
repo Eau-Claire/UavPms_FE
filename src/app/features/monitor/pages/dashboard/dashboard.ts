@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { isFieldRole, roleFamily } from '../../../../core/auth/roles';
 import { DataState } from '../../../../shared/components/data-state/data-state';
@@ -20,6 +21,7 @@ import { MonitorStore } from '../../data-access/monitor-store';
   selector: 'app-dashboard',
   imports: [
     RouterLink,
+    NzIconModule,
     DataState,
     RecentDefectsTable,
     DefectStatisticsChart,

@@ -1,13 +1,11 @@
 <div class="review-page">
   <div class="review-page-head">
     <div>
-      <div class="review-breadcrumb">
-        <a routerLink="/ai-review">Thẩm định kỹ thuật</a>
-        <span>/</span>
-        <span>Hàng đợi thẩm định</span>
-        <span>/</span>
-        <strong>Chi tiết sự cố #{{ detectionId() }}</strong>
-      </div>
+      <nav class="review-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/ai-review" class="breadcrumb-link">DUYỆT KẾT QUẢ PHÁT HIỆN</a>
+        <span class="separator">/</span>
+        <strong>CHI TIẾT SỰ CỐ #{{ detectionId() }}</strong>
+      </nav>
       <h1>Thẩm định kết quả phát hiện khuyết tật</h1>
       <p class="review-subtitle">
         Kiểm tra hình ảnh độ phân giải cao, vị trí khoanh vùng và ra quyết định thẩm định kỹ thuật
@@ -21,32 +19,6 @@
       </button>
     </div>
   </div>
-
-  @if (feedbackMessage()) {
-    <div
-      class="mission-alert"
-      [style.background]="feedbackType() === 'success' ? '#f0fdf4' : '#fff1f2'"
-      [style.border-color]="feedbackType() === 'success' ? '#bbf7d0' : '#fecdd3'"
-      [style.color]="feedbackType() === 'success' ? '#166534' : '#be123c'"
-      role="alert"
-    >
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span nz-icon [nzType]="feedbackType() === 'success' ? 'check-circle' : 'exclamation-circle'"></span>
-        <span>{{ feedbackMessage() }}</span>
-        @if (maintenanceLinkVisible() && canOpenMaintenance()) {
-          <a routerLink="/maintenance" style="color: inherit; font-weight: 700; text-decoration: underline;">Xem phiếu bảo trì</a>
-        }
-      </div>
-      <button type="button" (click)="feedbackMessage.set('')">Đóng</button>
-    </div>
-  }
-
-  @if (error()) {
-    <div class="mission-alert" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" (click)="error.set('')">Đóng</button>
-    </div>
-  }
 
   @if (loading()) {
     <div style="background: #ffffff; padding: 60px; text-align: center; border-radius: 6px; border: 1px solid #e2e8f0;">

@@ -19,6 +19,7 @@ import * as L from 'leaflet';
 import 'leaflet-draw';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
@@ -61,6 +62,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
   protected readonly targetSelection = inject(MissionTargetSelection);
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
 
@@ -790,7 +792,9 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
         },
         error: (error: unknown) => {
           const status = error instanceof Object && 'status' in error ? Number(error.status) : 0;
-          this.error.set(status === 403 ? '403 — Bạn không có quyền xem dữ liệu GIS.' : 'Không thể tải dữ liệu GIS. Vui lòng thử lại.');
+          const msg = status === 403 ? '403 — Bạn không có quyền xem dữ liệu GIS.' : 'Không thể tải dữ liệu GIS. Vui lòng thử lại.';
+          this.error.set(msg);
+          this.toast.error(msg);
           this.towers.set([]);
           this.anomalies.set([]);
           this.alerts.set([]);

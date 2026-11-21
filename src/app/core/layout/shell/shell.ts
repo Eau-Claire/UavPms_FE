@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal, ViewEncapsulation } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -10,7 +10,7 @@ import { canAccess, ROUTE_ROLES } from '../../auth/route-access';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, NzIconModule, Header, Sidebar],
+  imports: [RouterOutlet, NzIconModule, Header, Sidebar],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   encapsulation: ViewEncapsulation.None,

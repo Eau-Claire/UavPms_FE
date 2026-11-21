@@ -222,34 +222,6 @@
         </section>
       }
     </div>
-    <div class="app-profile-wrap">
-      <button
-        type="button"
-        class="app-header-user-btn"
-        aria-label="Tài khoản người dùng"
-        [attr.aria-expanded]="menuOpen()"
-        (click)="menuOpen.update((value) => !value)"
-      >
-        <span class="app-user-display-name">{{ userDisplayName() }}</span>
-        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
-      </button>
-      @if (menuOpen()) {
-        <div class="app-profile-menu" role="menu">
-          <div class="app-profile-menu-header">
-            <strong>{{ userDisplayName() }}</strong>
-            <small>{{ userRoleLabel() }}</small>
-          </div>
-          <hr />
-          <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
-            <span nz-icon nzType="lock"></span> Đổi mật khẩu
-          </button>
-          <hr />
-          <button type="button" class="danger" (click)="logout()" role="menuitem">
-            <span nz-icon nzType="logout"></span> Đăng xuất
-          </button>
-        </div>
-      }
-    </div>
     @if (showFacilitySelector()) {
       <div class="app-facility-wrap">
         <button
@@ -293,5 +265,46 @@
         }
       </div>
     }
+
+    <div class="app-profile-wrap">
+      <button
+        type="button"
+        class="app-header-user-btn"
+        aria-label="Tài khoản người dùng"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.update((value) => !value)"
+      >
+        <span class="user-avatar-badge">{{ userInitial() }}</span>
+        <span class="app-user-display-name">{{ userDisplayName() }}</span>
+        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
+      </button>
+      @if (menuOpen()) {
+        <div class="app-profile-menu" role="menu">
+          <div class="app-profile-menu-header">
+            <div class="menu-avatar-large">{{ userInitial() }}</div>
+            <div class="menu-user-info">
+              <strong class="menu-user-name">{{ userDisplayName() }}</strong>
+              <small class="menu-user-role">{{ userRoleLabel() }}</small>
+            </div>
+          </div>
+          <div class="profile-menu-divider"></div>
+          @if (canViewAuditLogs()) {
+            <button type="button" class="profile-menu-item" routerLink="/system/audit-logs" (click)="menuOpen.set(false)" role="menuitem">
+              <span nz-icon nzType="history"></span>
+              <span>Nhật ký hệ thống</span>
+            </button>
+          }
+          <button type="button" class="profile-menu-item" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
+            <span nz-icon nzType="lock"></span>
+            <span>Đổi mật khẩu</span>
+          </button>
+          <div class="profile-menu-divider"></div>
+          <button type="button" class="profile-menu-item logout" (click)="logout()" role="menuitem">
+            <span nz-icon nzType="logout"></span>
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      }
+    </div>
   </div>
 </header>

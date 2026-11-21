@@ -9,9 +9,11 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { debounceTime, distinctUntilChanged, finalize, Subject } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import {
   AnomalyApi,
   anomalyErrorMessage,
@@ -23,7 +25,7 @@ import {
 
 @Component({
   selector: 'app-detection-list',
-  imports: [DatePipe, NzIconModule],
+  imports: [DatePipe, RouterLink, NzIconModule, Pagination],
   templateUrl: './detection-list.html',
   styleUrl: './detection-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -33,6 +35,7 @@ export class DetectionList {
   private readonly api = inject(AnomalyApi);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly searchSubject = new Subject<string>();
 
   protected readonly loading = signal(true);

@@ -24,46 +24,56 @@
   } @else if (store.error() && !store.dashboard()) {
     <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
   } @else if (store.summary(); as summary) {
-    <!-- Compact Status Metric Strip -->
-    <section class="dashboard-status-bar" aria-label="Thống kê trạng thái vận hành">
-      <div class="status-group">
-        <span class="group-tag">Nhiệm vụ bay</span>
-        <div class="status-items">
-          <div class="status-item">
-            <span class="item-label">Tổng</span>
-            <strong class="item-value">{{ summary.totalMissions }}</strong>
+    <!-- Executive KPI Summary Cards -->
+    <section class="dashboard-kpi-container" aria-label="Thống kê chỉ số vận hành chính">
+      <div class="kpi-card-block">
+        <div class="kpi-block-header">
+          <div class="kpi-block-title">
+            <span nz-icon nzType="send" class="kpi-block-icon mission-color"></span>
+            <span>Tiến độ nhiệm vụ bay</span>
           </div>
-          <div class="status-item">
-            <span class="item-label">Chờ xử lý</span>
-            <strong class="item-value">{{ summary.pendingMissions }}</strong>
+          <a routerLink="/missions" class="kpi-block-link">Danh sách nhiệm vụ &rarr;</a>
+        </div>
+        <div class="kpi-tiles-grid">
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Tổng nhiệm vụ</span>
+            <strong class="kpi-tile-num">{{ summary.totalMissions }}</strong>
           </div>
-          <div class="status-item">
-            <span class="item-label">Đang thực hiện</span>
-            <strong class="item-value">{{ summary.inProgressMissions }}</strong>
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Chờ xử lý</span>
+            <strong class="kpi-tile-num warn">{{ summary.pendingMissions }}</strong>
           </div>
-          <div class="status-item">
-            <span class="item-label">Hoàn thành</span>
-            <strong class="item-value">{{ summary.completedMissions }}</strong>
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Đang bay</span>
+            <strong class="kpi-tile-num info">{{ summary.inProgressMissions }}</strong>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Hoàn thành</span>
+            <strong class="kpi-tile-num success">{{ summary.completedMissions }}</strong>
           </div>
         </div>
       </div>
 
-      <div class="status-divider" aria-hidden="true"></div>
-
-      <div class="status-group">
-        <span class="group-tag">Giám sát sự cố</span>
-        <div class="status-items">
-          <div class="status-item">
-            <span class="item-label">Lượt kiểm tra</span>
-            <strong class="item-value">{{ summary.totalInspections }}</strong>
+      <div class="kpi-card-block">
+        <div class="kpi-block-header">
+          <div class="kpi-block-title">
+            <span nz-icon nzType="alert" class="kpi-block-icon defect-color"></span>
+            <span>Giám sát khuyết tật & sự cố</span>
           </div>
-          <div class="status-item">
-            <span class="item-label">Tổng sự cố</span>
-            <strong class="item-value">{{ summary.totalDefects }}</strong>
+          <a routerLink="/ai-review" class="kpi-block-link">Thẩm định AI &rarr;</a>
+        </div>
+        <div class="kpi-tiles-grid defect-grid">
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Lượt kiểm tra</span>
+            <strong class="kpi-tile-num">{{ summary.totalInspections }}</strong>
           </div>
-          <div class="status-item">
-            <span class="item-label">Nghiêm trọng</span>
-            <strong class="item-value critical-value">{{ summary.criticalDefects }}</strong>
+          <div class="kpi-tile">
+            <span class="kpi-tile-label">Tổng sự cố</span>
+            <strong class="kpi-tile-num warn">{{ summary.totalDefects }}</strong>
+          </div>
+          <div class="kpi-tile highlight-critical">
+            <span class="kpi-tile-label">Nghiêm trọng</span>
+            <strong class="kpi-tile-num danger">{{ summary.criticalDefects }}</strong>
           </div>
         </div>
       </div>

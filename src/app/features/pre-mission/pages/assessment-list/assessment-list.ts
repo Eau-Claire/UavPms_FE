@@ -4,6 +4,8 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
 import { PreMissionApi } from '../../data-access/pre-mission-api';
@@ -13,7 +15,7 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 
 @Component({
   selector: 'app-assessment-list',
-  imports: [RouterLink, DatePipe, NzIconModule],
+  imports: [RouterLink, DatePipe, NzIconModule, Pagination],
   templateUrl: './assessment-list.html',
   styleUrl: './assessment-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,6 +24,7 @@ export class AssessmentList implements OnDestroy {
   private readonly api = inject(PreMissionApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
   private realtimeSub: Subscription | null = null;
 
   /** Create, re-evaluate and cancel are manager actions; technicians and inspectors read the list. */
@@ -47,13 +50,13 @@ export class AssessmentList implements OnDestroy {
 
   protected readonly statuses = [
     { value: '', label: 'Tất cả trạng thái' },
-    { value: 'READY', label: 'Sẵn sàng (READY)' },
-    { value: 'NOT_READY', label: 'Chưa sẵn sàng (NOT_READY)' },
-    { value: 'EVALUATING', label: 'Đang đánh giá (EVALUATING)' },
-    { value: 'DRAFT', label: 'Bản nháp (DRAFT)' },
-    { value: 'EXPIRED', label: 'Hết hạn (EXPIRED)' },
-    { value: 'COMPLETED', label: 'Đã hoàn thành (COMPLETED)' },
-    { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' },
+    { value: 'READY', label: 'Sẵn sàng' },
+    { value: 'NOT_READY', label: 'Chưa sẵn sàng' },
+    { value: 'EVALUATING', label: 'Đang đánh giá' },
+    { value: 'DRAFT', label: 'Bản nháp' },
+    { value: 'EXPIRED', label: 'Hết hạn' },
+    { value: 'COMPLETED', label: 'Đã hoàn thành' },
+    { value: 'CANCELLED', label: 'Đã hủy' },
   ];
 
   protected readonly filteredItems = computed(() => {
@@ -88,8 +91,8 @@ export class AssessmentList implements OnDestroy {
     const list = this.items();
     return [
       { label: 'Tổng số đánh giá', value: this.totalCount() || list.length },
-      { label: 'Sẵn sàng (READY)', value: list.filter((x) => x.status === 'READY').length },
-      { label: 'Chưa sẵn sàng (NOT_READY)', value: list.filter((x) => x.status === 'NOT_READY').length },
+      { label: 'Sẵn sàng', value: list.filter((x) => x.status === 'READY').length },
+      { label: 'Chưa sẵn sàng', value: list.filter((x) => x.status === 'NOT_READY').length },
       {
         label: 'Hết hạn / Hoàn thành / Hủy',
         value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || x.status === 'CANCELLED').length,
@@ -261,15 +264,15 @@ export class AssessmentList implements OnDestroy {
     event.stopPropagation();
     if (this.actionBusyId()) return;
     if (item.status === 'COMPLETED') {
-      this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
+      this.toast.error('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
       return;
     }
     if (item.status === 'EXPIRED') {
-      this.error.set('Bản đánh giá đã hết hạn hiệu lực / khung giờ bay đã qua, không thể đánh giá lại.');
+      this.toast.error('Bản đánh giá đã hết hạn hiệu lực / khung giờ bay đã qua, không thể đánh giá lại.');
       return;
     }
     if (item.status === 'CANCELLED') {
-      this.error.set('Bản đánh giá đã bị hủy, không thể đánh giá lại.');
+      this.toast.error('Bản đánh giá đã bị hủy, không thể đánh giá lại.');
       return;
     }
     this.actionBusyId.set(item.id);
@@ -279,7 +282,9 @@ export class AssessmentList implements OnDestroy {
     this.api.reEvaluate(item.id).subscribe({
       next: (updated) => {
         this.items.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
-        this.successMessage.set(`Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`);
+        const msg = `Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`;
+        this.successMessage.set(msg);
+        this.toast.success(msg);
         this.realtime.broadcastAssessmentEvent({
           assessmentId: updated.id,
           type: 'AssessmentStatusChanged',
@@ -292,7 +297,9 @@ export class AssessmentList implements OnDestroy {
       },
       error: (err: unknown) => {
         this.actionBusyId.set(null);
-        this.error.set(`${item.assessmentCode}: ${describeHttpError(err, 'Không thể đánh giá lại hồ sơ.')}`);
+        const errMsg = `${item.assessmentCode}: ${describeHttpError(err, 'Không thể đánh giá lại hồ sơ.')}`;
+        this.error.set(errMsg);
+        this.toast.error(errMsg);
       },
       complete: () => {
         this.actionBusyId.set(null);

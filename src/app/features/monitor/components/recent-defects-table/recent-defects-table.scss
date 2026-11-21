@@ -49,10 +49,10 @@ th {
 }
 
 td {
-  padding: 8px 14px;
+  padding: 10px 14px;
   border-top: 1px solid #f1f5f9;
   color: #475569;
-  font-size: 12px;
+  font-size: 12.5px;
   vertical-align: middle;
 }
 
@@ -72,11 +72,12 @@ td a {
 }
 
 img {
-  width: 2.75rem;
-  height: 2rem;
-  border-radius: 3px;
+  width: 44px;
+  height: 32px;
+  border-radius: 4px;
   object-fit: cover;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
+  display: block;
 }
 
 .status {

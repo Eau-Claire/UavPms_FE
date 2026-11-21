@@ -10,8 +10,11 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { DroneManagementApi } from '../../data-access/drone-management-api';
 import {
   BasicTechnicalCheckRequest,
@@ -33,7 +36,7 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 
 @Component({
   selector: 'app-drone-management',
-  imports: [ReactiveFormsModule, NzIconModule, DatePipe, DecimalPipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, DecimalPipe, Pagination],
   templateUrl: './drone-management.html',
   styleUrl: './drone-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -45,6 +48,7 @@ export class DroneManagement {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
 
   /** `DELETE /drones/{id}` and the GIS load estimate (fleet planning) are for SystemAdmin/Manager. */
   protected readonly canManageFleet = computed(() => isManagerRole(this.auth.user()?.role));
@@ -69,6 +73,18 @@ export class DroneManagement {
   protected readonly search = signal('');
   protected readonly statusFilter = signal<UavOperationalStatus | ''>('');
   protected readonly healthFilter = signal<UavTechnicalHealth | ''>('');
+
+  // Pagination
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredDrones().length / this.pageSize())),
+  );
+  protected readonly paginatedDrones = computed(() => {
+    const p = this.page();
+    const s = this.pageSize();
+    return this.filteredDrones().slice((p - 1) * s, p * s);
+  });
 
   // Modals state
   protected readonly modalOpen = signal(false);
@@ -528,9 +544,6 @@ export class DroneManagement {
   }
 
   private showNotification(msg: string): void {
-    this.successMessage.set(msg);
-    setTimeout(() => {
-      this.successMessage.set('');
-    }, 4500);
+    this.toast.success(msg);
   }
 }

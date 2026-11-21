@@ -1,0 +1,37 @@
+<aside class="toast-viewport" aria-live="polite" aria-label="Thông báo hệ thống">
+  @for (toast of toasts(); track toast.id) {
+    <div
+      class="toast-card"
+      [class.toast-success]="toast.type === 'success'"
+      [class.toast-error]="toast.type === 'error'"
+      [class.toast-warning]="toast.type === 'warning'"
+      [class.toast-info]="toast.type === 'info'"
+      role="alert"
+    >
+      <div class="toast-icon-wrap" aria-hidden="true">
+        <span nz-icon [nzType]="iconFor(toast.type)"></span>
+      </div>
+
+      <div class="toast-content">
+        @if (toast.title) {
+          <h4 class="toast-title">{{ toast.title }}</h4>
+        }
+        <p class="toast-message">{{ toast.message }}</p>
+      </div>
+
+      <button
+        type="button"
+        class="toast-close"
+        aria-label="Đóng thông báo"
+        (click)="dismiss(toast.id)"
+      >
+        <span nz-icon nzType="close" aria-hidden="true"></span>
+      </button>
+
+      <div class="toast-progress-track">
+        <div class="toast-progress-bar" [style.animation-duration.ms]="toast.duration"></div>
+      </div>
+    </div>
+  }
+</aside>
+

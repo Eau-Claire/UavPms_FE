@@ -2,7 +2,11 @@
   <!-- Header Banner -->
   <header class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>PHƯƠNG TIỆN</span><span>/</span><strong>QUẢN LÝ UAV</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>QUẢN LÝ UAV</strong>
+      </nav>
       <h1 class="page-title">Quản lý đội bay & Phương tiện UAV</h1>
       <p class="review-subtitle">
         Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật (MF01), định danh Flight Controller và ước tính năng lực bay hành lang GIS.
@@ -39,22 +43,6 @@
       }
     </div>
   </header>
-
-  <!-- Success Notification Alert -->
-  @if (successMessage()) {
-    <div class="alert-banner success">
-      <span nz-icon nzType="check-circle"></span>
-      <span>{{ successMessage() }}</span>
-    </div>
-  }
-
-  <!-- Error Notification Alert -->
-  @if (error()) {
-    <div class="alert-banner error">
-      <span nz-icon nzType="close-circle"></span>
-      <span>{{ error() }}</span>
-    </div>
-  }
 
   <!-- KPI Metrics Summary Bar -->
   <div class="metrics-grid">
@@ -115,10 +103,10 @@
         type="text"
         placeholder="Tìm kiếm theo mã UAV, tên model, serial, UID phần cứng FC..."
         [value]="search()"
-        (input)="search.set($any($event.target).value)"
+        (input)="search.set($any($event.target).value); page.set(1)"
       />
       @if (search()) {
-        <button type="button" class="clear-btn" (click)="search.set('')">
+        <button type="button" class="clear-btn" (click)="search.set(''); page.set(1)">
           <span nz-icon nzType="close"></span>
         </button>
       }
@@ -129,7 +117,7 @@
         <label>Trạng thái vận hành:</label>
         <select
           [value]="statusFilter()"
-          (change)="statusFilter.set($any($event.target).value)"
+          (change)="statusFilter.set($any($event.target).value); page.set(1)"
         >
           <option value="">Tất cả trạng thái</option>
           @for (opt of operationalStatuses; track opt.value) {
@@ -142,7 +130,7 @@
         <label>Sức khỏe kỹ thuật:</label>
         <select
           [value]="healthFilter()"
-          (change)="healthFilter.set($any($event.target).value)"
+          (change)="healthFilter.set($any($event.target).value); page.set(1)"
         >
           <option value="">Tất cả sức khỏe</option>
           @for (opt of technicalHealths; track opt.value) {
@@ -183,7 +171,7 @@
             </td>
           </tr>
         } @else {
-          @for (drone of filteredDrones(); track drone.id) {
+          @for (drone of paginatedDrones(); track drone.id) {
             <tr>
               <!-- Code & Name -->
               <td>
@@ -250,7 +238,7 @@
                     </div>
                     <div class="fc-meta">{{ fc.boardIdentifier || 'Betaflight' }} ({{ fc.firmwareVersion || 'v4.5' }})</div>
                     @if (fc.lastSeenAt) {
-                      <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'HH:mm dd/MM' }}</div>
+                      <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'dd/MM/yyyy HH:mm' }}</div>
                     }
                   </div>
                 } @else {
@@ -277,7 +265,7 @@
                 <div class="actions-cell">
                   <button
                     type="button"
-                    class="action-btn"
+                    class="action-btn history"
                     (click)="openHistory(drone)"
                     title="Lịch sử kiểm định kỹ thuật"
                     [attr.aria-label]="'Lịch sử kiểm định kỹ thuật của ' + drone.code"
@@ -290,8 +278,9 @@
                       class="action-btn check"
                       (click)="openTechCheck(drone)"
                       title="Kiểm định kỹ thuật an toàn (Checklist)"
+                      [attr.aria-label]="'Kiểm định kỹ thuật an toàn của ' + drone.code"
                     >
-                      <span nz-icon nzType="safety-certificate" aria-hidden="true"></span> Kiểm tra
+                      <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
                     </button>
                     <button
                       type="button"
@@ -322,6 +311,16 @@
         }
       </tbody>
     </table>
+
+    <footer class="drone-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [totalCount]="filteredDrones().length"
+        [pageSize]="pageSize()"
+        (pageChanged)="page.set($event)"
+      />
+    </footer>
   </div>
 </div>
 
@@ -340,6 +339,26 @@
       </div>
 
       <div class="modal-body">
+        @if (editingDrone(); as ed) {
+          <div class="modal-sub-actions-bar">
+            <button type="button" class="sub-action-btn check" (click)="openTechCheck(ed)">
+              <span nz-icon nzType="safety-certificate"></span> Kiểm tra kỹ thuật (MF01)
+            </button>
+            <button type="button" class="sub-action-btn history" (click)="openHistory(ed)">
+              <span nz-icon nzType="history"></span> Lịch sử kiểm định
+            </button>
+            @if (canManageFleet()) {
+              <button
+                type="button"
+                class="sub-action-btn danger"
+                (click)="closeModal(); deleteDrone(ed)"
+                [disabled]="ed.operationalStatus === 'InUse'"
+              >
+                <span nz-icon nzType="delete"></span> Xóa UAV
+              </button>
+            }
+          </div>
+        }
         <form [formGroup]="droneForm" (ngSubmit)="saveDrone()">
           <div class="form-row">
             <div class="form-group">

@@ -17,6 +17,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
+import { ToastService } from '../../../../core/toast/toast.service';
 import {
   AnalysisRunInfo,
   AnomalyApi,
@@ -59,6 +60,7 @@ export class DetectionReview {
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
 
   protected readonly detectionId = signal('');
   protected readonly detection = signal<AnomalyItem | null>(null);
@@ -223,12 +225,15 @@ export class DetectionReview {
           this.towerRequired.set(false);
           this.feedbackType.set('success');
           this.feedbackMessage.set('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận vào hệ thống.');
+          this.toast.success('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận.');
           this.maintenanceLinkVisible.set(true);
         },
         error: (err: unknown) => {
           if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
+          const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
           this.feedbackType.set('error');
-          this.feedbackMessage.set(anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.'));
+          this.feedbackMessage.set(msg);
+          this.toast.error(msg);
         },
       });
   }
@@ -274,10 +279,13 @@ export class DetectionReview {
           this.generalNotes.set(fullNotes);
           this.feedbackType.set('success');
           this.feedbackMessage.set('Đã từ chối phát hiện AI thành công.');
+          this.toast.success('Đã từ chối phát hiện AI thành công.');
         },
         error: (err: unknown) => {
+          const msg = anomalyErrorMessage(err, 'Không thể từ chối phát hiện.');
           this.feedbackType.set('error');
-          this.feedbackMessage.set(anomalyErrorMessage(err, 'Không thể từ chối phát hiện.'));
+          this.feedbackMessage.set(msg);
+          this.toast.error(msg);
         },
       });
   }
@@ -300,10 +308,13 @@ export class DetectionReview {
         next: () => {
           this.feedbackType.set('success');
           this.feedbackMessage.set('Đã kích hoạt cảnh báo khẩn cấp. Cảnh báo đã xuất hiện ở trang Cảnh báo khẩn cấp.');
+          this.toast.success('Đã kích hoạt cảnh báo khẩn cấp thành công.');
         },
         error: (err: unknown) => {
+          const msg = alertErrorMessage(err, 'Không thể kích hoạt cảnh báo khẩn cấp.');
           this.feedbackType.set('error');
-          this.feedbackMessage.set(alertErrorMessage(err, 'Không thể kích hoạt cảnh báo khẩn cấp.'));
+          this.feedbackMessage.set(msg);
+          this.toast.error(msg);
         },
       });
   }

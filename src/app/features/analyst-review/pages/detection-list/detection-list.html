@@ -1,11 +1,11 @@
 <div class="review-page">
   <div class="review-page-head">
     <div class="heading-left">
-      <div class="review-breadcrumb">
-        <span>THẨM ĐỊNH KỸ THUẬT</span>
-        <span>/</span>
+      <nav class="review-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
         <strong>DUYỆT KẾT QUẢ PHÁT HIỆN</strong>
-      </div>
+      </nav>
       <h1 class="page-title">Hàng đợi thẩm định khuyết tật AI</h1>
       <p class="review-subtitle">
         Xem xét, gán cột điện và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật từ dữ liệu khảo sát (Edge và Cloud)
@@ -25,14 +25,6 @@
       </button>
     </div>
   </div>
-
-  @if (error()) {
-    <div class="alert-banner error" role="alert">
-      <span nz-icon nzType="close-circle"></span>
-      <span>{{ error() }}</span>
-      <button type="button" class="alert-close" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
-    </div>
-  }
 
   <section class="review-status-bar" aria-label="Thống kê thẩm định">
     <div class="status-item">
@@ -282,40 +274,15 @@
     </div>
   }
 
-  @if (response().totalPages > 1) {
+  @if (response().totalCount > 0) {
     <footer class="review-pagination-footer">
-      <span class="total-text">
-        Tổng cộng <strong>{{ response().totalCount }}</strong> sự cố phát hiện
-      </span>
-      <nav class="mission-pagination" aria-label="Phân trang">
-        <button
-          type="button"
-          aria-label="Trang trước"
-          [disabled]="page() <= 1"
-          (click)="setPage(page() - 1)"
-        >
-          <span nz-icon nzType="left" aria-hidden="true"></span>
-        </button>
-        @for (p of pageNumbers(); track p) {
-          <button
-            type="button"
-            class="page-number"
-            [class.active]="p === page()"
-            [attr.aria-current]="p === page() ? 'page' : null"
-            (click)="setPage(p)"
-          >
-            {{ p }}
-          </button>
-        }
-        <button
-          type="button"
-          aria-label="Trang sau"
-          [disabled]="page() >= response().totalPages"
-          (click)="setPage(page() + 1)"
-        >
-          <span nz-icon nzType="right" aria-hidden="true"></span>
-        </button>
-      </nav>
+      <app-pagination
+        [page]="page()"
+        [totalPages]="response().totalPages"
+        [totalCount]="response().totalCount"
+        [pageSize]="pageSize()"
+        (pageChanged)="setPage($event)"
+      />
     </footer>
   }
 </div>

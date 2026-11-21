@@ -2,18 +2,15 @@
   <!-- Page Heading - Synchronized with /dashboard -->
   <section class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>BẢN ĐỒ GIS</span><span>/</span><strong>GIÁM SÁT LƯỚI ĐIỆN</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>GIÁM SÁT GIS LƯỚI ĐIỆN</strong>
+      </nav>
       <h1>Bản đồ GIS lưới điện</h1>
       <p class="review-subtitle">Vị trí cột điện theo khu vực, bất thường đang mở và cảnh báo khẩn cấp.</p>
     </div>
   </section>
-
-  @if (error()) {
-    <div class="gis-alert gis-alert-error" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" class="gis-alert-close" (click)="error.set('')">Đóng</button>
-    </div>
-  }
 
   <div class="gis-page-wrapper">
     <!-- Top Floating HUD Bar -->

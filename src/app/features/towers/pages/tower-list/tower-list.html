@@ -1,6 +1,10 @@
 <header class="page-heading">
   <div class="heading-left">
-    <div class="page-breadcrumb"><span>HẠ TẦNG</span><span>/</span><strong>CỘT ĐIỆN</strong></div>
+    <nav class="page-breadcrumb" aria-label="Đường dẫn">
+      <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+      <span class="separator">/</span>
+      <strong>CỘT ĐIỆN</strong>
+    </nav>
     <h1>Quản lý cột điện</h1>
     <p class="review-subtitle">Danh mục cột điện theo khu vực, tọa độ và lịch sử kiểm tra.</p>
   </div>
@@ -22,13 +26,6 @@
   <p id="tower-import-hint" class="tower-import-hint">
     Tệp Excel (.xlsx), dòng 1 là tiêu đề. Cột: mã khu vực (hoặc RegionId), mã cột, vĩ độ, kinh độ, loại cột, địa chỉ.
   </p>
-}
-
-@if (notice(); as message) {
-  <div class="tower-banner" [class.tower-banner-success]="message.tone === 'success'" [class.tower-banner-error]="message.tone === 'error'" [attr.role]="message.tone === 'error' ? 'alert' : 'status'">
-    <span>{{ message.text }}</span>
-    <button type="button" (click)="notice.set(null)">Đóng</button>
-  </div>
 }
 
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc cột điện" (ngSubmit)="goToPage(1)">
@@ -97,16 +94,15 @@
               <td class="tower-mono td-coords">{{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}</td>
               <td class="td-actions">
                 <div class="tower-row-actions">
-                  <a class="tower-icon-button" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Xem lịch sử cột ' + tower.towerCode">
-                    <span nz-icon nzType="history" aria-hidden="true"></span>
-                  </a>
                   @if (canManage()) {
-                    <button type="button" class="tower-icon-button" [attr.aria-label]="'Sửa cột ' + tower.towerCode" (click)="openEdit(tower)">
+                    <button type="button" class="tower-action-edit-btn" [attr.aria-label]="'Sửa cột ' + tower.towerCode" (click)="openEdit(tower)">
                       <span nz-icon nzType="edit" aria-hidden="true"></span>
+                      <span>Chỉnh sửa</span>
                     </button>
-                    <button type="button" class="tower-icon-button danger" [attr.aria-label]="'Xóa cột ' + tower.towerCode" (click)="askDelete(tower)">
-                      <span nz-icon nzType="close-circle" aria-hidden="true"></span>
-                    </button>
+                  } @else {
+                    <a class="tower-action-edit-btn" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Xem chi tiết cột ' + tower.towerCode">
+                      <span>Chi tiết</span>
+                    </a>
                   }
                 </div>
               </td>
@@ -122,7 +118,15 @@
 </section>
 
 @if (formOpen()) {
-  <app-tower-form-dialog [tower]="editing()" [regions]="regions()" [busy]="saving()" [errorMessage]="formError()" (submitted)="save($event)" (closed)="closeForm()" />
+  <app-tower-form-dialog
+    [tower]="editing()"
+    [regions]="regions()"
+    [busy]="saving()"
+    [errorMessage]="formError()"
+    (submitted)="save($event)"
+    (requestDelete)="closeForm(); askDelete($event)"
+    (closed)="closeForm()"
+  />
 }
 
 @if (deleting(); as tower) {
