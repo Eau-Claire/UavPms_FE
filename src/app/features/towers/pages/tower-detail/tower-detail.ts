@@ -64,6 +64,12 @@ export class TowerDetail {
   protected readonly canReview = computed(() => canReviewAnomalies(this.auth.user()?.role));
   protected readonly canOpenTicket = computed(() => canOpenMaintenance(this.auth.user()?.role));
 
+  protected formatAiSource(source?: string): string {
+    if (!source) return '—';
+    if (source.toLowerCase().includes('yolo')) return 'Mô hình AI';
+    return source;
+  }
+
   protected readonly history = signal<TowerHistory | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal('');

@@ -49,6 +49,7 @@ export class ReportsPage implements OnInit {
   protected readonly reports = signal<readonly ReportItem[]>([]);
   protected readonly isLoading = signal(false);
   protected readonly isDownloading = signal<string | null>(null);
+  protected readonly activeDownloadMenuId = signal<string | null>(null);
   protected readonly isSubmitting = signal(false);
   protected readonly toastMessage = signal<string | null>(null);
   protected readonly toastType = signal<'success' | 'error' | 'info'>('success');
@@ -170,6 +171,10 @@ export class ReportsPage implements OnInit {
   protected refreshReports(): void {
     this.loadReports();
     this.loadStatistics();
+  }
+
+  protected toggleDownloadMenu(id: string): void {
+    this.activeDownloadMenuId.update((current) => (current === id ? null : id));
   }
 
   protected downloadReport(report: ReportItem, format: ReportFileFormat): void {

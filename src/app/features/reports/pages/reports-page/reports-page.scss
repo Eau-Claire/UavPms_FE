@@ -531,46 +531,59 @@
   }
 }
 
-.btn-group {
+.download-dropdown-wrap {
+  position: relative;
   display: inline-flex;
-  gap: 4px;
+  justify-content: flex-end;
 
-  .btn-action-download {
-    height: 24px;
-    min-height: 24px;
-    padding: 0 8px;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 4px;
+  .btn-download-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: all 0.15s ease;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
 
-    &.pdf {
-      border: 1px solid #fecaca;
-      background: #fff1f2;
-      color: #dc2626;
+  .download-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 100;
+    min-width: 175px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .menu-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      font-size: 12px;
+      color: #1e293b;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease;
 
       &:hover:not(:disabled) {
-        background: #fee2e2;
+        background: #f1f5f9;
       }
-    }
 
-    &.excel {
-      border: 1px solid #bbf7d0;
-      background: #f0fdf4;
-      color: #166534;
-
-      &:hover:not(:disabled) {
-        background: #dcfce7;
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
     }
   }
 }

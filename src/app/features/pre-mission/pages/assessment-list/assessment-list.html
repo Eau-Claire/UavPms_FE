@@ -87,32 +87,27 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 145px;">Mã đánh giá</th>
-              <th>Phạm vi (Khu vực / Tuyến / Cột)</th>
-              <th style="width: 170px;">Khung giờ dự kiến</th>
-              <th style="width: 90px;">Mặt bằng</th>
-              <th style="width: 90px;">Nhân sự</th>
-              <th style="width: 90px;">UAV</th>
-              <th style="width: 90px;">Kỹ thuật</th>
-              <th style="width: 105px;">Tổng thể</th>
-              <th style="width: 110px;">Hiệu lực đến</th>
-              <th style="width: 110px;">Ngày tạo</th>
-              <th style="width: 110px;">Cập nhật</th>
-              <th style="width: 120px;" class="text-center">Thao tác</th>
+              <th style="width: 140px;">Mã đánh giá</th>
+              <th>Phạm vi (Khu vực / Cột)</th>
+              <th style="width: 160px;">Khung giờ dự kiến</th>
+              <th style="width: 280px;" class="text-center">Điều kiện sẵn sàng</th>
+              <th style="width: 125px;" class="text-center">Tổng thể</th>
+              <th style="width: 130px;">Hiệu lực đến</th>
+              <th style="width: 160px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             @if (loading()) {
               @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
                 <tr class="skeleton-row">
-                  <td colspan="12" class="text-center" style="color: #64748b; font-style: italic;">
+                  <td colspan="7" class="text-center" style="color: #64748b; font-style: italic;">
                     Đang tải dữ liệu đánh giá...
                   </td>
                 </tr>
               }
             } @else if (!filteredItems().length) {
               <tr>
-                <td colspan="12" class="text-center" style="padding: 24px; color: #64748b;">
+                <td colspan="7" class="text-center" style="padding: 24px; color: #64748b;">
                   Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
                 </td>
               </tr>
@@ -120,16 +115,9 @@
               @for (item of filteredItems(); track item.id) {
                 <tr>
                   <td>
-                    <div class="assessment-code-wrap">
-                      <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
-                        {{ item.assessmentCode }}
-                      </a>
-                      @if (item.completedMissionId) {
-                        <a [routerLink]="['/missions', item.completedMissionId]" class="linked-mission-pill" title="Xem nhiệm vụ bay đã tạo">
-                          <span nz-icon nzType="send" aria-hidden="true"></span>
-                        </a>
-                      }
-                    </div>
+                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
+                      {{ item.assessmentCode }}
+                    </a>
                   </td>
                   <td>
                     <strong>{{ item.regionName }}</strong>
@@ -139,24 +127,20 @@
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.site.status) }}">
-                      {{ statusLabel(item.site.status) }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.personnel.status) }}">
-                      {{ statusLabel(item.personnel.status) }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.uav.status) }}">
-                      {{ statusLabel(item.uav.status) }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.technical.status) }}">
-                      {{ statusLabel(item.technical.status) }}
-                    </span>
+                    <div class="readiness-pills-row">
+                      <span class="sub-pill {{ statusTone(item.site.status) }}" title="Mặt bằng bay: {{ statusLabel(item.site.status) }}">
+                        MB: {{ item.site.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                      </span>
+                      <span class="sub-pill {{ statusTone(item.personnel.status) }}" title="Nhân sự vận hành: {{ statusLabel(item.personnel.status) }}">
+                        NS: {{ item.personnel.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                      </span>
+                      <span class="sub-pill {{ statusTone(item.uav.status) }}" title="Thiết bị UAV: {{ statusLabel(item.uav.status) }}">
+                        UAV: {{ item.uav.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                      </span>
+                      <span class="sub-pill {{ statusTone(item.technical.status) }}" title="Kiểm định kỹ thuật: {{ statusLabel(item.technical.status) }}">
+                        KT: {{ item.technical.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                      </span>
+                    </div>
                   </td>
                   <td class="text-center">
                     <span class="evn-status {{ statusTone(item.status) }}">
@@ -164,14 +148,8 @@
                     </span>
                   </td>
                   <td>
-                    {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
-                  </td>
-                  <td>
-                    <span style="font-size: 11px; color: #334155;">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-                  </td>
-                  <td>
-                    <span style="font-size: 10px; color: #64748b;">
-                      {{ item.updatedAt ? (item.updatedAt | date:'dd/MM HH:mm') : '—' }}
+                    <span style="font-size: 11.5px; color: #334155;">
+                      {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
                     </span>
                   </td>
                   <td class="text-center">
@@ -179,11 +157,21 @@
                       <a
                         [routerLink]="['/pre-mission', item.id]"
                         class="assessment-btn-open"
-                        title="Xem chi tiết đánh giá"
+                        title="Xem chi tiết hồ sơ đánh giá"
                       >
                         <span nz-icon nzType="eye" aria-hidden="true"></span>
                         <span>Chi tiết</span>
                       </a>
+                      @if (item.completedMissionId) {
+                        <a
+                          [routerLink]="['/missions', item.completedMissionId]"
+                          class="assessment-btn-mission"
+                          title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
+                        >
+                          <span nz-icon nzType="send" aria-hidden="true"></span>
+                          <span>Nhiệm vụ</span>
+                        </a>
+                      }
                       @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
                         <button
                           type="button"
@@ -200,8 +188,8 @@
                           class="assessment-btn-sub danger"
                           [disabled]="actionBusyId() === item.id"
                           (click)="cancelItem(item, $event)"
-                          title="Hủy bản đánh giá"
-                          aria-label="Hủy bản đánh giá"
+                          title="Hủy hồ sơ đánh giá"
+                          aria-label="Hủy hồ sơ đánh giá"
                         >
                           <span nz-icon nzType="close"></span>
                         </button>

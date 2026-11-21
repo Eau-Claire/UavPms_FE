@@ -10,10 +10,10 @@
   </div>
   @if (canManage()) {
     <div class="tower-actions">
-      <label class="button secondary tower-import" [class.is-busy]="importing()">
+      <label class="button secondary tower-import" [class.is-busy]="importing()" title="Tệp Excel (.xlsx). Cột: mã khu vực, mã cột, vĩ độ, kinh độ, loại cột, địa chỉ.">
         <span nz-icon nzType="file-excel" aria-hidden="true"></span>
         <span>{{ importing() ? 'Đang nhập...' : 'Nhập Excel' }}</span>
-        <input type="file" class="sr-only" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" [disabled]="importing()" aria-describedby="tower-import-hint" (change)="importFile($event)" />
+        <input type="file" class="sr-only" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" [disabled]="importing()" (change)="importFile($event)" />
       </label>
       <button type="button" class="button primary" (click)="openCreate()">
         <span nz-icon nzType="plus" aria-hidden="true"></span><span>Thêm cột điện</span>
@@ -21,12 +21,6 @@
     </div>
   }
 </header>
-
-@if (canManage()) {
-  <p id="tower-import-hint" class="tower-import-hint">
-    Tệp Excel (.xlsx), dòng 1 là tiêu đề. Cột: mã khu vực (hoặc RegionId), mã cột, vĩ độ, kinh độ, loại cột, địa chỉ.
-  </p>
-}
 
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc cột điện" (ngSubmit)="goToPage(1)">
   <div class="search-input-wrap">

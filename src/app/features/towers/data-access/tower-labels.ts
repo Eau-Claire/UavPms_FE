@@ -9,12 +9,21 @@ export const ANOMALY_STATUSES: readonly AnomalyValidationStatus[] = ['Pending', 
 
 const ANOMALY_LABELS: Record<string, string> = {
   Pending: 'Chờ duyệt',
+  InReview: 'Chờ thẩm định',
   Confirmed: 'Đã xác nhận',
   Rejected: 'Đã bác bỏ',
+  Dismissed: 'Đã bác bỏ',
   Resolved: 'Đã khắc phục',
 };
 
-const ANOMALY_TONES: Record<string, Tone> = { Pending: 'warning', Confirmed: 'danger', Rejected: 'neutral', Resolved: 'success' };
+const ANOMALY_TONES: Record<string, Tone> = {
+  Pending: 'warning',
+  InReview: 'warning',
+  Confirmed: 'danger',
+  Rejected: 'neutral',
+  Dismissed: 'neutral',
+  Resolved: 'success',
+};
 
 /** Same wording as the maintenance pages (features/maintenance/data-access/maintenance-labels.ts). */
 const TICKET_STATUS_LABELS: Record<string, string> = {

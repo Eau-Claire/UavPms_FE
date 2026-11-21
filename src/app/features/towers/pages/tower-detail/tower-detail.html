@@ -204,22 +204,24 @@
                     </td>
                     <td class="td-category">
                       <strong>{{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}</strong>
-                      @if (anomaly.categoryName && anomaly.categoryCode) { <div class="tower-muted tower-mono">{{ anomaly.categoryCode }}</div> }
                     </td>
                     <td class="td-confidence">{{ (anomaly.confidenceScore <= 1 ? anomaly.confidenceScore * 100 : anomaly.confidenceScore) | number: '1.0-1' }}%</td>
                     <td class="td-status"><span class="tower-pill tone-{{ anomalyStatusTone(anomaly.validationStatus) }}">{{ anomalyStatusLabel(anomaly.validationStatus) }}</span></td>
-                    <td class="td-source tower-muted">{{ anomaly.aiSource || '—' }}</td>
+                    <td class="td-source tower-muted">{{ formatAiSource(anomaly.aiSource) }}</td>
                     <td class="td-time">{{ anomaly.detectedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
                     <td class="td-actions">
                       <div class="tower-row-actions">
-                        @if (anomaly.missionId && anomaly.missionId !== '00000000-0000-0000-0000-000000000000') {
-                          <a class="tower-icon-button" [routerLink]="['/missions', anomaly.missionId]" aria-label="Xem nhiệm vụ bay liên quan">
-                            <span nz-icon nzType="appstore" aria-hidden="true"></span>
+                        @if (canReview() && (anomaly.validationStatus === 'Pending' || anomaly.validationStatus === 'InReview')) {
+                          <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Thẩm định kết quả phát hiện">
+                            <span nz-icon nzType="audit"></span> Thẩm định
                           </a>
-                        }
-                        @if (canReview() && anomaly.validationStatus === 'Pending') {
-                          <a class="tower-icon-button" [routerLink]="['/ai-review', anomaly.id]" aria-label="Thẩm định bất thường">
-                            <span nz-icon nzType="audit" aria-hidden="true"></span>
+                        } @else if (anomaly.missionId && anomaly.missionId !== '00000000-0000-0000-0000-000000000000') {
+                          <a class="button secondary small" [routerLink]="['/missions', anomaly.missionId]" title="Xem nhiệm vụ bay">
+                            <span nz-icon nzType="audit"></span> Chi tiết
+                          </a>
+                        } @else {
+                          <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Xem chi tiết bất thường">
+                            <span nz-icon nzType="audit"></span> Chi tiết
                           </a>
                         }
                       </div>

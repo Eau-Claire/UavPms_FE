@@ -29,7 +29,10 @@
       </button>
 
       <div class="toast-progress-track">
-        <div class="toast-progress-bar" [style.animation-duration.ms]="toast.duration"></div>
+        <div
+          class="toast-progress-bar"
+          [style.animationDuration]="(toast.duration || 3500) + 'ms'"
+        ></div>
       </div>
     </div>
   }
