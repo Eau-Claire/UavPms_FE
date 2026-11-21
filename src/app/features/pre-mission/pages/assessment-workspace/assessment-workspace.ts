@@ -247,9 +247,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         missingRoles.push(`${label} (${count}/${required})`);
       }
     };
-    check('Inspector', inspectors.length, cfg.reqInspectors);
-    check('Analyst', analysts.length, cfg.reqAnalysts);
-    check('Technician', technicians.length, cfg.reqTechnicians);
+    check('Phi công', inspectors.length, cfg.reqInspectors);
+    check('Chuyên viên phân tích', analysts.length, cfg.reqAnalysts);
+    check('Kỹ thuật viên', technicians.length, cfg.reqTechnicians);
 
     return {
       inspectors,
@@ -314,6 +314,18 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
     return list;
   });
+
+  protected formatManagerName(managerId?: string | null): string {
+    if (!managerId) return 'Quản lý vận hành';
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(managerId.trim())) {
+      const u = this.auth.user();
+      if (u && (u.id === managerId || u.email === managerId)) {
+        return u.fullName || u.email || 'Quản lý vận hành';
+      }
+      return 'Quản lý vận hành';
+    }
+    return managerId;
+  }
 
   protected readonly filteredPersonnel = computed(() => {
     let list: readonly PersonnelCandidate[] = this.item()?.personnelCandidates ?? [];

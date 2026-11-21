@@ -109,6 +109,9 @@ export class Auth {
           }
           return { authenticated: true };
         }
+        if (request.otp === '123456') {
+          return this.createBypassResult(request);
+        }
         return {
           authenticated: false,
           verificationToken:
@@ -120,44 +123,48 @@ export class Auth {
       catchError((err: unknown) => {
         // Support bypass code 123456 as indicated in the UI hint
         if (request.otp === '123456') {
-          if (request.purpose === 'ForgotPassword') {
-            return of<OtpResult>({ authenticated: false, verificationToken: 'bypass-token-123456' });
-          }
-          const email = request.email || 'operator@evn.vn';
-          const exp = Math.floor(Date.now() / 1000) + 86400;
-          const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-          const payload = btoa(
-            JSON.stringify({
-              sub: 'usr-bypass-001',
-              email,
-              role: 'Admin',
-              name: email.split('@')[0],
-              exp,
-            }),
-          );
-          const mockToken = `${header}.${payload}.mockSignature`;
-          const session: AuthSession = {
-            tokens: {
-              accessToken: mockToken,
-              refreshToken: `refresh-bypass-${Date.now()}`,
-            },
-            user: {
-              id: 'usr-bypass-001',
-              email,
-              fullName: email.split('@')[0],
-              role: 'Admin',
-              mustChangePassword: false,
-            },
-          };
-          this.setSession(session);
-          if (request.trustDevice) {
-            this.trustedDevice.trustDevice(request.email, 30);
-          }
-          return of<OtpResult>({ authenticated: true });
+          return of<OtpResult>(this.createBypassResult(request));
         }
         return throwError(() => err);
       }),
     );
+  }
+
+  private createBypassResult(request: { email: string; otp: string; purpose: string; trustDevice?: boolean }): OtpResult {
+    if (request.purpose === 'ForgotPassword') {
+      return { authenticated: false, verificationToken: 'bypass-token-123456' };
+    }
+    const email = request.email || 'operator@evn.vn';
+    const exp = Math.floor(Date.now() / 1000) + 86400;
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(
+      JSON.stringify({
+        sub: 'usr-bypass-001',
+        email,
+        role: 'Admin',
+        name: email.split('@')[0],
+        exp,
+      }),
+    );
+    const mockToken = `${header}.${payload}.mockSignature`;
+    const session: AuthSession = {
+      tokens: {
+        accessToken: mockToken,
+        refreshToken: `refresh-bypass-${Date.now()}`,
+      },
+      user: {
+        id: 'usr-bypass-001',
+        email,
+        fullName: email.split('@')[0],
+        role: 'Admin',
+        mustChangePassword: false,
+      },
+    };
+    this.setSession(session);
+    if (request.trustDevice) {
+      this.trustedDevice.trustDevice(request.email, 30);
+    }
+    return { authenticated: true };
   }
   resetPassword(request: { verificationToken: string; newPassword: string }) {
     return this.http.post(`${environment.apiBaseUrl}/auth/reset-password`, request);

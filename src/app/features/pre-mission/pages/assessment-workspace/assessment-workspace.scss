@@ -19,16 +19,25 @@
 }
 
 .readiness-card {
-  border: 1px solid #9fc3e4;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   background: #ffffff;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-left: 3px solid #cbd5e1;
+  gap: 6px;
+  border-left: 4px solid #ef4444;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
 
   &.is-pass {
-    border-left-color: #15803d;
+    border-left-color: #16a34a;
+    background: #fcfdfc;
+  }
+
+  &.is-fail {
+    border-left-color: #dc2626;
+    background: #fffafa;
   }
 
   .card-head {

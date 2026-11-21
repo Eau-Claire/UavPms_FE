@@ -3,12 +3,12 @@
     <!-- Header Bar -->
     <header class="pre-mission-head">
       <div>
-        <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <nav class="page-breadcrumb" aria-label="Đường dẫn">
           <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
           <span class="separator">/</span>
-          <a routerLink="/pre-mission" class="breadcrumb-link">TIỀN NHIỆM VỤ</a>
+          <a routerLink="/pre-mission" class="breadcrumb-link">ĐÁNH GIÁ TIỀN BAY</a>
           <span class="separator">/</span>
-          <strong>KHÔNG GIAN ĐÁNH GIÁ SẴN SÀNG</strong>
+          <strong>{{ a.assessmentCode }}</strong>
         </nav>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <h1>{{ a.assessmentCode }}</h1>
@@ -127,10 +127,10 @@
     <!-- 4 Core Readiness Status Strip -->
     <section class="readiness-grid" aria-label="Kết quả 4 trụ cột đánh giá">
       <!-- Site -->
-      <div class="readiness-card" [class.is-pass]="a.site.status === 'PASS' || a.site.status === 'FEASIBLE'">
+      <div class="readiness-card" [class.is-pass]="a.site.status === 'PASS' || a.site.status === 'FEASIBLE'" [class.is-fail]="a.site.status !== 'PASS' && a.site.status !== 'FEASIBLE'">
         <div class="card-head">
           <span class="card-title">1. Mặt bằng & Khí tượng</span>
-          <span class="evn-status {{ statusTone(a.site.status) }}">{{ statusLabel(a.site.status) }}</span>
+          <span class="evn-status {{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'success' : 'danger' }}">{{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'Đạt' : 'Không đạt' }}</span>
         </div>
         <p class="card-desc">{{ a.site.reason || 'Khoảng cách hành lang an toàn và điều kiện sức gió đạt tiêu chuẩn vận hành bay.' }}</p>
         @if (a.site.evaluatedAt) {
@@ -139,17 +139,17 @@
       </div>
 
       <!-- Personnel -->
-      <div class="readiness-card" [class.is-pass]="(a.personnel.status === 'PASS' || a.personnel.status === 'READY') && roleBreakdown().hasAllThree">
+      <div class="readiness-card" [class.is-pass]="(a.personnel.status === 'PASS' || a.personnel.status === 'READY') && roleBreakdown().hasAllThree" [class.is-fail]="!((a.personnel.status === 'PASS' || a.personnel.status === 'READY') && roleBreakdown().hasAllThree)">
         <div class="card-head">
-          <span class="card-title">2. Nhân sự (3 Roles bắt buộc)</span>
-          <span class="evn-status {{ roleBreakdown().hasAllThree ? 'status-pass' : 'status-fail' }}">
-            {{ roleBreakdown().hasAllThree ? 'ĐỦ ĐIỀU KIỆN' : 'THIẾU ROLE' }}
+          <span class="card-title">2. Nhân sự (3 vai trò bắt buộc)</span>
+          <span class="evn-status {{ roleBreakdown().hasAllThree ? 'success' : 'danger' }}">
+            {{ roleBreakdown().hasAllThree ? 'Đạt' : 'Chưa đạt' }}
           </span>
         </div>
         <p class="card-desc">
-          Yêu cầu: <strong>{{ roleBreakdown().reqInspectors }} Inspector</strong> | <strong>{{ roleBreakdown().reqAnalysts }} Analyst</strong> | <strong>{{ roleBreakdown().reqTechnicians }} Technician</strong>
+          Yêu cầu: <strong>{{ roleBreakdown().reqInspectors }} Phi công</strong> | <strong>{{ roleBreakdown().reqAnalysts }} Chuyên viên</strong> | <strong>{{ roleBreakdown().reqTechnicians }} Kỹ thuật viên</strong>
           <span style="color: #64748b; font-size: 10.5px; display: block; margin-top: 2px;">
-            (Khả dụng: {{ roleBreakdown().inspectors.length }} Inspector · {{ roleBreakdown().analysts.length }} Analyst · {{ roleBreakdown().technicians.length }} Technician)
+            (Khả dụng: {{ roleBreakdown().inspectors.length }} Phi công · {{ roleBreakdown().analysts.length }} Chuyên viên · {{ roleBreakdown().technicians.length }} Kỹ thuật viên)
           </span>
         </p>
         @if (!roleBreakdown().hasAllThree) {
@@ -162,10 +162,10 @@
       </div>
 
       <!-- UAV -->
-      <div class="readiness-card" [class.is-pass]="a.uav.status === 'PASS' || a.uav.status === 'READY'">
+      <div class="readiness-card" [class.is-pass]="a.uav.status === 'PASS' || a.uav.status === 'READY'" [class.is-fail]="a.uav.status !== 'PASS' && a.uav.status !== 'READY'">
         <div class="card-head">
           <span class="card-title">3. Thiết bị bay (UAV)</span>
-          <span class="evn-status {{ statusTone(a.uav.status) }}">{{ statusLabel(a.uav.status) }}</span>
+          <span class="evn-status {{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'success' : 'danger' }}">{{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'Đạt' : 'Không đạt' }}</span>
         </div>
         <p class="card-desc">
           <strong>{{ eligibleUavCount() }}</strong>/{{ a.uavCandidates.length }} UAV đủ điều kiện
@@ -182,10 +182,10 @@
       </div>
 
       <!-- Technical -->
-      <div class="readiness-card" [class.is-pass]="a.technical.status === 'PASS' || a.technical.status === 'HEALTHY'">
+      <div class="readiness-card" [class.is-pass]="a.technical.status === 'PASS' || a.technical.status === 'HEALTHY'" [class.is-fail]="a.technical.status !== 'PASS' && a.technical.status !== 'HEALTHY'">
         <div class="card-head">
           <span class="card-title">4. Sức khỏe kỹ thuật UAV</span>
-          <span class="evn-status {{ statusTone(a.technical.status) }}">{{ statusLabel(a.technical.status) }}</span>
+          <span class="evn-status {{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'success' : 'danger' }}">{{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'Đạt' : 'Không đạt' }}</span>
         </div>
         <p class="card-desc">
           {{ a.technical.reason || 'Hệ thống vi điều khiển, cảm biến IMU, nguồn pin và động cơ đạt tiêu chuẩn an toàn.' }}
@@ -277,12 +277,12 @@
             </div>
             <div class="prop-item">
               <span class="prop-label">Người khởi tạo:</span>
-              <span class="prop-value">{{ a.managerId || 'Quản lý vận hành (Manager)' }}</span>
+              <span class="prop-value">{{ formatManagerName(a.managerId) }}</span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Định mức nhân sự yêu cầu:</span>
               <span class="prop-value">
-                {{ assessmentConfig().reqInspectors }} Inspector · {{ assessmentConfig().reqAnalysts }} Analyst · {{ assessmentConfig().reqTechnicians }} Technician
+                {{ assessmentConfig().reqInspectors }} Phi công · {{ assessmentConfig().reqAnalysts }} Chuyên viên phân tích · {{ assessmentConfig().reqTechnicians }} Kỹ thuật viên
               </span>
             </div>
             <div class="prop-item">
@@ -574,7 +574,7 @@
       <div class="evn-panel">
         <div class="panel-header" style="flex-wrap: wrap; gap: 8px;">
           <div class="header-title-group">
-            <h3>Đánh giá sẵn sàng nhân sự (Tối thiểu 3 vai trò: Inspector, Analyst, Technician)</h3>
+            <h3>Đánh giá sẵn sàng nhân sự (Tối thiểu 3 vai trò: Phi công, Chuyên viên phân tích, Kỹ thuật viên)</h3>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
             <!-- Filter Role Buttons -->
@@ -597,7 +597,7 @@
                 style="height: 24px; padding: 0 8px; font-size: 11px; border: 0;"
                 (click)="selectedRoleFilter.set('INSPECTOR')"
               >
-                Inspector ({{ roleBreakdown().inspectors.length }})
+                Phi công ({{ roleBreakdown().inspectors.length }})
               </button>
               <button
                 type="button"
@@ -607,7 +607,7 @@
                 style="height: 24px; padding: 0 8px; font-size: 11px; border: 0;"
                 (click)="selectedRoleFilter.set('ANALYST')"
               >
-                Analyst ({{ roleBreakdown().analysts.length }})
+                Chuyên viên phân tích ({{ roleBreakdown().analysts.length }})
               </button>
               <button
                 type="button"
@@ -617,7 +617,7 @@
                 style="height: 24px; padding: 0 8px; font-size: 11px; border: 0;"
                 (click)="selectedRoleFilter.set('TECHNICIAN')"
               >
-                Technician ({{ roleBreakdown().technicians.length }})
+                Kỹ thuật viên ({{ roleBreakdown().technicians.length }})
               </button>
             </div>
 
@@ -641,13 +641,13 @@
 
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 4px; color: #1e40af;">
-                <strong>{{ roleBreakdown().reqInspectors }}</strong> Inspector
+                <strong>{{ roleBreakdown().reqInspectors }}</strong> Phi công
               </span>
               <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #c4b5fd; padding: 2px 8px; border-radius: 4px; color: #5b21b6;">
-                <strong>{{ roleBreakdown().reqAnalysts }}</strong> Analyst
+                <strong>{{ roleBreakdown().reqAnalysts }}</strong> Chuyên viên
               </span>
               <span style="font-size: 11.5px; background: #ffffff; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; color: #15803d;">
-                <strong>{{ roleBreakdown().reqTechnicians }}</strong> Technician
+                <strong>{{ roleBreakdown().reqTechnicians }}</strong> Kỹ thuật viên
               </span>
               <span style="font-size: 11px; color: #475569;">(Tổng yêu cầu: <strong>{{ roleBreakdown().totalRequired }}</strong> người)</span>
             </div>
@@ -670,21 +670,21 @@
             </span>
             <span class="evn-status {{ roleBreakdown().inspectors.length >= roleBreakdown().reqInspectors ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().inspectors.length >= roleBreakdown().reqInspectors ? 'check' : 'close'"></span>
-              Inspector: {{ roleBreakdown().inspectors.length }}/{{ roleBreakdown().reqInspectors }} khả dụng
+              Phi công: {{ roleBreakdown().inspectors.length }}/{{ roleBreakdown().reqInspectors }} khả dụng
               @if (roleBreakdown().inspectors.length < roleBreakdown().reqInspectors) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqInspectors - roleBreakdown().inspectors.length }})</span>
               }
             </span>
             <span class="evn-status {{ roleBreakdown().analysts.length >= roleBreakdown().reqAnalysts ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().analysts.length >= roleBreakdown().reqAnalysts ? 'check' : 'close'"></span>
-              Analyst: {{ roleBreakdown().analysts.length }}/{{ roleBreakdown().reqAnalysts }} khả dụng
+              Chuyên viên: {{ roleBreakdown().analysts.length }}/{{ roleBreakdown().reqAnalysts }} khả dụng
               @if (roleBreakdown().analysts.length < roleBreakdown().reqAnalysts) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqAnalysts - roleBreakdown().analysts.length }})</span>
               }
             </span>
             <span class="evn-status {{ roleBreakdown().technicians.length >= roleBreakdown().reqTechnicians ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().technicians.length >= roleBreakdown().reqTechnicians ? 'check' : 'close'"></span>
-              Technician: {{ roleBreakdown().technicians.length }}/{{ roleBreakdown().reqTechnicians }} khả dụng
+              Kỹ thuật viên: {{ roleBreakdown().technicians.length }}/{{ roleBreakdown().reqTechnicians }} khả dụng
               @if (roleBreakdown().technicians.length < roleBreakdown().reqTechnicians) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqTechnicians - roleBreakdown().technicians.length }})</span>
               }

@@ -363,7 +363,7 @@
   line-height: 1.2;
   border: none;
 
-  &.success, &.ready, &.pass, &.feasible, &.healthy, &.available, &.eligible, &.completed {
+  &.success, &.ready, &.pass, &.status-pass, &.feasible, &.healthy, &.available, &.eligible, &.completed {
     background: #dcfce7;
     color: #15803d;
   }
@@ -373,7 +373,7 @@
     color: #b45309;
   }
 
-  &.danger, &.not_ready, &.not_feasible, &.critical, &.expired, &.fail, &.incomplete {
+  &.danger, &.status-fail, &.not_ready, &.not_feasible, &.critical, &.expired, &.fail, &.incomplete {
     background: #fee2e2;
     color: #b91c1c;
   }
