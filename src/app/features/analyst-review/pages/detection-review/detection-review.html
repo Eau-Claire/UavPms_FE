@@ -354,4 +354,17 @@
       </div>
     </div>
   </div>
+} @else {
+  <div class="empty-state-card" style="background: #ffffff; padding: 48px; text-align: center; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 16px;">
+    <span nz-icon nzType="info-circle" style="font-size: 48px; color: #94a3b8; margin-bottom: 16px;"></span>
+    <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Không tìm thấy dữ liệu phát hiện khuyết tật</h3>
+    <p style="color: #64748b; max-width: 480px; margin: 0 auto 20px; font-size: 14px;">
+      Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 12px;">
+      <button type="button" class="action-btn btn-primary" (click)="goBack()">
+        <span nz-icon nzType="left"></span> Quay lại danh sách
+      </button>
+    </div>
+  </div>
 }
