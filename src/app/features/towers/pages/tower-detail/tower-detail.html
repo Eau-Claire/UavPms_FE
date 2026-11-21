@@ -217,9 +217,14 @@
                             <span nz-icon nzType="appstore" aria-hidden="true"></span>
                           </a>
                         }
-                        @if (canReview() && anomaly.validationStatus === 'Pending') {
-                          <a class="tower-icon-button" [routerLink]="['/ai-review', anomaly.id]" aria-label="Thẩm định bất thường">
-                            <span nz-icon nzType="audit" aria-hidden="true"></span>
+                        @if (canReview()) {
+                          <a
+                            class="tower-icon-button"
+                            [routerLink]="['/ai-review', anomaly.id]"
+                            [queryParams]="{ from: 'tower', towerId: data.tower.id, towerCode: data.tower.towerCode }"
+                            [attr.aria-label]="anomaly.validationStatus === 'Pending' ? 'Thẩm định bất thường' : 'Xem chi tiết bất thường'"
+                          >
+                            <span nz-icon [nzType]="anomaly.validationStatus === 'Pending' ? 'audit' : 'eye'" aria-hidden="true"></span>
                           </a>
                         }
                       </div>

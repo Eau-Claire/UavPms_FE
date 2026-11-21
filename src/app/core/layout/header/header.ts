@@ -4,7 +4,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { isManagerRole, roleLabel } from '../../auth/roles';
-import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
+import { NotificationsStore } from '../../notifications/notifications-store';
 import { FacilityItem, FacilityStore } from '../../facility/facility-store';
 import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 
@@ -47,8 +47,13 @@ export class Header {
   protected readonly referenceTypeLabel = referenceTypeLabel;
   protected readonly groupedNotifications = computed(() => {
     const list = this.notifications.filteredNotifications();
+    const sorted = [...list].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
-    list.forEach((item) => {
+    sorted.forEach((item) => {
       const date = new Date(item.createdAt);
       let label = 'Không rõ ngày';
       if (!Number.isNaN(date.getTime())) {
@@ -127,7 +132,12 @@ export class Header {
       this.menuOpen.set(false);
     }
   }
-  protected selectNotification(notification: AppNotification): void { this.notifications.select(notification); }
+  protected selectNotification(notification: AppNotification): void {
+    if (!notification.isRead) {
+      this.notifications.markRead(notification.id);
+    }
+    this.notifications.select(notification);
+  }
   protected deleteNotification(event: Event, id: string): void { event.stopPropagation(); this.notifications.delete(id); }
   protected updateReadFilter(event: Event): void { this.notifications.setReadFilter(((event.target as HTMLSelectElement | null)?.value ?? 'all') as NotificationReadFilter); }
   protected updateTypeFilter(event: Event): void { this.notifications.setTypeFilter((event.target as HTMLSelectElement | null)?.value ?? ''); }

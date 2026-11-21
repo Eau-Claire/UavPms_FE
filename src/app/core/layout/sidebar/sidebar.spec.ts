@@ -6,7 +6,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../auth/auth';
-import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
+import { EmergencyAlertsApi } from '../../services/emergency-alerts-api';
 import { Sidebar } from './sidebar';
 
 describe('Sidebar', () => {
@@ -44,12 +44,13 @@ describe('Sidebar', () => {
     return { fixture, links, alertsApi };
   };
 
-  it('gives inspectors a short field menu', () => {
+  it('gives inspectors a short field menu including emergency alerts', () => {
     const { links, alertsApi } = setup('Inspector');
-    expect(links().map((l) => l.href)).toEqual(['/dashboard', '/missions', '/gis', '/towers', '/inspections', '/reports']);
+    expect(links().map((l) => l.href)).toEqual(['/dashboard', '/emergency-alerts', '/missions', '/gis', '/towers', '/inspections', '/reports']);
     expect(links().find((l) => l.href === '/missions')?.label).toBe('Nhiệm vụ của tôi');
     expect(links().find((l) => l.href === '/inspections')?.label).toBe('Lịch sử kiểm tra');
-    expect(alertsApi.fetchActiveAlerts).not.toHaveBeenCalled();
+    expect(alertsApi.fetchActiveAlerts).toHaveBeenCalledTimes(1);
+    expect(links().find((l) => l.href === '/emergency-alerts')?.badge).toBe('3');
   });
 
   it('gives analysts the emergency alerts link with the active alert count', () => {
@@ -65,7 +66,7 @@ describe('Sidebar', () => {
     for (const role of ['Technician', 'MaintenanceTechnician']) {
       TestBed.resetTestingModule();
       const { links } = setup(role);
-      expect(links().map((l) => l.href)).toEqual(['/dashboard', '/maintenance', '/drones', '/pre-mission', '/missions', '/gis', '/towers', '/reports']);
+      expect(links().map((l) => l.href)).toEqual(['/dashboard', '/emergency-alerts', '/maintenance', '/drones/inspection', '/drones', '/pre-mission', '/missions', '/gis', '/towers', '/reports']);
       expect(links().find((l) => l.href === '/maintenance')?.label).toBe('Phiếu bảo trì của tôi');
     }
   });

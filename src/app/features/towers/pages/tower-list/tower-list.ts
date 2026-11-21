@@ -9,17 +9,17 @@ import { Auth } from '../../../../core/auth/auth';
 import { RegionLookup, TowerFilters, TowerPage, TowerSummary, TowerUpsertRequest } from '../../../../models/assets.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
-import { ConfirmDialog } from '../../components/confirm-dialog/confirm-dialog';
+import { ConfirmDialog } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { TowerFormDialog } from '../../components/tower-form-dialog/tower-form-dialog';
-import { RegionsApi } from '../../data-access/regions-api';
-import { canManageInfrastructure } from '../../data-access/tower-labels';
+import { RegionsApi } from '../../../../core/services/regions-api';
+import { canManageInfrastructure } from '../../../../shared/utils/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
 const EMPTY_PAGE: TowerPage = { items: [], pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
 
 @Component({
   selector: 'app-tower-list',
-  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, NzIconModule, DataState, Pagination, TowerFormDialog, ConfirmDialog],
+  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, NzIconModule, TowerFormDialog, ConfirmDialog],
   templateUrl: './tower-list.html',
   styleUrl: './tower-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +42,59 @@ export class TowerList {
   protected readonly notice = signal<{ readonly tone: 'success' | 'error'; readonly text: string } | null>(null);
   protected readonly page = signal(1);
   protected readonly pageSize = signal(20);
+
+  protected readonly totalItems = computed(() => this.result().pagination.totalItems);
+  protected readonly totalPages = computed(() => this.result().pagination.totalPages);
+
+  protected readonly startIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return Math.min(this.page() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.page();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    const end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() => {
+    const v = this.filters.value;
+    return Boolean(v.regionId || (v.search && v.search.trim()));
+  });
+
+  protected readonly stats = computed(() => {
+    const res = this.result();
+    const items = res.items;
+    const total = res.pagination.totalItems;
+    const buLongCount = items.filter((t) => {
+      const p = (t.poleType || '').toLowerCase();
+      return p.includes('bu-lông') || p.includes('bu lông');
+    }).length;
+    const donThanCount = items.filter((t) => (t.poleType || '').toLowerCase().includes('đơn thân')).length;
+    return [
+      { label: 'Tổng số cột điện', value: total },
+      { label: 'Khu vực quản lý', value: this.regions().length },
+      { label: 'Thép bu-lông (trang này)', value: buLongCount },
+      { label: 'Thép đơn thân (trang này)', value: donThanCount },
+    ];
+  });
 
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<TowerSummary | null>(null);
@@ -118,6 +171,15 @@ export class TowerList {
       return 'Thép đơn thân';
     }
     return type;
+  }
+
+  protected poleTypeTone(type?: string | null): string {
+    if (!type) return 'neutral';
+    const lower = type.toLowerCase();
+    if (lower.includes('bu-lông') || lower.includes('bu lông')) return 'info';
+    if (lower.includes('đơn thân')) return 'success';
+    if (lower.includes('bê tông') || lower.includes('be tong')) return 'warning';
+    return 'neutral';
   }
 
   protected displayAddress(address?: string | null): string {
@@ -202,8 +264,8 @@ export class TowerList {
     const file = inputElement.files?.[0];
     inputElement.value = '';
     if (!file) return;
-    if (!/\.xlsx$/i.test(file.name)) {
-      this.notice.set({ tone: 'error', text: 'Vui lòng chọn tệp Excel định dạng .xlsx.' });
+    if (!/\.(xlsx|csv)$/i.test(file.name)) {
+      this.notice.set({ tone: 'error', text: 'Vui lòng chọn tệp định dạng .xlsx hoặc .csv.' });
       return;
     }
     this.importing.set(true);
@@ -213,7 +275,7 @@ export class TowerList {
         this.notice.set({ tone: 'success', text: `Đã nhập ${result.importedCount} cột điện, bỏ qua ${result.skippedCount} dòng không hợp lệ hoặc trùng mã.` });
         this.goToPage(1);
       },
-      error: (error: unknown) => this.notice.set({ tone: 'error', text: apiErrorMessage(error, 'Không thể nhập tệp Excel.') }),
+      error: (error: unknown) => this.notice.set({ tone: 'error', text: apiErrorMessage(error, 'Không thể nhập tệp dữ liệu.') }),
     });
   }
 }

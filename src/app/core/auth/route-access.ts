@@ -9,12 +9,14 @@ type RoleInput = UserRole | string | null | undefined;
  * The lists mirror the backend `[Authorize(Roles = ...)]` of the API each page depends on.
  */
 export const ROUTE_ROLES = {
-  /** `/ai-review`, `/ai-review/:id`: anomaly review (`AnomaliesController`). */
+  /** `/ai-review`: anomaly review queue (`AnomaliesController`). */
   aiReview: ['Admin', 'Manager', 'Analyst'],
+  /** `/ai-review/:id`: anomaly detail view allowed for all authenticated technical roles. */
+  aiReviewDetail: ['Admin', 'Manager', 'Analyst', 'Inspector', 'Technician', 'MaintenanceTechnician'],
   /** `/ai-analysis/upload`: standalone AI analysis. */
   aiAnalysis: ['Admin', 'Manager', 'Analyst'],
-  /** `/emergency-alerts`: `GET /alerts*` is SystemAdmin, Manager, Analyst. */
-  emergencyAlerts: ['Admin', 'Manager', 'Analyst'],
+  /** `/emergency-alerts`: allows all roles to view emergency alerts. */
+  emergencyAlerts: ['Admin', 'Manager', 'Analyst', 'Inspector', 'Technician', 'MaintenanceTechnician'],
   /** `/maintenance`, `/maintenance/:id`. */
   maintenance: ['Admin', 'Manager', 'Technician', 'MaintenanceTechnician'],
   /** `/gis`: `GET /gis/infrastructure` allows every role. */
@@ -27,6 +29,8 @@ export const ROUTE_ROLES = {
   missionAssignee: ['Inspector', 'Analyst', 'Technician', 'MaintenanceTechnician'],
   /** `/admin/users`, `/system/audit-logs`. */
   administration: ['Admin', 'SystemAdmin', 'Manager'],
+  /** `/drones/inspection`: technical measurement, periodic & post-flight BIST inspections. */
+  technicianInspection: ['Admin', 'Technician', 'MaintenanceTechnician'],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 /**

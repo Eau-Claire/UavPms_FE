@@ -18,12 +18,18 @@
             <option [value]="region.id">{{ region.name }}</option>
           }
         </select>
+        @if (tower()) {
+          <small class="tower-field-hint" style="color: #64748b; font-size: 11px;">Khu vực cố định theo địa giới hành chính, không thể thay đổi.</small>
+        }
         @if (hasError('regionId')) { <small id="tower-region-error" class="tower-field-error">Vui lòng chọn khu vực.</small> }
       </div>
 
       <div class="tower-field">
         <label for="tower-code">Mã cột <span aria-hidden="true">*</span></label>
         <input id="tower-code" type="text" formControlName="towerCode" maxlength="50" autocomplete="off" required [attr.aria-invalid]="hasError('towerCode')" [attr.aria-describedby]="hasError('towerCode') ? 'tower-code-error' : null" />
+        @if (tower()) {
+          <small class="tower-field-hint" style="color: #64748b; font-size: 11px;">Mã cột là định danh kỹ thuật cố định, không thể thay đổi.</small>
+        }
         @if (hasError('towerCode')) { <small id="tower-code-error" class="tower-field-error">Mã cột là bắt buộc (tối đa 50 ký tự).</small> }
       </div>
 
@@ -39,6 +45,11 @@
           @if (hasError('longitude')) { <small id="tower-lng-error" class="tower-field-error">Kinh độ trong khoảng -180 đến 180.</small> }
         </div>
       </div>
+      @if (tower()) {
+        <small class="tower-field-hint" style="color: #64748b; font-size: 11px; margin-top: -8px; margin-bottom: 12px; display: block;">
+          Hiệu chỉnh tọa độ địa lý chính xác theo kết quả đo đạc RTK hoặc bản vẽ hoàn công.
+        </small>
+      }
 
       <div class="tower-field">
         <label for="tower-pole-type">Loại cột</label>

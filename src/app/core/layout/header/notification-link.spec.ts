@@ -37,10 +37,10 @@ describe('notificationLink', () => {
     expect(notificationLink(anomaly, 'Technician')).toBeNull();
   });
 
-  it('opens emergency alerts only for roles allowed on /emergency-alerts', () => {
+  it('opens emergency alerts for roles allowed on /emergency-alerts', () => {
     const alert = { type: 'EmergencyAlert', referenceType: 'EmergencyAlert', referenceId: 'e1' };
     expect(notificationLink(alert, 'Analyst')?.commands).toEqual(['/emergency-alerts']);
-    expect(notificationLink(alert, 'Inspector')).toBeNull();
+    expect(notificationLink(alert, 'Inspector')?.commands).toEqual(['/emergency-alerts']);
   });
 
   it('has no link for unknown or empty references', () => {

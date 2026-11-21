@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppNotification } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { FacilityStore } from '../../facility/facility-store';
-import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
+import { NotificationsStore } from '../../notifications/notifications-store';
 import { Header } from './header';
 
 describe('Header', () => {

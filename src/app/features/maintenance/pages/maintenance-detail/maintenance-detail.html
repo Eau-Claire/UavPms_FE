@@ -140,44 +140,6 @@
           <div class="md-subform"><app-proof-upload [ticketId]="data.id" (uploaded)="onProofUploaded($event)" /></div>
         }
       </section>
-
-      <section class="tower-card md-card" aria-labelledby="md-materials-title">
-        <div class="md-card-head">
-          <h2 id="md-materials-title">Vật tư đã sử dụng <span class="md-count">{{ data.materials.length }}</span></h2>
-        </div>
-        @if (data.materials.length) {
-          <div class="tower-table-wrap">
-            <table class="tower-table md-materials">
-              <caption class="sr-only">Vật tư đã sử dụng cho phiếu {{ data.ticketCode }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Vật tư</th>
-                  <th scope="col" class="th-md-code">Mã</th>
-                  <th scope="col" class="th-md-qty">Số lượng</th>
-                  <th scope="col">Ghi chú hiện trường</th>
-                  <th scope="col" class="th-md-time">Ghi nhận lúc</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (material of data.materials; track material.id || $index) {
-                  <tr>
-                    <td><strong>{{ material.componentName }}</strong></td>
-                    <td class="tower-mono">{{ material.componentCode || '—' }}</td>
-                    <td>{{ material.quantityUsed }} {{ material.unit }}</td>
-                    <td class="tower-muted">{{ material.fieldObservations || '—' }}</td>
-                    <td>{{ material.loggedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p class="md-empty">Chưa ghi nhận vật tư.</p>
-        }
-        @if (canAddEvidence()) {
-          <div class="md-subform"><app-material-form [ticketId]="data.id" (logged)="onMaterialLogged($event)" /></div>
-        }
-      </section>
     </div>
 
     <aside class="md-side" aria-label="Tiến độ và thao tác">
@@ -195,6 +157,10 @@
           <p class="md-note">
             @if (isTechnician() && !isAssignedTechnician()) {
               Phiếu này không được giao cho bạn nên chỉ có thể xem.
+            } @else if (isTechnician() && data.status === 'PendingVerification') {
+              Đã gửi yêu cầu nghiệm thu. Đang chờ quản lý kiểm tra và duyệt đóng phiếu.
+            } @else if (isManager() && (data.status === 'Open' || data.status === 'InProgress') && data.technicianId) {
+              Đã giao cho kỹ thuật viên. Đang chờ kỹ thuật viên thực hiện sửa chữa và gửi minh chứng.
             } @else if (data.status === 'PendingVerification') {
               Phiếu đang chờ quản lý nghiệm thu.
             } @else {
@@ -210,12 +176,9 @@
         @if (canStart() || canSubmit() || canClose()) {
           <div class="md-buttons">
             @if (canStart()) {
-              <button type="button" class="button primary" [disabled]="!data.technicianId" [attr.aria-describedby]="!data.technicianId ? 'md-start-hint' : null" (click)="ask('start')">
+              <button type="button" class="button primary" (click)="ask('start')">
                 <span nz-icon nzType="tool" aria-hidden="true"></span><span>Bắt đầu sửa chữa</span>
               </button>
-              @if (!data.technicianId) {
-                <span id="md-start-hint" class="md-hint">Cần giao kỹ thuật viên trước khi bắt đầu sửa chữa.</span>
-              }
             }
             @if (canSubmit()) {
               <button type="button" class="button primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-submit-hint' : null" (click)="ask('submit')">

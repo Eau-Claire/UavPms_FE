@@ -2,11 +2,25 @@
   <div class="review-page-head">
     <div>
       <div class="review-breadcrumb">
-        <a routerLink="/ai-review">Thẩm định kỹ thuật</a>
-        <span>/</span>
-        <span>Hàng đợi thẩm định</span>
-        <span>/</span>
-        <strong>Chi tiết sự cố #{{ detectionId() }}</strong>
+        @switch (fromSource()) {
+          @case ('gis') {
+            <a routerLink="/gis">Bản đồ GIS</a>
+            <span>/</span>
+            <strong>Chi tiết sự cố #{{ detectionId() }}</strong>
+          }
+          @case ('tower') {
+            <a [routerLink]="['/towers', fromTowerId()]">Cột điện {{ fromTowerCode() || 'chi tiết' }}</a>
+            <span>/</span>
+            <strong>Chi tiết sự cố #{{ detectionId() }}</strong>
+          }
+          @default {
+            <a routerLink="/ai-review">Thẩm định kỹ thuật</a>
+            <span>/</span>
+            <a routerLink="/ai-review" [queryParams]="{ status: detection()?.validationStatus?.toLowerCase() || 'all' }">Duyệt kết quả phát hiện AI</a>
+            <span>/</span>
+            <strong>Chi tiết sự cố #{{ detectionId() }}</strong>
+          }
+        }
       </div>
       <h1>Thẩm định kết quả phát hiện khuyết tật</h1>
       <p class="review-subtitle">
@@ -17,7 +31,11 @@
     <div class="header-actions" style="display: flex; gap: 8px;">
       <button type="button" class="action-btn btn-outline" (click)="goBack()">
         <span nz-icon nzType="left"></span>
-        Quay lại danh sách
+        @switch (fromSource()) {
+          @case ('gis') { Quay lại Bản đồ GIS }
+          @case ('tower') { Quay lại Cột điện }
+          @default { Quay lại danh sách }
+        }
       </button>
     </div>
   </div>
@@ -25,26 +43,28 @@
   @if (feedbackMessage()) {
     <div
       class="mission-alert"
-      [style.background]="feedbackType() === 'success' ? '#f0fdf4' : '#fff1f2'"
-      [style.border-color]="feedbackType() === 'success' ? '#bbf7d0' : '#fecdd3'"
-      [style.color]="feedbackType() === 'success' ? '#166534' : '#be123c'"
+      [class.alert-success]="feedbackType() === 'success'"
+      [class.alert-error]="feedbackType() !== 'success'"
       role="alert"
     >
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="alert-content">
         <span nz-icon [nzType]="feedbackType() === 'success' ? 'check-circle' : 'exclamation-circle'"></span>
         <span>{{ feedbackMessage() }}</span>
         @if (maintenanceLinkVisible() && canOpenMaintenance()) {
-          <a routerLink="/maintenance" style="color: inherit; font-weight: 700; text-decoration: underline;">Xem phiếu bảo trì</a>
+          <a routerLink="/maintenance" class="alert-link">Xem phiếu bảo trì</a>
         }
       </div>
-      <button type="button" (click)="feedbackMessage.set('')">Đóng</button>
+      <button type="button" class="btn-alert-close" (click)="feedbackMessage.set('')">Đóng</button>
     </div>
   }
 
   @if (error()) {
-    <div class="mission-alert" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" (click)="error.set('')">Đóng</button>
+    <div class="mission-alert alert-error" role="alert">
+      <div class="alert-content">
+        <span nz-icon nzType="exclamation-circle"></span>
+        <span>{{ error() }}</span>
+      </div>
+      <button type="button" class="btn-alert-close" (click)="error.set('')">Đóng</button>
     </div>
   }
 
@@ -300,7 +320,7 @@
         } @else {
           <div class="role-notice-banner">
             <span nz-icon nzType="info-circle"></span>
-            <span>Chỉ tài khoản <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền phê duyệt hoặc bác bỏ kết quả phát hiện.</span>
+            <span>Chỉ tài khoản <strong>Chuyên viên phân tích (Analyst)</strong> mới có quyền phê duyệt hoặc bác bỏ kết quả phát hiện sự cố AI.</span>
           </div>
         }
       </aside>

@@ -5,15 +5,14 @@ import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { catchError, finalize, map, Observable, of, Subject, switchMap, tap } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { MaintenanceProof, MaintenanceTicket, MaterialLog } from '../../../../models/maintenance.models';
+import { MaintenanceProof, MaintenanceTicket } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
-import { ConfirmDialog } from '../../../towers/components/confirm-dialog/confirm-dialog';
+import { ConfirmDialog } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { AssignTechnician } from '../../components/assign-technician/assign-technician';
 import { DefectImage } from '../../components/defect-image/defect-image';
-import { MaterialForm } from '../../components/material-form/material-form';
 import { ProofUpload } from '../../components/proof-upload/proof-upload';
 import { TicketTimeline } from '../../components/ticket-timeline/ticket-timeline';
-import { MaintenanceApi, maintenanceErrorMessage, maintenanceErrorStatus } from '../../data-access/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage, maintenanceErrorStatus, REAL_DB_TECHNICIANS } from '../../../../core/services/maintenance-api';
 import {
   isClosedStatus,
   isMaintenanceManager,
@@ -22,7 +21,7 @@ import {
   maintenancePriorityTone,
   maintenanceStatusLabel,
   maintenanceStatusTone,
-} from '../../data-access/maintenance-labels';
+} from '../../../../shared/utils/maintenance-labels';
 
 export type TicketAction = 'start' | 'submit' | 'close';
 
@@ -42,7 +41,7 @@ const ACTIONS: Record<TicketAction, ActionConfig> = {
   },
   submit: {
     title: 'Gửi nghiệm thu',
-    message: 'Gửi phiếu cho quản lý nghiệm thu? Hãy chắc chắn đã tải đủ ảnh minh chứng và ghi nhận vật tư.',
+    message: 'Gửi phiếu cho quản lý nghiệm thu? Hãy chắc chắn đã tải đủ ảnh minh chứng sửa chữa.',
     label: 'Gửi nghiệm thu',
     success: 'Đã gửi phiếu chờ nghiệm thu.',
   },
@@ -57,7 +56,7 @@ const ACTIONS: Record<TicketAction, ActionConfig> = {
 /** `/maintenance/:id`: ticket detail with the MF04 workflow actions allowed for the current role. */
 @Component({
   selector: 'app-maintenance-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, NzIconModule, DataState, ConfirmDialog, AssignTechnician, DefectImage, MaterialForm, ProofUpload, TicketTimeline],
+  imports: [DatePipe, DecimalPipe, RouterLink, NzIconModule, DataState, ConfirmDialog, AssignTechnician, DefectImage, ProofUpload, TicketTimeline],
   templateUrl: './maintenance-detail.html',
   styleUrl: './maintenance-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,20 +91,38 @@ export class MaintenanceDetail {
   protected readonly isTechnician = computed(() => isMaintenanceTechnician(this.role()));
   protected readonly isAssignedTechnician = computed(() => {
     const ticket = this.ticket();
-    const userId = this.auth.user()?.id;
-    return this.isTechnician() && Boolean(ticket?.technicianId && userId) && ticket?.technicianId === userId;
+    const user = this.auth.user();
+    if (!this.isTechnician() || !ticket || !ticket.technicianId) return false;
+
+    if (user?.id && (ticket.technicianId === user.id || ticket.technician?.id === user.id)) return true;
+
+    if (user?.email && ticket.technician?.email && ticket.technician.email.toLowerCase() === user.email.toLowerCase()) return true;
+
+    if (user?.fullName && ticket.technician?.fullName) {
+      const u = user.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
+      const t = ticket.technician.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
+      if (u && t && (u === t || u.includes(t) || t.includes(u))) return true;
+    }
+
+    const matchedKnownTech = REAL_DB_TECHNICIANS.find((tech) => tech.id === ticket.technicianId);
+    if (matchedKnownTech && user?.fullName) {
+      const u = user.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
+      const k = matchedKnownTech.fullName.toLowerCase().replace(/\s*\(technician\)/i, '').trim();
+      if (u && k && (u === k || u.includes(k) || k.includes(u))) return true;
+    }
+    return false;
   });
 
   private readonly status = computed(() => this.ticket()?.status ?? '');
   protected readonly isClosed = computed(() => isClosedStatus(this.status()));
   protected readonly hasProof = computed(() => (this.ticket()?.proofs.length ?? 0) > 0);
-  /** Backend EnsureTechnicianOrAdminAccess: Manager/Admin, or the technician the ticket is assigned to. */
-  protected readonly canWork = computed(() => this.isManager() || this.isAssignedTechnician());
+  /** Workflow access: Manager assigns and closes; assigned Technician starts, uploads proof, and submits. */
+  protected readonly canWork = computed(() => this.isAssignedTechnician());
   protected readonly canAssign = computed(() => this.isManager() && this.status() === 'Open');
-  protected readonly canStart = computed(() => this.canWork() && this.status() === 'Open');
-  protected readonly canSubmit = computed(() => this.canWork() && this.status() === 'InProgress');
+  protected readonly canStart = computed(() => this.isAssignedTechnician() && this.status() === 'Open');
+  protected readonly canSubmit = computed(() => this.isAssignedTechnician() && this.status() === 'InProgress');
   protected readonly canClose = computed(() => this.isManager() && this.status() === 'PendingVerification');
-  protected readonly canAddEvidence = computed(() => this.canWork() && (this.status() === 'InProgress' || this.status() === 'PendingVerification'));
+  protected readonly canAddEvidence = computed(() => this.isAssignedTechnician() && this.status() === 'InProgress');
   protected readonly hasActions = computed(() => this.canAssign() || this.canStart() || this.canSubmit() || this.canClose());
 
   protected readonly missionId = computed(() => this.ticket()?.anomaly?.missionId);
@@ -202,10 +219,6 @@ export class MaintenanceDetail {
           }
         : ticket,
     );
-  }
-
-  protected onMaterialLogged(material: MaterialLog): void {
-    this.ticket.update((ticket) => (ticket ? { ...ticket, materials: [...ticket.materials, material] } : ticket));
   }
 
   protected personName(person: { readonly fullName: string; readonly email: string } | undefined): string {

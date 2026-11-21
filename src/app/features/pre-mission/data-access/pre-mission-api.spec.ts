@@ -3,8 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { buildInspectionChecklist } from './inspection-checklist';
-import { PreMissionApi } from './pre-mission-api';
+import { buildInspectionChecklist } from '../../../shared/utils/inspection-checklist';
+import { PreMissionApi } from '../../../core/services/pre-mission-api';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const URL = `${environment.apiBaseUrl}/pre-mission-assessments`;

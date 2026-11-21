@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { AiAnalysisApi, AnalysisSessionResult } from './ai-analysis-api';
+import { AiAnalysisApi, AnalysisSessionResult } from '../../../core/services/ai-analysis-api';
 
 describe('AiAnalysisApi', () => {
   let api: AiAnalysisApi;

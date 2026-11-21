@@ -46,19 +46,19 @@ export interface ActionOption {
 
 export const AUDIT_TABLE_OPTIONS: readonly TableOption[] = [
   { value: '', label: 'Tất cả đối tượng' },
-  { value: 'Missions', label: 'Nhiệm vụ bay (Missions)' },
-  { value: 'PreMissionAssessments', label: 'Đánh giá tiền khả thi (PreMissionAssessments)' },
-  { value: 'InspectionMedia', label: 'Ảnh / video kiểm tra (InspectionMedia)' },
-  { value: 'DetectedAnomalies', label: 'Bất thường phát hiện (DetectedAnomalies)' },
-  { value: 'EmergencyAlerts', label: 'Cảnh báo khẩn cấp (EmergencyAlerts)' },
-  { value: 'MaintenanceTickets', label: 'Phiếu bảo trì (MaintenanceTickets)' },
-  { value: 'Reports', label: 'Báo cáo (Reports)' },
-  { value: 'Regions', label: 'Khu vực (Regions)' },
-  { value: 'Towers', label: 'Cột điện (Towers)' },
-  { value: 'UAVs', label: 'Thiết bị bay UAV (UAVs)' },
-  { value: 'DroneTechnicalInspections', label: 'Kiểm định kỹ thuật UAV (DroneTechnicalInspections)' },
-  { value: 'DroneFlightControllers', label: 'Bộ điều khiển bay (DroneFlightControllers)' },
-  { value: 'Users', label: 'Tài khoản người dùng (Users)' },
+  { value: 'Missions', label: 'Nhiệm vụ bay' },
+  { value: 'PreMissionAssessments', label: 'Đánh giá tiền khả thi' },
+  { value: 'InspectionMedia', label: 'Ảnh / video kiểm tra' },
+  { value: 'DetectedAnomalies', label: 'Khuyết tật phát hiện' },
+  { value: 'EmergencyAlerts', label: 'Cảnh báo khẩn cấp' },
+  { value: 'MaintenanceTickets', label: 'Phiếu bảo trì' },
+  { value: 'Reports', label: 'Báo cáo' },
+  { value: 'Regions', label: 'Khu vực' },
+  { value: 'Towers', label: 'Cột điện' },
+  { value: 'UAVs', label: 'Thiết bị bay UAV' },
+  { value: 'DroneTechnicalInspections', label: 'Kiểm định kỹ thuật UAV' },
+  { value: 'DroneFlightControllers', label: 'Bộ điều khiển bay' },
+  { value: 'Users', label: 'Tài khoản người dùng' },
 ];
 
 export const AUDIT_ACTION_OPTIONS: readonly ActionOption[] = [

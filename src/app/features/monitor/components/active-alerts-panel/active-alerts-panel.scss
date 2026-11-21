@@ -224,6 +224,35 @@
   overflow: hidden;
 }
 
+.card-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #f1f5f9;
+}
+
+.alert-navigate-btn {
+  border: none;
+  background: #eff6ff;
+  color: #10387d;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #dbeafe;
+    color: #0b2756;
+    text-decoration: underline;
+  }
+}
+
 .empty-alerts {
   padding: 24px 16px;
   text-align: center;

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { MaintenanceProof } from '../../../../models/maintenance.models';
-import { MaintenanceApi } from '../../data-access/maintenance-api';
+import { MaintenanceApi } from '../../../../core/services/maintenance-api';
 import { MAX_PROOF_BYTES, proofFileProblem, ProofUpload } from './proof-upload';
 
 interface UploadHarness {

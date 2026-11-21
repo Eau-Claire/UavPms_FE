@@ -8,50 +8,51 @@ export type InspectionObjective =
   | string;
 
 export const PRIORITY_DEFECT_CATEGORIES = [
-  { key: 'Insulator', label: 'Khuyết tật cách điện (Insulator defects)' },
-  { key: 'Conductor', label: 'Khuyết tật dây dẫn (Conductor defects)' },
-  { key: 'SurgeArrester', label: 'Chống sét van (Surge arrester defects)' },
-  { key: 'ForeignObject', label: 'Tổ chim / Dị vật (Foreign objects)' },
-  { key: 'TowerCorrosion', label: 'Ăn mòn cột (Tower corrosion)' },
-  { key: 'Other', label: 'Khác (Other)' },
+  { key: 'Insulator', label: 'Khuyết tật cách điện' },
+  { key: 'Conductor', label: 'Khuyết tật dây dẫn' },
+  { key: 'SurgeArrester', label: 'Chống sét van' },
+  { key: 'ForeignObject', label: 'Tổ chim / Dị vật' },
+  { key: 'TowerCorrosion', label: 'Ăn mòn cột' },
+  { key: 'Other', label: 'Khác' },
 ] as const;
 
 /** Trạng thái nhiệm vụ đúng như backend trả về (`MissionStatus.ToString()`). */
+/** Trạng thái nhiệm vụ chuẩn hóa đúng theo Backend (`MissionStatus` enum). */
 export type MissionStatus =
   | 'Draft'
+  | 'Pending'
+  | 'Ready'
+  | 'Postponed'
+  | 'InProgress'
+  | 'Completed'
+  | 'Cancelled'
   | 'PendingAcceptance'
   | 'Assigned'
   | 'Preparing'
-  | 'Ready'
-  | 'InProgress'
   | 'Suspended'
-  | 'Postponed'
-  | 'Completed'
-  | 'Cancelled'
   | string;
 
+/** Danh sách 7 trạng thái chuẩn của Mission theo thiết kế Backend và State Machine. */
 export const MISSION_STATUSES: readonly MissionStatus[] = [
   'Draft',
-  'PendingAcceptance',
-  'Assigned',
-  'Preparing',
+  'Pending',
   'Ready',
-  'InProgress',
-  'Suspended',
   'Postponed',
+  'InProgress',
   'Completed',
   'Cancelled',
 ];
 
 const MISSION_STATUS_LABELS: Record<string, string> = {
   Draft: 'Bản nháp',
-  PendingAcceptance: 'Chờ thành viên tiếp nhận',
-  Assigned: 'Đã tiếp nhận',
-  Preparing: 'Đang chuẩn bị',
+  Pending: 'Chờ tiếp nhận',
+  PendingAcceptance: 'Chờ tiếp nhận',
   Ready: 'Sẵn sàng bay',
-  InProgress: 'Đang bay khảo sát',
-  Suspended: 'Tạm đình chỉ',
+  Assigned: 'Sẵn sàng bay',
+  Preparing: 'Sẵn sàng bay',
   Postponed: 'Tạm hoãn',
+  Suspended: 'Tạm hoãn',
+  InProgress: 'Đang bay khảo sát',
   Completed: 'Đã hoàn thành',
   Cancelled: 'Đã hủy',
 };
@@ -62,8 +63,8 @@ export function missionStatusLabel(status: string | null | undefined): string {
 }
 
 /**
- * Chuẩn hóa trạng thái nhiệm vụ về giá trị của backend.
- * Một số sự kiện realtime vẫn gửi dạng `PENDING_CONFIRMATION`, `CONFIRMED`, `Executing`...
+ * Chuẩn hóa trạng thái nhiệm vụ về 7 trạng thái chuẩn của backend.
+ * Khử bỏ các trạng thái dư thừa (`Assigned`, `Preparing`, `Suspended`, `PendingAcceptance`).
  */
 export function normalizeMissionStatus(status: string | null | undefined): MissionStatus {
   const raw = String(status ?? '').trim();
@@ -71,27 +72,24 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
   switch (key) {
     case '':
     case 'DRAFT':
-    case 'PENDING':
       return 'Draft';
+    case 'PENDING':
     case 'PENDINGACCEPTANCE':
     case 'PENDINGCONFIRMATION':
-      return 'PendingAcceptance';
+      return 'Pending';
+    case 'READY':
     case 'ASSIGNED':
+    case 'PREPARING':
     case 'CONFIRMED':
     case 'RESUMED':
-      return 'Assigned';
-    case 'PREPARING':
-      return 'Preparing';
-    case 'READY':
       return 'Ready';
+    case 'POSTPONED':
+    case 'SUSPENDED':
+      return 'Postponed';
     case 'INPROGRESS':
     case 'EXECUTING':
     case 'STARTED':
       return 'InProgress';
-    case 'SUSPENDED':
-      return 'Suspended';
-    case 'POSTPONED':
-      return 'Postponed';
     case 'COMPLETED':
       return 'Completed';
     case 'CANCELLED':
@@ -135,6 +133,19 @@ export interface MissionAssignmentsOverview {
   readonly allConfirmed: boolean;
   readonly confirmationDeadline?: string | null;
   readonly assignments: readonly MissionAssignment[];
+}
+
+/** `GET /inspections/mission/{missionId}` (`InspectionReportDto`). */
+export interface MissionBackendMedia {
+  readonly id: string;
+  readonly missionId: string;
+  readonly towerId?: string | null;
+  readonly mediaType: string;
+  readonly fileUrl: string;
+  readonly aiSource?: string;
+  readonly validationStatus: string;
+  readonly capturedAt: string;
+  readonly createdAt: string;
 }
 
 /** `GET /missions/{id}/detections` (`MissionDetectionDto`). */
@@ -202,7 +213,7 @@ export interface MissionAssignment {
   readonly userName: string;
   readonly userFullName?: string;
   readonly assignmentRole: MissionOperationalRole;
-  readonly status: string; // 'Active' | 'Unavailable' | 'Revoked' | string
+  readonly status: string;
   readonly responseStatus?: AssignmentResponseStatus;
   readonly isRequired?: boolean;
   readonly assignedAt?: string;
@@ -262,7 +273,7 @@ export interface Mission {
   readonly emergencyReason?: string | null;
   readonly isImmediate?: boolean;
   readonly communicationLogs?: readonly MissionCommunicationLog[];
-  // Tiến độ xác nhận của các thành viên
+
   readonly confirmedAt?: string | null;
   readonly confirmedCount?: number;
   readonly totalRequiredCount?: number;
@@ -310,6 +321,7 @@ export interface CreateMissionFromAssessmentRequest {
   readonly confirmationDeadline?: string | null;
   /** Chỉ thị của quản lý, gửi kèm thông báo `MISSION_DISPATCH` (tối đa 2.000 ký tự). */
   readonly managerInstructions?: string | null;
+  readonly status?: string;
 }
 
 /** Nhiệm vụ vừa tạo (backend trả về thực thể nhiệm vụ). */

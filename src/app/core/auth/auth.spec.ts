@@ -115,6 +115,65 @@ describe('Auth', () => {
     expect(errorMessage).toContain('tạm ngưng hoạt động');
     expect(auth.isAuthenticated()).toBe(false);
   });
+
+  it('stores device trust token upon OTP verification and includes it in subsequent login', () => {
+    auth.verifyOtp({ email: 'operator@evn.vn', otp: '123456', purpose: 'Login' }).subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/auth/otp/verify`).flush({
+      data: {
+        deviceTrustToken: 'trust-token-123',
+        authResult: {
+          accessToken: 'access',
+          refreshToken: 'refresh',
+          deviceTrustToken: 'trust-token-123',
+          user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector' },
+        },
+      },
+    });
+
+    expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');
+
+    auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe();
+    const req = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
+    expect(req.request.body).toEqual({
+      username: 'operator@evn.vn',
+      email: 'operator@evn.vn',
+      password: 'secret12',
+      deviceTrustToken: 'trust-token-123',
+    });
+    expect(req.request.headers.get('X-Device-Trust-Token')).toBe('trust-token-123');
+    req.flush({
+      data: {
+        accessToken: 'access2',
+        refreshToken: 'refresh2',
+        deviceTrustToken: 'trust-token-123',
+        user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector' },
+      },
+    });
+
+    expect(auth.isAuthenticated()).toBe(true);
+
+    auth.logout();
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');
+  });
+
+  it('validates active session and keeps session authenticated', () => {
+    localStorage.setItem('uavpms.session', JSON.stringify({
+      user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector', mustChangePassword: false },
+      tokens: { accessToken: jwtWithExpiry(Math.floor(Date.now() / 1000) + 3600), refreshToken: 'valid-refresh-token' },
+    }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    auth = TestBed.inject(Auth);
+    http = TestBed.inject(HttpTestingController);
+
+    auth.validateSession();
+    const req = http.expectOne(`${environment.apiBaseUrl}/auth/validate-session`);
+    expect(req.request.body).toEqual({ refreshToken: 'valid-refresh-token' });
+    req.flush({ success: true, message: 'Session active.' });
+
+    expect(auth.isAuthenticated()).toBe(true);
+  });
 });
 
 const jwtWithExpiry = (expiresAtSeconds: number): string => {

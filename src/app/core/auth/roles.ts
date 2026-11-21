@@ -46,7 +46,7 @@ export const isFieldRole = (role: RoleInput): boolean => ['inspector', 'analyst'
 const ROLE_LABELS: Record<RoleFamily, string> = {
   admin: 'Quản trị hệ thống',
   manager: 'Quản lý vận hành',
-  inspector: 'Phi công / Inspector',
+  inspector: 'Phi công / Thanh tra bay',
   analyst: 'Chuyên viên phân tích',
   technician: 'Kỹ thuật viên',
   other: 'Người dùng',

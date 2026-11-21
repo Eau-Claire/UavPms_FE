@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,14 +17,14 @@ import { Auth } from '../../../../core/auth/auth';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
-import { UsersApi } from '../../data-access/users-api';
+import { UsersApi } from '../../../../core/services/users-api';
 
 const ADMIN_ROLES = ['admin', 'systemadmin', 'administrator'];
 const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [ReactiveFormsModule, NzIconModule, UserScopeDialog],
+  imports: [DatePipe, ReactiveFormsModule, NzIconModule, UserScopeDialog],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -52,6 +53,10 @@ export class UserManagement {
   protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
 
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly pageSizes = [10, 20, 50] as const;
+
   /** GET/POST/PATCH /users are SystemAdmin-only in IdentityService. */
   readonly isAdmin = computed(() => ADMIN_ROLES.includes((this.auth.user()?.role ?? '').toLowerCase()));
 
@@ -77,6 +82,46 @@ export class UserManagement {
       return matchSearch && matchRole && matchStatus;
     });
   });
+
+  protected readonly totalItems = computed(() => this.filteredUsers().length);
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize())));
+
+  protected readonly pagedUsers = computed(() => {
+    const start = (this.page() - 1) * this.pageSize();
+    return this.filteredUsers().slice(start, start + this.pageSize());
+  });
+
+  protected readonly startIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return Math.min(this.page() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.page();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    const end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.roleFilter() || this.statusFilter())
+  );
 
   protected readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -107,9 +152,38 @@ export class UserManagement {
   }
 
   protected clearFilters(): void {
+    this.resetFilters();
+  }
+
+  protected resetFilters(): void {
     this.search.set('');
     this.roleFilter.set('');
     this.statusFilter.set('');
+    this.goToPage(1);
+  }
+
+  protected goToPage(p: number): void {
+    this.page.set(Math.max(1, Math.min(p, this.totalPages())));
+  }
+
+  protected changePageSize(size: string | number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.goToPage(1);
+  }
+
+  protected onSearch(value: string): void {
+    this.search.set(value);
+    this.page.set(1);
+  }
+
+  protected onRoleFilterChange(role: string): void {
+    this.roleFilter.set((role as UserRole) || '');
+    this.page.set(1);
+  }
+
+  protected onStatusFilterChange(status: string): void {
+    this.statusFilter.set((status as UserStatus) || '');
+    this.page.set(1);
   }
 
   protected getInitials(name: string): string {
@@ -301,5 +375,38 @@ export class UserManagement {
 
   protected statusLabel(status: UserStatus): string {
     return ({ Active: 'Hoạt động', Inactive: 'Tạm ngưng', Locked: 'Đã khóa' } as const)[status];
+  }
+
+  protected statusTone(status: UserStatus): string {
+    switch (status) {
+      case 'Active':
+        return 'success';
+      case 'Inactive':
+        return 'neutral';
+      case 'Locked':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected roleTone(role: UserRole): string {
+    switch (role) {
+      case 'Admin':
+      case 'SystemAdmin':
+        return 'danger';
+      case 'Manager':
+      case 'Supervisor':
+        return 'info';
+      case 'Inspector':
+        return 'warning';
+      case 'Technician':
+      case 'Analyst':
+        return 'info';
+      case 'Viewer':
+        return 'neutral';
+      default:
+        return 'neutral';
+    }
   }
 }

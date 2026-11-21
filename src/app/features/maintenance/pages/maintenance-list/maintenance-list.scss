@@ -1,58 +1,98 @@
-@use '../../../towers/towers-shared' as shared;
-
-@include shared.page;
-
-.maintenance-banner-warning {
-  border: 1px solid #fcd34d;
-  background: #fffbeb;
-  color: #78350f;
-}
-
-.maintenance-table {
-  th.th-m-code { width: 170px; }
-  th.th-m-desc { width: auto; }
-  th.th-m-priority { width: 120px; }
-  th.th-m-status { width: 150px; }
-  th.th-m-tech { width: 180px; }
-  th.th-m-date { width: 120px; }
-  th.th-m-actions { width: 64px; }
-
-  td.td-m-desc {
-    overflow: hidden;
-  }
-
-  td.td-m-actions {
-    text-align: right;
-  }
-
-  tbody tr.row-unassigned {
-    background: #fffbeb;
-    box-shadow: inset 3px 0 0 #d97706;
-  }
-
-  tbody tr.row-unassigned:hover {
-    background: #fef3c7;
-  }
-}
-
-.maintenance-desc {
+:host {
   display: block;
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #17324d;
+}
+
+.maintenance-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* =============================================================
+   Row highlights & Specific Cells
+   ============================================================= */
+tbody tr.row-unassigned {
+  background: #fffdf5;
+  box-shadow: inset 3px 0 0 #f59e0b;
+
+  &:hover {
+    background: #fef9e7;
+  }
+}
+
+.desc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    color: #0f2952;
+    font-size: 12px;
+  }
+
+  .maintenance-sub {
+    font-size: 11px;
+    color: #64748b;
+  }
+}
+
+.maintenance-tech-name {
+  display: block;
+  font-size: 12px;
+  color: #1e293b;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.maintenance-sub {
-  display: block;
-  font-size: 12px;
-}
-
 .maintenance-unassigned {
-  color: #92400e;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid #fde68a;
 }
 
-.maintenance-overdue {
-  color: #991b1b;
-  font-weight: 600;
+.due-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+
+  .due-date {
+    font-size: 11.5px;
+    color: #334155;
+
+    &.overdue-text {
+      color: #dc2626;
+      font-weight: 600;
+    }
+  }
+
+  .overdue-chip {
+    display: inline-block;
+    width: fit-content;
+    padding: 1px 5px;
+    font-size: 9.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    border-radius: 2px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    letter-spacing: 0.02em;
+  }
+}
+
+.td-m-created {
+  font-size: 11.5px;
+  color: #64748b;
+  white-space: nowrap;
 }

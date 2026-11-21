@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { MaterialLog } from '../../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
 
 const notBlank = Validators.pattern(/\S/);
 

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { finalize, map, tap } from 'rxjs';
+import { finalize, map, Subscription, tap, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { unwrapApiData } from '../../models/api.models';
 import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } from '../../models/auth.models';
@@ -11,9 +11,11 @@ import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } f
 export class Auth {
   private readonly http = inject(HttpClient);
   private readonly sessionKey = 'uavpms.session';
+  private readonly deviceTrustPrefix = 'uavpms.device_trust_';
+  private readonly defaultDeviceTrustKey = 'uavpms.device_trust_token';
   private readonly sessionState = signal<AuthSession | null>(this.readSession());
   private readonly refreshingState = signal(false);
-  private sessionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionExpirySub: Subscription | null = null;
   readonly session = this.sessionState.asReadonly();
   readonly refreshing = this.refreshingState.asReadonly();
   readonly user = computed(() => this.sessionState()?.user ?? null);
@@ -27,44 +29,98 @@ export class Auth {
     this.listenToAccountEvents();
   }
 
+  getDeviceTrustToken(email?: string): string | null {
+    if (typeof localStorage === 'undefined') return null;
+    if (email) {
+      const specific = localStorage.getItem(`${this.deviceTrustPrefix}${email.trim().toLowerCase()}`);
+      if (specific) return specific;
+    }
+    return localStorage.getItem(this.defaultDeviceTrustKey);
+  }
+
+  saveDeviceTrustToken(token: string, email?: string): void {
+    if (typeof localStorage === 'undefined' || !token) return;
+    localStorage.setItem(this.defaultDeviceTrustKey, token);
+    if (email) {
+      localStorage.setItem(`${this.deviceTrustPrefix}${email.trim().toLowerCase()}`, token);
+    }
+  }
+
+  validateSession(): void {
+    const refreshToken = this.sessionState()?.tokens.refreshToken;
+    if (!refreshToken) return;
+
+    this.http.post<unknown>(`${environment.apiBaseUrl}/auth/validate-session`, { refreshToken }).subscribe({
+      error: (err) => {
+        if (err?.status === 401) {
+          this.logout();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?error=session_terminated';
+          }
+        }
+      },
+    });
+  }
+
   private listenToAccountEvents(): void {
     if (typeof window === 'undefined') return;
     window.addEventListener('storage', (event) => {
       if (event.key === 'uavpms.account_event' && event.newValue) {
         try {
           const data = JSON.parse(event.newValue) as { type?: string; userId?: string };
-          if ((data.type === 'suspended' || data.type === 'inactive') && data.userId && data.userId === this.user()?.id) {
-            this.logout();
-            window.location.href = `/login?error=${data.type === 'suspended' ? 'account_suspended' : 'account_inactive'}`;
+          if (data.userId && data.userId === this.user()?.id) {
+            if (data.type === 'suspended' || data.type === 'inactive') {
+              this.logout();
+              window.location.href = `/login?error=${data.type === 'suspended' ? 'account_suspended' : 'account_inactive'}`;
+            } else if (data.type === 'session_replaced') {
+              this.logout();
+              window.location.href = '/login?error=session_terminated';
+            }
           }
         } catch {
-          // ignore parsing error
+          void 0;
         }
       }
     });
   }
 
-  broadcastUserSuspended(userId: string, type: 'suspended' | 'inactive' = 'suspended'): void {
+  broadcastAccountEvent(type: 'suspended' | 'inactive' | 'session_replaced', userId: string): void {
     try {
       localStorage.setItem('uavpms.account_event', JSON.stringify({ type, userId, timestamp: Date.now() }));
     } catch {
-      // ignore storage error
+      void 0;
     }
+  }
+
+  broadcastUserSuspended(userId: string, type: 'suspended' | 'inactive' = 'suspended'): void {
+    this.broadcastAccountEvent(type, userId);
   }
 
   login(credentials: { username: string; password: string }) {
     const rawUsername = this.normalizeUsername(credentials.username);
-    const normalizedCredentials = {
+    const email = this.normalizeEmail(rawUsername);
+    const deviceTrustToken = this.getDeviceTrustToken(email);
+
+    const normalizedCredentials: Record<string, unknown> = {
       username: rawUsername,
       email: rawUsername,
       password: credentials.password,
     };
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
+    if (deviceTrustToken) {
+      normalizedCredentials['deviceTrustToken'] = deviceTrustToken;
+    }
+
+    const headers: Record<string, string> = {};
+    if (deviceTrustToken) {
+      headers['X-Device-Trust-Token'] = deviceTrustToken;
+    }
+
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials, { headers }).pipe(
       map((response): LoginResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const nested = (payload['authResult'] ?? payload) as Record<string, unknown>;
         if (Boolean(nested['otpRequired']) || !this.hasTokens(nested))
-          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.username)) };
+          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials['username'])) };
 
         const rawUser = (nested['user'] ?? {}) as Record<string, unknown>;
         const userStatus = String(rawUser['status'] ?? nested['status'] ?? payload['status'] ?? '').toLowerCase();
@@ -75,10 +131,18 @@ export class Auth {
           throw new Error('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
         }
 
+        const returnedDeviceTrust = String(nested['deviceTrustToken'] ?? payload['deviceTrustToken'] ?? '');
+        if (returnedDeviceTrust) {
+          this.saveDeviceTrustToken(returnedDeviceTrust, email);
+        }
+
         return { otpRequired: false, session: this.normalizeSession(payload) };
       }),
       tap((result) => {
-        if (!result.otpRequired) this.setSession(result.session);
+        if (!result.otpRequired) {
+          this.setSession(result.session);
+          this.broadcastAccountEvent('session_replaced', result.session.user.id);
+        }
       }),
     );
   }
@@ -87,12 +151,19 @@ export class Auth {
     return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, { ...request, email: this.normalizeEmail(request.email) });
   }
   verifyOtp(request: { email: string; otp: string; purpose: string }) {
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, { ...request, email: this.normalizeEmail(request.email) }).pipe(
+    const normalizedEmail = this.normalizeEmail(request.email);
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, { ...request, email: normalizedEmail }).pipe(
       map((response): OtpResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const authPayload = payload['authResult'] as Record<string, unknown> | null | undefined;
         if (authPayload && this.hasTokens(authPayload)) {
-          this.setSession(this.normalizeSession(authPayload));
+          const returnedDeviceTrust = String(authPayload['deviceTrustToken'] ?? payload['deviceTrustToken'] ?? '');
+          if (returnedDeviceTrust) {
+            this.saveDeviceTrustToken(returnedDeviceTrust, normalizedEmail);
+          }
+          const session = this.normalizeSession(authPayload);
+          this.setSession(session);
+          this.broadcastAccountEvent('session_replaced', session.user.id);
           return { authenticated: true };
         }
         return {
@@ -135,8 +206,8 @@ export class Auth {
   }
 
   logout(): void {
-    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
-    this.sessionExpiryTimer = null;
+    this.sessionExpirySub?.unsubscribe();
+    this.sessionExpirySub = null;
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem('uav_pms_missions_data_v2');
     localStorage.removeItem('uav_pms_notifications_v1');
@@ -264,17 +335,17 @@ export class Auth {
   }
 
   private scheduleSessionExpiry(token?: string): void {
-    if (this.sessionExpiryTimer) clearTimeout(this.sessionExpiryTimer);
-    this.sessionExpiryTimer = null;
+    this.sessionExpirySub?.unsubscribe();
+    this.sessionExpirySub = null;
     if (!token) return;
     try {
       const expiresAtMs = Number(this.parseTokenPayload(token)['exp']) * 1000;
       if (!Number.isFinite(expiresAtMs)) return;
       const remainingMs = expiresAtMs - Date.now();
       if (remainingMs <= 0) return;
-      this.sessionExpiryTimer = setTimeout(() => this.logout(), remainingMs);
+      this.sessionExpirySub = timer(remainingMs).subscribe(() => this.logout());
     } catch {
-      // Opaque development tokens do not provide an expiry timestamp.
+      void 0;
     }
   }
 

@@ -79,7 +79,7 @@ export class AuditLogViewer {
   });
 
   protected readonly filteredRecords = computed<readonly AuditRecord[]>(() => {
-    // If backend returns filtered records directly in `records()`, use them; otherwise filter locally from `allRecords()`
+
     const source = this.allRecords().length > 0 ? this.allRecords() : this.records();
     const query = this.filterForm.controls.search.value?.trim().toLowerCase();
     const action = this.filterForm.controls.actionType.value;
@@ -160,7 +160,7 @@ export class AuditLogViewer {
             });
             return;
           }
-          // If searching and we already have records cached locally, fallback to client-side filtering without error
+
           if (this.currentFilters().search?.trim() && this.allRecords().length > 0) {
             return;
           }

@@ -40,8 +40,27 @@ export const canOperateFlight = (role: RoleInput): boolean => isManagerRole(role
 /** `POST /missions/{id}/media` is open to SystemAdmin, Manager and Inspector. */
 export const canUploadMissionMedia = canOperateFlight;
 
-/** `POST|PUT /missions/{id}/detections/{d}/review`: SystemAdmin, Manager and Analyst. */
-export const canReviewDetections = (role: RoleInput): boolean => isManagerRole(role) || isAnalystRole(role);
+/** `POST|PUT /missions/{id}/detections/{d}/review`: Only Analyst has permission to confirm or reject AI detections. */
+export const canReviewDetections = (role: RoleInput): boolean => isAnalystRole(role);
+
+/**
+ * BR: Chỉ có Analyst nằm trong nhiệm vụ mà defect đó được phát hiện mới có quyền xem.
+ */
+export const canViewMissionDetections = (
+  role: RoleInput,
+  mission: Mission | null | undefined,
+  userId: string | null | undefined,
+): boolean => {
+  if (!isAnalystRole(role) || !mission || !userId) return false;
+  return (mission.team ?? []).some(
+    (a) =>
+      a.userId === userId &&
+      (a.assignmentRole?.toUpperCase() === 'ANALYST') &&
+      a.status !== 'Revoked' &&
+      a.responseStatus !== 'REPLACED' &&
+      a.responseStatus !== 'CANCELLED',
+  );
+};
 
 /** Route `/emergency-alerts` allows Admin, Manager and Analyst. */
 export const canOpenEmergencyAlerts = canReviewDetections;
@@ -74,7 +93,7 @@ export const findMyAssignment = (mission: Mission | null | undefined, userId: st
  * Mission statuses in which a member can still accept or ask to postpone their assignment. The backend answers
  * `409 INVALID_MISSION_STATE` outside PendingAcceptance/Assigned/Preparing/Ready (e.g. Draft, Postponed).
  */
-const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
+const RESPONSE_OPEN_STATUSES = ['Pending', 'PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
 
 /** `POST /missions/{id}/postpone` (the whole mission) is Manager/SystemAdmin only; members use `/assignments/postpone`. */
 export const canPostponeWholeMission = (role: RoleInput): boolean => isManagerRole(role);
@@ -150,11 +169,11 @@ export type AcceptanceState = 'none' | 'awaiting' | 'postponed' | 'accepted' | '
 
 export const acceptanceState = (mission: Mission | null | undefined, assignment: MissionAssignment | null): AcceptanceState => {
   if (!mission || !assignment) return 'none';
-  const status = normalizeMissionStatus(mission.status);
-  if (status === 'Suspended') return 'suspended';
-  if (['InProgress', 'Completed', 'Cancelled'].includes(status)) return 'closed';
-  if (assignment.responseStatus === 'ACCEPTED') return 'accepted';
   if (assignment.responseStatus === 'POSTPONED') return 'postponed';
+  if (assignment.responseStatus === 'ACCEPTED') return 'accepted';
+  if (String(mission.status).toUpperCase() === 'SUSPENDED') return 'suspended';
+  const status = normalizeMissionStatus(mission.status);
+  if (['InProgress', 'Completed', 'Cancelled', 'Draft', 'Postponed'].includes(status)) return 'closed';
   return isAwaitingMyResponse(mission, assignment) ? 'awaiting' : 'closed';
 };
 
@@ -175,7 +194,7 @@ export const missionRowLink = (
   if (isManagerRole(role)) return { commands: detail };
   if (isAnalystRole(role) && scope === 'all') return { commands: detail, queryParams: { tab: 'results' } };
   const mine = findMyAssignment(mission, userId);
-  // A member whose postponement is still pending also lands on the acceptance page to follow its outcome.
+
   const postponePending = mine?.responseStatus === 'POSTPONED' && normalizeMissionStatus(mission.status) === 'Postponed';
   if (isAwaitingMyResponse(mission, mine) || postponePending) {
     return { commands: ['/missions', mission.id, 'inspector'] };
@@ -184,8 +203,12 @@ export const missionRowLink = (
 };
 
 /** Tab opened on the mission dashboard when the URL has no `?tab=`. */
-export const defaultMissionTab = (role: RoleInput, status: string | null | undefined): MissionTab => {
-  if (isAnalystRole(role)) return 'results';
+export const defaultMissionTab = (
+  role: RoleInput,
+  status: string | null | undefined,
+  isAssignedAnalyst = true,
+): MissionTab => {
+  if (isAnalystRole(role) && isAssignedAnalyst) return 'results';
   if (isTechnicianRole(role)) return 'maintenance';
   if (isInspectorRole(role) && normalizeMissionStatus(status) === 'InProgress') return 'upload';
   return 'overview';

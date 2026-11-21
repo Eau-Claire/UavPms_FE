@@ -1,9 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { NzIconModule } from 'ng-zorro-antd/icon';
+import { Auth } from '../../../../core/auth/auth';
+import { NotificationLink, notificationLink } from '../../../../core/layout/header/notification-link';
 import { MonitorAlert } from '../../../../models/monitor.models';
-import { NotificationsApi } from '../../../notifications/data-access/notifications-api';
-import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../data-access/monitor-api';
+import { NotificationsApi } from '../../../../core/services/notifications-api';
+import { NotificationsStore } from '../../../../core/notifications/notifications-store';
+import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../../../core/services/monitor-api';
 
 export interface DailySummaryMetrics {
   missions: number;
@@ -15,13 +19,16 @@ export interface DailySummaryMetrics {
 
 @Component({
   selector: 'app-active-alerts-panel',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, NzIconModule],
   templateUrl: './active-alerts-panel.html',
   styleUrl: './active-alerts-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ActiveAlertsPanel {
   private readonly notificationsApi = inject(NotificationsApi);
+  private readonly notificationsStore = inject(NotificationsStore);
+  private readonly auth = inject(Auth);
+  private readonly router = inject(Router);
 
   readonly alerts = input.required<readonly MonitorAlert[]>();
   readonly alertRead = output<string>();
@@ -36,10 +43,12 @@ export class ActiveAlertsPanel {
 
   readonly filteredAlerts = computed(() => {
     const list = this.alerts();
-    if (this.filterMode() === 'unread') {
-      return list.filter((a) => !a.isRead);
-    }
-    return list;
+    const result = this.filterMode() === 'unread' ? list.filter((a) => !a.isRead) : list;
+    return [...result].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
   });
 
   readonly displayedAlerts = computed(() => {
@@ -80,11 +89,74 @@ export class ActiveAlertsPanel {
     };
   }
 
-  openAlert(alert: MonitorAlert): void {
-    this.selectedAlert.set(alert);
+  getAlertLink(alert: MonitorAlert): NotificationLink | null {
+    const role = this.auth.user()?.role;
+
+    if (alert.referenceType && alert.referenceId) {
+      const link = notificationLink(
+        {
+          type: alert.type,
+          referenceType: alert.referenceType,
+          referenceId: alert.referenceId,
+        },
+        role,
+      );
+      if (link) return link;
+    }
+
+    const notif = this.notificationsStore.notifications().find((n) => n.id === alert.id);
+    if (notif?.referenceType && notif?.referenceId) {
+      const link = notificationLink(notif, role);
+      if (link) return link;
+    }
+
+    const text = `${alert.title} ${alert.message}`;
+    const uuidMatch = text.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+    const id = uuidMatch ? uuidMatch[0] : '';
+
+    const lower = text.toLowerCase();
+    if (lower.includes('nhiệm vụ') || lower.includes('mission')) {
+      if (id) {
+        return notificationLink({ type: alert.type || 'MISSION_ASSIGNED', referenceType: 'mission', referenceId: id }, role);
+      }
+      return { commands: ['/missions'], label: 'Đến trang nhiệm vụ' };
+    }
+    if (lower.includes('bảo trì') || lower.includes('phiếu')) {
+      if (id) {
+        return notificationLink({ type: alert.type || 'TICKET_CREATED', referenceType: 'maintenanceticket', referenceId: id }, role);
+      }
+      return { commands: ['/maintenance'], label: 'Đến trang bảo trì' };
+    }
+    if (lower.includes('khuyết tật') || lower.includes('sự cố') || lower.includes('phát hiện ai')) {
+      if (id) {
+        return notificationLink({ type: alert.type || 'ANOMALY_CONFIRMED', referenceType: 'detectedanomaly', referenceId: id }, role);
+      }
+      return { commands: ['/ai-review'], label: 'Thẩm định phát hiện AI' };
+    }
+    if (lower.includes('khẩn cấp') || lower.includes('nguy hiểm')) {
+      return { commands: ['/emergency-alerts'], label: 'Mở cảnh báo khẩn cấp' };
+    }
+
+    return null;
+  }
+
+  navigateToLink(alert: MonitorAlert, event?: Event): void {
+    if (event) event.stopPropagation();
     if (!alert.isRead) {
       this.markAsRead(alert);
     }
+    const link = this.getAlertLink(alert);
+    if (link) {
+      this.closeModal();
+      void this.router.navigate(link.commands as string[]);
+    }
+  }
+
+  openAlert(alert: MonitorAlert): void {
+    if (!alert.isRead) {
+      this.markAsRead(alert);
+    }
+    this.selectedAlert.set({ ...alert, isRead: true });
   }
 
   closeModal(): void {

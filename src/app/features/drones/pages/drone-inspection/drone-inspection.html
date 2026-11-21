@@ -1,0 +1,438 @@
+<div class="drone-inspection-page">
+  <!-- Page Header -->
+  <header class="page-head">
+    <div>
+      <nav class="page-breadcrumb" aria-label="Breadcrumb">
+        <span>PHƯƠNG TIỆN UAV</span>
+        <span class="separator">/</span>
+        <a routerLink="/drones" class="breadcrumb-link">DANH SÁCH THIẾT BỊ</a>
+        <span class="separator">/</span>
+        <strong>KIỂM ĐỊNH KỸ THUẬT & VIỄN TRẮC</strong>
+      </nav>
+      <div class="head-title-row">
+        <h1>Kiểm định kỹ thuật & Viễn trắc UAV</h1>
+        <span class="role-badge">Kỹ thuật viên</span>
+      </div>
+      <p class="head-subtitle">
+        Thực hiện đo đạc chỉ số kỹ thuật 6 hệ thống con, viễn trắc BIST và kết nối Flight Controller định kỳ hoặc sau
+        khi bay.
+      </p>
+    </div>
+    <div class="head-actions">
+      <a class="evn-btn secondary" routerLink="/drones">
+        <span nz-icon nzType="unordered-list"></span> Danh sách UAV
+      </a>
+      <a class="evn-btn secondary" routerLink="/maintenance">
+        <span nz-icon nzType="tool"></span> Phiếu bảo trì
+      </a>
+    </div>
+  </header>
+
+  <!-- Alerts -->
+  @if (actionMessage()) {
+  <div class="evn-alert alert-success" role="status">
+    <span nz-icon nzType="check-circle"></span>
+    <span>{{ actionMessage() }}</span>
+    <button type="button" class="alert-close" (click)="actionMessage.set('')">Đóng</button>
+  </div>
+  }
+  @if (errorMessage()) {
+  <div class="evn-alert alert-danger" role="alert">
+    <span nz-icon nzType="exclamation-circle"></span>
+    <span>{{ errorMessage() }}</span>
+    <button type="button" class="alert-close" (click)="errorMessage.set('')">Đóng</button>
+  </div>
+  }
+
+  <!-- Purpose Banner -->
+  <section class="purpose-section" aria-label="Mục đích kiểm định">
+    <div class="purpose-title">
+      <span nz-icon nzType="schedule"></span>
+      <strong>Mục đích đo kiểm kỹ thuật:</strong>
+    </div>
+    <div class="purpose-buttons">
+      <button type="button" class="purpose-btn" [class.active]="purpose() === 'PERIODIC'"
+        (click)="setPurpose('PERIODIC')">
+        <span nz-icon nzType="sync"></span>
+        <span>1. Đo kiểm định kỳ phi đội</span>
+      </button>
+      <button type="button" class="purpose-btn" [class.active]="purpose() === 'POST_FLIGHT'"
+        (click)="setPurpose('POST_FLIGHT')">
+        <span nz-icon nzType="cloud-download"></span>
+        <span>2. Cập nhật sau chuyến bay</span>
+      </button>
+      <button type="button" class="purpose-btn" [class.active]="purpose() === 'PRE_MISSION'"
+        (click)="setPurpose('PRE_MISSION')">
+        <span nz-icon nzType="safety-certificate"></span>
+        <span>3. Đo kiểm trước nhiệm vụ</span>
+      </button>
+      <button type="button" class="evn-btn primary" style="margin-left: auto; height: 32px; font-size: 11.5px;"
+        [disabled]="bulkInspecting() || submitting()" (click)="inspectAllPendingDrones()"
+        title="Tự động lập biên bản kiểm định kỹ thuật đạt chuẩn cho tất cả drone chưa kiểm định">
+        <span nz-icon [nzType]="bulkInspecting() ? 'loading' : 'safety'"></span>
+        {{ bulkInspecting() ? 'Đang kiểm định phi đội...' : 'Đo kiểm nhanh tất cả UAV chưa kiểm định' }}
+      </button>
+    </div>
+  </section>
+
+  <!-- Main Layout: Left = Drone Selection & Info, Right = Measurement & Submission -->
+  <div class="inspection-layout">
+    <!-- Left Column: Drone Selector & Status -->
+    <aside class="sidebar-column">
+      <div class="evn-card">
+        <div class="card-head">
+          <h3>Chọn phương tiện UAV ({{ drones().length }})</h3>
+        </div>
+        <div class="card-body">
+          <div class="filter-pills">
+            <button type="button" [class.active]="filterType() === 'ALL'" (click)="setFilter('ALL')">Tất cả</button>
+            <button type="button" [class.active]="filterType() === 'ATTENTION'" (click)="setFilter('ATTENTION')">Cần chú
+              ý</button>
+            <button type="button" [class.active]="filterType() === 'EXPIRED'" (click)="setFilter('EXPIRED')">Hết
+              hạn</button>
+          </div>
+          <input type="search" class="drone-search-input" placeholder="Tìm theo mã, model, tên UAV..."
+            [value]="droneSearch()" (input)="droneSearch.set($any($event.target).value)" />
+          <div class="drone-select-list">
+            @if (loadingDrones()) {
+            <div class="empty-hint">Đang tải danh sách UAV...</div>
+            } @else if (!filteredDrones().length) {
+            <div class="empty-hint">Không tìm thấy UAV phù hợp.</div>
+            } @else {
+            @for (d of filteredDrones(); track d.id) {
+            <button type="button" class="drone-item-btn" [class.selected]="selectedDroneId() === d.id"
+              (click)="selectDrone(d.id)">
+              <div class="item-head">
+                <span class="code">{{ d.code }}</span>
+                @let badge = inspectionStatusBadge(d);
+                <span class="evn-status {{ statusTone(badge.tone) }}" [title]="badge.label">{{ badge.label }}</span>
+              </div>
+              <div class="item-sub">{{ d.model || d.name || 'UAV' }} · Pin: {{ d.batteryLevel }}%</div>
+            </button>
+            }
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Drone Details -->
+      @if (currentDrone(); as d) {
+      @let insp = getLatestInspection(d.id);
+      <div class="evn-card" style="margin-top: 12px;">
+        <div class="card-head">
+          <h3>Hồ sơ kỹ thuật: {{ d.code }}</h3>
+          <span class="evn-status {{ statusTone(d.operationalStatus) }}">{{ statusLabel(d.operationalStatus) }}</span>
+        </div>
+        <div class="card-body">
+          <dl class="drone-meta-list">
+            <div>
+              <dt>Model:</dt>
+              <dd>{{ d.model || d.name }}</dd>
+            </div>
+            <div>
+              <dt>Khu vực quản lý:</dt>
+              <dd>{{ d.assignedRegionName || 'Chưa phân vùng' }}</dd>
+            </div>
+            <div>
+              <dt>Dung lượng pin hiện tại:</dt>
+              <dd><strong>{{ d.batteryLevel }}%</strong></dd>
+            </div>
+            <div>
+              <dt>Sức khỏe kỹ thuật:</dt>
+              <dd><span class="evn-status {{ statusTone(d.technicalHealth) }}">{{ statusLabel(d.technicalHealth)
+                  }}</span></dd>
+            </div>
+            <div>
+              <dt>Kiểm định gần nhất:</dt>
+              <dd>
+                @if (insp?.completedAt; as completedAt) {
+                {{ completedAt | date:'dd/MM/yyyy HH:mm' }}
+                @if (insp?.technicianName; as techName) {
+                <small style="color: #64748b; display: block;">bởi {{ techName }}</small>
+                }
+                } @else {
+                <span style="color: #64748b;">Chưa có</span>
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Hạn hiệu lực:</dt>
+              <dd>
+                @if (insp?.validUntil; as vu) {
+                <strong>{{ vu | date:'dd/MM/yyyy' }}</strong>
+                @if (isInspectionExpired(insp)) {
+                <span class="evn-status fail" style="margin-left: 6px; font-size: 10px;">Hết hạn</span>
+                } @else {
+                <span class="evn-status pass" style="margin-left: 6px; font-size: 10px;">Còn hiệu lực</span>
+                }
+                } @else {
+                <span style="color: #dc2626; font-weight: 600;">Chưa kiểm định</span>
+                }
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+      }
+    </aside>
+
+    <!-- Right Column: Measurement Workspace & History -->
+    <main class="main-column">
+      @if (currentDrone(); as d) {
+      <div class="evn-card">
+        <div class="card-head">
+          <div class="tab-buttons">
+            <button type="button" class="tab-btn" [class.active]="activeMeasurementTab() === 'manual'"
+              (click)="activeMeasurementTab.set('manual')">
+              <span nz-icon nzType="dashboard"></span>
+              <span>Đo kiểm viễn trắc BIST (Hiện trường)</span>
+            </button>
+            <button type="button" class="tab-btn" [class.active]="activeMeasurementTab() === 'fc'"
+              (click)="activeMeasurementTab.set('fc')">
+              <span nz-icon nzType="usb"></span>
+              <span>Kết nối Flight Controller (Betaflight MSP)</span>
+            </button>
+          </div>
+          <span class="panel-subinfo">Đo kiểm cho: <strong>{{ d.code }}</strong></span>
+        </div>
+
+        <div class="card-body">
+          <!-- Mode 1: Manual BIST Telemetry -->
+          @if (activeMeasurementTab() === 'manual') {
+          <div class="bist-mode-container">
+            <div class="preset-row">
+              <span style="font-size: 11px; font-weight: 600; color: #334155;">Cấu hình mẫu thử nhanh:</span>
+              <div class="preset-buttons">
+                <button type="button" class="preset-btn pass" [class.active]="mockPreset() === 'healthy'"
+                  (click)="setPreset('healthy')">
+                  <span nz-icon nzType="check-circle"></span> Đạt chuẩn (Healthy - 95% Pin, 24 Sats, 98% RF)
+                </button>
+                <button type="button" class="preset-btn warn" [class.active]="mockPreset() === 'warning'"
+                  (click)="setPreset('warning')">
+                  <span nz-icon nzType="warning"></span> Cảnh báo (Warning - 38% Pin, 8 Sats, 65% RF)
+                </button>
+                <button type="button" class="preset-btn fail" [class.active]="mockPreset() === 'critical'"
+                  (click)="setPreset('critical')">
+                  <span nz-icon nzType="close-circle"></span> Nghiêm trọng (Critical - 18% Pin, 3 Sats)
+                </button>
+              </div>
+            </div>
+
+            <div class="telemetry-inputs-grid">
+              <div class="metric-input-card">
+                <label for="inputBattery">Mức pin đo đạc (%):</label>
+                <div class="input-with-unit">
+                  <input id="inputBattery" type="number" min="5" max="100" [value]="batteryLevel()"
+                    (input)="batteryLevel.set(+$any($event.target).value)" />
+                  <span class="unit">%</span>
+                </div>
+                <span class="hint">Ngưỡng an toàn EVN: &ge; 30%</span>
+              </div>
+
+              <div class="metric-input-card">
+                <label for="inputGps">Vệ tinh GPS/RTK kết nối:</label>
+                <div class="input-with-unit">
+                  <input id="inputGps" type="number" min="0" max="36" [value]="gpsSats()"
+                    (input)="gpsSats.set(+$any($event.target).value)" />
+                  <span class="unit">Vệ tinh</span>
+                </div>
+                <span class="hint">Tối thiểu định vị chuẩn: &ge; 6 Sats</span>
+              </div>
+
+              <div class="metric-input-card">
+                <label for="inputRf">Chất lượng sóng RF viễn trắc:</label>
+                <div class="input-with-unit">
+                  <input id="inputRf" type="number" min="10" max="100" [value]="rfQuality()"
+                    (input)="rfQuality.set(+$any($event.target).value)" />
+                  <span class="unit">%</span>
+                </div>
+                <span class="hint">Yêu cầu liên lạc ổn định: &ge; 60%</span>
+              </div>
+
+              <div class="metric-input-card">
+                <label>Trạng thái IMU kép & ESC:</label>
+                <div class="imu-status-badge" [class.fail]="mockPreset() === 'critical'"
+                  [class.pass]="mockPreset() !== 'critical'">
+                  <span nz-icon [nzType]="mockPreset() === 'critical' ? 'alert' : 'safety'"></span>
+                  <span>{{ mockPreset() === 'critical' ? 'Lệch trục IMU / Lỗi ESC' : 'Đồng bộ 3 trục / Đạt 100%'
+                    }}</span>
+                </div>
+                <span class="hint">Kiểm tra cảm biến hồi chuyển & gia tốc</span>
+              </div>
+            </div>
+          </div>
+          }
+
+          <!-- Mode 2: Flight Controller (Betaflight MSP) -->
+          @if (activeMeasurementTab() === 'fc') {
+          <div class="fc-mode-container">
+            <div class="fc-connect-bar">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="evn-btn primary" (click)="connectWebSerial()">
+                  <span nz-icon nzType="usb"></span> Kết nối cổng COM (Web Serial)
+                </button>
+                <span style="font-size: 11px; color: #64748b;">hoặc Mô phỏng FC:</span>
+                <select [value]="selectedSimProfile()" (change)="selectedSimProfile.set($any($event.target).value)"
+                  style="height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px;">
+                  @for (p of simulatedProfiles; track p.id) {
+                  <option [value]="p.id">{{ p.name }} ({{ p.boardIdentifier }})</option>
+                  }
+                </select>
+                <button type="button" class="evn-btn secondary" (click)="connectSimulatedFc()">
+                  <span nz-icon nzType="play-circle"></span> Chạy mô phỏng
+                </button>
+                @if (fcConnectionState() === 'connected') {
+                <button type="button" class="evn-btn secondary" style="color: #dc2626;" (click)="disconnectFc()">
+                  <span nz-icon nzType="disconnect"></span> Ngắt kết nối
+                </button>
+                }
+              </div>
+            </div>
+
+            @if (fcMetadata(); as fc) {
+            <div class="fc-info-card">
+              <div class="fc-info-header">
+                <strong>{{ fc.boardIdentifier || 'Betaflight FC' }} (Firmware: {{ fc.firmwareVersion || 'v4.5'
+                  }})</strong>
+                <span class="fc-uid">UID: {{ fc.uid }}</span>
+              </div>
+              <div class="fc-metrics-grid">
+                <div><span>Thiết bị:</span> <strong>{{ fc.deviceName || 'UAV Flight Controller' }}</strong></div>
+                <div><span>Bo mạch:</span> <strong>{{ fc.boardIdentifier || 'Betaflight' }}</strong></div>
+                <div><span>Firmware:</span> <strong>{{ fc.firmwareName || 'Betaflight' }} {{ fc.firmwareVersion || ''
+                    }}</strong></div>
+                <div><span>Giao thức:</span> <strong>{{ fc.apiVersion || 'MSP v1.45' }}</strong></div>
+              </div>
+              <div class="fc-actions">
+                <button type="button" class="evn-btn primary" [disabled]="pairingFc()"
+                  (click)="pairFcWithCurrentDrone()">
+                  <span nz-icon nzType="link"></span> Ghép nối UID này với UAV {{ d.code }}
+                </button>
+                @if (pairingMessage()) {
+                <span style="color: #166534; font-size: 11px; margin-left: 8px;">{{ pairingMessage() }}</span>
+                }
+              </div>
+            </div>
+            }
+          </div>
+          }
+
+          <!-- 6 Subsystem Checklist -->
+          <div class="checklist-section">
+            <h4 class="section-title">Nội dung biên bản kiểm định 6 hệ thống con (Checklist):</h4>
+            <div class="subsystems-grid">
+              <div class="subsystem-box">
+                <div class="sub-head">1. Khung thân & Cánh quạt</div>
+                <div class="sub-status" [class.fail]="mockPreset() === 'critical'">
+                  {{ mockPreset() === 'critical' ? 'Rung lắc / Nứt gãy' : 'Chắc chắn / Không nứt vỡ' }}
+                </div>
+              </div>
+              <div class="subsystem-box">
+                <div class="sub-head">2. Động cơ &amp; ESC</div>
+                <div class="sub-status" [class.fail]="mockPreset() === 'critical'">
+                  {{ mockPreset() === 'critical' ? 'Lỗi ESC rotor' : 'Quay êm / Tải đồng đều' }}
+                </div>
+              </div>
+              <div class="subsystem-box">
+                <div class="sub-head">3. Nguồn pin &amp; Điện áp</div>
+                <div class="sub-status" [class.fail]="batteryLevel() < 30">
+                  {{ batteryLevel() >= 30 ? (batteryLevel() + '% (Đạt chuẩn)') : (batteryLevel() + '% (Yếu pin)') }}
+                </div>
+              </div>
+              <div class="subsystem-box">
+                <div class="sub-head">4. Cảm biến IMU &amp; Cân bằng</div>
+                <div class="sub-status" [class.fail]="mockPreset() === 'critical'">
+                  {{ mockPreset() === 'critical' ? 'Lệch trục gia tốc' : 'Cân bằng 3 trục chuẩn' }}
+                </div>
+              </div>
+              <div class="subsystem-box">
+                <div class="sub-head">5. Vệ tinh GPS / RTK</div>
+                <div class="sub-status" [class.fail]="gpsSats() < 6">
+                  {{ gpsSats() >= 6 ? (gpsSats() + ' Sats (Định vị 3D)') : (gpsSats() + ' Sats (Mất tín hiệu)') }}
+                </div>
+              </div>
+              <div class="subsystem-box">
+                <div class="sub-head">6. Sóng RF &amp; Viễn trắc</div>
+                <div class="sub-status" [class.fail]="rfQuality() < 60">
+                  {{ rfQuality() >= 60 ? (rfQuality() + '% (Sóng mạnh)') : (rfQuality() + '% (Nhiễu sóng)') }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Technician Notes -->
+          <div class="notes-row">
+            <label for="inspNotes">Ghi chú & kết luận của kỹ thuật viên:</label>
+            <textarea id="inspNotes" rows="2" [value]="notes()" (input)="notes.set($any($event.target).value)"
+              placeholder="Nhập ghi chú tình trạng máy móc, linh kiện thay thế hoặc khuyến nghị..."></textarea>
+          </div>
+
+          <!-- Submit Section -->
+          <div class="submit-footer">
+            <div class="submit-hint">
+              <span nz-icon nzType="info-circle"></span>
+              <span>
+                Biên bản sẽ được ký nhận bởi <strong>{{ currentUser()?.fullName || 'Kỹ thuật viên' }}</strong> và lưu
+                vào CSDL để cập nhật trạng thái UAV ngay lập tức.
+              </span>
+            </div>
+            <button type="button" class="evn-btn primary submit-btn" [disabled]="submitting()"
+              (click)="submitInspection()">
+              @if (submitting()) {
+              <span nz-icon nzType="loading"></span> Đang lưu biên bản...
+              } @else {
+              <span nz-icon nzType="cloud-upload"></span> Lưu & Ký biên bản kiểm định kỹ thuật
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inspection History Panel -->
+      <div class="evn-card" style="margin-top: 14px;">
+        <div class="card-head">
+          <h3>Lịch sử kiểm định kỹ thuật của UAV {{ d.code }} ({{ historyItems().length }})</h3>
+        </div>
+        <div class="card-body">
+          @if (loadingHistory()) {
+          <div class="empty-hint">Đang tải lịch sử kiểm định...</div>
+          } @else if (!historyItems().length) {
+          <div class="empty-hint">Chưa có biên bản kiểm định nào cho UAV này.</div>
+          } @else {
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th scope="col">Thời điểm kiểm định</th>
+                  <th scope="col">Kỹ thuật viên</th>
+                  <th scope="col">Kết quả</th>
+                  <th scope="col">Sức khỏe tổng thể</th>
+                  <th scope="col">Hiệu lực đến</th>
+                  <th scope="col">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of historyItems(); track item.id) {
+                <tr>
+                  <td>{{ item.completedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ item.technicianName || 'Kỹ thuật viên' }}</td>
+                  <td>
+                    <span class="evn-status {{ item.status === 'Passed' ? 'pass' : 'fail' }}">
+                      {{ item.status === 'Passed' ? 'Đạt' : 'Không đạt' }}
+                    </span>
+                  </td>
+                  <td><span class="evn-status {{ statusTone(item.health) }}">{{ statusLabel(item.health) }}</span></td>
+                  <td>{{ item.validUntil ? (item.validUntil | date:'dd/MM/yyyy') : '—' }}</td>
+                  <td class="history-notes">{{ item.notes || '—' }}</td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          }
+        </div>
+      </div>
+      }
+    </main>
+  </div>
+</div>

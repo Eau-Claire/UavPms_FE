@@ -30,7 +30,7 @@ export class AuditApi {
       .pipe(
         map((response) => normalizeAuditLogPage(unwrapApiData(response), filters)),
         catchError((err: unknown) => {
-          // If backend returns 404 (Not Found) or 400 when no records match filter/search, return empty page
+
           if (err instanceof HttpErrorResponse && (err.status === 404 || err.status === 400)) {
             return of({
               items: [],

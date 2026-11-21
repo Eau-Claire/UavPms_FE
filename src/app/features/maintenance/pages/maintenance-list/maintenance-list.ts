@@ -15,9 +15,7 @@ import {
   TicketPriority,
   TicketStatus,
 } from '../../../../models/maintenance.models';
-import { DataState } from '../../../../shared/components/data-state/data-state';
-import { Pagination } from '../../../../shared/components/pagination/pagination';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
 import {
   isClosedStatus,
   isMaintenanceManager,
@@ -25,7 +23,7 @@ import {
   maintenancePriorityTone,
   maintenanceStatusLabel,
   maintenanceStatusTone,
-} from '../../data-access/maintenance-labels';
+} from '../../../../shared/utils/maintenance-labels';
 
 const EMPTY_PAGE: MaintenanceTicketPage = { items: [], totalCount: 0, pageIndex: 0, pageSize: 20 };
 
@@ -35,7 +33,7 @@ const EMPTY_PAGE: MaintenanceTicketPage = { items: [], totalCount: 0, pageIndex:
  */
 @Component({
   selector: 'app-maintenance-list',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule, DataState, Pagination],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule],
   templateUrl: './maintenance-list.html',
   styleUrl: './maintenance-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -90,7 +88,54 @@ export class MaintenanceList {
   protected readonly unassignedCount = computed(() => (this.isManager() ? this.rows().filter((ticket) => this.isUnassigned(ticket)).length : 0));
   protected readonly hasFilters = computed(() => Boolean(this.filterValue().status || this.filterValue().priority));
 
+  protected readonly startIndex = computed(() => {
+    const total = this.isManager() ? this.page().totalCount : this.rows().length;
+    if (!total) return 0;
+    return this.pageIndex() * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.isManager() ? this.page().totalCount : this.rows().length;
+    if (!total) return 0;
+    return Math.min((this.pageIndex() + 1) * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.pageIndex() + 1;
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    const end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly stats = computed(() => {
+    const list = this.rows();
+    const total = this.isManager() ? this.page().totalCount : list.length;
+    return {
+      total,
+      unassigned: this.unassignedCount(),
+      open: list.filter((t) => t.status === 'Open').length,
+      inProgress: list.filter((t) => t.status === 'InProgress').length,
+      pendingVerification: list.filter((t) => t.status === 'PendingVerification').length,
+      closed: list.filter((t) => isClosedStatus(t.status)).length,
+      emergency: list.filter((t) => t.priority === 'Emergency').length,
+    };
+  });
+
   constructor() {
+    try {
+      localStorage.removeItem('uavpms.mock_maintenance_tickets');
+    } catch {
+    }
+
     this.reload$
       .pipe(
         tap(() => {
@@ -118,7 +163,7 @@ export class MaintenanceList {
 
     if (this.isManager()) {
       this.filters.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.goToPage(0));
-      // Names for the technician column (the list endpoint returns only technicianId).
+
       this.api.technicians().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (technicians) => this.technicianNames.set(new Map(technicians.map((technician) => [technician.id, technician.fullName || technician.email]))),
         error: () => this.technicianNames.set(new Map()),

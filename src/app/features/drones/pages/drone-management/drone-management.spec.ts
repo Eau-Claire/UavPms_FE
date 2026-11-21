@@ -5,7 +5,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { DroneManagement } from './drone-management';
-import { DroneManagementApi } from '../../data-access/drone-management-api';
+import { DroneManagementApi } from '../../../../core/services/drone-management-api';
 import { UavRecord } from '../../../../models/drone-management.models';
 import { Auth } from '../../../../core/auth/auth';
 

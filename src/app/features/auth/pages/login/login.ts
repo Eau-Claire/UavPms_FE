@@ -50,6 +50,8 @@ export class Login implements OnInit {
       this.error.set('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
     } else if (errorParam === 'session_expired') {
       this.error.set('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    } else if (errorParam === 'session_terminated' || errorParam === 'session_conflict') {
+      this.error.set('Tài khoản của bạn vừa được đăng nhập trên một thiết bị khác. Phiên làm việc trên thiết bị này đã tự động kết thúc.');
     }
   }
 

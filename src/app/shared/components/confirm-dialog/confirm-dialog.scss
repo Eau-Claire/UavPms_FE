@@ -1,0 +1,142 @@
+:host {
+  display: contents;
+}
+
+.tower-dialog {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  border: 1px solid #cbd8e5;
+  border-radius: 8px;
+  padding: 0;
+  color: #17324d;
+  background: #ffffff;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  overflow: auto;
+  z-index: 1050;
+
+  &::backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+  }
+}
+
+.tower-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 20px;
+
+  h2 {
+    margin: 0;
+    color: #0f2952;
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+.tower-dialog-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #334155;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #f1f5f9;
+  }
+  &:focus-visible {
+    outline: 2px solid #1d4f91;
+  }
+}
+
+.tower-dialog-body {
+  padding: 18px 20px 4px;
+
+  p {
+    margin: 0 0 12px;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+.tower-dialog-error {
+  margin: 0 0 14px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #991b1b !important;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.tower-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 20px;
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 4px;
+    border: 1px solid #cbd8e5;
+    cursor: pointer;
+    text-decoration: none;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #1d4f91;
+      outline-offset: 2px;
+    }
+
+    &.secondary {
+      background: #f8fafc;
+      color: #334155;
+      &:hover {
+        background: #f1f5f9;
+      }
+    }
+
+    &.primary {
+      background: #174f83;
+      border-color: #174f83;
+      color: #ffffff;
+      &:hover {
+        background: #10387d;
+      }
+    }
+
+    &.danger {
+      border-color: #991b1b;
+      background: #991b1b;
+      color: #ffffff;
+      &:hover {
+        background: #7f1d1d;
+      }
+    }
+  }
+}

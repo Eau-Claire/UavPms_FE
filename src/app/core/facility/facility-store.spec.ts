@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { of } from 'rxjs';
 import { ALL_REGIONS, FacilityStore } from './facility-store';
-import { RegionsApi } from '../../features/towers/data-access/regions-api';
+import { RegionsApi } from '../services/regions-api';
 
 describe('FacilityStore', () => {
   let store: FacilityStore;

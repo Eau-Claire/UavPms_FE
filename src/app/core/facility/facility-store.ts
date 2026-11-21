@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { catchError, of } from 'rxjs';
-import { RegionsApi } from '../../features/towers/data-access/regions-api';
+import { RegionsApi } from '../services/regions-api';
 
 /** A selectable working area in the header. After ERD v2.2 these are the regions from GET /regions. */
 export interface FacilityItem {
@@ -50,7 +50,7 @@ export class FacilityStore {
     try {
       localStorage.setItem(STORAGE_KEY, facility.id);
     } catch {
-      // ignore storage access restrictions if any
+      void 0;
     }
   }
 }

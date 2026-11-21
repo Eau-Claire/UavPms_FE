@@ -4,11 +4,11 @@
       <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
         <a routerLink="/missions">NHIỆM VỤ BAY</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>TẠO NHIỆM VỤ (MF02)</strong>
+        <strong>TẠO NHIỆM VỤ</strong>
       </nav>
       <h1>Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi</h1>
       <p>
-        Nhiệm vụ chỉ được tạo từ hồ sơ đánh giá ở trạng thái <strong>READY</strong>. Phạm vi cột, khung giờ bay và danh
+        Nhiệm vụ chỉ được tạo từ hồ sơ đánh giá ở trạng thái <strong>Sẵn sàng</strong>. Phạm vi cột, khung giờ bay và danh
         sách ứng viên nhân sự, drone được kế thừa từ hồ sơ.
       </p>
     </div>
@@ -48,19 +48,14 @@
         <select
           id="assessment-select"
           class="evn-select"
-          [value]="assessment()?.id ?? ''"
+          [value]="selectedAssessmentId()"
           [disabled]="loadingAssessment() || busy()"
           (change)="onAssessmentSelect($event)"
         >
-          <option value="">{{ loadingList() ? 'Đang tải danh sách hồ sơ...' : '-- Chọn hồ sơ READY --' }}</option>
-          @if (assessment(); as a) {
-            @if (!readyAssessmentIds().has(a.id)) {
-              <option [value]="a.id">{{ a.assessmentCode }} · {{ a.regionName }} ({{ a.status }})</option>
-            }
-          }
-          @for (item of readyAssessments(); track item.id) {
-            <option [value]="item.id">
-              {{ item.assessmentCode }} · {{ item.regionName }} · {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }} ({{ item.towers.length }} cột)
+          <option value="">{{ loadingList() ? 'Đang tải danh sách hồ sơ...' : '-- Chọn hồ sơ đánh giá --' }}</option>
+          @for (item of selectableAssessments(); track item.id) {
+            <option [value]="item.id" [selected]="item.id === selectedAssessmentId()">
+              {{ item.assessmentCode }} · {{ item.regionName }} · {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }} ({{ item.towers.length }} cột{{ item.status === 'READY' ? '' : ' - ' + (statusLabel(item.status) || item.status) }})
             </option>
           }
         </select>
@@ -314,14 +309,14 @@
 
       <footer class="workspace-footer">
         <p class="footer-left">
-          Sau khi tạo, nhiệm vụ chuyển sang trạng thái <strong>Chờ thành viên tiếp nhận</strong>, hồ sơ đánh giá chuyển
-          sang <strong>COMPLETED</strong> và các thành viên nhận thông báo.
+          Nhiệm vụ sẽ được khởi tạo ở trạng thái <strong>Bản nháp (Draft)</strong> căn cứ theo hồ sơ đánh giá tiền nhiệm vụ.
+          Quản lý có thể xem lại chi tiết và ban hành nhiệm vụ cho đội bay tiếp nhận.
         </p>
         <div class="footer-right">
           <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
           <button type="submit" class="evn-btn primary" [disabled]="busy() || !isAssessmentUsable()">
-            <span nz-icon [nzType]="busy() ? 'loading' : 'send'" aria-hidden="true"></span>
-            {{ busy() ? 'Đang tạo nhiệm vụ...' : 'Tạo nhiệm vụ' }}
+            <span nz-icon [nzType]="busy() ? 'loading' : 'save'" aria-hidden="true"></span>
+            {{ busy() ? 'Đang lập nhiệm vụ...' : 'Lập nhiệm vụ (Bản nháp)' }}
           </button>
         </div>
       </footer>

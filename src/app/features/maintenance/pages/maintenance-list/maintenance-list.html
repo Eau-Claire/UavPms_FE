@@ -1,125 +1,277 @@
-<header class="page-heading">
-  <div class="heading-left">
-    <div class="page-breadcrumb"><span>VẬN HÀNH</span><span>/</span><strong>PHIẾU BẢO TRÌ</strong></div>
-    <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
-    <p class="review-subtitle">
-      @if (isManager()) {
-        Phiếu sửa chữa sinh ra từ khuyết tật đã xác nhận: giao kỹ thuật viên, theo dõi tiến độ và nghiệm thu.
-      } @else {
-        Các phiếu sửa chữa được giao cho bạn.
-      }
-    </p>
-  </div>
-  <div class="tower-actions">
-    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
-      <span nz-icon nzType="reload" aria-hidden="true"></span><span>Tải lại</span>
-    </button>
-  </div>
-</header>
+<div class="pre-mission-page maintenance-page-container">
+  <!-- TẦNG 1: Header Bar & Breadcrumb -->
+  <header class="pre-mission-head">
+    <div>
+      <div class="pre-mission-breadcrumb">
+        <span>VẬN HÀNH</span>
+        <span class="separator">/</span>
+        <strong>PHIẾU BẢO TRÌ &amp; SỬA CHỮA</strong>
+      </div>
+      <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
+      <p>
+        @if (isManager()) {
+          Phiếu sửa chữa sinh ra từ khuyết tật đã xác nhận: giao kỹ thuật viên, theo dõi tiến độ và nghiệm thu.
+        } @else {
+          Các phiếu sửa chữa được giao cho bạn.
+        }
+      </p>
+    </div>
+    <div class="head-actions">
+      <button type="button" class="evn-btn secondary" aria-label="Tải lại danh sách" (click)="load()" title="Tải lại danh sách">
+        <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span>
+        <span>Tải lại</span>
+      </button>
+    </div>
+  </header>
 
-@if (unassignedCount()) {
-  <div class="tower-banner maintenance-banner-warning" role="status">
-    <span><strong>{{ unassignedCount() }}</strong> phiếu trên trang này chưa được giao kỹ thuật viên. Mở phiếu để giao việc.</span>
-  </div>
-}
+  <!-- TẦNG 2: Feedback Alert -->
+  @if (loadError()) {
+    <div class="evn-alert danger" role="alert">
+      <span nz-icon nzType="close-circle" class="alert-icon" aria-hidden="true"></span>
+      <span class="alert-content">{{ loadError() }}</span>
+      <button type="button" class="alert-close" aria-label="Tải lại" (click)="load()">Thử lại</button>
+    </div>
+  }
 
-<form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
-  <div class="tower-filter">
-    <label for="maintenance-status">Trạng thái</label>
-    <select id="maintenance-status" formControlName="status">
-      <option value="">Tất cả trạng thái</option>
-      @for (status of statuses; track status) {
-        <option [value]="status">{{ statusLabel(status) }}</option>
-      }
-    </select>
-  </div>
-  <div class="tower-filter">
-    <label for="maintenance-priority">Mức ưu tiên</label>
-    <select id="maintenance-priority" formControlName="priority">
-      <option value="">Tất cả mức</option>
-      @for (priority of priorities; track priority) {
-        <option [value]="priority">{{ priorityLabel(priority) }}</option>
-      }
-    </select>
-  </div>
-  @if (isManager()) {
-    <div class="tower-filter">
-      <label for="maintenance-page-size">Số dòng / trang</label>
-      <select id="maintenance-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
-        @for (size of pageSizes; track size) {
-          <option [value]="size">{{ size }}</option>
+  @if (unassignedCount()) {
+    <div class="evn-alert warning" role="status">
+      <span nz-icon nzType="warning" class="alert-icon" aria-hidden="true"></span>
+      <span><strong>{{ unassignedCount() }}</strong> phiếu trên trang này chưa được giao kỹ thuật viên. Mở phiếu để giao việc.</span>
+    </div>
+  }
+
+  <!-- TẦNG 3: Filter Toolbar -->
+  <form class="pre-mission-filters" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
+    <div class="filter-item">
+      <span class="filter-label">Trạng thái:</span>
+      <select id="maintenance-status" formControlName="status" aria-label="Lọc theo trạng thái">
+        <option value="">Tất cả trạng thái</option>
+        @for (status of statuses; track status) {
+          <option [value]="status">{{ statusLabel(status) }}</option>
         }
       </select>
     </div>
-  }
-  <div class="tower-actions">
-    <button type="button" class="button secondary" [disabled]="!hasFilters()" (click)="resetFilters()">Đặt lại</button>
-  </div>
-</form>
 
-<section class="tower-card" aria-labelledby="maintenance-table-caption">
-  @if (loading() && !rows().length) {
-    <app-data-state kind="loading" title="Đang tải phiếu bảo trì" />
-  } @else if (loadError()) {
-    <app-data-state kind="error" [message]="loadError()" (retry)="load()" />
-  } @else if (!rows().length) {
-    <app-data-state
-      kind="empty"
-      title="Không có phiếu bảo trì"
-      [message]="hasFilters() ? 'Không có phiếu phù hợp với bộ lọc.' : isManager() ? 'Chưa có phiếu bảo trì nào.' : 'Bạn chưa được giao phiếu bảo trì nào.'"
-    />
-  } @else {
-    <div class="tower-table-wrap" [attr.aria-busy]="loading()">
-      <table class="tower-table maintenance-table">
-        <caption id="maintenance-table-caption" class="sr-only">{{ isManager() ? 'Danh sách phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</caption>
+    <div class="filter-item">
+      <span class="filter-label">Mức ưu tiên:</span>
+      <select id="maintenance-priority" formControlName="priority" aria-label="Lọc theo mức ưu tiên">
+        <option value="">Tất cả mức</option>
+        @for (priority of priorities; track priority) {
+          <option [value]="priority">{{ priorityLabel(priority) }}</option>
+        }
+      </select>
+    </div>
+
+    @if (isManager()) {
+      <div class="filter-item">
+        <span class="filter-label">Hiển thị:</span>
+        <select
+          id="maintenance-page-size"
+          [value]="pageSize()"
+          (change)="changePageSize($any($event.target).value)"
+          aria-label="Số dòng mỗi trang"
+        >
+          @for (size of pageSizes; track size) {
+            <option [value]="size">{{ size }} / trang</option>
+          }
+        </select>
+      </div>
+    }
+
+    <button type="button" class="evn-btn secondary" (click)="load()" [disabled]="loading()" title="Tải lại danh sách">
+      <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span> Làm mới
+    </button>
+
+    @if (hasFilters()) {
+      <button type="button" class="evn-btn secondary" (click)="resetFilters()" title="Đặt lại bộ lọc">
+        <span nz-icon nzType="clear" aria-hidden="true"></span> Đặt lại
+      </button>
+    }
+  </form>
+
+  <!-- TẦNG 4: Summary Metric Strip -->
+  <div class="pre-mission-summary-strip" aria-label="Thống kê phiếu bảo trì">
+    <div class="summary-item">
+      <span class="summary-val">{{ stats().total }}</span>
+      <span class="summary-label">Tổng phiếu</span>
+    </div>
+    @if (isManager()) {
+      <div class="summary-item">
+        <span class="summary-val">{{ stats().unassigned }}</span>
+        <span class="summary-label">Chưa giao việc</span>
+      </div>
+    }
+    <div class="summary-item">
+      <span class="summary-val">{{ stats().open }}</span>
+      <span class="summary-label">Chờ xử lý</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-val">{{ stats().inProgress }}</span>
+      <span class="summary-label">Đang sửa chữa</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-val">{{ stats().pendingVerification }}</span>
+      <span class="summary-label">Chờ nghiệm thu</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-val">{{ stats().emergency }}</span>
+      <span class="summary-label">Khẩn cấp</span>
+    </div>
+  </div>
+
+  <!-- TẦNG 5 & 6: Dense Bordered Table Card & Pagination -->
+  <div class="pre-mission-table-card" [attr.aria-busy]="loading()">
+    <div class="table-scroll">
+      <table>
+        <caption id="maintenance-table-caption" class="sr-only">
+          {{ isManager() ? 'Danh sách phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}
+        </caption>
         <thead>
           <tr>
-            <th scope="col" class="th-m-code">Mã phiếu</th>
-            <th scope="col" class="th-m-desc">Sự cố</th>
-            <th scope="col" class="th-m-priority">Ưu tiên</th>
-            <th scope="col" class="th-m-status">Trạng thái</th>
-            <th scope="col" class="th-m-tech">Kỹ thuật viên</th>
-            <th scope="col" class="th-m-date">Hạn xử lý</th>
-            <th scope="col" class="th-m-date">Ngày tạo</th>
-            <th scope="col" class="th-m-actions"><span class="sr-only">Thao tác</span></th>
+            <th scope="col" style="width: 170px;">Mã phiếu</th>
+            <th scope="col">Sự cố &amp; Vị trí cột</th>
+            <th scope="col" style="width: 110px; text-align: center;">Ưu tiên</th>
+            <th scope="col" style="width: 130px; text-align: center;">Trạng thái</th>
+            <th scope="col" style="width: 170px;">Kỹ thuật viên</th>
+            <th scope="col" style="width: 120px;">Hạn xử lý</th>
+            <th scope="col" style="width: 100px;">Ngày tạo</th>
+            <th scope="col" style="width: 50px; text-align: right;"><span class="sr-only">Thao tác</span></th>
           </tr>
         </thead>
         <tbody>
-          @for (ticket of rows(); track ticket.id) {
-            <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
-              <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
-              <td class="td-m-desc" [title]="ticket.description">
-                <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
-                @if (ticket.tower) { <span class="tower-muted maintenance-sub">Cột {{ ticket.tower.towerCode }}</span> }
-              </td>
-              <td><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
-              <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
-              <td class="td-m-tech">
-                @if (ticket.technicianId) {
-                  {{ technicianName(ticket) }}
-                } @else {
-                  <span class="maintenance-unassigned">Chưa giao</span>
-                }
-              </td>
-              <td [class.maintenance-overdue]="isOverdue(ticket)">
-                {{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}
-                @if (isOverdue(ticket)) { <span class="maintenance-sub">Quá hạn</span> }
-              </td>
-              <td>{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
-              <td class="td-m-actions">
-                <a class="tower-icon-button" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
-                  <span nz-icon nzType="right" aria-hidden="true"></span>
-                </a>
+          @if (loading() && !rows().length) {
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <span nz-icon nzType="loading" [nzSpin]="true"></span> Đang tải danh sách phiếu bảo trì...
               </td>
             </tr>
+          } @else if (!rows().length) {
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <span nz-icon nzType="inbox" style="font-size: 24px; color: #94a3b8;"></span>
+                <p>
+                  {{ hasFilters() ? 'Không có phiếu phù hợp với bộ lọc.' : isManager() ? 'Chưa có phiếu bảo trì nào.' : 'Bạn chưa được giao phiếu bảo trì nào.' }}
+                </p>
+              </td>
+            </tr>
+          } @else {
+            @for (ticket of rows(); track ticket.id) {
+              <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
+                <!-- Mã phiếu -->
+                <td class="td-m-code" [title]="ticket.ticketCode || ''">
+                  <a class="evn-code" [routerLink]="['/maintenance', ticket.id]">
+                    {{ ticket.ticketCode || 'Phiếu' }}
+                  </a>
+                </td>
+
+                <!-- Sự cố & Vị trí cột -->
+                <td class="td-m-desc" [title]="(ticket.description || '') + (ticket.tower ? ' (Cột ' + ticket.tower.towerCode + ')' : '')">
+                  <div class="desc-cell">
+                    <strong>{{ ticket.description || '—' }}</strong>
+                    @if (ticket.tower) {
+                      <span class="maintenance-sub">Cột {{ ticket.tower.towerCode }}</span>
+                    }
+                  </div>
+                </td>
+
+                <!-- Mức ưu tiên -->
+                <td style="text-align: center;">
+                  <span class="evn-status" [class]="priorityTone(ticket.priority)">
+                    {{ priorityLabel(ticket.priority) }}
+                  </span>
+                </td>
+
+                <!-- Trạng thái -->
+                <td style="text-align: center;">
+                  <span class="evn-status" [class]="statusTone(ticket.status)">
+                    {{ statusLabel(ticket.status) }}
+                  </span>
+                </td>
+
+                <!-- Kỹ thuật viên -->
+                <td class="td-m-tech" [title]="ticket.technicianId ? technicianName(ticket) : 'Chưa giao kỹ thuật viên'">
+                  @if (ticket.technicianId) {
+                    <span class="maintenance-tech-name">{{ technicianName(ticket) }}</span>
+                  } @else {
+                    <span class="maintenance-unassigned">Chưa giao</span>
+                  }
+                </td>
+
+                <!-- Hạn xử lý -->
+                <td class="td-m-due">
+                  <div class="due-cell">
+                    <span class="due-date" [class.overdue-text]="isOverdue(ticket)">
+                      {{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}
+                    </span>
+                    @if (isOverdue(ticket)) {
+                      <span class="overdue-chip">Quá hạn</span>
+                    }
+                  </div>
+                </td>
+
+                <!-- Ngày tạo -->
+                <td class="td-m-created">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
+
+                <!-- Thao tác -->
+                <td style="text-align: right;">
+                  <a
+                    class="evn-btn secondary small"
+                    [routerLink]="['/maintenance', ticket.id]"
+                    [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode"
+                    title="Xem chi tiết phiếu"
+                  >
+                    <span nz-icon nzType="right" aria-hidden="true"></span>
+                  </a>
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
     </div>
-    @if (isManager()) {
-      <div class="tower-footer">
-        <app-pagination [page]="pageIndex() + 1" [totalPages]="totalPages()" [totalCount]="page().totalCount" (pageChanged)="goToPage($event - 1)" />
-      </div>
-    }
-  }
-</section>
+
+    <!-- TẦNG 6: Table Footer & Pagination -->
+    <footer>
+      @if (isManager()) {
+        <span class="page-info">
+          Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ stats().total }} phiếu bảo trì
+        </span>
+        <nav class="evn-pagination" aria-label="Phân trang phiếu bảo trì">
+          <button
+            type="button"
+            class="page-btn"
+            [disabled]="pageIndex() <= 0"
+            (click)="goToPage(pageIndex() - 1)"
+            aria-label="Trang trước"
+          >
+            <span nz-icon nzType="left" aria-hidden="true"></span>
+          </button>
+          @for (btn of pageButtons(); track btn) {
+            <button
+              type="button"
+              class="page-btn"
+              [class.active]="btn === pageIndex() + 1"
+              (click)="goToPage(btn - 1)"
+              [attr.aria-current]="btn === pageIndex() + 1 ? 'page' : null"
+            >
+              {{ btn }}
+            </button>
+          }
+          <button
+            type="button"
+            class="page-btn"
+            [disabled]="pageIndex() + 1 >= totalPages()"
+            (click)="goToPage(pageIndex() + 1)"
+            aria-label="Trang sau"
+          >
+            <span nz-icon nzType="right" aria-hidden="true"></span>
+          </button>
+        </nav>
+      } @else {
+        <span class="page-info">
+          Hiển thị {{ rows().length }} phiếu bảo trì được giao cho bạn
+        </span>
+      }
+    </footer>
+  </div>
+</div>

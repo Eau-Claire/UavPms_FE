@@ -6,7 +6,6 @@ import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzNotificationService } from 'ng-zorro-antd/notification';
@@ -15,8 +14,8 @@ import { NzTableModule } from 'ng-zorro-antd/table';
 import { Auth } from '../../../../core/auth/auth';
 import { isAdminRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
-import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
-import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
+import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { alertErrorMessage, EmergencyAlertsApi } from '../../../../core/services/emergency-alerts-api';
 import {
   ActiveEmergencyAlert,
   ALERT_PRIORITY_LABELS,
@@ -26,7 +25,7 @@ import {
   EmergencyAlertDetail,
   EmergencyAlertHistoryPage,
   EscalationTarget,
-} from '../../models/emergency-alert.models';
+} from '../../../../models/emergency-alert.models';
 
 interface BoundingBoxStyle {
   readonly left: number;
@@ -60,7 +59,6 @@ export const URGENCY_LEVELS = [
     NzIconModule,
     NzButtonModule,
     NzTagModule,
-    NzModalModule,
     NzInputModule,
     NzSelectModule,
     NzTableModule,
@@ -84,7 +82,6 @@ export class EmergencyAlertsReview {
 
   protected readonly selectedTab = signal<'active' | 'history'>('active');
 
-  // --- Active alerts (GET /alerts/active) ---
   protected readonly activeAlerts = this.api.activeAlerts;
   protected readonly activeCount = this.api.activeCount;
   protected readonly activeLoading = signal(false);
@@ -97,28 +94,23 @@ export class EmergencyAlertsReview {
     return alerts.find((a) => a.id === id) ?? alerts[0] ?? null;
   });
 
-  // --- History (GET /alerts?status&page&pageSize) ---
   protected readonly historyStatus = this.fb.nonNullable.control<AlertStatus | ''>('');
   protected readonly historyPage = signal<EmergencyAlertHistoryPage>({ totalCount: 0, page: 1, pageSize: 10, items: [] });
   protected readonly historyLoading = signal(false);
   protected readonly historyError = signal('');
 
-  // --- Detail modal (GET /alerts/{id}) ---
   protected readonly detail = signal<EmergencyAlertDetail | null>(null);
   protected readonly detailLoading = signal(false);
 
-  // --- Permissions ---
   protected readonly user = computed(() => this.auth.user());
-  /** `PUT /alerts/{id}/review` and `POST /alerts/{id}/escalate`: SystemAdmin, Manager, Analyst. */
-  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.emergencyAlerts));
+  /** Chỉ tài khoản Analyst mới có quyền xác nhận hoặc bác bỏ cảnh báo khẩn cấp. */
+  protected readonly canReview = computed(() => this.user()?.role?.toLowerCase() === 'analyst');
 
-  // --- Evidence viewer ---
   protected readonly zoomLevel = signal(1);
   protected readonly showBoundingBox = signal(true);
   protected readonly imgNaturalWidth = signal(0);
   protected readonly imgNaturalHeight = signal(0);
 
-  // --- Actions ---
   protected readonly actionBusy = signal(false);
   protected readonly isConfirmModalVisible = signal(false);
   protected readonly isDismissModalVisible = signal(false);
@@ -220,11 +212,9 @@ export class EmergencyAlertsReview {
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
     } catch {
-      // Audio is blocked until the user interacts with the page; the toast is enough.
     }
   }
 
-  // --- Selection & evidence viewer ---
   protected selectAlert(alert: ActiveEmergencyAlert): void {
     this.selectedAlertId.set(alert.id);
     this.zoomLevel.set(1);
@@ -268,6 +258,32 @@ export class EmergencyAlertsReview {
     };
   }
 
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'Active':
+        return 'danger';
+      case 'Confirmed':
+        return 'success';
+      case 'Dismissed':
+        return 'neutral';
+      case 'Escalated':
+        return 'warning';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected priorityTone(priority: string): string {
+    switch (priority) {
+      case 'Critical':
+        return 'danger';
+      case 'High':
+        return 'warning';
+      default:
+        return 'info';
+    }
+  }
+
   protected statusColor(status: AlertStatus): string {
     if (status === 'Confirmed') return 'success';
     if (status === 'Escalated') return 'error';
@@ -275,7 +291,6 @@ export class EmergencyAlertsReview {
     return 'default';
   }
 
-  // --- Confirm ---
   protected openConfirmModal(): void {
     if (!this.canReview()) return;
     this.confirmForm.reset();
@@ -294,7 +309,6 @@ export class EmergencyAlertsReview {
     );
   }
 
-  // --- Dismiss ---
   protected openDismissModal(): void {
     if (!this.canReview()) return;
     this.dismissForm.reset();
@@ -337,7 +351,6 @@ export class EmergencyAlertsReview {
       });
   }
 
-  // --- Escalate ---
   protected openEscalateModal(): void {
     if (!this.canReview()) return;
     this.escalateError.set('');
@@ -347,7 +360,7 @@ export class EmergencyAlertsReview {
   }
 
   private loadEscalationTargets(): void {
-    // `GET /users` is SystemAdmin-only: other roles enter the recipient's ID instead of getting a 403.
+
     if (!isAdminRole(this.user()?.role)) {
       this.escalationTargets.set([]);
       this.escalationTargetsUnavailable.set(true);
@@ -410,7 +423,6 @@ export class EmergencyAlertsReview {
       });
   }
 
-  // --- Detail modal ---
   protected viewDetail(id: string): void {
     this.detailLoading.set(true);
     this.api

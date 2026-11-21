@@ -10,7 +10,7 @@ import { HttpErrorResponse } from '@angular/common/http';
  * English text for them.
  */
 export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
-  // --- Quyền và phạm vi ---
+
   REGION_MANAGEMENT_SCOPE_REQUIRED:
     'Bạn không có phạm vi quản lý khu vực này. Chỉ Quản trị hệ thống hoặc Quản lý được giao khu vực mới thực hiện được thao tác.',
   ASSESSMENT_ACCESS_DENIED: 'Bạn không có quyền thao tác trên hồ sơ đánh giá này.',
@@ -26,7 +26,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   USER_NOT_ASSIGNED_TO_MISSION: 'Bạn không phải thành viên của nhiệm vụ này.',
   RECEIVER_NOT_ASSIGNED: 'Người nhận bàn giao không phải thành viên của nhiệm vụ.',
 
-  // --- MF01: hồ sơ đánh giá tiền nhiệm vụ ---
   ASSESSMENT_CANCELLED: 'Hồ sơ đánh giá đã bị hủy trước đó, không thể thao tác tiếp.',
   ASSESSMENT_EXPIRED: 'Hồ sơ đánh giá đã hết hạn hiệu lực (khung giờ bay đã qua). Vui lòng lập hồ sơ mới.',
   ASSESSMENT_ALREADY_COMPLETED: 'Hồ sơ đánh giá đã được dùng để tạo nhiệm vụ bay, không thể thao tác tiếp.',
@@ -47,7 +46,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   MISSION_REQUIRED: 'Cần cung cấp nhiệm vụ hợp lệ.',
   INVALID_MISSION_REFERENCE: 'Nhiệm vụ được tham chiếu không thuộc hồ sơ đánh giá này.',
 
-  // --- MF01: kiểm định kỹ thuật UAV ---
   METRICS_REQUIRED: 'Biên bản kiểm định cần ít nhất một chỉ số đo kiểm. Vui lòng nhập kết quả checklist trước khi gửi.',
   DUPLICATE_METRIC: 'Biên bản kiểm định có chỉ số bị trùng lặp.',
   DRONE_ID_MISMATCH: 'Mã UAV trong biên bản không khớp với UAV đang kiểm định.',
@@ -58,7 +56,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     'UAV chưa có biên bản kiểm định kỹ thuật còn hiệu lực tại thời điểm bay. Kỹ thuật viên cần kiểm định UAV.',
   UAV_TECHNICAL_INSPECTION_EXPIRED: 'Biên bản kiểm định kỹ thuật của UAV đã hết hạn. Kỹ thuật viên cần kiểm định lại.',
 
-  // --- MF02: tạo nhiệm vụ ---
   MULTIPLE_DRONES_NOT_SUPPORTED: 'Mỗi nhiệm vụ chỉ bay một UAV. Vui lòng chọn đúng một UAV chính.',
   DUPLICATE_PERSONNEL: 'Một nhân sự đang được chọn nhiều lần.',
   DUPLICATE_DRONE: 'Một UAV đang được chọn nhiều lần.',
@@ -75,7 +72,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   MANAGER_INSTRUCTIONS_TOO_LONG: 'Chỉ thị của quản lý tối đa 2.000 ký tự.',
   EMERGENCY_REASON_REQUIRED: 'Lý do khẩn cấp bắt buộc nhập tối thiểu 10 ký tự khi chọn mức ưu tiên Khẩn cấp.',
 
-  // --- MF02: phân công ---
   ASSIGNMENT_ID_REQUIRED: 'Thiếu phân công cần thay thế.',
   ASSIGNEE_ALREADY_ASSIGNED: 'Nhân sự được chọn đã là thành viên của nhiệm vụ.',
   DUPLICATE_ASSIGNMENT: 'Nhân sự này đã có phân công đang hoạt động trong nhiệm vụ.',
@@ -83,7 +79,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   POSTPONE_REASON_REQUIRED: 'Vui lòng nhập lý do xin hoãn.',
   MISSION_IMMUTABLE_AFTER_START: 'Nhiệm vụ đã bắt đầu bay (kể cả khi đang tạm dừng) nên không thể thay đổi nhân sự, UAV, cột hay mức ưu tiên.',
 
-  // --- MF02/MF03: vòng đời và bắt đầu bay ---
   INVALID_MISSION_STATE: 'Trạng thái hiện tại của nhiệm vụ không cho phép thao tác này. Vui lòng tải lại nhiệm vụ.',
   REQUIRED_ACCEPTANCE_PENDING: 'Chưa thể bắt đầu bay: còn thành viên bắt buộc chưa chấp nhận nhiệm vụ.',
   MISSION_START_TOO_EARLY: 'Chưa đến khung giờ cho phép bắt đầu bay (sớm nhất 2 giờ trước giờ bay dự kiến).',
@@ -104,7 +99,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   RETURN_HANDOVER_INVALID_STATE: 'Chỉ hoàn trả UAV khi nhiệm vụ đang bay, đã hoàn thành hoặc đã hủy.',
   MISSION_NOT_FOUND: 'Không tìm thấy nhiệm vụ.',
 
-  // --- Xung đột dữ liệu (409) ---
   RESOURCE_BOOKING_CONFLICT: 'Nhân sự hoặc UAV đã bị đặt lịch trùng khung giờ. Vui lòng chọn nguồn lực khác hoặc đánh giá lại.',
   DUPLICATE_CHECK_IN: 'Bạn đã check-in nhiệm vụ này rồi.',
   DUPLICATE_HANDOVER: 'UAV đang có một biên bản bàn giao chưa đóng.',

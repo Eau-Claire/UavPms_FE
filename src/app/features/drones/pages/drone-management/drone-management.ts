@@ -12,7 +12,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { DroneManagementApi } from '../../data-access/drone-management-api';
+import { DroneManagementApi } from '../../../../core/services/drone-management-api';
 import {
   BasicTechnicalCheckRequest,
   CreateUavRequest,
@@ -51,7 +51,6 @@ export class DroneManagement {
   /** `POST/PUT /drones` and `POST /drones/{id}/basic-technical-check`: managers and technicians. Others read only. */
   protected readonly canEditDrone = computed(() => this.canManageFleet() || isTechnicianRole(this.auth.user()?.role));
 
-  // Technical-inspection history (`GET /drones/{id}/technical-inspections`, every role)
   protected readonly historyDrone = signal<UavRecord | null>(null);
   protected readonly historyItems = signal<readonly DroneTechnicalInspectionSummaryDto[]>([]);
   protected readonly historyLoading = signal(false);
@@ -65,12 +64,10 @@ export class DroneManagement {
   protected readonly error = signal('');
   protected readonly successMessage = signal('');
 
-  // Filters
   protected readonly search = signal('');
   protected readonly statusFilter = signal<UavOperationalStatus | ''>('');
   protected readonly healthFilter = signal<UavTechnicalHealth | ''>('');
 
-  // Modals state
   protected readonly modalOpen = signal(false);
   protected readonly editingDrone = signal<UavRecord | null>(null);
 
@@ -81,7 +78,6 @@ export class DroneManagement {
   protected readonly gisBusy = signal(false);
   protected readonly gisResult = signal<GisDroneEstimationResult | null>(null);
 
-  // Statistics
   protected readonly stats = computed(() => {
     const list = this.drones();
     return {
@@ -95,7 +91,6 @@ export class DroneManagement {
     };
   });
 
-  // Filtered List
   protected readonly filteredDrones = computed(() => {
     const term = this.search().trim().toLowerCase();
     const st = this.statusFilter();
@@ -113,7 +108,96 @@ export class DroneManagement {
     });
   });
 
-  // Drone Create / Edit Form
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly pageSizes = [10, 20, 50] as const;
+
+  protected readonly totalItems = computed(() => this.filteredDrones().length);
+  protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalItems() / this.pageSize())));
+
+  protected readonly pagedDrones = computed(() => {
+    const start = (this.page() - 1) * this.pageSize();
+    return this.filteredDrones().slice(start, start + this.pageSize());
+  });
+
+  protected readonly startIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return (this.page() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return Math.min(this.page() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.page();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    const end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.statusFilter() || this.healthFilter())
+  );
+
+  protected goToPage(page: number): void {
+    this.page.set(Math.max(1, Math.min(page, this.totalPages())));
+  }
+
+  protected changePageSize(size: string | number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.goToPage(1);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.statusFilter.set('');
+    this.healthFilter.set('');
+    this.goToPage(1);
+  }
+
+  protected operationalStatusTone(status: string): string {
+    switch (status) {
+      case 'Available':
+        return 'success';
+      case 'InUse':
+      case 'Reserved':
+        return 'info';
+      case 'Maintenance':
+        return 'warning';
+      case 'Unavailable':
+      case 'Lost':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected technicalHealthTone(health: string): string {
+    switch (health) {
+      case 'Healthy':
+        return 'success';
+      case 'Warning':
+        return 'warning';
+      case 'Critical':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
   protected readonly droneForm = this.fb.nonNullable.group({
     code: ['', Validators.required],
     name: ['', Validators.required],
@@ -129,7 +213,6 @@ export class DroneManagement {
     technicalHealth: ['Unknown' as UavTechnicalHealth],
   });
 
-  // Basic Technical Check Form (8 Items)
   protected readonly checkForm = this.fb.nonNullable.group({
     frameBodyPassed: [true],
     frameBodyNotes: [''],
@@ -159,7 +242,6 @@ export class DroneManagement {
     notes: ['Kiểm định tiền bay đạt điều kiện khai thác an toàn.'],
   });
 
-  // GIS Drone Scope Estimation Form
   protected readonly gisForm = this.fb.nonNullable.group({
     corridorLengthKm: [5.0, [Validators.required, Validators.min(0.1)]],
     assetCount: [12, [Validators.required, Validators.min(1)]],
@@ -184,7 +266,6 @@ export class DroneManagement {
       });
   }
 
-  // --- CRUD Actions ---
   protected openCreate(): void {
     this.editingDrone.set(null);
     this.droneForm.reset({
@@ -334,7 +415,6 @@ export class DroneManagement {
       });
   }
 
-  // --- Technical inspection history ---
   protected openHistory(drone: UavRecord): void {
     this.historyDrone.set(drone);
     this.historyItems.set([]);
@@ -356,7 +436,6 @@ export class DroneManagement {
     this.historyDrone.set(null);
   }
 
-  // --- Basic Technical Check Modal ---
   protected openTechCheck(drone: UavRecord): void {
     this.targetDroneForCheck.set(drone);
     const fc = drone.activeFlightController;
@@ -459,7 +538,7 @@ export class DroneManagement {
       .subscribe({
         next: (res) => {
           this.closeTechCheck();
-          this.loadDrones(); // refresh to get updated technical health and inspection summary
+          this.loadDrones();
           this.showNotification(
             `Đã lưu kiểm định cho ${drone.code}: Kết quả ${res?.status || 'Hoàn tất'} - Sức khỏe kỹ thuật: ${res?.health || 'Cập nhật'}.`,
           );
@@ -470,7 +549,6 @@ export class DroneManagement {
       });
   }
 
-  // --- GIS Scope & Drone Estimation ---
   protected openGisModal(): void {
     this.gisModalOpen.set(true);
     this.runGisEstimation();
@@ -501,7 +579,6 @@ export class DroneManagement {
       });
   }
 
-  // --- Helpers ---
   protected statusBadgeClass(status: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'AVAILABLE') return 'badge-available';

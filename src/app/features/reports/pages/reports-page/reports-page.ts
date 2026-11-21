@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -41,7 +41,6 @@ export class ReportsPage implements OnInit {
   protected readonly typeLabels = REPORT_TYPE_LABELS;
   protected readonly reportTypes = Object.keys(REPORT_TYPE_LABELS) as ReportType[];
 
-  // State signals
   protected readonly reports = signal<readonly ReportItem[]>([]);
   protected readonly isLoading = signal(false);
   protected readonly isDownloading = signal<string | null>(null);
@@ -49,15 +48,80 @@ export class ReportsPage implements OnInit {
   protected readonly toastMessage = signal<string | null>(null);
   protected readonly toastType = signal<'success' | 'error' | 'info'>('success');
 
-  // Filter signals
   protected readonly searchQuery = signal('');
   protected readonly selectedType = signal('all');
   protected readonly selectedStatus = signal('all');
   protected readonly selectedRegionId = signal('');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = signal(10);
+  protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly totalItems = signal(0);
   protected readonly totalPages = signal(1);
+
+  protected readonly startIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return (this.currentPage() - 1) * this.pageSize() + 1;
+  });
+
+  protected readonly endIndex = computed(() => {
+    const total = this.totalItems();
+    if (!total) return 0;
+    return Math.min(this.currentPage() * this.pageSize(), total);
+  });
+
+  protected readonly pageButtons = computed(() => {
+    const total = this.totalPages();
+    const curr = this.currentPage();
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
+    const end = Math.min(total, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(1, end - maxButtons + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(
+      this.searchQuery().trim() ||
+        this.selectedType() !== 'all' ||
+        this.selectedStatus() !== 'all' ||
+        this.selectedRegionId(),
+    ),
+  );
+
+  protected changePageSize(size: string | number): void {
+    this.pageSize.set(Number(size) || 10);
+    this.currentPage.set(1);
+    this.loadReports();
+  }
+
+  protected resetFilters(): void {
+    this.searchQuery.set('');
+    this.selectedType.set('all');
+    this.selectedStatus.set('all');
+    this.selectedRegionId.set('');
+    this.currentPage.set(1);
+    this.loadReports();
+  }
+
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'draft':
+        return 'neutral';
+      default:
+        return 'neutral';
+    }
+  }
 
   protected readonly stats = signal<ReportStatistics>({
     total: 0,
@@ -67,7 +131,6 @@ export class ReportsPage implements OnInit {
 
   protected readonly regions = signal<readonly RegionOption[]>([]);
 
-  // Create modal
   protected readonly isCreateModalOpen = signal(false);
   protected readonly createForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],

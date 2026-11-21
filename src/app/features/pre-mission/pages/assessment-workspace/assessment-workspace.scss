@@ -351,15 +351,48 @@
   }
 }
 
-:host ::ng-deep .evn-map-tooltip {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 4px;
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+:host ::ng-deep {
+  .tower-pin-wrapper {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .evn-tower-pin {
+    width: 24px;
+    height: 24px;
+    background: #003f99;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 47, 114, 0.45);
+    transition: transform 0.15s ease;
+    cursor: pointer;
+
+    &:hover {
+      transform: scale(1.15);
+      background: #0284c7;
+    }
+
+    .pin-number {
+      line-height: 1;
+    }
+  }
+
+  .evn-map-tooltip {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    background: rgba(15, 23, 42, 0.88);
+    color: #ffffff;
+    border: none;
+    border-radius: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  }
 }
 
 

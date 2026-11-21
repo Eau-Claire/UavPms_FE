@@ -142,7 +142,7 @@ export const SIMULATED_FC_PROFILES: readonly SimulatedFcProfile[] = [
   },
   {
     id: 'unregistered-new-fc',
-    name: 'Flight Controller Mới Chưa Đăng Ký (Unregistered)',
+    name: 'Bộ điều khiển bay mới chưa đăng ký',
     uid: 'BF-NEW-FC-UNPAIRED-99',
     boardIdentifier: 'MATEKF405TE',
     firmwareName: 'Betaflight',
@@ -176,7 +176,7 @@ export class BetaflightSerialService {
 
   async connectRealSerial(): Promise<FlightControllerMetadata> {
     if (!this.isWebSerialSupported()) {
-      const err = 'Trình duyệt của bạn không hỗ trợ Web Serial API. Vui lòng sử dụng Google Chrome hoặc Edge, hoặc dùng chế độ Giả lập (Simulator).';
+      const err = 'Trình duyệt của bạn không hỗ trợ Web Serial API. Vui lòng sử dụng Google Chrome hoặc Edge, hoặc dùng chế độ Giả lập.';
       this.errorMessage.set(err);
       this.connectionState.set('error');
       throw new Error(err);
@@ -190,9 +190,9 @@ export class BetaflightSerialService {
       const nav = navigator as any;
       this.port = await nav.serial.requestPort({
         filters: [
-          { usbVendorId: 0x0483 }, // STMicroelectronics
-          { usbVendorId: 0x2e3c }, // USB-VCP
-          { usbVendorId: 0x1209 }, // pid.codes open-source hardware
+          { usbVendorId: 0x0483 }, 
+          { usbVendorId: 0x2e3c }, 
+          { usbVendorId: 0x1209 }, 
         ],
       });
 
@@ -268,7 +268,6 @@ export class BetaflightSerialService {
         this.port = null;
       }
     } catch {
-      // Ignore cleanup error
     } finally {
       this.connectionState.set('disconnected');
       this.activeMetadata.set(null);

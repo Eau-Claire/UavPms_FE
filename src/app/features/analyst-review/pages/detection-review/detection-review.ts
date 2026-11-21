@@ -12,10 +12,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { finalize } from 'rxjs';
+import { catchError, finalize, map } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
-import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
+import { alertErrorMessage, EmergencyAlertsApi } from '../../../../core/services/emergency-alerts-api';
+import { isMaintenanceManager } from '../../../../shared/utils/maintenance-labels';
 import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
 import {
   AnalysisRunInfo,
@@ -26,9 +26,8 @@ import {
   AnomalyTowerAssignment,
   apiErrorCode,
   EXECUTION_LOCATION_LABELS,
-  groupSuperseded,
   REJECT_REASONS,
-} from '../../data-access/anomaly-api';
+} from '../../../../core/services/anomaly-api';
 
 interface ComputedBoxStyle {
   readonly left: string;
@@ -42,7 +41,7 @@ interface ReviewNavigationState {
   readonly superseded?: readonly AnomalyItem[];
 }
 
-const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'administrator']);
+const REVIEW_ROLES = new Set(['analyst']);
 
 @Component({
   selector: 'app-detection-review',
@@ -77,13 +76,15 @@ export class DetectionReview {
   protected readonly canOpenMaintenance = computed(() => isMaintenanceManager(this.auth.user()?.role));
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
-  // Viewer controls
+  protected readonly fromSource = signal<'gis' | 'tower' | 'queue'>('queue');
+  protected readonly fromTowerId = signal<string | null>(null);
+  protected readonly fromTowerCode = signal<string | null>(null);
+
   protected readonly zoomLevel = signal(1);
   protected readonly showBoundingBox = signal(true);
   protected readonly imgNaturalWidth = signal(0);
   protected readonly imgNaturalHeight = signal(0);
 
-  // Review form state
   protected readonly generalNotes = signal('');
   protected readonly showRejectModal = signal(false);
   protected readonly selectedRejectReason = signal<string>(REJECT_REASONS[0].value);
@@ -103,7 +104,7 @@ export class DetectionReview {
   });
 
   constructor() {
-    // The page is reused when navigating between an edge result and its cloud replacement.
+
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       this.detectionId.set(params.get('id') ?? '');
       this.detection.set(null);
@@ -119,7 +120,21 @@ export class DetectionReview {
   }
 
   private initData(): void {
-    const navState = history.state as ReviewNavigationState | undefined;
+    const navState = history.state as
+      | (ReviewNavigationState & { from?: string; towerId?: string; towerCode?: string })
+      | undefined;
+    const qpFrom = this.route.snapshot.queryParamMap.get('from');
+    const fromVal = qpFrom || navState?.from;
+    if (fromVal === 'gis') {
+      this.fromSource.set('gis');
+    } else if (fromVal === 'tower' || fromVal === 'towers') {
+      this.fromSource.set('tower');
+      this.fromTowerId.set(this.route.snapshot.queryParamMap.get('towerId') || navState?.towerId || null);
+      this.fromTowerCode.set(this.route.snapshot.queryParamMap.get('towerCode') || navState?.towerCode || null);
+    } else {
+      this.fromSource.set('queue');
+    }
+
     const currentId = this.detectionId();
 
     if (navState?.anomaly && navState.anomaly.id === currentId) {
@@ -128,24 +143,41 @@ export class DetectionReview {
       return;
     }
 
-    // No GET /anomalies/{id} exists: look the anomaly up in the pending queue.
     this.loading.set(true);
     this.api
-      .listPending({ pageIndex: 1, pageSize: 100 })
+      .getById(currentId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
+        catchError(() => {
+          return this.api.listPending({ pageIndex: 1, pageSize: 100 }).pipe(
+            map((res) => {
+              const found = res.items.find((it) => it.id === currentId);
+              if (found) {
+                return found;
+              }
+              throw new Error('NOT_IN_PENDING');
+            }),
+            catchError(() => {
+              return this.api.getAnomalyFromGis(currentId).pipe(
+                map((found) => {
+                  if (found) {
+                    return found;
+                  }
+                  throw new Error(`Không tìm thấy sự cố #${currentId} trong hệ thống.`);
+                }),
+              );
+            }),
+          );
+        }),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: (res) => {
-          const found = res.items.find((it) => it.id === currentId);
-          if (found) {
-            this.setDetection(found, groupSuperseded(res.items).supersededByReplacement.get(found.id) ?? []);
-          } else {
-            this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi. Có thể sự cố đã được thẩm định.`);
-          }
+        next: (found) => {
+          this.setDetection(found, []);
         },
-        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải dữ liệu sự cố.')),
+        error: (err: unknown) => {
+          this.error.set(anomalyErrorMessage(err, `Không tìm thấy thông tin sự cố #${currentId}. Có thể sự cố đã được thẩm định hoặc không tồn tại.`));
+        },
       });
   }
 
@@ -153,6 +185,12 @@ export class DetectionReview {
     this.detection.set(item);
     this.supersededItems.set(superseded);
     this.generalNotes.set(item.analystNotes);
+    if (!this.fromTowerId() && item.towerId) {
+      this.fromTowerId.set(item.towerId);
+    }
+    if (!this.fromTowerCode() && item.towerCode) {
+      this.fromTowerCode.set(item.towerCode);
+    }
     if (item.analysisRunId) {
       this.api
         .getAnalysisRun(item.analysisRunId)
@@ -197,7 +235,6 @@ export class DetectionReview {
     this.feedbackMessage.set(`Đã gán cột ${result.towerCode} cho bất thường. Bạn có thể phê duyệt ngay bây giờ.`);
   }
 
-  // --- APPROVE FLOW ---
   protected approveDetection(): void {
     const item = this.detection();
     if (!item || this.actionBusy() || item.supersededById) return;
@@ -233,7 +270,6 @@ export class DetectionReview {
       });
   }
 
-  // --- REJECT FLOW ---
   protected openRejectModal(): void {
     this.selectedRejectReason.set(REJECT_REASONS[0].value);
     this.rejectDetailNotes.set('');
@@ -282,7 +318,6 @@ export class DetectionReview {
       });
   }
 
-  // --- EMERGENCY ALERT ---
   protected triggerEmergencyAlert(): void {
     const item = this.detection();
     if (!item || this.actionBusy() || item.supersededById) return;
@@ -309,16 +344,26 @@ export class DetectionReview {
   }
 
   protected goBack(): void {
-    void this.router.navigate(['/ai-review']);
+    const source = this.fromSource();
+    if (source === 'gis') {
+      void this.router.navigate(['/gis']);
+      return;
+    }
+    if (source === 'tower' && this.fromTowerId()) {
+      void this.router.navigate(['/towers', this.fromTowerId()]);
+      return;
+    }
+    const item = this.detection();
+    const statusParam = item?.validationStatus ? item.validationStatus.toLowerCase() : 'all';
+    void this.router.navigate(['/ai-review'], { queryParams: { status: statusParam } });
   }
 
   private calculateBoxStyle(box: AnomalyBoundingBox, naturalW: number, naturalH: number): ComputedBoxStyle | null {
-    // Percentages of the image (normalized boxes are converted to 0..100 by the API layer).
+
     if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) {
       return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
     }
 
-    // Absolute pixels on the original image: wait for the image size.
     if (naturalW > 0 && naturalH > 0) {
       return {
         left: `${Math.max(0, Math.min(95, (box.x / naturalW) * 100))}%`,
