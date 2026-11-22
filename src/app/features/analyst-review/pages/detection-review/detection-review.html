@@ -129,13 +129,16 @@
             <h2 class="defect-title">{{ item.categoryName }}</h2>
 
             <div class="defect-badges">
-              <span class="status-pill {{ statusClass(item) }}">
-                <span class="status-dot"></span>
-                {{ statusText(item) }}
-              </span>
               <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
                 Độ tin cậy: {{ item.confidenceScore }}%
               </span>
+              <span class="status-pill {{ statusClass(item) }}">
+                <span class="status-dot"></span>
+                Kết quả thẩm định: {{ statusText(item) }}
+              </span>
+              @if (item.isEmergency || (item.severity ?? 0) >= 4) {
+                <span class="emergency-pill">Khẩn cấp</span>
+              }
             </div>
           </div>
 
@@ -199,17 +202,6 @@
             </div>
           }
 
-          @if (!item.supersededById && item.validationStatus !== 'Resolved') {
-            <app-anomaly-tower-assignment
-              [anomalyId]="item.id"
-              [towerId]="item.towerId"
-              [towerCode]="item.towerCode"
-              [disabled]="!canReview()"
-              [highlight]="towerRequired()"
-              (assigned)="onTowerAssigned($event)"
-            />
-          }
-
           @if (item.analystNotes && item.validationStatus !== 'Pending') {
             <div class="existing-notes-box">
               <div class="notes-header-label">Ghi chú thẩm định:</div>
@@ -219,77 +211,62 @@
         </div>
 
         <!-- FORM QUYẾT ĐỊNH THẨM ĐỊNH -->
-        @if (canReview()) {
+        @if (canReview() && item.validationStatus === 'Pending' && !item.supersededById) {
           <section class="review-actions-panel" aria-label="Thao tác phê duyệt">
-            @if (item.validationStatus === 'Pending' && !item.supersededById) {
-              <div class="decision-header-row">
-                <span class="info-section-title">Quyết định của Chuyên viên thẩm định</span>
-              </div>
+            <div class="decision-header-row">
+              <span class="info-section-title">Quyết định của Chuyên viên thẩm định</span>
+            </div>
 
-              <label for="analyst-notes-input" class="notes-input-label">
-                Ghi chú thẩm định kỹ thuật (tùy chọn):
-              </label>
-              <textarea
-                id="analyst-notes-input"
-                class="analyst-notes-input"
-                placeholder="Nhập nhận định kỹ thuật hoặc nguyên nhân..."
-                [ngModel]="generalNotes()"
-                (ngModelChange)="generalNotes.set($event)"
-              ></textarea>
+            <label for="analyst-notes-input" class="notes-input-label">
+              Ghi chú thẩm định kỹ thuật (tùy chọn):
+            </label>
+            <textarea
+              id="analyst-notes-input"
+              class="analyst-notes-input"
+              placeholder="Nhập nhận định kỹ thuật hoặc nguyên nhân..."
+              [ngModel]="generalNotes()"
+              (ngModelChange)="generalNotes.set($event)"
+            ></textarea>
 
-              <div class="action-btn-group">
-                <!-- NÚT 1: TỪ CHỐI (Màu đỏ mận EVN thanh lịch) -->
-                <button
-                  type="button"
-                  class="btn-reject"
-                  [disabled]="actionBusy()"
-                  (click)="openRejectModal()"
-                  title="Bác bỏ kết quả phát hiện AI này"
-                >
-                  <span nz-icon nzType="close-circle"></span>
-                  <span>Từ chối</span>
-                </button>
+            <div class="action-btn-group">
+              <!-- NÚT 1: TỪ CHỐI (Màu đỏ mận EVN thanh lịch) -->
+              <button
+                type="button"
+                class="btn-reject"
+                [disabled]="actionBusy()"
+                (click)="openRejectModal()"
+                title="Bác bỏ kết quả phát hiện AI này"
+              >
+                <span nz-icon nzType="close-circle"></span>
+                <span>Từ chối</span>
+              </button>
 
-                <!-- NÚT 2: CHẤP NHẬN (Màu xanh navy EVN thanh lịch) -->
-                <button
-                  type="button"
-                  class="btn-approve"
-                  [disabled]="actionBusy()"
-                  (click)="approveDetection()"
-                  title="Xác nhận phát hiện này thành khuyết tật chính thức"
-                >
-                  <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
-                  <span>Chấp nhận</span>
-                </button>
-              </div>
+              <!-- NÚT 2: CHẤP NHẬN (Màu xanh navy EVN thanh lịch) -->
+              <button
+                type="button"
+                class="btn-approve"
+                [disabled]="actionBusy()"
+                (click)="approveDetection()"
+                title="Xác nhận phát hiện này thành khuyết tật chính thức"
+              >
+                <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
+                <span>Chấp nhận</span>
+              </button>
+            </div>
 
-              @if (item.isEmergency) {
-                <button
-                  type="button"
-                  class="btn-emergency-trigger"
-                  [disabled]="actionBusy()"
-                  (click)="triggerEmergencyAlert()"
-                >
-                  <span nz-icon nzType="alert" aria-hidden="true"></span>
-                  <span>Kích hoạt cảnh báo khẩn cấp</span>
-                </button>
-              }
-            } @else {
-              <div class="reviewed-status-box">
-                <p class="reviewed-status-text">
-                  Sự cố này đã được thẩm định với trạng thái:
-                  <strong>{{ statusText(item) }}</strong>.
-                </p>
-                <div class="reviewed-actions-row">
-                  <button type="button" class="button secondary small" (click)="goBack()">
-                    <span nz-icon nzType="arrow-left"></span>
-                    <span>Về danh sách</span>
-                  </button>
-                </div>
-              </div>
+            @if (item.isEmergency) {
+              <button
+                type="button"
+                class="btn-emergency-trigger"
+                [disabled]="actionBusy()"
+                (click)="triggerEmergencyAlert()"
+              >
+                <span nz-icon nzType="alert" aria-hidden="true"></span>
+                <span>Kích hoạt cảnh báo khẩn cấp</span>
+              </button>
             }
           </section>
-        } @else {
+        } @else if (!canReview()) {
           <div class="role-notice-banner">
             <span nz-icon nzType="info-circle"></span>
             <span>Chỉ tài khoản <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền thẩm định kết quả phát hiện.</span>

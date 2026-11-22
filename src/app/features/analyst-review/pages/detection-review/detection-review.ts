@@ -16,7 +16,6 @@ import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
-import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
@@ -48,7 +47,7 @@ const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'adm
 
 @Component({
   selector: 'app-detection-review',
-  imports: [DatePipe, RouterLink, FormsModule, NzIconModule, AnomalyTowerAssignmentPanel],
+  imports: [DatePipe, RouterLink, FormsModule, NzIconModule],
   templateUrl: './detection-review.html',
   styleUrl: './detection-review.scss',
   encapsulation: ViewEncapsulation.None,
