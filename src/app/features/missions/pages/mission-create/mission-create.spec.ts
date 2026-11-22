@@ -126,6 +126,13 @@ describe('MissionCreate', () => {
     expect(createMission).not.toHaveBeenCalled();
   });
 
+  it('allows submission when the assessment has TitleCase status "Ready"', () => {
+    assessment = readyAssessment({ status: 'Ready' });
+    setup(ASSESSMENT_ID);
+    expect(component['isAssessmentUsable']()).toBe(true);
+    expect(component['error']()).toBe('');
+  });
+
   it('requires an inspector among the selected personnel', () => {
     setup(ASSESSMENT_ID);
     component['form'].patchValue({ title: 'Kiểm tra tuyến A' });

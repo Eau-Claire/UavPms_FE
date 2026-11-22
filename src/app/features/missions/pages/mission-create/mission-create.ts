@@ -89,7 +89,8 @@ export class MissionCreate {
 
   protected readonly isAssessmentUsable = computed(() => {
     const a = this.assessment();
-    return !!a && a.status === 'READY' && !a.completedMissionId && !isExpired(a);
+    const isReadyStatus = (a?.status ?? '').toUpperCase() === 'READY';
+    return !!a && isReadyStatus && !a.completedMissionId && !isExpired(a);
   });
 
   /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
@@ -300,7 +301,7 @@ export class MissionCreate {
         next: (updated) => {
           this.assessment.set(updated);
           this.pruneSelections();
-          if (updated.status !== 'READY') {
+          if ((updated.status ?? '').toUpperCase() !== 'READY') {
             this.error.set('Sau khi đánh giá lại, hồ sơ không còn ở trạng thái READY. Vui lòng xử lý tại không gian đánh giá.');
           }
         },
@@ -561,7 +562,10 @@ export class MissionCreate {
 }
 
 function isExpired(a: PreMissionAssessment): boolean {
-  return !!a.validUntil && new Date(a.validUntil).getTime() <= Date.now();
+  if (!a.validUntil) return false;
+  if ((a.status ?? '').toUpperCase() === 'EXPIRED') return true;
+  const time = new Date(a.validUntil).getTime();
+  return !Number.isNaN(time) && time <= Date.now();
 }
 
 /** `now + 24h`, capped at the planned start; empty when the planned start is (almost) past (backend default). */
