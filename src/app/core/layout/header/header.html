@@ -272,7 +272,7 @@
         (click)="menuOpen.update((value) => !value)"
       >
         <span class="user-avatar-badge">{{ userInitial() }}</span>
-        <span class="app-user-display-name">{{ userEmail() }}</span>
+        <span class="app-user-display-name">{{ userDisplayName() }}</span>
         <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
       </button>
       @if (menuOpen()) {
@@ -281,6 +281,7 @@
             <div class="menu-avatar-large">{{ userInitial() }}</div>
             <div class="menu-user-info">
               <span class="menu-user-email" [title]="userEmail()">{{ userEmail() }}</span>
+              <span class="menu-user-role">{{ userRoleLabel() }}</span>
             </div>
           </div>
           <div class="profile-menu-divider"></div>

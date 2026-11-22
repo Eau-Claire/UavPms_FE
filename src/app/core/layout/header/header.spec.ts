@@ -66,9 +66,11 @@ describe('Header', () => {
 
   it('shows the email in the profile menu and hides the region picker for field roles', () => {
     const { fixture, el } = setup('MaintenanceTechnician');
+    expect(el.querySelector('.app-user-display-name')?.textContent?.trim()).toBe('Nguyễn Văn A');
     el.querySelector<HTMLButtonElement>('.app-header-user-btn')?.click();
     fixture.detectChanges();
     expect(el.querySelector('.app-profile-menu-header .menu-user-email')?.textContent?.trim()).toBe('nv.a@evn.vn');
+    expect(el.querySelector('.app-profile-menu-header .menu-user-role')?.textContent?.trim()).toBe('Technician');
     expect(el.querySelector('.app-facility-wrap')).toBeNull();
   });
 
