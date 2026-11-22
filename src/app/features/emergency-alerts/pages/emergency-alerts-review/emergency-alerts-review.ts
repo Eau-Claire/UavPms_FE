@@ -101,8 +101,9 @@ export class EmergencyAlertsReview {
   protected readonly selectedAlertId = signal<string | null>(null);
   protected readonly selectedAlert = computed<ActiveEmergencyAlert | null>(() => {
     const alerts = this.activeAlerts();
-    const id = this.selectedAlertId();
-    return alerts.find((a) => a.id === id) ?? alerts[0] ?? null;
+    const id = this.selectedAlertId()?.trim();
+    if (!id) return alerts[0] ?? null;
+    return alerts.find((a) => a.id === id || a.anomalyId === id) ?? alerts[0] ?? null;
   });
 
   // --- History (GET /alerts?status&page&pageSize) ---
@@ -162,9 +163,10 @@ export class EmergencyAlertsReview {
   constructor() {
     const route = inject(ActivatedRoute);
     route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      const id = params.get('id') || params.get('alertId');
+      const id = (params.get('id') || params.get('alertId'))?.trim();
       if (id) {
-        this.selectedAlertId.set(id);
+        const matching = this.activeAlerts().find((a) => a.id === id || a.anomalyId === id);
+        this.selectedAlertId.set(matching ? matching.id : id);
       }
       const tab = params.get('tab');
       if (tab === 'history' || tab === 'active') {
@@ -191,9 +193,19 @@ export class EmergencyAlertsReview {
       )
       .subscribe({
         next: (alerts) => {
-          const targetId = this.selectedAlertId();
-          if (targetId && alerts.length > 0 && !alerts.some((a) => a.id === targetId)) {
-            this.viewDetail(targetId);
+          const targetId = this.selectedAlertId()?.trim();
+          if (!targetId || alerts.length === 0) return;
+
+          // Check if targetId matches an active alert (by id or anomalyId)
+          const matching = alerts.find((a) => a.id === targetId || a.anomalyId === targetId);
+          if (matching) {
+            this.selectedAlertId.set(matching.id);
+            return;
+          }
+
+          // If not in active alerts and the user is on history tab, try to view history detail silently
+          if (this.selectedTab() === 'history') {
+            this.viewDetail(targetId, false);
           }
         },
         error: (err: unknown) => this.activeError.set(alertErrorMessage(err, 'Không thể tải danh sách cảnh báo đang hoạt động.')),
@@ -467,17 +479,24 @@ export class EmergencyAlertsReview {
   }
 
   // --- Detail modal ---
-  protected viewDetail(id: string): void {
+  protected viewDetail(id: string, notifyOnError = true): void {
+    const cleanId = id?.trim();
+    if (!cleanId) return;
+
     this.detailLoading.set(true);
     this.api
-      .getAlert(id)
+      .getAlert(cleanId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.detailLoading.set(false)),
       )
       .subscribe({
         next: (detail) => this.detail.set(detail),
-        error: (err: unknown) => this.toast.error(alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo khẩn cấp.')),
+        error: (err: unknown) => {
+          if (notifyOnError) {
+            this.toast.error(alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo khẩn cấp.'));
+          }
+        },
       });
   }
 
