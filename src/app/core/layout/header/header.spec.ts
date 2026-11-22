@@ -64,11 +64,11 @@ describe('Header', () => {
     id: 'n1', title: 'Thông báo', body: '', createdAt: '2026-10-31T08:00:00Z', isRead: false, type, referenceType, referenceId,
   });
 
-  it('shows the role in Vietnamese and hides the region picker for field roles', () => {
+  it('shows the email in the profile menu and hides the region picker for field roles', () => {
     const { fixture, el } = setup('MaintenanceTechnician');
     el.querySelector<HTMLButtonElement>('.app-header-user-btn')?.click();
     fixture.detectChanges();
-    expect(el.querySelector('.app-profile-menu-header small')?.textContent?.trim()).toBe('Kỹ thuật viên');
+    expect(el.querySelector('.app-profile-menu-header .menu-user-email')?.textContent?.trim()).toBe('nv.a@evn.vn');
     expect(el.querySelector('.app-facility-wrap')).toBeNull();
   });
 

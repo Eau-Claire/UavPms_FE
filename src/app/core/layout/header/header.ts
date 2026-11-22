@@ -33,6 +33,10 @@ export class Header {
   protected readonly notificationFiltersOpen = signal(false);
   protected readonly facilityMenuOpen = signal(false);
 
+  protected readonly userEmail = computed(() => {
+    const u = this.user();
+    return u?.email || 'Người dùng';
+  });
   protected readonly userDisplayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email?.split('@')[0] || 'Người dùng';
