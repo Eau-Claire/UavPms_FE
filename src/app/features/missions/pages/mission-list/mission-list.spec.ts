@@ -5,10 +5,12 @@ import { Subject, of } from 'rxjs';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
   AppstoreOutline,
+  EyeOutline,
   FileTextOutline,
   FilterOutline,
   LeftOutline,
   PlusOutline,
+  RedoOutline,
   ReloadOutline,
   RightOutline,
   SearchOutline,
@@ -57,10 +59,12 @@ describe('MissionList', () => {
         provideRouter([]),
         provideNzIcons([
           AppstoreOutline,
+          EyeOutline,
           FileTextOutline,
           FilterOutline,
           LeftOutline,
           PlusOutline,
+          RedoOutline,
           ReloadOutline,
           RightOutline,
           SearchOutline,

@@ -50,8 +50,9 @@ export class MissionList {
   protected readonly search = signal('');
   protected readonly status = signal('');
   protected readonly priority = signal<string>('');
-  protected readonly sortBy = signal<string>('priority');
+  protected readonly sortBy = signal<string>('createdAt');
   protected readonly sortDescending = signal<boolean>(true);
+  protected readonly sortOption = signal<string>('createdAt_desc');
   protected readonly scope = signal<MissionListScope>(isManagerRole(this.auth.user()?.role) ? 'all' : 'my');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
@@ -252,6 +253,41 @@ export class MissionList {
     return 'priority-normal';
   }
 
+  protected setSortOption(value: string): void {
+    this.sortOption.set(value);
+    switch (value) {
+      case 'createdAt_desc':
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(true);
+        break;
+      case 'createdAt_asc':
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(false);
+        break;
+      case 'priority_desc':
+        this.sortBy.set('priority');
+        this.sortDescending.set(true);
+        break;
+      case 'priority_asc':
+        this.sortBy.set('priority');
+        this.sortDescending.set(false);
+        break;
+    }
+    this.page.set(1);
+    this.load();
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.status.set('');
+    this.priority.set('');
+    this.sortOption.set('createdAt_desc');
+    this.sortBy.set('createdAt');
+    this.sortDescending.set(true);
+    this.page.set(1);
+    this.load();
+  }
+
   protected togglePrioritySort(): void {
     if (this.sortBy() === 'priority') {
       if (this.sortDescending()) {
@@ -268,7 +304,7 @@ export class MissionList {
   }
 
   protected statusLabel(status: string): string {
-    return missionStatusLabel(status);
+    return normalizeMissionStatus(status);
   }
 
   protected statusClass(status: string): string {

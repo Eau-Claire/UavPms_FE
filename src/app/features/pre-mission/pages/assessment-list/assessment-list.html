@@ -109,7 +109,7 @@
               <th style="width: 85px;" class="text-center">Nhân sự</th>
               <th style="width: 85px;" class="text-center">UAV</th>
               <th style="width: 85px;" class="text-center">Kỹ thuật</th>
-              <th style="width: 110px;" class="text-center">Tổng thể</th>
+              <th style="width: 110px;" class="text-center">Trạng thái</th>
               <th style="width: 125px;">Hiệu lực đến</th>
               <th style="width: 110px;" class="text-center">Nhiệm vụ</th>
               <th style="width: 110px;" class="text-center">Thao tác</th>
@@ -167,7 +167,7 @@
                   </td>
                   <td class="text-center">
                     <span class="evn-status {{ statusTone(item.status) }}">
-                      {{ statusLabel(item.status) }}
+                      {{ item.status }}
                     </span>
                   </td>
                   <td>
@@ -190,7 +190,7 @@
                     }
                   </td>
                   <td class="text-center">
-                    <div class="assessment-actions-group">
+                    <div class="assessment-actions-group" style="justify-content: center;">
                       <a
                         [routerLink]="['/pre-mission', item.id]"
                         class="assessment-btn-open"
@@ -199,28 +199,6 @@
                         <span nz-icon nzType="eye" aria-hidden="true"></span>
                         <span>Chi tiết</span>
                       </a>
-                      @if (canManage() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
-                        <button
-                          type="button"
-                          class="assessment-btn-sub"
-                          [disabled]="actionBusyId() === item.id"
-                          (click)="reevaluateItem(item, $event)"
-                          title="Đánh giá lại sẵn sàng"
-                          aria-label="Đánh giá lại sẵn sàng"
-                        >
-                          <span nz-icon [nzType]="actionBusyId() === item.id ? 'loading' : 'reload'"></span>
-                        </button>
-                        <button
-                          type="button"
-                          class="assessment-btn-sub danger"
-                          [disabled]="actionBusyId() === item.id"
-                          (click)="cancelItem(item, $event)"
-                          title="Hủy hồ sơ đánh giá"
-                          aria-label="Hủy hồ sơ đánh giá"
-                        >
-                          <span nz-icon nzType="close"></span>
-                        </button>
-                      }
                     </div>
                   </td>
                 </tr>

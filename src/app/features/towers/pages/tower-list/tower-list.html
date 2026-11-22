@@ -36,22 +36,13 @@
       }
     </select>
   </div>
-  <div class="tower-filter">
-    <label for="tower-page-size"><span>Hiển thị:</span></label>
-    <select id="tower-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
-      @for (size of pageSizes; track size) {
-        <option [value]="size">{{ size }} dòng</option>
-      }
-    </select>
-  </div>
   <div class="tower-actions">
-    <button type="submit" class="button primary">
-      <span nz-icon nzType="filter" aria-hidden="true"></span>
-      <span>Lọc</span>
+    <button type="button" class="button secondary" (click)="resetFilters()" title="Đặt lại bộ lọc">
+      <span nz-icon nzType="redo" aria-hidden="true"></span>
+      <span>Đặt lại</span>
     </button>
-    <button type="button" class="button secondary" (click)="resetFilters()">Đặt lại</button>
-    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
-      <span nz-icon nzType="reload" aria-hidden="true"></span>
+    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()" title="Tải lại dữ liệu">
+      <span nz-icon [nzType]="loading() ? 'loading' : 'reload'" aria-hidden="true"></span>
       <span>Làm mới</span>
     </button>
   </div>
@@ -88,16 +79,10 @@
               <td class="tower-mono td-coords">{{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}</td>
               <td class="td-actions">
                 <div class="tower-row-actions">
-                  @if (canManage()) {
-                    <button type="button" class="tower-action-edit-btn" [attr.aria-label]="'Sửa cột ' + tower.towerCode" (click)="openEdit(tower)">
-                      <span nz-icon nzType="edit" aria-hidden="true"></span>
-                      <span>Chỉnh sửa</span>
-                    </button>
-                  } @else {
-                    <a class="tower-action-edit-btn" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Xem chi tiết cột ' + tower.towerCode">
-                      <span>Chi tiết</span>
-                    </a>
-                  }
+                  <a class="tower-action-edit-btn" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Xem chi tiết cột ' + tower.towerCode">
+                    <span nz-icon nzType="eye" aria-hidden="true"></span>
+                    <span>Chi tiết</span>
+                  </a>
                 </div>
               </td>
             </tr>

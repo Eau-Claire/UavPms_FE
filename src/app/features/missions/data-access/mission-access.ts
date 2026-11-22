@@ -243,14 +243,16 @@ const SENDER_LABELS: Record<ActivitySenderKind, string> = {
 export const activitySenderLabel = (kind: ActivitySenderKind): string => SENDER_LABELS[kind];
 
 const ASSIGNMENT_ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công kiểm tra',
-  PILOT: 'Phi công',
-  CO_PILOT: 'Phi công phụ',
-  COPILOT: 'Phi công phụ',
-  OBSERVER: 'Quan sát viên',
-  ANALYST: 'Chuyên viên phân tích',
-  TECHNICIAN: 'Kỹ thuật viên',
-  MAINTENANCETECHNICIAN: 'Kỹ thuật viên bảo trì',
+  INSPECTOR: 'INSPECTOR',
+  PILOT: 'INSPECTOR',
+  CO_PILOT: 'INSPECTOR',
+  COPILOT: 'INSPECTOR',
+  OBSERVER: 'OBSERVER',
+  ANALYST: 'ANALYST',
+  TECHNICIAN: 'TECHNICIAN',
+  MAINTENANCETECHNICIAN: 'TECHNICIAN',
+  MANAGER: 'MANAGER',
+  ADMIN: 'ADMIN',
 };
 
 /** Vietnamese label for a mission assignment role (`assignmentRole`). */

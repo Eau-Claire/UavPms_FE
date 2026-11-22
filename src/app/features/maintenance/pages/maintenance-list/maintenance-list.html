@@ -46,16 +46,6 @@
       }
     </select>
   </div>
-  @if (isManager()) {
-    <div class="tower-filter">
-      <label for="maintenance-page-size">Số dòng / trang</label>
-      <select id="maintenance-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
-        @for (size of pageSizes; track size) {
-          <option [value]="size">{{ size }}</option>
-        }
-      </select>
-    </div>
-  }
   <div class="tower-actions">
     <button type="button" class="button secondary" [disabled]="!hasFilters()" (click)="resetFilters()">Đặt lại</button>
   </div>
@@ -116,7 +106,8 @@
               <td><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
               <td class="td-m-actions">
                 <a class="maintenance-btn-open" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
-                  Chi tiết
+                  <span nz-icon nzType="eye" aria-hidden="true"></span>
+                  <span>Chi tiết</span>
                 </a>
               </td>
             </tr>

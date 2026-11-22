@@ -128,6 +128,8 @@ describe('DroneManagement Component', () => {
     Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map((b) => b.getAttribute('title') ?? b.textContent?.trim() ?? '');
 
   it('shows add, edit, delete and the GIS estimate to managers', () => {
+    (component as any).openHistory(mockDrones[0]);
+    fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Xóa UAV');
     expect(titles).toContain('Chỉnh sửa thông số UAV');
@@ -137,6 +139,7 @@ describe('DroneManagement Component', () => {
 
   it('lets technicians edit and check drones but not delete or plan', () => {
     authUser.set({ id: 'u2', role: 'MaintenanceTechnician' });
+    (component as any).openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Chỉnh sửa thông số UAV');
@@ -153,7 +156,7 @@ describe('DroneManagement Component', () => {
       expect(titles).not.toContain('Chỉnh sửa thông số UAV');
       expect(titles).not.toContain('Xóa UAV');
       expect(titles.some((t) => t.includes('Thêm UAV mới'))).toBe(false);
-      expect(titles).toContain('Lịch sử kiểm định kỹ thuật');
+      expect(titles.some((t) => t.includes('Chi tiết'))).toBe(true);
     }
   });
 

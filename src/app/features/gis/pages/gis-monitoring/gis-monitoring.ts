@@ -110,6 +110,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   protected readonly showFilterPanel = signal(false);
   protected readonly showLegendPanel = signal(false);
   protected readonly selectedEntity = signal<SelectedGisEntity | null>(null);
+  protected readonly selectedMarkerId = signal<string>('');
   protected readonly drawMode = signal<SelectionDrawMode>('none');
   protected readonly uxState = signal<SelectionUxState>('idle');
   protected readonly showSelectionPopup = signal(false);
@@ -732,7 +733,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private renderConfirmedTargetMarkers(): void {
     this.confirmedTargetsLayer.clearLayers();
     this.targetSelection.selected().forEach((asset) => {
-      const icon = L.divIcon({ className: 'confirmed-target-marker', html: '<span>✓</span>', iconSize: [24, 24], iconAnchor: [12, 12] });
+      const icon = L.divIcon({ className: 'confirmed-target-marker', html: '<span class="target-select-ring"></span>', iconSize: [28, 28], iconAnchor: [14, 14] });
       L.marker([asset.latitude, asset.longitude], { icon, zIndexOffset: 900 })
         .bindTooltip(`<strong>Đã chọn: ${asset.towerCode}</strong>`)
         .addTo(this.confirmedTargetsLayer);
@@ -854,23 +855,41 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     if (!this.showTowersLayer()) return;
 
     this.towers().forEach((tower) => {
+      const isSelected = this.selectedMarkerId() === tower.id;
+      const hasAlert = this.alerts().some((a) => a.towerId === tower.id || a.towerCode === tower.towerCode);
+      const anomalyCount = this.anomalies().filter((a) => a.towerId === tower.id || a.towerCode === tower.towerCode).length;
+
+      let markerClass = 'custom-tower-marker';
+      if (hasAlert) markerClass += ' has-alert';
+      else if (anomalyCount > 0) markerClass += ' has-anomaly';
+      if (isSelected) markerClass += ' is-selected';
+
       const icon = L.divIcon({
-        className: 'custom-tower-marker',
+        className: markerClass,
         html: `<svg class="tower-node-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l6.5 19H5.5L12 2z"/><path d="M7.5 14h9"/><path d="M9.5 9h5"/></svg>`,
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
 
-      const marker = L.marker([tower.latitude, tower.longitude], { icon });
-      marker.on('click', () => {
-        this.selectedEntity.set({ type: 'tower', data: tower });
-        this.targetSelection.add({ towerId: tower.id, towerCode: tower.towerCode, regionId: tower.regionId, latitude: tower.latitude, longitude: tower.longitude });
-        this.renderSpatialAssets();
+      const marker = L.marker([tower.latitude, tower.longitude], {
+        icon,
+        zIndexOffset: isSelected ? 1200 : hasAlert ? 800 : 100,
       });
 
+      marker.on('click', () => {
+        this.selectedMarkerId.set(tower.id);
+        this.selectedEntity.set({ type: 'tower', data: tower });
+        this.renderAllLayers();
+      });
+
+      const statusBadge = hasAlert
+        ? '<div style="color: #dc2626; font-weight: 700;">⚠ Cảnh báo khẩn cấp</div>'
+        : anomalyCount > 0
+        ? `<div style="color: #ea580c; font-weight: 700;">● Có ${anomalyCount} sự cố phát hiện</div>`
+        : '';
       const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
       marker.bindTooltip(
-        `<div style="font-weight: 700; font-size: 13px;">${escapeHtml(tower.towerCode)}</div><div style="font-size: 11px; color: #64748b;">${escapeHtml(subtitle)}</div>`,
+        `<div style="font-weight: 700; font-size: 13px;">${escapeHtml(tower.towerCode)}</div>${statusBadge}<div style="font-size: 11px; color: #64748b;">${escapeHtml(subtitle)}</div>`,
         { direction: 'top', offset: [0, -10] },
       );
 
@@ -884,17 +903,23 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     const defects = this.filteredAnomalies();
     defects.forEach((defect) => {
+      const isSelected = this.selectedMarkerId() === defect.id;
       const sevClass = defect.severity >= 4.5 ? 'sev-critical' : defect.severity >= 3.5 ? 'sev-high' : 'sev-med';
       const icon = L.divIcon({
-        className: `custom-defect-marker ${sevClass}`,
+        className: `custom-defect-marker ${sevClass}${isSelected ? ' is-selected' : ''}`,
         html: `<span>!</span>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
 
-      const marker = L.marker([defect.latitude, defect.longitude], { icon });
+      const marker = L.marker([defect.latitude, defect.longitude], {
+        icon,
+        zIndexOffset: isSelected ? 1200 : 500,
+      });
       marker.on('click', () => {
+        this.selectedMarkerId.set(defect.id);
         this.selectedEntity.set({ type: 'anomaly', data: defect });
+        this.renderAllLayers();
       });
 
       marker.bindTooltip(
@@ -911,16 +936,22 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     if (!this.showAlertsLayer()) return;
 
     this.alerts().forEach((alert) => {
+      const isSelected = this.selectedMarkerId() === alert.id;
       const icon = L.divIcon({
-        className: 'custom-alert-marker',
+        className: `custom-alert-marker${isSelected ? ' is-selected' : ''}`,
         html: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
 
-      const marker = L.marker([alert.latitude, alert.longitude], { icon, zIndexOffset: 1000 });
+      const marker = L.marker([alert.latitude, alert.longitude], {
+        icon,
+        zIndexOffset: isSelected ? 1200 : 1000,
+      });
       marker.on('click', () => {
+        this.selectedMarkerId.set(alert.id);
         this.selectedEntity.set({ type: 'alert', data: alert });
+        this.renderAllLayers();
       });
 
       marker.bindTooltip(
@@ -975,6 +1006,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected closeDrawer(): void {
     this.selectedEntity.set(null);
+    this.selectedMarkerId.set('');
+    this.renderAllLayers();
   }
 
   protected navigateToReview(anomalyId: string): void {
@@ -987,6 +1020,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected openAnomaliesForTower(towerId: string): number {
     return this.anomalies().filter((anomaly) => anomaly.towerId === towerId).length;
+  }
+
+  protected anomaliesForTower(towerId: string): readonly GisAnomalyFeature[] {
+    return this.anomalies().filter((anomaly) => anomaly.towerId === towerId);
   }
 
   /** GIS severity = category severity weight × 5 (0–5). */

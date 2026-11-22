@@ -274,49 +274,17 @@
 
               <!-- Actions -->
               <td style="text-align: right;">
-                <div class="actions-cell">
+                <div class="actions-cell" style="justify-content: flex-end;">
                   <button
                     type="button"
-                    class="action-btn-text"
+                    class="drone-row-detail-btn"
                     (click)="openHistory(drone)"
-                    title="Lịch sử kiểm định kỹ thuật"
-                    [attr.aria-label]="'Lịch sử kiểm định kỹ thuật của ' + drone.code"
+                    title="Chi tiết & Lịch sử kiểm định kỹ thuật"
+                    [attr.aria-label]="'Chi tiết ' + drone.code"
                   >
                     <span nz-icon nzType="eye" aria-hidden="true"></span>
                     <span>Chi tiết</span>
                   </button>
-                  @if (canEditDrone()) {
-                    <button
-                      type="button"
-                      class="action-btn-icon check"
-                      (click)="openTechCheck(drone)"
-                      title="Kiểm định kỹ thuật an toàn (Checklist)"
-                      [attr.aria-label]="'Kiểm định kỹ thuật an toàn của ' + drone.code"
-                    >
-                      <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
-                    </button>
-                    <button
-                      type="button"
-                      class="action-btn-icon edit"
-                      (click)="openEdit(drone)"
-                      title="Chỉnh sửa thông số UAV"
-                      [attr.aria-label]="'Chỉnh sửa ' + drone.code"
-                    >
-                      <span nz-icon nzType="edit" aria-hidden="true"></span>
-                    </button>
-                  }
-                  @if (canManageFleet()) {
-                    <button
-                      type="button"
-                      class="action-btn-icon delete"
-                      (click)="deleteDrone(drone)"
-                      [disabled]="drone.operationalStatus === 'InUse'"
-                      title="Xóa UAV"
-                      [attr.aria-label]="'Xóa ' + drone.code"
-                    >
-                      <span nz-icon nzType="delete" aria-hidden="true"></span>
-                    </button>
-                  }
                 </div>
               </td>
             </tr>
@@ -727,6 +695,38 @@
       </div>
 
       <div class="modal-footer">
+        @if (canEditDrone()) {
+          <button
+            type="button"
+            class="button primary"
+            (click)="closeHistory(); openTechCheck(hd)"
+            title="Kiểm định kỹ thuật an toàn (Checklist)"
+          >
+            <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
+            <span>Kiểm định an toàn</span>
+          </button>
+          <button
+            type="button"
+            class="button secondary"
+            (click)="closeHistory(); openEdit(hd)"
+            title="Chỉnh sửa thông số UAV"
+          >
+            <span nz-icon nzType="edit" aria-hidden="true"></span>
+            <span>Chỉnh sửa</span>
+          </button>
+        }
+        @if (canManageFleet()) {
+          <button
+            type="button"
+            class="button danger"
+            (click)="closeHistory(); deleteDrone(hd)"
+            [disabled]="hd.operationalStatus === 'InUse'"
+            title="Xóa UAV"
+          >
+            <span nz-icon nzType="delete" aria-hidden="true"></span>
+            <span>Xóa UAV</span>
+          </button>
+        }
         <button type="button" class="button secondary" (click)="closeHistory()">Đóng</button>
       </div>
     </div>

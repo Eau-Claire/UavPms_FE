@@ -592,6 +592,32 @@
   &.badge-unsuitable { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 }
 
+.drone-row-detail-btn {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  min-width: 78px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  height: 28px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #10387d !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+
+  &:hover {
+    background: #f0f5fc !important;
+    border-color: #10387d !important;
+    color: #10387d !important;
+  }
+}
+
 /* Actions cell - Unified Segmented Action Toolbar */
 .actions-cell {
   display: inline-flex;
