@@ -783,13 +783,13 @@
                     </div>
                     <ul class="reasons-list">
                       <li>
-                        <strong>Bản chất hình ảnh:</strong> Ảnh chụp UAV đang dùng súng phun lửa đốt dọn rác/diều. Đây là hoạt động bảo dưỡng hiện trường, không phải khuyết tật linh kiện.
+                        <strong>Đặc điểm hình ảnh:</strong> Hình ảnh không chứa các dấu hiệu hư hỏng phần cứng rõ rệt hoặc góc chụp không nằm trong phạm vi nhận diện.
                       </li>
                       <li>
-                        <strong>Phạm vi mô hình AI:</strong> Mô hình được huấn luyện để phát hiện các khuyết tật phần cứng cụ thể: <em>Bát sứ vỡ/nứt</em>, <em>Tổ chim trên xà cột</em>, <em>Mất bu-lông</em>, <em>Cây vi phạm hành lang</em>.
+                        <strong>Phạm vi mô hình AI:</strong> Mô hình chỉ được huấn luyện để nhận diện các danh mục khuyết tật linh kiện tiêu chuẩn: <em>Bát sứ nứt/vỡ</em>, <em>Tổ chim trên xà cột</em>, <em>Mất bu-lông liên kết</em>, <em>Cây vi phạm hành lang</em>.
                       </li>
                       <li>
-                        Không có chuỗi sứ nứt vỡ hay thân cột điện biến dạng &rarr; AI kết luận ảnh bình thường (0 khuyết tật).
+                        <strong>Bộ lọc độ tin cậy:</strong> Các phát hiện có độ tin cậy thấp hơn ngưỡng hiện tại ({{ confidenceThreshold() }}%) sẽ tự động được lọc bỏ để tránh báo động giả.
                       </li>
                     </ul>
                   </div>
