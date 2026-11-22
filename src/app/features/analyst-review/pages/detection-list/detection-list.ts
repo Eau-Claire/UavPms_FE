@@ -220,6 +220,10 @@ export class DetectionList {
     return 'Chờ thẩm định';
   }
 
+  protected isEmergencyItem(item: AnomalyItem): boolean {
+    return Boolean(item.isEmergency || (item.severity ?? 0) >= 4);
+  }
+
   protected handleImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
     img.src = '/images/defect-preview-frame.png';

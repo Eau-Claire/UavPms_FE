@@ -183,10 +183,15 @@
               />
             }
             <div class="card-badges">
-              <span class="status-pill {{ statusClass(item) }}">
-                <span class="status-dot"></span>
-                {{ statusText(item) }}
-              </span>
+              <div class="badge-group-left">
+                <span class="status-pill {{ statusClass(item) }}">
+                  <span class="status-dot"></span>
+                  {{ statusText(item) }}
+                </span>
+                @if (isEmergencyItem(item)) {
+                  <span class="emergency-pill">Khẩn cấp</span>
+                }
+              </div>
               <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
                 {{ item.confidenceScore }}%
               </span>
@@ -201,6 +206,12 @@
             <h2 class="card-title">{{ item.categoryName }}</h2>
 
             <div class="card-meta-list">
+              @if (isEmergencyItem(item)) {
+                <div class="meta-row meta-row-emergency">
+                  <span>Mức độ:</span>
+                  <strong class="text-danger">Sự cố khẩn cấp</strong>
+                </div>
+              }
               <div class="meta-row">
                 <span>Cột điện:</span>
                 @if (item.towerId) {
@@ -273,7 +284,12 @@
                   }
                 </td>
                 <td>
-                  <strong>{{ item.categoryName }}</strong>
+                  <div class="table-cat-title">
+                    <strong>{{ item.categoryName }}</strong>
+                    @if (isEmergencyItem(item)) {
+                      <span class="emergency-tag">Khẩn cấp</span>
+                    }
+                  </div>
                   @if (supersededCountFor(item) > 0) {
                     <small class="superseded-hint">Thay thế {{ supersededCountFor(item) }} kết quả Edge</small>
                   }
