@@ -367,6 +367,26 @@ export class AssessmentList implements OnDestroy {
     this.load();
   }
 
+  protected isSiteReady(item: PreMissionAssessment): boolean {
+    const s = (item.site?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || s === 'FEASIBLE' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isPersonnelReady(item: PreMissionAssessment): boolean {
+    const s = (item.personnel?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isUavReady(item: PreMissionAssessment): boolean {
+    const s = (item.uav?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isTechnicalReady(item: PreMissionAssessment): boolean {
+    const s = (item.technical?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || s === 'HEALTHY' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
   protected statusTone = statusTone;
   protected statusLabel = statusLabel;
 }

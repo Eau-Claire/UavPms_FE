@@ -631,35 +631,66 @@
 .evn-tab-bar {
   display: flex;
   align-items: center;
-  background: #eaf3fb;
-  border: 1px solid #9fc3e4;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-bottom: 0;
-  margin-top: 4px;
-  padding: 0 4px;
-  gap: 2px;
+  border-radius: 8px 8px 0 0;
+  margin-top: 12px;
+  padding: 4px 8px 0;
+  gap: 4px;
+  overflow-x: auto;
 
   button {
-    height: 30px;
-    padding: 0 14px;
+    height: 38px;
+    padding: 0 16px;
     border: 1px solid transparent;
     border-bottom: none;
+    border-radius: 6px 6px 0 0;
     background: transparent;
-    color: #174f83;
-    font-size: 11px;
+    color: #475569;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
     transition: all 0.15s ease;
 
     &:hover {
-      background: #d9edf9;
+      background: #e2e8f0;
+      color: #0f172a;
     }
 
     &.active {
       background: #ffffff;
-      border-color: #9fc3e4;
-      border-top: 2px solid #1d4f91;
-      color: #173b70;
+      border-color: #cbd5e1;
+      border-top: 3px solid #10387d;
+      color: #10387d;
       font-weight: 700;
+      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.03);
+    }
+  }
+
+  .tab-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+
+    &.pill-pass {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    &.pill-fail {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
     }
   }
 }

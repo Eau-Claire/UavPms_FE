@@ -146,23 +146,23 @@
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ statusTone(item.site.status) }}" [title]="'Mặt bằng: ' + statusLabel(item.site.status)">
-                      {{ item.site.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isSiteReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Mặt bằng: ' + (isSiteReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isSiteReady(item) ? 'Đạt' : 'Chưa' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ statusTone(item.personnel.status) }}" [title]="'Nhân sự: ' + statusLabel(item.personnel.status)">
-                      {{ item.personnel.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isPersonnelReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Nhân sự: ' + (isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isPersonnelReady(item) ? 'Đạt' : 'Chưa' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ statusTone(item.uav.status) }}" [title]="'Thiết bị UAV: ' + statusLabel(item.uav.status)">
-                      {{ item.uav.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isUavReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Thiết bị UAV: ' + (isUavReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isUavReady(item) ? 'Đạt' : 'Chưa' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ statusTone(item.technical.status) }}" [title]="'Kiểm định KT: ' + statusLabel(item.technical.status)">
-                      {{ item.technical.status === 'READY' ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isTechnicalReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Kiểm định KT: ' + (isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isTechnicalReady(item) ? 'Đạt' : 'Chưa' }}
                     </span>
                   </td>
                   <td class="text-center">

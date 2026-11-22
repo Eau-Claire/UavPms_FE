@@ -124,79 +124,7 @@
       </div>
     }
 
-    <!-- 4 Core Readiness Status Strip -->
-    <section class="readiness-grid" aria-label="Kết quả 4 trụ cột đánh giá">
-      <!-- Site -->
-      <div class="readiness-card" [class.is-pass]="a.site.status === 'PASS' || a.site.status === 'FEASIBLE'" [class.is-fail]="a.site.status !== 'PASS' && a.site.status !== 'FEASIBLE'">
-        <div class="card-head">
-          <span class="card-title">1. Mặt bằng & Khí tượng</span>
-          <span class="evn-status {{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'success' : 'danger' }}">{{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'Đạt' : 'Không đạt' }}</span>
-        </div>
-        <p class="card-desc">{{ a.site.reason || 'Khoảng cách hành lang an toàn và điều kiện sức gió đạt tiêu chuẩn vận hành bay.' }}</p>
-        @if (a.site.evaluatedAt) {
-          <span class="card-time">Đánh giá: {{ a.site.evaluatedAt | date:'HH:mm dd/MM' }}</span>
-        }
-      </div>
-
-      <!-- Personnel -->
-      <div class="readiness-card" [class.is-pass]="(a.personnel.status === 'PASS' || a.personnel.status === 'READY') && roleBreakdown().hasAllThree" [class.is-fail]="!((a.personnel.status === 'PASS' || a.personnel.status === 'READY') && roleBreakdown().hasAllThree)">
-        <div class="card-head">
-          <span class="card-title">2. Nhân sự (3 vai trò bắt buộc)</span>
-          <span class="evn-status {{ roleBreakdown().hasAllThree ? 'success' : 'danger' }}">
-            {{ roleBreakdown().hasAllThree ? 'Đạt' : 'Chưa đạt' }}
-          </span>
-        </div>
-        <p class="card-desc">
-          Yêu cầu: <strong>{{ roleBreakdown().reqInspectors }} Phi công</strong> | <strong>{{ roleBreakdown().reqAnalysts }} Chuyên viên</strong> | <strong>{{ roleBreakdown().reqTechnicians }} Kỹ thuật viên</strong>
-          <span style="color: #64748b; font-size: 10.5px; display: block; margin-top: 2px;">
-            (Khả dụng: {{ roleBreakdown().inspectors.length }} Phi công · {{ roleBreakdown().analysts.length }} Chuyên viên · {{ roleBreakdown().technicians.length }} Kỹ thuật viên)
-          </span>
-        </p>
-        @if (!roleBreakdown().hasAllThree) {
-          <span style="font-size: 11px; color: #dc2626; font-weight: 500;">
-            Thiếu: {{ roleBreakdown().missingRoles.join(', ') }}
-          </span>
-        } @else if (a.personnel.evaluatedAt) {
-          <span class="card-time">Đánh giá: {{ a.personnel.evaluatedAt | date:'HH:mm dd/MM' }}</span>
-        }
-      </div>
-
-      <!-- UAV -->
-      <div class="readiness-card" [class.is-pass]="a.uav.status === 'PASS' || a.uav.status === 'READY'" [class.is-fail]="a.uav.status !== 'PASS' && a.uav.status !== 'READY'">
-        <div class="card-head">
-          <span class="card-title">3. Thiết bị bay (UAV)</span>
-          <span class="evn-status {{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'success' : 'danger' }}">{{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'Đạt' : 'Không đạt' }}</span>
-        </div>
-        <p class="card-desc">
-          <strong>{{ eligibleUavCount() }}</strong>/{{ a.uavCandidates.length }} UAV đủ điều kiện
-          @if (uavNeedingInspectionCount() > 0) {
-            · {{ uavNeedingInspectionCount() }} UAV cần Kỹ thuật viên kiểm định
-          }
-          <span style="color: #64748b; font-size: 10.5px; display: block; margin-top: 2px;">
-            (Giới hạn nhiệm vụ: tối đa {{ assessmentConfig().maxDronesLimit }} UAV/chuyến bay)
-          </span>
-        </p>
-        @if (a.uav.evaluatedAt) {
-          <span class="card-time">Đánh giá: {{ a.uav.evaluatedAt | date:'HH:mm dd/MM' }}</span>
-        }
-      </div>
-
-      <!-- Technical -->
-      <div class="readiness-card" [class.is-pass]="a.technical.status === 'PASS' || a.technical.status === 'HEALTHY'" [class.is-fail]="a.technical.status !== 'PASS' && a.technical.status !== 'HEALTHY'">
-        <div class="card-head">
-          <span class="card-title">4. Sức khỏe kỹ thuật UAV</span>
-          <span class="evn-status {{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'success' : 'danger' }}">{{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'Đạt' : 'Không đạt' }}</span>
-        </div>
-        <p class="card-desc">
-          {{ a.technical.reason || 'Hệ thống vi điều khiển, cảm biến IMU, nguồn pin và động cơ đạt tiêu chuẩn an toàn.' }}
-        </p>
-        @if (a.technical.evaluatedAt) {
-          <span class="card-time">Đánh giá: {{ a.technical.evaluatedAt | date:'HH:mm dd/MM' }}</span>
-        }
-      </div>
-    </section>
-
-    <!-- Tab Strip -->
+    <!-- Tab Strip with Embedded Readiness Status Badges -->
     <nav class="evn-tab-bar" aria-label="Các tab chi tiết đánh giá">
       <button
         type="button"
@@ -211,20 +139,29 @@
         (click)="setTab('site')"
       >
         <span nz-icon nzType="environment"></span> Mặt bằng tuyến & Khí tượng
+        <span class="tab-status-pill {{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'pill-pass' : 'pill-fail' }}">
+          {{ a.site.status === 'PASS' || a.site.status === 'FEASIBLE' ? 'Đạt' : 'Không đạt' }}
+        </span>
       </button>
       <button
         type="button"
         [class.active]="activeTab() === 'personnel'"
         (click)="setTab('personnel')"
       >
-        <span nz-icon nzType="team"></span> Ứng viên nhân sự ({{ a.personnelCandidates.length }})
+        <span nz-icon nzType="team"></span> Nhân sự ({{ a.personnelCandidates.length }})
+        <span class="tab-status-pill {{ roleBreakdown().hasAllThree ? 'pill-pass' : 'pill-fail' }}">
+          {{ roleBreakdown().hasAllThree ? 'Đạt' : 'Chưa đạt' }}
+        </span>
       </button>
       <button
         type="button"
         [class.active]="activeTab() === 'uav'"
         (click)="setTab('uav')"
       >
-        <span nz-icon nzType="send"></span> Ứng viên UAV ({{ a.uavCandidates.length }})
+        <span nz-icon nzType="send"></span> Thiết bị UAV ({{ a.uavCandidates.length }})
+        <span class="tab-status-pill {{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'pill-pass' : 'pill-fail' }}">
+          {{ a.uav.status === 'PASS' || a.uav.status === 'READY' ? 'Đạt' : 'Không đạt' }}
+        </span>
       </button>
       <button
         type="button"
@@ -232,17 +169,15 @@
         (click)="setTab('technical')"
       >
         <span nz-icon nzType="dashboard"></span> Kiểm định viễn trắc BIST
+        <span class="tab-status-pill {{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'pill-pass' : 'pill-fail' }}">
+          {{ a.technical.status === 'PASS' || a.technical.status === 'HEALTHY' ? 'Đạt' : 'Không đạt' }}
+        </span>
       </button>
     </nav>
 
     <!-- Tab 1: Overview & Scope Map -->
     @if (activeTab() === 'overview') {
       <div class="evn-panel">
-        <div class="panel-header">
-          <div class="header-title-group">
-            <h3>Thông số tổng quan phạm vi & Hiệu lực đánh giá</h3>
-          </div>
-        </div>
         <div class="panel-body">
           <div class="detail-props-grid">
             <div class="prop-item">
@@ -387,24 +322,6 @@
           <span class="evn-status {{ statusTone(a.site.status) }}">{{ statusLabel(a.site.status) }}</span>
         </div>
         <div class="panel-body">
-          <!-- Operational Assumptions & Legal Notice -->
-          <div class="operational-assumption-banner">
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
-              <span nz-icon nzType="safety-certificate" style="font-size: 18px; color: #166534; margin-top: 2px;"></span>
-              <div style="font-size: 11.5px; line-height: 1.5; color: #1e3a5f;">
-                <strong style="font-size: 12px; color: #0b2546; display: block; margin-bottom: 3px;">
-                  QUY ĐỊNH PHÁP LÝ & GIẢ ĐỊNH VẬN HÀNH (OPERATIONAL ASSUMPTIONS)
-                </strong>
-                <p style="margin: 0 0 4px; color: #334155;">
-                  Theo quy định tại <em>Nghị định 36/2008/NĐ-CP</em> và <em>Quyết định 18/2020/QĐ-TTg</em>, đơn vị bay chủ động chịu trách nhiệm về thủ tục cấp phép bay bằng văn bản từ Cục Tác chiến - Bộ Tổng Tham mưu, đồng thời tự đảm bảo an toàn tĩnh không quân sự và bãi cất hạ cánh tiếp cận chân cột thực địa.
-                </p>
-                <span style="font-size: 11px; color: #0369a1; font-weight: 600;">
-                  Hệ thống tự động thực hiện đánh giá tập trung 02 tiêu chuẩn cốt lõi: (1) Khoảng cách hành lang an toàn lưới điện theo thiết lập và (2) Điều kiện khí tượng/sức gió thực tế từ trạm quan trắc trực tuyến.
-                </span>
-              </div>
-            </div>
-          </div>
-
           <!-- Live Weather Station Card -->
           @if (realtimeWeather(); as w) {
             <div class="live-weather-card">
@@ -471,61 +388,6 @@
               <strong>Thời điểm đánh giá:</strong>
               <span>{{ a.site.evaluatedAt ? (a.site.evaluatedAt | date:'dd/MM/yyyy HH:mm:ss') : 'Vừa cập nhật' }}</span>
             </div>
-          </div>
-
-          <!-- Scope & GIS Area Map for Site Feasibility -->
-          <div style="margin-bottom: 14px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <h4 style="font-size: 11px; font-weight: 700; color: #174f83; margin: 0;">
-                Bản đồ vị trí tuyến cột & Hành lang an toàn lưới điện (GIS Area Map):
-              </h4>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <div class="map-type-group" role="group" aria-label="Kiểu bản đồ nền">
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'google-streets'"
-                    (click)="setMapType('google-streets')"
-                  >
-                    Bản đồ
-                  </button>
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'google-hybrid'"
-                    (click)="setMapType('google-hybrid')"
-                  >
-                    Vệ tinh
-                  </button>
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'google-terrain'"
-                    (click)="setMapType('google-terrain')"
-                  >
-                    Địa hình
-                  </button>
-                  <button
-                    type="button"
-                    class="map-type-btn"
-                    [class.active]="currentMapType() === 'carto'"
-                    (click)="setMapType('carto')"
-                  >
-                    Chuẩn
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  class="map-action-btn"
-                  (click)="refreshMap()"
-                  title="Căn chỉnh lại khung nhìn bản đồ"
-                >
-                  Căn chỉnh
-                </button>
-                <span style="font-size: 10px; color: #64748b;">{{ scopeTowers().length }} cột điện · Bán kính an toàn</span>
-              </div>
-            </div>
-            <div #siteMapContainer id="workspaceSiteMapContainer" style="height: 240px; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; background: #e2e8f0; position: relative;"></div>
           </div>
 
           <!-- Site Checks Table -->
@@ -670,21 +532,21 @@
             </span>
             <span class="evn-status {{ roleBreakdown().inspectors.length >= roleBreakdown().reqInspectors ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().inspectors.length >= roleBreakdown().reqInspectors ? 'check' : 'close'"></span>
-              Phi công: {{ roleBreakdown().inspectors.length }}/{{ roleBreakdown().reqInspectors }} khả dụng
+              INSPECTOR: {{ roleBreakdown().inspectors.length }}/{{ roleBreakdown().reqInspectors }} khả dụng
               @if (roleBreakdown().inspectors.length < roleBreakdown().reqInspectors) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqInspectors - roleBreakdown().inspectors.length }})</span>
               }
             </span>
             <span class="evn-status {{ roleBreakdown().analysts.length >= roleBreakdown().reqAnalysts ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().analysts.length >= roleBreakdown().reqAnalysts ? 'check' : 'close'"></span>
-              Chuyên viên: {{ roleBreakdown().analysts.length }}/{{ roleBreakdown().reqAnalysts }} khả dụng
+              ANALYST: {{ roleBreakdown().analysts.length }}/{{ roleBreakdown().reqAnalysts }} khả dụng
               @if (roleBreakdown().analysts.length < roleBreakdown().reqAnalysts) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqAnalysts - roleBreakdown().analysts.length }})</span>
               }
             </span>
             <span class="evn-status {{ roleBreakdown().technicians.length >= roleBreakdown().reqTechnicians ? 'status-pass' : 'status-fail' }}">
               <span nz-icon [nzType]="roleBreakdown().technicians.length >= roleBreakdown().reqTechnicians ? 'check' : 'close'"></span>
-              Kỹ thuật viên: {{ roleBreakdown().technicians.length }}/{{ roleBreakdown().reqTechnicians }} khả dụng
+              TECHNICIAN: {{ roleBreakdown().technicians.length }}/{{ roleBreakdown().reqTechnicians }} khả dụng
               @if (roleBreakdown().technicians.length < roleBreakdown().reqTechnicians) {
                 <span style="margin-left: 4px; font-weight: 700;">(Thiếu {{ roleBreakdown().reqTechnicians - roleBreakdown().technicians.length }})</span>
               }

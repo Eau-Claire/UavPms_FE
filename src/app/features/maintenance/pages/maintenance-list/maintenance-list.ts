@@ -162,6 +162,7 @@ export class MaintenanceList {
 
   protected technicianName(ticket: MaintenanceTicket): string {
     if (!ticket.technicianId) return '';
-    return ticket.technician?.fullName || this.technicianNames().get(ticket.technicianId) || 'Đã giao';
+    const raw = ticket.technician?.fullName || this.technicianNames().get(ticket.technicianId) || 'Đã giao';
+    return raw.replace(/\s*\((?:Technician|MaintenanceTechnician|Kỹ thuật viên)\)/gi, '').trim();
   }
 }
