@@ -935,7 +935,17 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.alertsLayer.clearLayers();
     if (!this.showAlertsLayer()) return;
 
+    // Các cảnh báo gắn với cột điện đã được thể hiện trực quan bằng cột điện màu đỏ (renderTowers).
+    // Chỉ hiển thị marker cảnh báo riêng nếu cảnh báo đó không thuộc bất kỳ cột điện nào trên bản đồ.
+    const towerIds = new Set(this.towers().map((t) => t.id));
+    const towerCodes = new Set(this.towers().map((t) => t.towerCode));
+
     this.alerts().forEach((alert) => {
+      const isLinkedToTower =
+        Boolean(alert.towerId && towerIds.has(alert.towerId)) ||
+        Boolean(alert.towerCode && towerCodes.has(alert.towerCode));
+      if (isLinkedToTower) return;
+
       const isSelected = this.selectedMarkerId() === alert.id;
       const icon = L.divIcon({
         className: `custom-alert-marker${isSelected ? ' is-selected' : ''}`,
@@ -990,6 +1000,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       this.renderDefects();
     } else if (type === 'alerts') {
       this.showAlertsLayer.update((v) => !v);
+      this.renderTowers();
       this.renderAlerts();
     }
   }
@@ -1020,6 +1031,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected openAnomaliesForTower(towerId: string): number {
     return this.anomalies().filter((anomaly) => anomaly.towerId === towerId).length;
+  }
+
+  protected alertsForTower(towerId: string, towerCode?: string): readonly GisAlert[] {
+    return this.alerts().filter((alert) => alert.towerId === towerId || Boolean(towerCode && alert.towerCode === towerCode));
   }
 
   protected anomaliesForTower(towerId: string): readonly GisAnomalyFeature[] {
