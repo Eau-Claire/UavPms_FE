@@ -1417,44 +1417,41 @@
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
               <button
                 type="button"
-                class="evn-btn secondary"
+                class="preset-scenario-btn"
                 [class.active]="mockPreset() === 'healthy'"
                 [style.background]="mockPreset() === 'healthy' ? '#dcfce7' : '#ffffff'"
                 [style.borderColor]="mockPreset() === 'healthy' ? '#16a34a' : '#cbd5e1'"
                 [style.color]="mockPreset() === 'healthy' ? '#15803d' : '#334155'"
-                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
                 (click)="applyMockPreset('healthy')"
               >
                 <strong>✓ Đạt chuẩn 100%</strong>
-                <span style="font-size: 10px; color: #64748b;">Pin 96%, RTK 3D, IMU OK</span>
+                <span>Pin 96%, RTK 3D, IMU OK</span>
               </button>
 
               <button
                 type="button"
-                class="evn-btn secondary"
+                class="preset-scenario-btn"
                 [class.active]="mockPreset() === 'warning'"
                 [style.background]="mockPreset() === 'warning' ? '#fef3c7' : '#ffffff'"
                 [style.borderColor]="mockPreset() === 'warning' ? '#d97706' : '#cbd5e1'"
                 [style.color]="mockPreset() === 'warning' ? '#b45309' : '#334155'"
-                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
                 (click)="applyMockPreset('warning')"
               >
                 <strong>⚠ Cảnh báo</strong>
-                <span style="font-size: 10px; color: #64748b;">Pin 68%, GPS Float</span>
+                <span>Pin 68%, GPS Float</span>
               </button>
 
               <button
                 type="button"
-                class="evn-btn secondary"
+                class="preset-scenario-btn"
                 [class.active]="mockPreset() === 'critical'"
                 [style.background]="mockPreset() === 'critical' ? '#fee2e2' : '#ffffff'"
                 [style.borderColor]="mockPreset() === 'critical' ? '#dc2626' : '#cbd5e1'"
                 [style.color]="mockPreset() === 'critical' ? '#b91c1c' : '#334155'"
-                style="padding: 6px 8px; font-size: 11px; text-align: left; display: flex; flex-direction: column; gap: 2px;"
                 (click)="applyMockPreset('critical')"
               >
                 <strong>✕ Không đạt</strong>
-                <span style="font-size: 10px; color: #64748b;">Pin 28%, Lỗi IMU</span>
+                <span>Pin 28%, Lỗi IMU</span>
               </button>
             </div>
           </div>

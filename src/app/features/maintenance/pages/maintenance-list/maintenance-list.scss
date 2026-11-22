@@ -10,18 +10,18 @@
 
 .maintenance-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1050px;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
 
-  th.th-m-code { width: 140px; }
-  th.th-m-desc { width: auto; min-width: 240px; }
-  th.th-m-priority { width: 110px; }
-  th.th-m-status { width: 130px; }
-  th.th-m-tech { width: 180px; min-width: 160px; }
-  th.th-m-date { width: 125px; min-width: 115px; }
-  th.th-m-actions { width: 95px; text-align: center; }
+  th.th-m-code, td.td-m-code { width: 150px; }
+  th.th-m-desc, td.td-m-desc { width: auto; min-width: 250px; }
+  th.th-m-priority, td.td-m-priority { width: 110px; text-align: center; }
+  th.th-m-status, td.td-m-status { width: 145px; text-align: center; }
+  th.th-m-tech, td.td-m-tech { width: 170px; min-width: 150px; }
+  th.th-m-date, td.td-m-date { width: 115px; }
+  th.th-m-actions, td.td-m-actions { width: 95px; text-align: center; }
 
   tbody tr {
     height: 48px;
@@ -30,7 +30,7 @@
     td {
       height: 48px;
       vertical-align: middle;
-      padding: 8px 12px;
+      padding: 10px 14px;
       border-bottom: 1px solid #f1f5f9;
       font-size: 13px;
     }
@@ -44,21 +44,22 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 180px;
+    max-width: 170px;
 
     .tech-name-text {
       display: inline-block;
-      max-width: 170px;
+      max-width: 160px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       vertical-align: middle;
+      color: #1e293b;
+      font-weight: 500;
     }
   }
 
   td.td-m-date {
     white-space: nowrap;
-    min-width: 120px;
   }
 
   td.td-m-actions {

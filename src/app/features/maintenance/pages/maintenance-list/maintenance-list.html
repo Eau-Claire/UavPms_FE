@@ -83,8 +83,8 @@
                   @if (ticket.tower) { <span class="maintenance-tower-tag">Cột {{ ticket.tower.towerCode }}</span> }
                 </div>
               </td>
-              <td><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
-              <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
+              <td class="td-m-priority"><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
+              <td class="td-m-status"><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
               <td class="td-m-tech">
                 @if (ticket.technicianId) {
                   <span class="tech-name-text" [title]="technicianName(ticket)">{{ technicianName(ticket) }}</span>

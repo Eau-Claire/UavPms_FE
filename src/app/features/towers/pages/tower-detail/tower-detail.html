@@ -108,7 +108,7 @@
     </div>
   </section>
 
-  <!-- Data Section: Tabs + Inline Filter Toolbar in Header, Scrollable Table Below -->
+  <!-- Data Section: Tabs + Filter Toolbar, Scrollable Table Below -->
   <section class="tower-card tower-detail-table-card">
     <div class="tower-card-header">
       <div class="tower-tabs" role="tablist" aria-label="Lịch sử cột điện">
@@ -123,43 +123,43 @@
           Lịch sử bảo trì <span class="tower-tab-count">{{ data.maintenancePagination.totalItems }}</span>
         </button>
       </div>
-
-      <form class="tower-filter-strip" [formGroup]="filters" aria-label="Lọc lịch sử" (ngSubmit)="applyFilters()">
-        <div class="search-input-wrap">
-          <span nz-icon nzType="search" class="search-icon"></span>
-          <input
-            id="history-search"
-            type="search"
-            placeholder="Tìm theo sự cố, nội dung..."
-            [value]="historySearch()"
-            (input)="historySearch.set($any($event.target).value)"
-          />
-        </div>
-
-        <div class="filter-group" [class.is-hidden]="activeTab() !== 'anomalies'">
-          <label for="history-status" class="filter-lbl">Trạng thái:</label>
-          <select id="history-status" formControlName="validationStatus" title="Trạng thái bất thường">
-            <option value="">Tất cả trạng thái</option>
-            @for (status of statuses; track status) {
-              <option [value]="status">{{ anomalyStatusLabel(status) }}</option>
-            }
-          </select>
-        </div>
-        <div class="filter-group filter-date">
-          <label for="history-from" class="date-label">Từ ngày:</label>
-          <input id="history-from" type="date" formControlName="from" [attr.aria-invalid]="dateRangeInvalid()" title="Từ ngày" />
-        </div>
-        <div class="filter-group filter-date">
-          <label for="history-to" class="date-label">Đến ngày:</label>
-          <input id="history-to" type="date" formControlName="to" [attr.aria-invalid]="dateRangeInvalid()" [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null" title="Đến ngày" />
-        </div>
-        <div class="filter-actions">
-          <button type="button" class="button secondary btn-compact" (click)="resetFilters()" title="Tải lại dữ liệu">
-            <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
-          </button>
-        </div>
-      </form>
     </div>
+
+    <form class="tower-filter-strip" [formGroup]="filters" aria-label="Lọc lịch sử" (ngSubmit)="applyFilters()">
+      <div class="search-input-wrap">
+        <span nz-icon nzType="search" class="search-icon"></span>
+        <input
+          id="history-search"
+          type="search"
+          placeholder="Tìm theo sự cố, nội dung..."
+          [value]="historySearch()"
+          (input)="historySearch.set($any($event.target).value)"
+        />
+      </div>
+
+      <div class="filter-group" [class.is-hidden]="activeTab() !== 'anomalies'">
+        <label for="history-status" class="filter-lbl">Trạng thái:</label>
+        <select id="history-status" formControlName="validationStatus" title="Trạng thái bất thường">
+          <option value="">Tất cả trạng thái</option>
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ anomalyStatusLabel(status) }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-group filter-date">
+        <label for="history-from" class="date-label">Từ ngày:</label>
+        <input id="history-from" type="date" formControlName="from" [attr.aria-invalid]="dateRangeInvalid()" title="Từ ngày" />
+      </div>
+      <div class="filter-group filter-date">
+        <label for="history-to" class="date-label">Đến ngày:</label>
+        <input id="history-to" type="date" formControlName="to" [attr.aria-invalid]="dateRangeInvalid()" [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null" title="Đến ngày" />
+      </div>
+      <div class="filter-actions">
+        <button type="button" class="button secondary btn-compact" (click)="resetFilters()" title="Tải lại dữ liệu">
+          <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
+        </button>
+      </div>
+    </form>
 
     @if (dateRangeInvalid()) {
       <p id="history-range-error" class="tower-range-error" role="alert">"Đến ngày" không được trước "Từ ngày".</p>

@@ -8,12 +8,12 @@ export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 export const ANOMALY_STATUSES: readonly AnomalyValidationStatus[] = ['Pending', 'InReview', 'Confirmed', 'Rejected', 'Resolved'];
 
 const ANOMALY_LABELS: Record<string, string> = {
-  Pending: 'Pending',
-  InReview: 'InReview',
-  Confirmed: 'Confirmed',
-  Rejected: 'Rejected',
-  Dismissed: 'Rejected',
-  Resolved: 'Resolved',
+  Pending: 'Chờ duyệt',
+  InReview: 'Đang thẩm định',
+  Confirmed: 'Đã xác nhận',
+  Rejected: 'Đã bác bỏ',
+  Dismissed: 'Đã bác bỏ',
+  Resolved: 'Đã khắc phục',
 };
 
 const ANOMALY_TONES: Record<string, Tone> = {
@@ -27,13 +27,13 @@ const ANOMALY_TONES: Record<string, Tone> = {
 
 /** Same wording as the maintenance pages (features/maintenance/data-access/maintenance-labels.ts). */
 const TICKET_STATUS_LABELS: Record<string, string> = {
-  Open: 'Open',
-  Assigned: 'Assigned',
-  InProgress: 'InProgress',
-  PendingVerification: 'PendingVerification',
-  Closed: 'Closed',
-  Cancelled: 'Cancelled',
-  Resolved: 'Closed',
+  Open: 'Mới mở',
+  Assigned: 'Đã giao',
+  InProgress: 'Đang xử lý',
+  PendingVerification: 'Chờ nghiệm thu',
+  Closed: 'Đã đóng',
+  Cancelled: 'Đã hủy',
+  Resolved: 'Đã hoàn thành',
 };
 
 const TICKET_STATUS_TONES: Record<string, Tone> = {
@@ -54,11 +54,11 @@ export const anomalyStatusLabel = (status: string): string => {
   const raw = status.trim();
   if (ANOMALY_LABELS[raw]) return ANOMALY_LABELS[raw];
   const normalized = raw.toLowerCase().replace(/[\s_-]/g, '');
-  if (normalized === 'pending' || normalized === 'choduyet') return 'Pending';
-  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'chothamdinh' || normalized === 'review') return 'InReview';
-  if (normalized === 'confirmed' || normalized === 'daxacnhan' || normalized === 'approved') return 'Confirmed';
-  if (normalized === 'rejected' || normalized === 'dismissed' || normalized === 'dabacbo') return 'Rejected';
-  if (normalized === 'resolved' || normalized === 'dakhacphuc' || normalized === 'closed') return 'Resolved';
+  if (normalized === 'pending' || normalized === 'choduyet') return 'Chờ duyệt';
+  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'chothamdinh' || normalized === 'review') return 'Đang thẩm định';
+  if (normalized === 'confirmed' || normalized === 'daxacnhan' || normalized === 'approved') return 'Đã xác nhận';
+  if (normalized === 'rejected' || normalized === 'dismissed' || normalized === 'dabacbo') return 'Đã bác bỏ';
+  if (normalized === 'resolved' || normalized === 'dakhacphuc' || normalized === 'closed') return 'Đã khắc phục';
   return raw;
 };
 

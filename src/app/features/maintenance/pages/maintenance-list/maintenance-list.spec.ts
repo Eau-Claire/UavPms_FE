@@ -73,7 +73,7 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Chưa giao');
     expect(text()).toContain('Nguyễn Văn Thợ');
     expect(text()).toContain('Khẩn cấp');
-    expect(text()).toContain('InProgress');
+    expect(text()).toContain('Đang xử lý');
   });
 
   it('sends filters and the 0-based page to GET /maintenance/tickets', async () => {
