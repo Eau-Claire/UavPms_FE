@@ -25,6 +25,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { MissionTargetSelection, MissionTargetTower } from '../../../missions/data-access/mission-target-selection';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { anomalyStatusLabel } from '../../../towers/data-access/tower-labels';
 import { AnomalyItem, AnomalyValidationStatus } from '../../../analyst-review/data-access/anomaly-api';
 import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
@@ -67,6 +68,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private readonly toast = inject(ToastService);
   protected readonly targetSelection = inject(MissionTargetSelection);
   private readonly anomalyHistory = inject(AnomalyHistoryService);
+  private readonly notificationsStore = inject(NotificationsStore, { optional: true });
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
 
   /** Area selection / target towers is a manager planning tool (it feeds `/pre-mission/new`). */
@@ -1020,6 +1022,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected navigateToReview(anomalyId: string, anomalyFeature?: GisAnomalyFeature): void {
+    this.notificationsStore?.markReadByReference('detectedanomaly', anomalyId);
+    this.notificationsStore?.markReadForEmergencyAlert(undefined, anomalyId);
     const feature = anomalyFeature ?? this.anomalies().find((a) => a.anomalyId === anomalyId || a.id === anomalyId);
     let anomalyItem: AnomalyItem | undefined;
     if (feature) {

@@ -1,6 +1,7 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter, finalize } from 'rxjs';
 import { Auth } from '../../../core/auth/auth';
 import { AppNotification, NotificationFilters, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { NotificationsApi } from './notifications-api';
@@ -15,6 +16,7 @@ export class NotificationsStore {
   private readonly api = inject(NotificationsApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
+  private readonly router = inject(Router, { optional: true });
   private readonly destroyRef = inject(DestroyRef);
   private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
@@ -63,10 +65,26 @@ export class NotificationsStore {
   constructor() {
     this.realtime.notifications$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((notification) => this.upsert(notification));
+      .subscribe((notification) => {
+        this.upsert(notification);
+        if (this.router && typeof this.router.url === 'string') {
+          this.handleAutoReadOnNavigation(this.router.url);
+        }
+      });
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => this.realtimeStatus.set(status));
+
+    if (this.router && this.router.events) {
+      this.router.events
+        .pipe(
+          filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe((event) => {
+          this.handleAutoReadOnNavigation(event.urlAfterRedirects || event.url);
+        });
+    }
   }
 
   connect(userId?: string): void {
@@ -97,6 +115,9 @@ export class NotificationsStore {
           const readIds = merged.filter((item) => item.isRead).map((item) => item.id);
           if (readIds.length > 0) {
             markAllAlertIdsAsReadLocally(readIds);
+          }
+          if (this.router && typeof this.router.url === 'string') {
+            this.handleAutoReadOnNavigation(this.router.url);
           }
         },
         error: () => {
@@ -179,6 +200,110 @@ export class NotificationsStore {
 
   markAllAsRead(): void {
     this.markAllRead();
+  }
+
+  markReadByReference(referenceType: string, referenceId?: string): void {
+    const normType = referenceType.toLowerCase().trim();
+    const unreadMatches = this.notificationsState().filter((item) => {
+      if (item.isRead) return false;
+      const itemRefType = (item.referenceType ?? '').toLowerCase().trim();
+      const itemType = (item.type ?? '').toLowerCase().trim();
+
+      const typeMatches =
+        !normType ||
+        itemRefType === normType ||
+        itemType === normType ||
+        (normType === 'emergencyalert' &&
+          (itemRefType.includes('alert') ||
+            itemType.includes('alert') ||
+            itemRefType.includes('emergency') ||
+            itemType.includes('emergency'))) ||
+        (normType === 'detectedanomaly' &&
+          (itemRefType.includes('anomal') ||
+            itemType.includes('anomal') ||
+            itemRefType.includes('defect') ||
+            itemType.includes('defect'))) ||
+        (normType === 'mission' && (itemRefType.includes('mission') || itemType.includes('mission'))) ||
+        (normType === 'maintenanceticket' &&
+          (itemRefType.includes('maint') || itemType.includes('maint') || itemRefType.includes('ticket')));
+
+      if (!typeMatches) return false;
+      if (referenceId) {
+        const targetId = referenceId.trim();
+        const notifRefId = (item.referenceId ?? '').trim();
+        return (
+          notifRefId === targetId ||
+          (item.body && item.body.includes(targetId)) ||
+          (item.title && item.title.includes(targetId))
+        );
+      }
+      return true;
+    });
+
+    unreadMatches.forEach((n) => this.markRead(n.id));
+  }
+
+  markReadForEmergencyAlert(alertId?: string, anomalyId?: string, towerCode?: string): void {
+    const unreadMatches = this.notificationsState().filter((item) => {
+      if (item.isRead) return false;
+      const itemRefType = (item.referenceType ?? '').toLowerCase().trim();
+      const itemType = (item.type ?? '').toLowerCase().trim();
+      const title = (item.title ?? '').toLowerCase();
+      const body = (item.body ?? '').toLowerCase();
+
+      const isAlertNotif =
+        itemRefType.includes('alert') ||
+        itemType.includes('alert') ||
+        itemRefType.includes('emergency') ||
+        itemType.includes('emergency') ||
+        title.includes('nghiêm trọng') ||
+        title.includes('khẩn cấp') ||
+        title.includes('báo động') ||
+        body.includes('nghiêm trọng') ||
+        body.includes('khẩn cấp') ||
+        body.includes('báo động');
+
+      if (!isAlertNotif) return false;
+
+      if (alertId || anomalyId || towerCode) {
+        const refId = (item.referenceId ?? '').trim();
+        if (alertId && (refId === alertId.trim() || body.includes(alertId.trim()) || title.includes(alertId.trim()))) return true;
+        if (anomalyId && (refId === anomalyId.trim() || body.includes(anomalyId.trim()) || title.includes(anomalyId.trim()))) return true;
+        if (towerCode && (body.includes(towerCode.trim().toLowerCase()) || title.includes(towerCode.trim().toLowerCase()))) return true;
+        if (!refId) return true;
+        return false;
+      }
+      return true;
+    });
+
+    unreadMatches.forEach((n) => this.markRead(n.id));
+  }
+
+  private handleAutoReadOnNavigation(url: string): void {
+    if (!url) return;
+    const cleanUrl = url.split('?')[0];
+    const queryStr = url.includes('?') ? url.split('?')[1] : '';
+    const searchParams = new URLSearchParams(queryStr);
+
+    if (cleanUrl.startsWith('/emergency-alerts')) {
+      const alertId = searchParams.get('id') || searchParams.get('alertId');
+      this.markReadForEmergencyAlert(alertId || undefined);
+    } else if (cleanUrl.startsWith('/missions/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[1] !== 'new') {
+        this.markReadByReference('mission', parts[1]);
+      }
+    } else if (cleanUrl.startsWith('/maintenance/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[1] !== 'new') {
+        this.markReadByReference('maintenanceticket', parts[1]);
+      }
+    } else if (cleanUrl.startsWith('/ai-review/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        this.markReadByReference('detectedanomaly', parts[1]);
+      }
+    }
   }
 
   delete(id: string): void {

@@ -37,6 +37,7 @@ import {
   MissionLifecycleRealtimeEvent,
   NotificationsRealtime,
 } from '../../../notifications/data-access/notifications-realtime';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { MissionsApi } from '../../data-access/missions-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { Auth } from '../../../../core/auth/auth';
@@ -181,6 +182,7 @@ export class MissionDetail {
   private readonly api = inject(MissionsApi);
   private readonly usersApi = inject(UsersApi);
   private readonly realtime = inject(NotificationsRealtime);
+  private readonly notificationsStore = inject(NotificationsStore, { optional: true });
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
@@ -731,6 +733,7 @@ export class MissionDetail {
       .subscribe({
         next: (mission) => {
           this.mission.set(mission);
+          this.notificationsStore?.markReadByReference('mission', mission.id);
           if (!requestedTab) this.activeTab.set(this.allowedTab(defaultMissionTab(this.userRole(), mission.status)));
           this.selectedTargetId.set(mission.targets[0]?.towerId ?? '');
           this.loadAssignmentsOverview(mission.id);

@@ -16,6 +16,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { roleFamily } from '../../../../core/auth/roles';
@@ -61,6 +62,7 @@ export class DetectionReview {
   private readonly api = inject(AnomalyApi);
   private readonly history = inject(AnomalyHistoryService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
+  private readonly notificationsStore = inject(NotificationsStore, { optional: true });
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
@@ -165,6 +167,9 @@ export class DetectionReview {
       void this.router.navigate(['/ai-review'], { replaceUrl: true });
       return;
     }
+
+    this.notificationsStore?.markReadByReference('detectedanomaly', currentId);
+    this.notificationsStore?.markReadForEmergencyAlert(undefined, currentId);
 
     // Tải hàng đợi pending để lấy danh sách sự cố tiếp theo
     this.api
@@ -309,6 +314,8 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
+          this.notificationsStore?.markReadByReference('detectedanomaly', item.id);
+          this.notificationsStore?.markReadForEmergencyAlert(undefined, item.id);
           const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
           const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
           this.history.saveReview(item, 'Confirmed', notes, aliasIds);
@@ -402,6 +409,8 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
+          this.notificationsStore?.markReadByReference('detectedanomaly', item.id);
+          this.notificationsStore?.markReadForEmergencyAlert(undefined, item.id);
           const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
           const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
           this.history.saveReview(item, 'Rejected', fullNotes, aliasIds);

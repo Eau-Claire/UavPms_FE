@@ -17,6 +17,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { isAdminRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
 import { AnomalyApi, mapAlertToAnomaly } from '../../../analyst-review/data-access/anomaly-api';
 import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
@@ -82,6 +83,7 @@ export class EmergencyAlertsReview {
   private readonly anomalyHistory = inject(AnomalyHistoryService);
   private readonly anomalyApi = inject(AnomalyApi);
   private readonly realtime = inject(NotificationsRealtime);
+  private readonly notificationsStore = inject(NotificationsStore, { optional: true });
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -194,12 +196,26 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: (alerts) => {
           const targetId = this.selectedAlertId()?.trim();
-          if (!targetId || alerts.length === 0) return;
+          if (alerts.length === 0) {
+            // Không còn cảnh báo nào đang hoạt động -> tự động đánh dấu đã xem thông báo khẩn cấp
+            this.notificationsStore?.markReadForEmergencyAlert();
+            return;
+          }
+
+          if (!targetId) {
+            // Tự động xem cảnh báo đầu tiên và đánh dấu đã đọc
+            const first = alerts[0];
+            if (first) {
+              this.notificationsStore?.markReadForEmergencyAlert(first.id, first.anomalyId, first.towerCode);
+            }
+            return;
+          }
 
           // Check if targetId matches an active alert (by id or anomalyId)
           const matching = alerts.find((a) => a.id === targetId || a.anomalyId === targetId);
           if (matching) {
             this.selectedAlertId.set(matching.id);
+            this.notificationsStore?.markReadForEmergencyAlert(matching.id, matching.anomalyId, matching.towerCode);
             return;
           }
 
@@ -267,6 +283,7 @@ export class EmergencyAlertsReview {
   // --- Selection & evidence viewer ---
   protected selectAlert(alert: ActiveEmergencyAlert): void {
     this.selectedAlertId.set(alert.id);
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     this.zoomLevel.set(1);
     this.imgNaturalWidth.set(0);
     this.imgNaturalHeight.set(0);
@@ -370,6 +387,7 @@ export class EmergencyAlertsReview {
 
   private review(alert: ActiveEmergencyAlert, status: 'Confirmed' | 'Dismissed', notes: string, done: () => void): void {
     this.actionBusy.set(true);
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     this.api
       .reviewAlert(alert.id, { status, notes })
       .pipe(
@@ -395,6 +413,9 @@ export class EmergencyAlertsReview {
 
           const remaining = this.activeAlerts().filter((a) => a.id !== alert.id && a.anomalyId !== alert.anomalyId);
           this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
+          if (remaining.length === 0) {
+            this.notificationsStore?.markReadForEmergencyAlert();
+          }
           this.loadActive();
           this.loadHistory(1);
           if (status === 'Confirmed') {
@@ -447,6 +468,7 @@ export class EmergencyAlertsReview {
   protected executeEscalate(): void {
     const alert = this.selectedAlert();
     if (!alert || this.actionBusy()) return;
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     if (this.escalateForm.invalid) {
       this.escalateForm.markAllAsTouched();
       return;
@@ -482,6 +504,7 @@ export class EmergencyAlertsReview {
   protected viewDetail(id: string, notifyOnError = true): void {
     const cleanId = id?.trim();
     if (!cleanId) return;
+    this.notificationsStore?.markReadForEmergencyAlert(cleanId);
 
     this.detailLoading.set(true);
     this.api
