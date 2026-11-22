@@ -46,7 +46,7 @@ describe('InspectorHome', () => {
   it('greets the user with the role label and loads only personal data', async () => {
     const { el, missionsApi, monitorApi } = await setup();
     expect(el.querySelector('h1')?.textContent).toContain('Nguyễn Văn Bay');
-    expect(el.textContent).toContain('Phi công / Inspector');
+    expect(el.textContent).toContain('Inspector');
     expect(missionsApi.my).toHaveBeenCalledTimes(1);
     expect(monitorApi.getAlerts).toHaveBeenCalledTimes(1);
     expect(el.textContent).toContain('Bạn được giao NV-001');

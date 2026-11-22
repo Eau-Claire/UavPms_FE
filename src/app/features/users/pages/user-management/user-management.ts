@@ -55,7 +55,7 @@ export class UserManagement {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(10);
 
-  protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst'];
+  protected readonly roles: readonly UserRole[] = ['SystemAdmin', 'Manager', 'Inspector', 'Technician', 'Analyst'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
 
   protected readonly generatedPassword = signal('');
@@ -350,25 +350,42 @@ export class UserManagement {
     );
   }
 
-  protected roleClass(role: UserRole): string {
-    return `role-${role.toLowerCase()}`;
+  protected roleClass(role: UserRole | string): string {
+    const key = String(role ?? '').toLowerCase().replace(/[\s_-]/g, '');
+    if (key.includes('admin')) return 'role-admin';
+    if (key.includes('manager') || key.includes('supervisor')) return 'role-manager';
+    if (key.includes('inspector') || key.includes('pilot')) return 'role-inspector';
+    if (key.includes('technician')) return 'role-technician';
+    if (key.includes('analyst')) return 'role-analyst';
+    return `role-${key}`;
   }
 
   protected statusClass(status: UserStatus): string {
     return `status-${status.toLowerCase()}`;
   }
 
-  protected roleLabel(role: UserRole): string {
-    const labels: Record<string, string> = {
-      Admin: 'Quản trị viên',
-      SystemAdmin: 'Quản trị viên',
-      Manager: 'Quản lý',
-      Supervisor: 'Quản lý',
-      Inspector: 'Thanh tra',
-      Technician: 'Kỹ thuật viên',
-      Analyst: 'Phân tích viên',
-    };
-    return labels[role] ?? String(role);
+  protected roleLabel(role: UserRole | string): string {
+    const raw = String(role ?? '').trim();
+    const key = raw.toLowerCase().replace(/[\s_-]/g, '');
+    switch (key) {
+      case 'admin':
+      case 'systemadmin':
+      case 'administrator':
+        return 'SystemAdmin';
+      case 'manager':
+      case 'supervisor':
+        return 'Manager';
+      case 'inspector':
+      case 'pilot':
+        return 'Inspector';
+      case 'technician':
+      case 'maintenancetechnician':
+        return 'Technician';
+      case 'analyst':
+        return 'Analyst';
+      default:
+        return raw;
+    }
   }
 
   protected statusLabel(status: UserStatus): string {

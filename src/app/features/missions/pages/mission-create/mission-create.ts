@@ -21,9 +21,9 @@ import { isValidGuid, MissionsApi } from '../../data-access/missions-api';
 const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
 
 const ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công / Inspector',
-  ANALYST: 'Chuyên viên phân tích',
-  TECHNICIAN: 'Kỹ thuật viên',
+  INSPECTOR: 'Inspector',
+  ANALYST: 'Analyst',
+  TECHNICIAN: 'Technician',
 };
 
 /** Backend default when no deadline is sent (`Mission:ConfirmationDeadlineHours`). */

@@ -82,7 +82,7 @@ describe('TechnicianHome', () => {
   it('groups my tickets by status and highlights overdue ones', async () => {
     const { el, maintenanceApi } = await setup();
     expect(maintenanceApi.mine).toHaveBeenCalledTimes(1);
-    expect(el.textContent).toContain('Kỹ thuật viên');
+    expect(el.textContent).toContain('Technician');
 
     const open = section(el, 'Open');
     expect(open.textContent).toContain('Chờ xử lý');

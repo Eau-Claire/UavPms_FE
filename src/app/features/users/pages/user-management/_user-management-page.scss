@@ -532,12 +532,14 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
 
-  &.role-admin {
+  &.role-admin,
+  &.role-systemadmin {
     background: #152943;
     color: #ffffff;
   }
 
-  &.role-manager {
+  &.role-manager,
+  &.role-supervisor {
     background: #273549;
     color: #ffffff;
   }
@@ -547,7 +549,8 @@
     color: #2264a8;
   }
 
-  &.role-technician {
+  &.role-technician,
+  &.role-maintenancetechnician {
     background: #fff0d7;
     color: #ac6900;
   }
