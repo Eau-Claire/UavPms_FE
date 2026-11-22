@@ -1,8 +1,8 @@
-/** Emergency alert lifecycle (api_spec Module 8): Active → Confirmed / Dismissed / Escalated. */
-export type AlertStatus = 'Active' | 'Confirmed' | 'Dismissed' | 'Escalated';
+/** Emergency alert lifecycle according to EmergencyAlert State Machine doc: Open, Acknowledged, Resolved. */
+export type AlertStatus = 'Open' | 'Acknowledged' | 'Resolved' | 'Active' | 'Confirmed' | 'Dismissed' | 'Escalated';
 export type AlertPriority = 'Critical' | 'High' | 'Medium' | 'Low';
 
-export const ALERT_STATUSES: readonly AlertStatus[] = ['Active', 'Confirmed', 'Dismissed', 'Escalated'];
+export const ALERT_STATUSES: readonly AlertStatus[] = ['Open', 'Acknowledged', 'Resolved'];
 
 export interface AlertBoundingBox {
   readonly x: number;
@@ -122,11 +122,14 @@ export interface EscalationTarget {
   readonly role: string;
 }
 
-export const ALERT_STATUS_LABELS: Record<AlertStatus, string> = {
-  Active: 'Đang hoạt động',
-  Confirmed: 'Đã xác nhận',
-  Dismissed: 'Đã bác bỏ',
-  Escalated: 'Đã chuyển cấp',
+export const ALERT_STATUS_LABELS: Record<string, string> = {
+  Open: 'Open',
+  Acknowledged: 'Acknowledged',
+  Resolved: 'Resolved',
+  Active: 'Open',
+  Confirmed: 'Acknowledged',
+  Dismissed: 'Resolved',
+  Escalated: 'Acknowledged',
 };
 
 export const ALERT_PRIORITY_LABELS: Record<AlertPriority, string> = {

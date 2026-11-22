@@ -61,8 +61,8 @@ export class MissionList {
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
-    const isPending = (s: string) => ['Preparing', 'Ready', 'PendingAcceptance', 'Draft', 'Assigned'].includes(normalizeMissionStatus(s));
-    const isInProgress = (s: string) => ['InProgress', 'Flying', 'Dispatched'].includes(normalizeMissionStatus(s));
+    const isPending = (s: string) => ['Draft', 'PendingAcceptance', 'Confirmed', 'Ready'].includes(normalizeMissionStatus(s));
+    const isInProgress = (s: string) => normalizeMissionStatus(s) === 'InProgress';
     const isCompleted = (s: string) => normalizeMissionStatus(s) === 'Completed';
     const isFailed = (s: string) => this.isFailed(s);
 
@@ -310,8 +310,8 @@ export class MissionList {
   protected statusClass(status: string): string {
     const normalized = normalizeMissionStatus(status);
     if (this.isFailed(normalized)) return 'danger';
-    if (['Completed', 'Confirmed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
-    if (this.isInProgress(normalized) || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
+    if (['Completed', 'Confirmed', 'Ready'].includes(normalized)) return 'success';
+    if (normalized === 'InProgress' || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
     return 'neutral';
   }
 

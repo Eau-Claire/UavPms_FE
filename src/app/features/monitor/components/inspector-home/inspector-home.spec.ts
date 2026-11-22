@@ -63,7 +63,7 @@ describe('InspectorHome', () => {
 
     const upcoming = section(el, 'upcoming');
     expect(upcoming.textContent).toContain('NV-002');
-    expect(upcoming.textContent).toContain('Sẵn sàng bay');
+    expect(upcoming.textContent).toContain('Ready');
     expect(upcoming.querySelector('a.action-link')?.getAttribute('href')).toBe('/missions/m-ready');
 
     expect(section(el, 'flying').querySelector('a.action-link')?.getAttribute('href')).toBe('/missions/m-flying');

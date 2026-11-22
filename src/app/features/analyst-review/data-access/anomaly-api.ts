@@ -6,7 +6,7 @@ import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
 import { AnomalyHistoryService } from './anomaly-history.service';
 
-export type AnomalyValidationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Resolved';
+export type AnomalyValidationStatus = 'Pending' | 'InReview' | 'Confirmed' | 'Rejected' | 'Resolved';
 
 /** Where the AI run that produced the anomaly executed (ERD v2.2 `ai_analysis_runs.execution_location`). */
 export type AnomalyExecutionLocation = 'Edge' | 'Cloud' | 'Manual';
@@ -499,10 +499,11 @@ export const parseBoundingBox = (value: unknown): AnomalyBoundingBox | undefined
 };
 
 const toValidationStatus = (value: unknown): AnomalyValidationStatus => {
-  const status = stringValue(value, 'Pending').toLowerCase();
+  const status = stringValue(value, 'Pending').toLowerCase().replace(/[\s_-]/g, '');
   if (status === 'confirmed' || status === 'approved') return 'Confirmed';
   if (status === 'rejected' || status === 'dismissed') return 'Rejected';
-  if (status === 'resolved') return 'Resolved';
+  if (status === 'resolved' || status === 'closed') return 'Resolved';
+  if (status === 'inreview' || status === 'underreview' || status === 'review') return 'InReview';
   return 'Pending';
 };
 

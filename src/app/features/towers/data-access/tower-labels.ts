@@ -5,15 +5,15 @@ import { isManagerRole } from '../../../core/auth/roles';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
-export const ANOMALY_STATUSES: readonly AnomalyValidationStatus[] = ['Pending', 'Confirmed', 'Rejected', 'Resolved'];
+export const ANOMALY_STATUSES: readonly AnomalyValidationStatus[] = ['Pending', 'InReview', 'Confirmed', 'Rejected', 'Resolved'];
 
 const ANOMALY_LABELS: Record<string, string> = {
-  Pending: 'Chờ duyệt',
-  InReview: 'Chờ thẩm định',
-  Confirmed: 'Đã xác nhận',
-  Rejected: 'Đã bác bỏ',
-  Dismissed: 'Đã bác bỏ',
-  Resolved: 'Đã khắc phục',
+  Pending: 'Pending',
+  InReview: 'InReview',
+  Confirmed: 'Confirmed',
+  Rejected: 'Rejected',
+  Dismissed: 'Rejected',
+  Resolved: 'Resolved',
 };
 
 const ANOMALY_TONES: Record<string, Tone> = {
@@ -27,15 +27,23 @@ const ANOMALY_TONES: Record<string, Tone> = {
 
 /** Same wording as the maintenance pages (features/maintenance/data-access/maintenance-labels.ts). */
 const TICKET_STATUS_LABELS: Record<string, string> = {
-  Open: 'Chờ xử lý',
-  InProgress: 'Đang sửa chữa',
-  PendingVerification: 'Chờ nghiệm thu',
-  Resolved: 'Đã đóng',
-  Closed: 'Đã đóng',
+  Open: 'Open',
+  Assigned: 'Assigned',
+  InProgress: 'InProgress',
+  PendingVerification: 'PendingVerification',
+  Closed: 'Closed',
+  Cancelled: 'Cancelled',
+  Resolved: 'Closed',
 };
 
 const TICKET_STATUS_TONES: Record<string, Tone> = {
-  Open: 'warning', InProgress: 'info', PendingVerification: 'info', Resolved: 'success', Closed: 'neutral',
+  Open: 'warning',
+  Assigned: 'info',
+  InProgress: 'info',
+  PendingVerification: 'warning',
+  Closed: 'success',
+  Cancelled: 'danger',
+  Resolved: 'success',
 };
 
 const PRIORITY_LABELS: Record<string, string> = { Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Emergency: 'Khẩn cấp' };
@@ -46,11 +54,11 @@ export const anomalyStatusLabel = (status: string): string => {
   const raw = status.trim();
   if (ANOMALY_LABELS[raw]) return ANOMALY_LABELS[raw];
   const normalized = raw.toLowerCase().replace(/[\s_-]/g, '');
-  if (normalized === 'pending' || normalized === 'choduyet') return 'Chờ duyệt';
-  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'chothamdinh' || normalized === 'review') return 'Chờ thẩm định';
-  if (normalized === 'confirmed' || normalized === 'daxacnhan') return 'Đã xác nhận';
-  if (normalized === 'rejected' || normalized === 'dismissed' || normalized === 'dabacbo') return 'Đã bác bỏ';
-  if (normalized === 'resolved' || normalized === 'dakhacphuc' || normalized === 'closed') return 'Đã khắc phục';
+  if (normalized === 'pending' || normalized === 'choduyet') return 'Pending';
+  if (normalized === 'inreview' || normalized === 'underreview' || normalized === 'chothamdinh' || normalized === 'review') return 'InReview';
+  if (normalized === 'confirmed' || normalized === 'daxacnhan' || normalized === 'approved') return 'Confirmed';
+  if (normalized === 'rejected' || normalized === 'dismissed' || normalized === 'dabacbo') return 'Rejected';
+  if (normalized === 'resolved' || normalized === 'dakhacphuc' || normalized === 'closed') return 'Resolved';
   return raw;
 };
 

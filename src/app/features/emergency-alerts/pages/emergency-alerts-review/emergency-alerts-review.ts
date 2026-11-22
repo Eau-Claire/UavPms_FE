@@ -298,10 +298,11 @@ export class EmergencyAlertsReview {
     };
   }
 
-  protected statusColor(status: AlertStatus): string {
-    if (status === 'Confirmed') return 'success';
-    if (status === 'Escalated') return 'error';
-    if (status === 'Active') return 'processing';
+  protected statusColor(status: AlertStatus | string): string {
+    const s = String(status || '').toLowerCase();
+    if (s === 'resolved' || s === 'confirmed' || s === 'dismissed') return 'success';
+    if (s === 'acknowledged' || s === 'escalated') return 'warning';
+    if (s === 'open' || s === 'active') return 'error';
     return 'default';
   }
 

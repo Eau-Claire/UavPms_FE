@@ -490,12 +490,30 @@ const checkOf = (value: unknown): ReadinessCheck => {
   };
 };
 
-/** Chuẩn hóa trạng thái hồ sơ; chấp nhận cả giá trị cũ `CONSUMED`, `INCOMPLETE`. */
+/** Chuẩn hóa trạng thái hồ sơ theo State Machine doc (Evaluating, Ready, NotReady, Completed, Cancelled, Expired). */
 export function normalizeAssessmentStatus(value: unknown): string {
-  const s = stringOf(value).replace(/[\s-]/g, '_').toUpperCase();
-  if (s === 'CONSUMED') return 'COMPLETED';
-  if (s === 'INCOMPLETE' || s === 'NOTREADY') return 'NOT_READY';
-  return s;
+  const s = stringOf(value).replace(/[\s_-]/g, '').toUpperCase();
+  switch (s) {
+    case 'READY':
+      return 'Ready';
+    case 'NOTREADY':
+    case 'INCOMPLETE':
+    case 'NOT_READY':
+      return 'NotReady';
+    case 'EVALUATING':
+    case 'DRAFT':
+      return 'Evaluating';
+    case 'COMPLETED':
+    case 'CONSUMED':
+      return 'Completed';
+    case 'CANCELLED':
+    case 'CANCELED':
+      return 'Cancelled';
+    case 'EXPIRED':
+      return 'Expired';
+    default:
+      return stringOf(value) || 'Evaluating';
+  }
 }
 
 export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
@@ -518,8 +536,8 @@ export const normalizeAssessment = (value: unknown): PreMissionAssessment => {
       reason: 'Không có thiết bị bay đạt yêu cầu kỹ thuật và an toàn bay.',
       evaluatedAt: techCheck.evaluatedAt,
     };
-    if (status === 'READY') {
-      status = 'NOT_READY';
+    if (status === 'READY' || status === 'Ready') {
+      status = 'NotReady';
     }
   }
 
@@ -567,7 +585,7 @@ const normalizeResourceReadiness = (value: unknown, assessmentId: string): Resou
     status: normalizeAssessmentStatus(x['status']),
     siteFeasibilityStatus: stringOf(x['siteFeasibilityStatus']),
     overallTechnicalHealth: stringOf(x['overallTechnicalHealth']),
-    isReady: x['isReady'] === true || normalizeAssessmentStatus(x['status']) === 'READY',
+    isReady: x['isReady'] === true || normalizeAssessmentStatus(x['status']) === 'Ready' || normalizeAssessmentStatus(x['status']) === 'READY',
     personnelCandidates: arrayOf(x['personnelCandidates']).map(normalizePersonnel),
     uavCandidates: arrayOf(x['droneCandidates']).map(normalizeDrone),
     evaluatedAt: stringOf(x['evaluatedAt'] ?? x['updatedAt']),

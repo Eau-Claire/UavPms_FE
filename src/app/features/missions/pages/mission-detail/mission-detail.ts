@@ -1913,15 +1913,12 @@ export class MissionDetail {
   }
 
   protected detectionStatusLabel(status: string): string {
-    return (
-      ({
-        Approved: 'Đã duyệt',
-        Accepted: 'Đã duyệt',
-        Rejected: 'Từ chối',
-        Pending: 'Chờ duyệt',
-        Unreviewed: 'Chờ duyệt',
-      } as Record<string, string>)[status] ?? status
-    );
+    const s = String(status || '').trim().toLowerCase().replace(/[\s_-]/g, '');
+    if (s === 'confirmed' || s === 'approved' || s === 'accepted') return 'Confirmed';
+    if (s === 'rejected' || s === 'dismissed') return 'Rejected';
+    if (s === 'resolved' || s === 'closed') return 'Resolved';
+    if (s === 'inreview' || s === 'underreview') return 'InReview';
+    return 'Pending';
   }
 
   protected displayValue(value: string): string {

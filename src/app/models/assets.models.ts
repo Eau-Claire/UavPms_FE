@@ -56,8 +56,8 @@ export interface TowerImportResult {
   readonly skippedCount: number;
 }
 
-/** detected_anomalies.validation_status values accepted by GET /towers/{id}/history. */
-export type AnomalyValidationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Resolved';
+/** detected_anomalies.validation_status values according to DetectedAnomaly State Machine doc. */
+export type AnomalyValidationStatus = 'Pending' | 'InReview' | 'Confirmed' | 'Rejected' | 'Resolved';
 
 export interface TowerHistoryFilters {
   readonly page: number;

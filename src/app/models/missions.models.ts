@@ -18,17 +18,15 @@ export const PRIORITY_DEFECT_CATEGORIES = [
   { key: 'Other', label: 'Khác (Other)' },
 ] as const;
 
-/** Trạng thái nhiệm vụ đúng như backend trả về (`MissionStatus.ToString()`). */
+/** Trạng thái nhiệm vụ theo Mission State Machine doc. */
 export type MissionStatus =
   | 'Draft'
   | 'PendingAcceptance'
+  | 'Postponed'
   | 'Confirmed'
-  | 'Assigned'
-  | 'Preparing'
   | 'Ready'
   | 'InProgress'
   | 'Suspended'
-  | 'Postponed'
   | 'Completed'
   | 'Cancelled'
   | string;
@@ -36,39 +34,21 @@ export type MissionStatus =
 export const MISSION_STATUSES: readonly MissionStatus[] = [
   'Draft',
   'PendingAcceptance',
+  'Postponed',
   'Confirmed',
-  'Assigned',
-  'Preparing',
   'Ready',
   'InProgress',
   'Suspended',
-  'Postponed',
   'Completed',
   'Cancelled',
 ];
 
-const MISSION_STATUS_LABELS: Record<string, string> = {
-  Draft: 'Bản nháp',
-  PendingAcceptance: 'Chờ thành viên tiếp nhận',
-  Confirmed: 'Đã xác nhận',
-  Assigned: 'Đã tiếp nhận',
-  Preparing: 'Đang chuẩn bị',
-  Ready: 'Sẵn sàng bay',
-  InProgress: 'Đang bay khảo sát',
-  Suspended: 'Tạm đình chỉ',
-  Postponed: 'Tạm hoãn',
-  Completed: 'Đã hoàn thành',
-  Cancelled: 'Đã hủy',
-};
-
 export function missionStatusLabel(status: string | null | undefined): string {
-  const normalized = normalizeMissionStatus(status);
-  return MISSION_STATUS_LABELS[normalized] ?? normalized;
+  return normalizeMissionStatus(status);
 }
 
 /**
- * Chuẩn hóa trạng thái nhiệm vụ về giá trị của backend.
- * Một số sự kiện realtime vẫn gửi dạng `PENDING_CONFIRMATION`, `CONFIRMED`, `Executing`...
+ * Chuẩn hóa trạng thái nhiệm vụ theo 9 state chuẩn của Mission State Machine doc.
  */
 export function normalizeMissionStatus(status: string | null | undefined): MissionStatus {
   const raw = String(status ?? '').trim();
@@ -81,13 +61,12 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
     case 'PENDINGACCEPTANCE':
     case 'PENDINGCONFIRMATION':
       return 'PendingAcceptance';
+    case 'POSTPONED':
+      return 'Postponed';
     case 'CONFIRMED':
-      return 'Confirmed';
     case 'ASSIGNED':
-    case 'RESUMED':
-      return 'Assigned';
+      return 'Confirmed';
     case 'PREPARING':
-      return 'Preparing';
     case 'READY':
       return 'Ready';
     case 'INPROGRESS':
@@ -96,12 +75,11 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
       return 'InProgress';
     case 'SUSPENDED':
       return 'Suspended';
-    case 'POSTPONED':
-      return 'Postponed';
     case 'COMPLETED':
       return 'Completed';
     case 'CANCELLED':
     case 'CANCELED':
+    case 'ABORTED':
       return 'Cancelled';
     default:
       return raw;

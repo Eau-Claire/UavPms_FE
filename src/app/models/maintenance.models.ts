@@ -2,10 +2,10 @@ import { BaseAuditableEntity } from './api.models';
 
 /** Maintenance tickets (MF04) — OperationsService MaintenanceTicketController. */
 
-export type TicketStatus = 'Open' | 'InProgress' | 'PendingVerification' | 'Resolved' | 'Closed';
+export type TicketStatus = 'Open' | 'Assigned' | 'InProgress' | 'PendingVerification' | 'Closed' | 'Cancelled' | 'Resolved';
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Emergency';
 
-export const TICKET_STATUSES: readonly TicketStatus[] = ['Open', 'InProgress', 'PendingVerification', 'Closed'];
+export const TICKET_STATUSES: readonly TicketStatus[] = ['Open', 'Assigned', 'InProgress', 'PendingVerification', 'Closed', 'Cancelled'];
 export const TICKET_PRIORITIES: readonly TicketPriority[] = ['Low', 'Medium', 'High', 'Emergency'];
 
 export interface MaintenancePerson {

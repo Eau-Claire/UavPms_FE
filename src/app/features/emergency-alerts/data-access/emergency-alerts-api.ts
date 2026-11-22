@@ -155,8 +155,11 @@ const optionalNumber = (value: unknown): number | null => {
 };
 
 const toStatus = (value: unknown): AlertStatus => {
-  const text = stringOf(value).toLowerCase();
-  return ALERT_STATUSES.find((status) => status.toLowerCase() === text) ?? 'Active';
+  const text = stringOf(value).toLowerCase().replace(/[\s_-]/g, '');
+  if (text === 'open' || text === 'active') return 'Open';
+  if (text === 'acknowledged' || text === 'confirmed' || text === 'escalated') return 'Acknowledged';
+  if (text === 'resolved' || text === 'dismissed') return 'Resolved';
+  return 'Open';
 };
 
 const toPriority = (value: unknown): AlertPriority => {

@@ -73,7 +73,7 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Chưa giao');
     expect(text()).toContain('Nguyễn Văn Thợ');
     expect(text()).toContain('Khẩn cấp');
-    expect(text()).toContain('Đang sửa chữa');
+    expect(text()).toContain('InProgress');
     const highlighted = (fixture.nativeElement as HTMLElement).querySelectorAll('tr.row-unassigned');
     expect(highlighted.length).toBe(1);
   });

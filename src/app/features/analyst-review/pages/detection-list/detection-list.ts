@@ -213,11 +213,12 @@ export class DetectionList {
   }
 
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Đã bị thay thế';
-    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận';
-    if (item.validationStatus === 'Resolved') return 'Đã xử lý';
-    if (item.validationStatus === 'Rejected') return 'Đã từ chối';
-    return 'Chờ thẩm định';
+    if (item.supersededById) return 'Superseded';
+    if (item.validationStatus === 'Confirmed') return 'Confirmed';
+    if (item.validationStatus === 'Resolved') return 'Resolved';
+    if (item.validationStatus === 'Rejected') return 'Rejected';
+    if (item.validationStatus === 'InReview') return 'InReview';
+    return 'Pending';
   }
 
   protected isEmergencyItem(item: AnomalyItem): boolean {

@@ -3,19 +3,23 @@ import { UserRole } from '../../../models/auth.models';
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 const STATUS_LABELS: Record<string, string> = {
-  Open: 'Chờ xử lý',
-  InProgress: 'Đang sửa chữa',
-  PendingVerification: 'Chờ nghiệm thu',
-  Resolved: 'Đã đóng',
-  Closed: 'Đã đóng',
+  Open: 'Open',
+  Assigned: 'Assigned',
+  InProgress: 'InProgress',
+  PendingVerification: 'PendingVerification',
+  Closed: 'Closed',
+  Cancelled: 'Cancelled',
+  Resolved: 'Closed',
 };
 
 const STATUS_TONES: Record<string, Tone> = {
   Open: 'warning',
+  Assigned: 'info',
   InProgress: 'info',
-  PendingVerification: 'info',
-  Resolved: 'success',
+  PendingVerification: 'warning',
   Closed: 'success',
+  Cancelled: 'danger',
+  Resolved: 'success',
 };
 
 const PRIORITY_LABELS: Record<string, string> = { Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Emergency: 'Khẩn cấp' };

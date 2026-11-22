@@ -50,13 +50,12 @@ export class AssessmentList implements OnDestroy {
 
   protected readonly statuses = [
     { value: '', label: 'Tất cả trạng thái' },
-    { value: 'READY', label: 'Sẵn sàng' },
-    { value: 'NOT_READY', label: 'Chưa sẵn sàng' },
-    { value: 'EVALUATING', label: 'Đang đánh giá' },
-    { value: 'DRAFT', label: 'Bản nháp' },
-    { value: 'EXPIRED', label: 'Hết hạn' },
-    { value: 'COMPLETED', label: 'Đã hoàn thành' },
-    { value: 'CANCELLED', label: 'Đã hủy' },
+    { value: 'Evaluating', label: 'Evaluating' },
+    { value: 'Ready', label: 'Ready' },
+    { value: 'NotReady', label: 'NotReady' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' },
+    { value: 'Expired', label: 'Expired' },
   ];
 
   protected readonly filteredItems = computed(() => {
@@ -89,13 +88,16 @@ export class AssessmentList implements OnDestroy {
 
   protected readonly stats = computed(() => {
     const list = this.items();
+    const isReady = (s: string) => (s || '').toUpperCase() === 'READY';
+    const isNotReady = (s: string) => ['NOTREADY', 'NOT_READY', 'INCOMPLETE'].includes((s || '').toUpperCase().replace(/[\s_-]/g, ''));
+    const isTerminal = (s: string) => ['EXPIRED', 'COMPLETED', 'CANCELLED', 'CANCELED'].includes((s || '').toUpperCase().replace(/[\s_-]/g, ''));
     return [
       { label: 'Tổng số đánh giá', value: this.totalCount() || list.length },
-      { label: 'Sẵn sàng bay', value: list.filter((x) => x.status === 'READY').length },
-      { label: 'Chưa sẵn sàng', value: list.filter((x) => x.status === 'NOT_READY').length },
+      { label: 'Ready', value: list.filter((x) => isReady(x.status)).length },
+      { label: 'NotReady', value: list.filter((x) => isNotReady(x.status)).length },
       {
-        label: 'Hết hạn / Hủy',
-        value: list.filter((x) => x.status === 'EXPIRED' || x.status === 'COMPLETED' || x.status === 'CANCELLED').length,
+        label: 'Expired / Cancelled',
+        value: list.filter((x) => isTerminal(x.status)).length,
       },
     ];
   });

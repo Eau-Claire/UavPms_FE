@@ -37,7 +37,7 @@ describe('PreMissionApi', () => {
     const req = http.expectOne(`${URL}/${ID}/re-evaluate`);
     expect(req.request.method).toBe('POST');
     req.flush(assessmentDto());
-    expect(status).toBe('READY');
+    expect(status).toBe('Ready');
   });
 
   it('derives availability and technical eligibility of UAV candidates from reasonCode', () => {

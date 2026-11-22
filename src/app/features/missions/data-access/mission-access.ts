@@ -291,26 +291,29 @@ export const isTowerInspected = (status: string | null | undefined): boolean =>
   ['INSPECTED', 'COMPLETED'].includes((status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase());
 
 const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Chờ xử lý',
-  PENDING: 'Chờ xử lý',
-  APPROVED: 'Chờ xử lý',
-  INPROGRESS: 'Đang sửa chữa',
-  PENDINGVERIFICATION: 'Chờ nghiệm thu',
-  RESOLVED: 'Đã đóng',
-  CLOSED: 'Đã đóng',
-  COMPLETED: 'Đã đóng',
+  OPEN: 'Open',
+  PENDING: 'Open',
+  APPROVED: 'Open',
+  ASSIGNED: 'Assigned',
+  INPROGRESS: 'InProgress',
+  PENDINGVERIFICATION: 'PendingVerification',
+  CLOSED: 'Closed',
+  RESOLVED: 'Closed',
+  COMPLETED: 'Closed',
+  CANCELLED: 'Cancelled',
+  CANCELED: 'Cancelled',
 };
 
-/** Vietnamese label for a maintenance ticket status (ticket enum or the mission DTO's simplified value). */
+/** Label for a maintenance ticket status matching doc state machine. */
 export const maintenanceStatusLabel = (status: string | null | undefined): string => {
   const key = (status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase();
-  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Chờ xử lý');
+  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Open');
 };
 
 /** CSS tone for a maintenance status pill. */
 export const maintenanceStatusTone = (status: string | null | undefined): 'pending' | 'inprogress' | 'completed' => {
   const label = maintenanceStatusLabel(status);
-  if (label === 'Đã đóng') return 'completed';
-  if (label === 'Chờ xử lý') return 'pending';
+  if (label === 'Closed' || label === 'Cancelled') return 'completed';
+  if (label === 'Open' || label === 'PendingVerification') return 'pending';
   return 'inprogress';
 };

@@ -397,11 +397,12 @@ export class DetectionReview {
   }
 
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Đã bị kết quả Cloud thay thế';
-    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận';
-    if (item.validationStatus === 'Resolved') return 'Đã xử lý xong';
-    if (item.validationStatus === 'Rejected') return 'Đã từ chối';
-    return 'Chờ thẩm định';
+    if (item.supersededById) return 'Superseded';
+    if (item.validationStatus === 'Confirmed') return 'Confirmed';
+    if (item.validationStatus === 'Resolved') return 'Resolved';
+    if (item.validationStatus === 'Rejected') return 'Rejected';
+    if (item.validationStatus === 'InReview') return 'InReview';
+    return 'Pending';
   }
 
   protected confidenceClass(score: number): string {
