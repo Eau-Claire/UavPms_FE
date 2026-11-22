@@ -103,32 +103,9 @@
   <section class="table-container">
     <div class="table-header">
       <div>
-        <p class="kicker">HỒ SƠ VẬN HÀNH</p>
         <h2>Danh mục báo cáo</h2>
       </div>
       <div class="table-header-right">
-        <div class="report-selection-actions">
-          <button
-            type="button"
-            class="button secondary small btn-top-dl"
-            [disabled]="!selectedReportId() || isDownloading() !== null"
-            (click)="downloadSelected('pdf')"
-            title="Tải PDF báo cáo đang chọn"
-          >
-            <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-pdf' ? 'loading' : 'file-pdf'"></span>
-            <span>Tải PDF</span>
-          </button>
-          <button
-            type="button"
-            class="button secondary small btn-top-dl"
-            [disabled]="!selectedReportId() || isDownloading() !== null"
-            (click)="downloadSelected('excel')"
-            title="Tải Excel báo cáo đang chọn"
-          >
-            <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-excel' ? 'loading' : 'file-excel'"></span>
-            <span>Tải Excel</span>
-          </button>
-        </div>
         <span class="record-badge">{{ totalItems() }} báo cáo</span>
       </div>
     </div>

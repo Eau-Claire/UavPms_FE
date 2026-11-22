@@ -631,9 +631,10 @@
 
   .download-dropdown-menu {
     position: absolute;
-    bottom: calc(100% + 4px);
+    top: calc(100% + 4px);
+    bottom: auto;
     right: 0;
-    z-index: 1000;
+    z-index: 1050;
     min-width: 175px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
