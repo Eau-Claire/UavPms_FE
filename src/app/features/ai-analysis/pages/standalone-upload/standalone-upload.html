@@ -331,8 +331,10 @@
                 <span class="emergency-time font-mono">{{ alert.triggeredAt | date:'HH:mm:ss dd/MM/yyyy' }}</span>
               </div>
               <p class="banner-desc">
-                AI đã phát hiện khuyết tật nguy hiểm <strong>{{ alert.categoryName || alert.alertType || 'Bát cách điện vỡ' }}</strong>
-                với độ tin cậy <strong>{{ alert.evidence.confidenceScore ?? 62 }}%</strong>.
+                AI đã phát hiện khuyết tật nguy hiểm <strong>{{ alert.categoryName || alert.alertType || 'Khuyết tật khẩn cấp' }}</strong>
+                @if (alert.evidence.confidenceScore) {
+                  với độ tin cậy <strong>{{ alert.evidence.confidenceScore }}%</strong>.
+                }
                 Sự cố đã được đẩy vào hệ thống Cảnh báo khẩn cấp thời gian thực để thẩm định ngay lập tức.
               </p>
             </div>
@@ -779,17 +781,17 @@
                   <div class="clean-reasons-box">
                     <div class="reasons-header">
                       <span nz-icon nzType="info-circle" aria-hidden="true"></span>
-                      <strong>Giải thích kỹ thuật:</strong>
+                      <strong>Thông tin quét kỹ thuật:</strong>
                     </div>
                     <ul class="reasons-list">
                       <li>
-                        <strong>Đặc điểm hình ảnh:</strong> Hình ảnh không chứa các dấu hiệu hư hỏng phần cứng rõ rệt hoặc góc chụp không nằm trong phạm vi nhận diện.
+                        <strong>Kết quả phân tích:</strong> Mô hình AI đã hoàn tất quét toàn bộ khung hình nhưng không phát hiện khuyết tật linh kiện nào vượt ngưỡng tin cậy ({{ confidenceThreshold() }}%).
                       </li>
                       <li>
-                        <strong>Phạm vi mô hình AI:</strong> Mô hình chỉ được huấn luyện để nhận diện các danh mục khuyết tật linh kiện tiêu chuẩn: <em>Bát sứ nứt/vỡ</em>, <em>Tổ chim trên xà cột</em>, <em>Mất bu-lông liên kết</em>, <em>Cây vi phạm hành lang</em>.
+                        <strong>Danh mục nhận diện của mô hình:</strong> Hệ thống được huấn luyện chuyên biệt cho các khuyết tật linh kiện lưới điện: <em>Bát sứ nứt/vỡ</em>, <em>Tổ chim trên xà cột</em>, <em>Mất bu-lông</em>, <em>Cây vi phạm hành lang</em>.
                       </li>
                       <li>
-                        <strong>Bộ lọc độ tin cậy:</strong> Các phát hiện có độ tin cậy thấp hơn ngưỡng hiện tại ({{ confidenceThreshold() }}%) sẽ tự động được lọc bỏ để tránh báo động giả.
+                        <strong>Bộ lọc độ tin cậy:</strong> Nếu hình ảnh không chứa thiết bị lưới điện, hoặc chi tiết bị mờ, góc chụp quá xa, mô hình giữ kết quả an toàn (0 khuyết tật) để tránh báo động sai.
                       </li>
                     </ul>
                   </div>
