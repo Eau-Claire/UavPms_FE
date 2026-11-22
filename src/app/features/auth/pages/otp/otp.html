@@ -15,9 +15,6 @@
       @if (error()) {
         <div class="auth-alert" role="alert">{{ error() }}</div>
       }
-      <nz-input-group nzSize="large" nzPrefixIcon="mail" class="auth-input otp-email">
-        <input nz-input [value]="email" readonly aria-label="Email" />
-      </nz-input-group>
       <div class="otp-grid" aria-label="Nhập mã xác nhận OTP">
         @for (digit of digits(); track $index) {
           <input nz-input class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="1" placeholder="-" [value]="digit" [attr.aria-label]="'OTP digit ' + ($index + 1)" (input)="updateDigit($index, $event)" (keydown)="handleDigitKeydown($index, $event)" (paste)="handlePaste($index, $event)" />

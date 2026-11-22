@@ -12,7 +12,7 @@ export interface FacilityItem {
 const STORAGE_KEY = 'uavpms.selectedFacilityId';
 
 /** Always-present first entry so the header never renders an empty selection. */
-export const ALL_REGIONS: FacilityItem = { id: 'all', name: 'TẤT CẢ KHU VỰC' };
+export const ALL_REGIONS: FacilityItem = { id: 'all', name: 'Tất cả khu vực' };
 
 @Injectable({
   providedIn: 'root',

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -133,7 +134,17 @@ export class Otp {
             { queryParams: result.verificationToken ? { token: result.verificationToken } : undefined },
           );
         },
-        error: () => this.error.set('Mã xác nhận OTP không đúng hoặc đã hết hạn.'),
+        error: (err: unknown) => {
+          const httpError = err as HttpErrorResponse;
+          const serverMsg = typeof httpError?.error === 'string'
+            ? httpError.error
+            : (httpError?.error as Record<string, unknown> | null)?.['message'];
+          if (serverMsg && typeof serverMsg === 'string') {
+            this.error.set(serverMsg);
+          } else {
+            this.error.set('Mã xác nhận OTP không đúng hoặc đã hết hạn.');
+          }
+        },
       });
   }
   protected resendCode(): void {

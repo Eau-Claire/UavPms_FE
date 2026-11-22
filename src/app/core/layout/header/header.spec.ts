@@ -35,7 +35,7 @@ describe('Header', () => {
       setTypeFilter: vi.fn(),
       setSortFilter: vi.fn(),
     };
-    const facility = { id: 'all', name: 'TẤT CẢ KHU VỰC' };
+    const facility = { id: 'all', name: 'Tất cả khu vực' };
     TestBed.configureTestingModule({
       imports: [Header],
       providers: [

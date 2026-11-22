@@ -90,12 +90,19 @@ export class Auth {
   }
 
   sendOtp(request: { email: string; purpose: string }) {
-    return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, { ...request, email: this.normalizeEmail(request.email) });
+    const purpose = this.normalizeOtpPurpose(request.purpose);
+    return this.http.post(`${environment.apiBaseUrl}/auth/otp/send`, {
+      ...request,
+      purpose,
+      email: this.normalizeEmail(request.email),
+    });
   }
   verifyOtp(request: { email: string; otp: string; purpose: string; trustDevice?: boolean; deviceId?: string }): Observable<OtpResult> {
     const deviceId = request.deviceId || this.trustedDevice.getDeviceId();
+    const purpose = this.normalizeOtpPurpose(request.purpose);
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, {
       ...request,
+      purpose,
       deviceId,
       email: this.normalizeEmail(request.email),
     }).pipe(
@@ -130,6 +137,18 @@ export class Auth {
     );
   }
 
+  private normalizeOtpPurpose(purpose?: string): string {
+    const p = (purpose || '').toLowerCase();
+    if (p === 'verifyemail' || p === 'emailverification') {
+      return 'EmailVerification';
+    }
+    if (p === 'forgotpassword') return 'ForgotPassword';
+    if (p === 'changepassword') return 'ChangePassword';
+    if (p === 'changeemail') return 'ChangeEmail';
+    if (p === 'deleteaccount') return 'DeleteAccount';
+    return purpose || 'Login';
+  }
+
   private createBypassResult(request: { email: string; otp: string; purpose: string; trustDevice?: boolean }): OtpResult {
     if (request.purpose === 'ForgotPassword') {
       return { authenticated: false, verificationToken: 'bypass-token-123456' };
@@ -137,14 +156,17 @@ export class Auth {
     const email = request.email || 'operator@evn.vn';
     const exp = Math.floor(Date.now() / 1000) + 86400;
     const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const namePart = email.split('@')[0];
     const payload = btoa(
-      JSON.stringify({
-        sub: 'usr-bypass-001',
-        email,
-        role: 'Admin',
-        name: email.split('@')[0],
-        exp,
-      }),
+      encodeURIComponent(
+        JSON.stringify({
+          sub: 'usr-bypass-001',
+          email,
+          role: 'Admin',
+          name: namePart,
+          exp,
+        }),
+      ).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))),
     );
     const mockToken = `${header}.${payload}.mockSignature`;
     const session: AuthSession = {
@@ -155,7 +177,7 @@ export class Auth {
       user: {
         id: 'usr-bypass-001',
         email,
-        fullName: email.split('@')[0],
+        fullName: namePart,
         role: 'Admin',
         mustChangePassword: false,
       },
