@@ -287,25 +287,50 @@ html, body, button, input, select, textarea {
 /* =============================================================
    Modal Backdrop & Dialog Fix (Centering, high z-index, solid card background)
    ============================================================= */
+.cdk-overlay-container {
+  position: fixed !important;
+  z-index: 2000 !important;
+  pointer-events: none !important;
+}
+
+.cdk-overlay-backdrop.ant-modal-mask,
 .ant-modal-mask {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 1050 !important;
+  z-index: 2000 !important;
   height: 100% !important;
   background-color: rgba(15, 23, 42, 0.45) !important;
   backdrop-filter: none !important;
+  pointer-events: auto !important;
+}
+
+.cdk-global-overlay-wrapper {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2001 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+}
+
+.cdk-overlay-pane {
+  position: relative !important;
+  z-index: 2002 !important;
+  pointer-events: auto !important;
 }
 
 .ant-modal-wrap {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 1050 !important;
+  z-index: 2002 !important;
   overflow: auto !important;
   outline: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 16px !important;
+  pointer-events: none !important;
 }
 
 .ant-modal {
@@ -314,6 +339,7 @@ html, body, button, input, select, textarea {
   margin: auto !important;
   max-width: calc(100vw - 32px) !important;
   pointer-events: auto !important;
+  z-index: 2003 !important;
 }
 
 .ant-modal-content {

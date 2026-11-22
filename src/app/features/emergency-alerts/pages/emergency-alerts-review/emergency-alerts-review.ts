@@ -309,7 +309,7 @@ export class EmergencyAlertsReview {
   // --- Confirm ---
   protected openConfirmModal(): void {
     if (!this.canReview()) return;
-    this.confirmForm.reset();
+    this.confirmForm.reset({ notes: 'Xác nhận sự cố đe dọa an toàn lưới điện qua ảnh bằng chứng UAV.' });
     this.isConfirmModalVisible.set(true);
   }
 
@@ -328,7 +328,7 @@ export class EmergencyAlertsReview {
   // --- Dismiss ---
   protected openDismissModal(): void {
     if (!this.canReview()) return;
-    this.dismissForm.reset();
+    this.dismissForm.reset({ reason: this.dismissReasons[0], notes: '' });
     this.isDismissModalVisible.set(true);
   }
 
@@ -356,7 +356,9 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: () => {
           done();
-          this.selectedAlertId.set(null);
+          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id);
+          this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
+          this.loadActive();
           this.loadHistory(1);
           if (status === 'Confirmed') {
             this.toast.success(`Đã xác nhận sự cố tại ${alert.towerCode || 'cột chưa xác định'}.`);
@@ -429,7 +431,9 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: (escalation) => {
           this.isEscalateModalVisible.set(false);
-          this.selectedAlertId.set(null);
+          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id);
+          this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
+          this.loadActive();
           this.loadHistory(1);
           this.toast.success(`Đã chuyển cấp cảnh báo tới ${escalation.escalatedToName || 'người nhận'}.`);
         },
