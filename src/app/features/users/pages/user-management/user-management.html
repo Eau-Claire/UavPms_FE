@@ -41,7 +41,7 @@
   }
 
   <!-- KPI Metrics Summary Bar -->
-  <div class="metrics-grid">
+  <div class="metrics-grid" [class.manager-grid]="!isAdmin()">
     <div class="metric-card total">
       <div class="metric-icon"><span nz-icon nzType="team"></span></div>
       <div class="metric-body">
@@ -58,21 +58,23 @@
       </div>
     </div>
 
-    <div class="metric-card inactive">
-      <div class="metric-icon"><span nz-icon nzType="pause-circle"></span></div>
-      <div class="metric-body">
-        <div class="metric-val">{{ stats().inactive }}</div>
-        <div class="metric-lbl">Tạm ngưng</div>
+    @if (isAdmin()) {
+      <div class="metric-card inactive">
+        <div class="metric-icon"><span nz-icon nzType="pause-circle"></span></div>
+        <div class="metric-body">
+          <div class="metric-val">{{ stats().inactive }}</div>
+          <div class="metric-lbl">Tạm ngưng</div>
+        </div>
       </div>
-    </div>
 
-    <div class="metric-card locked">
-      <div class="metric-icon"><span nz-icon nzType="lock"></span></div>
-      <div class="metric-body">
-        <div class="metric-val">{{ stats().locked }}</div>
-        <div class="metric-lbl">Đã khóa tài khoản</div>
+      <div class="metric-card locked">
+        <div class="metric-icon"><span nz-icon nzType="lock"></span></div>
+        <div class="metric-body">
+          <div class="metric-val">{{ stats().locked }}</div>
+          <div class="metric-lbl">Đã khóa tài khoản</div>
+        </div>
       </div>
-    </div>
+    }
   </div>
 
   <!-- Filter Toolbar Card -->
@@ -101,15 +103,17 @@
         </select>
       </div>
 
-      <div class="select-field">
-        <label for="user-status-filter">Trạng thái:</label>
-        <select id="user-status-filter" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
-          <option value="">Tất cả trạng thái</option>
-          @for (status of statuses; track status) {
-            <option [value]="status">{{ statusLabel(status) }}</option>
-          }
-        </select>
-      </div>
+      @if (isAdmin()) {
+        <div class="select-field">
+          <label for="user-status-filter">Trạng thái:</label>
+          <select id="user-status-filter" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
+            <option value="">Tất cả trạng thái</option>
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ statusLabel(status) }}</option>
+            }
+          </select>
+        </div>
+      }
     </div>
   </section>
 

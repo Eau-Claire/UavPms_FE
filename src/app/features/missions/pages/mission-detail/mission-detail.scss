@@ -4641,13 +4641,13 @@
   border-radius: 10px;
   margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
-  animation: banner-siren-pulse 2s infinite ease-in-out;
+  animation: banner-siren-pulse 4.5s infinite ease-in-out;
   border: 1px solid #ef4444;
 
   .emergency-banner-icon {
     font-size: 26px;
     line-height: 1;
-    animation: icon-shake 1s infinite alternate;
+    animation: icon-shake 3s infinite alternate;
   }
 
   .emergency-banner-content {

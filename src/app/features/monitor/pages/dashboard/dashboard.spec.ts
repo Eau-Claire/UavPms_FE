@@ -51,7 +51,8 @@ describe('Dashboard role routing', () => {
   it('keeps the system dashboard (and its polling) for managers', async () => {
     const { el, store } = await setup('Manager');
     expect(store.startDashboardPolling).toHaveBeenCalledTimes(1);
-    expect(el.querySelector('h1')?.textContent).toContain('Tổng quan hệ thống');
+    expect(el.querySelector('h1')?.textContent).toContain('Xin chào');
+    expect(el.querySelector('app-personal-alerts-card')).not.toBeNull();
     expect(el.querySelector('app-inspector-home')).toBeNull();
   });
 

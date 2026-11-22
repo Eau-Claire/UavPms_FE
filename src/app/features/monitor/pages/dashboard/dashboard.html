@@ -9,138 +9,110 @@
     <app-technician-home />
   }
   @default {
-<div class="dashboard-page">
-  <section class="page-heading">
-    <div class="heading-left">
-      <nav class="page-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
-        <span class="separator">/</span>
-        <strong>GIÁM SÁT HỆ THỐNG</strong>
-      </nav>
-      <h1>Tổng quan hệ thống</h1>
-      <p class="review-subtitle">Hoạt động nhiệm vụ bay, kết quả kiểm tra kỹ thuật và trạng thái vận hành lưới điện thời gian thực.</p>
+    <div class="field-home">
+      <app-field-home-header
+        subtitle="Hoạt động nhiệm vụ bay, kết quả kiểm tra kỹ thuật và trạng thái vận hành lưới điện thời gian thực."
+        [loading]="store.loading()"
+        [loadedAt]="loadedAt()"
+        (refresh)="refreshManagerDashboard()"
+      />
+
+      @if (store.error() && !store.dashboard()) {
+        <app-data-state kind="error" [message]="store.error() || ''" (retry)="refreshManagerDashboard()" />
+      } @else {
+        @if (store.summary(); as summary) {
+          <ul class="count-strip" aria-label="Tóm tắt chỉ số vận hành chính">
+            <li class="count-tile tone-blue">
+              <a routerLink="/missions">
+                <span class="tile-label">Nhiệm vụ đang bay / chờ xử lý</span>
+                <strong class="tile-value">{{ summary.inProgressMissions + summary.pendingMissions }}</strong>
+              </a>
+            </li>
+            <li class="count-tile tone-amber">
+              <a routerLink="/inspections">
+                <span class="tile-label">Tổng sự cố phát hiện</span>
+                <strong class="tile-value">{{ summary.totalDefects }}</strong>
+              </a>
+            </li>
+            <li class="count-tile tone-red">
+              <a routerLink="/emergency-alerts">
+                <span class="tile-label">Sự cố khẩn cấp / nghiêm trọng</span>
+                <strong class="tile-value">{{ summary.criticalDefects }}</strong>
+              </a>
+            </li>
+            <li class="count-tile tone-green">
+              <a routerLink="/missions">
+                <span class="tile-label">Nhiệm vụ hoàn thành</span>
+                <strong class="tile-value">{{ summary.completedMissions }}</strong>
+              </a>
+            </li>
+          </ul>
+        }
+
+        @if (store.error()) {
+          <div class="stale-warning" role="status">{{ store.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</div>
+        }
+
+        <div class="home-grid">
+          <div class="home-main">
+            @if (store.loading() && !store.dashboard()) {
+              <app-data-state kind="loading" title="Đang tải dữ liệu vận hành" message="Đang kết nối dịch vụ giám sát…" />
+            } @else {
+              <div class="manager-overview-grid">
+                <!-- Mission Status Panel -->
+                <section class="panel" aria-labelledby="mgr-missions-title">
+                  <header>
+                    <h2 id="mgr-missions-title">Tiến độ nhiệm vụ bay</h2>
+                    <a routerLink="/missions">Danh sách nhiệm vụ &rarr;</a>
+                  </header>
+                  <div class="panel-body-padded">
+                    @if (store.missionStatus().length) {
+                      <app-mission-status-overview [data]="store.missionStatus()" />
+                    } @else {
+                      <app-data-state kind="empty" title="Chưa có hoạt động nhiệm vụ" />
+                    }
+                  </div>
+                </section>
+
+                <!-- Defect Statistics Panel -->
+                <section class="panel" aria-labelledby="mgr-defects-title">
+                  <header>
+                    <h2 id="mgr-defects-title">Thống kê sự cố</h2>
+                    <a routerLink="/inspections">Xem thống kê &rarr;</a>
+                  </header>
+                  <div class="panel-body-padded">
+                    @if (store.defectStatistics().length) {
+                      <app-defect-statistics-chart [data]="store.defectStatistics()" />
+                    } @else {
+                      <app-data-state kind="empty" title="Chưa có thống kê sự cố" />
+                    }
+                  </div>
+                </section>
+              </div>
+
+              <!-- Recent Defects Panel -->
+              <section class="panel panel-defects" aria-labelledby="mgr-recent-defects-title">
+                <header>
+                  <h2 id="mgr-recent-defects-title">Sự cố gần đây trên toàn hệ thống</h2>
+                  <a routerLink="/inspections">Xem tất cả kiểm tra &rarr;</a>
+                </header>
+                @if (store.recentDefects(); as defects) {
+                  @if (defects.items.length) {
+                    <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" />
+                  } @else {
+                    <app-data-state kind="empty" title="Chưa có sự cố gần đây" message="Kết quả phát hiện khuyết tật sẽ hiển thị tại đây." />
+                  }
+                }
+              </section>
+            }
+          </div>
+
+          <!-- Right Column: Personal Notifications Card (đồng bộ với Analyst / Field Roles) -->
+          <aside class="home-side" aria-label="Thông báo của tôi">
+            <app-personal-alerts-card />
+          </aside>
+        </div>
+      }
     </div>
-    <div class="live"><span aria-hidden="true"></span>Tự động làm mới · 30s</div>
-  </section>
-
-  @if (store.loading() && !store.dashboard()) {
-    <app-data-state kind="loading" title="Đang tải dữ liệu vận hành" message="Đang kết nối dịch vụ giám sát…" />
-  } @else if (store.error() && !store.dashboard()) {
-    <app-data-state kind="error" [message]="store.error() || ''" (retry)="store.loadDashboard()" />
-  } @else if (store.summary(); as summary) {
-    <!-- Executive KPI Summary Cards -->
-    <section class="dashboard-kpi-container" aria-label="Thống kê chỉ số vận hành chính">
-      <div class="kpi-card-block">
-        <div class="kpi-block-header">
-          <div class="kpi-block-title">
-            <span nz-icon nzType="send" class="kpi-block-icon mission-color"></span>
-            <span>Tiến độ nhiệm vụ bay</span>
-          </div>
-          <a routerLink="/missions" class="kpi-block-link">Danh sách nhiệm vụ &rarr;</a>
-        </div>
-        <div class="kpi-tiles-grid">
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Tổng nhiệm vụ</span>
-            <strong class="kpi-tile-num">{{ summary.totalMissions }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Chờ xử lý</span>
-            <strong class="kpi-tile-num warn">{{ summary.pendingMissions }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Đang bay</span>
-            <strong class="kpi-tile-num info">{{ summary.inProgressMissions }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Hoàn thành</span>
-            <strong class="kpi-tile-num success">{{ summary.completedMissions }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="kpi-card-block">
-        <div class="kpi-block-header">
-          <div class="kpi-block-title">
-            <span nz-icon nzType="alert" class="kpi-block-icon defect-color"></span>
-            <span>Giám sát khuyết tật & sự cố</span>
-          </div>
-          <a routerLink="/ai-review" class="kpi-block-link">Thẩm định AI &rarr;</a>
-        </div>
-        <div class="kpi-tiles-grid defect-grid">
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Lượt kiểm tra</span>
-            <strong class="kpi-tile-num">{{ summary.totalInspections }}</strong>
-          </div>
-          <div class="kpi-tile">
-            <span class="kpi-tile-label">Tổng sự cố</span>
-            <strong class="kpi-tile-num warn">{{ summary.totalDefects }}</strong>
-          </div>
-          <div class="kpi-tile highlight-critical">
-            <span class="kpi-tile-label">Nghiêm trọng</span>
-            <strong class="kpi-tile-num danger">{{ summary.criticalDefects }}</strong>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    @if (store.error()) {
-      <div class="stale-warning" role="status">{{ store.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</div>
-    }
-
-    <!-- 4-Panel Grid Fitting Desktop Viewport without Scrolling -->
-    <div class="dashboard-grid">
-      <!-- Left Panel: Active Alerts & Notifications (full height with internal scroll) -->
-      <article class="panel panel-alerts">
-        <header>
-          <h2>Cảnh báo đang hoạt động</h2>
-        </header>
-        <app-active-alerts-panel
-          [alerts]="store.alerts()"
-          (alertRead)="onAlertRead($event)"
-          (allRead)="onAllAlertsRead()"
-        />
-      </article>
-
-      <!-- Top-Middle Panel: Defect Statistics -->
-      <article class="panel panel-statistics">
-        <header>
-          <h2>Thống kê sự cố</h2>
-        </header>
-        @if (store.defectStatistics().length) {
-          <app-defect-statistics-chart [data]="store.defectStatistics()" />
-        } @else {
-          <app-data-state kind="empty" title="Chưa có thống kê sự cố" />
-        }
-      </article>
-
-      <!-- Top-Right Panel: Mission Status -->
-      <article class="panel panel-missions">
-        <header>
-          <h2>Trạng thái nhiệm vụ</h2>
-        </header>
-        @if (store.missionStatus().length) {
-          <app-mission-status-overview [data]="store.missionStatus()" />
-        } @else {
-          <app-data-state kind="empty" title="Chưa có hoạt động nhiệm vụ" />
-        }
-      </article>
-
-      <!-- Bottom Panel spanning Middle & Right: Recent Defects -->
-      <article class="panel panel-defects">
-        <header>
-          <h2>Sự cố gần đây</h2>
-          <a routerLink="/inspections">Xem tất cả kiểm tra →</a>
-        </header>
-        @if (store.recentDefects(); as defects) {
-          @if (defects.items.length) {
-            <app-recent-defects-table [data]="defects" (pageChanged)="store.loadDashboard($event)" />
-          } @else {
-            <app-data-state kind="empty" title="Chưa có sự cố gần đây" message="Kết quả phát hiện khuyết tật sẽ hiển thị tại đây." />
-          }
-        }
-      </article>
-    </div>
-  }
-</div>
   }
 }
