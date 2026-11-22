@@ -153,19 +153,8 @@
           <label for="history-to" class="date-label">Đến ngày:</label>
           <input id="history-to" type="date" formControlName="to" [attr.aria-invalid]="dateRangeInvalid()" [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null" title="Đến ngày" />
         </div>
-        <div class="filter-group filter-size">
-          <label for="history-page-size" class="filter-lbl">Hiển thị:</label>
-          <select id="history-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)" title="Số dòng mỗi trang">
-            @for (size of pageSizes; track size) {
-              <option [value]="size">{{ size }} dòng</option>
-            }
-          </select>
-        </div>
         <div class="filter-actions">
-          <button type="submit" class="button primary btn-compact">
-            <span nz-icon nzType="filter" aria-hidden="true"></span> Áp dụng
-          </button>
-          <button type="button" class="button secondary btn-compact" (click)="resetFilters()">
+          <button type="button" class="button secondary btn-compact" (click)="resetFilters()" title="Tải lại dữ liệu">
             <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
           </button>
         </div>
@@ -216,15 +205,15 @@
                       <div class="tower-row-actions">
                         @if (canReview() && (anomaly.validationStatus === 'Pending' || anomaly.validationStatus === 'InReview')) {
                           <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Thẩm định kết quả phát hiện">
-                            <span nz-icon nzType="audit"></span> Thẩm định
+                            Thẩm định
                           </a>
                         } @else if (anomaly.missionId && anomaly.missionId !== '00000000-0000-0000-0000-000000000000') {
                           <a class="button secondary small" [routerLink]="['/missions', anomaly.missionId]" title="Xem nhiệm vụ bay">
-                            <span nz-icon nzType="audit"></span> Chi tiết
+                            Chi tiết
                           </a>
                         } @else {
                           <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Xem chi tiết bất thường">
-                            <span nz-icon nzType="audit"></span> Chi tiết
+                            Chi tiết
                           </a>
                         }
                       </div>

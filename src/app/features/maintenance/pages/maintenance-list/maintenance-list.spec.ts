@@ -76,7 +76,6 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Đang sửa chữa');
     const highlighted = (fixture.nativeElement as HTMLElement).querySelectorAll('tr.row-unassigned');
     expect(highlighted.length).toBe(1);
-    expect(text()).toContain('1 phiếu trên trang này chưa được giao');
   });
 
   it('sends filters and the 0-based page to GET /maintenance/tickets', async () => {

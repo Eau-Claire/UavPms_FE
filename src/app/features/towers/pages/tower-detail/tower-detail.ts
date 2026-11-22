@@ -141,6 +141,10 @@ export class TowerDetail {
         this.error.set(status === 403 ? 'Bạn không có quyền xem cột điện này (ngoài phạm vi khu vực được phân công).' : error);
       });
 
+    this.filters.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilters());
+
     // Reload whenever the route id changes.
     effect(() => {
       const id = this.id();

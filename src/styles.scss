@@ -45,6 +45,36 @@ html, body, button, input, select, textarea {
 .button { min-height: 40px; padding: 0 18px; border: 1px solid transparent; border-radius: 4px; font-weight: 700; }
 .button.primary { border-color: var(--evn-action); background: var(--evn-action); color: var(--evn-action-text); }
 .button.secondary { border-color: var(--app-border-input); background: #fff; color: var(--app-text); }
+.button.secondary.small,
+.table-btn-detail {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #10387d !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  transition: all 0.15s ease !important;
+
+  &:hover {
+    background: #f0f5fc !important;
+    border-color: #10387d !important;
+    color: #0b2553 !important;
+  }
+
+  [nz-icon] {
+    display: none !important;
+  }
+}
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .skip-link { position: fixed; z-index: 2000; left: 16px; top: -60px; padding: 10px 14px; border-radius: 4px; background: #fff; color: var(--app-brand); }
 .skip-link:focus { top: 12px; }

@@ -86,12 +86,6 @@
       <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="load()">
         <span nz-icon nzType="reload"></span>Làm mới
       </button>
-
-      @if (regionFilter() || statusFilter() || dateFilter() || searchQuery()) {
-        <button type="button" class="evn-btn secondary" (click)="resetFilters()">
-          <span nz-icon nzType="clear"></span>Đặt lại
-        </button>
-      }
     </section>
 
 

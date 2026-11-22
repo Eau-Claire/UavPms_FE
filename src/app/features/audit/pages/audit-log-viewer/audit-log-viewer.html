@@ -79,16 +79,6 @@
           }
         </select>
       </div>
-
-      <div class="audit-filter-buttons">
-        <button type="submit" class="button primary audit-apply-btn">
-          <span nz-icon nzType="filter" aria-hidden="true"></span>
-          Áp dụng
-        </button>
-        <button type="button" class="button secondary audit-reset-btn" (click)="resetFilters()">
-          Đặt lại
-        </button>
-      </div>
     </form>
   </section>
 
@@ -216,12 +206,11 @@
                 <td class="td-actions">
                   <button
                     type="button"
-                    class="btn-view-detail"
+                    class="button secondary small"
                     (click)="openDetail(row)"
                     aria-label="Xem chi tiết thay đổi của bản ghi"
                   >
-                    <span nz-icon nzType="eye" aria-hidden="true"></span>
-                    <span>Chi tiết</span>
+                    Chi tiết
                   </button>
                 </td>
               </tr>

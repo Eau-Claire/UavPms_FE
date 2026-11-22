@@ -21,12 +21,6 @@
   </div>
 </header>
 
-@if (unassignedCount()) {
-  <div class="tower-banner maintenance-banner-warning" role="status">
-    <span><strong>{{ unassignedCount() }}</strong> phiếu trên trang này chưa được giao kỹ thuật viên. Mở phiếu để giao việc.</span>
-  </div>
-}
-
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
   <div class="tower-filter">
     <label for="maintenance-status">Trạng thái</label>
@@ -45,9 +39,6 @@
         <option [value]="priority">{{ priorityLabel(priority) }}</option>
       }
     </select>
-  </div>
-  <div class="tower-actions">
-    <button type="button" class="button secondary" [disabled]="!hasFilters()" (click)="resetFilters()">Đặt lại</button>
   </div>
 </form>
 
@@ -105,9 +96,8 @@
               </td>
               <td class="td-m-date"><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
               <td class="td-m-actions">
-                <a class="maintenance-btn-open" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
-                  <span nz-icon nzType="eye" aria-hidden="true"></span>
-                  <span>Chi tiết</span>
+                <a class="button secondary small" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Chi tiết phiếu ' + ticket.ticketCode">
+                  Chi tiết
                 </a>
               </td>
             </tr>
