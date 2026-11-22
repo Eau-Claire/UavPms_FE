@@ -872,12 +872,18 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     this.towers().forEach((tower) => {
       const isSelected = this.selectedMarkerId() === tower.id;
-      const hasAlert = this.alerts().some((a) => a.towerId === tower.id || a.towerCode === tower.towerCode);
-      const anomalyCount = this.openAnomaliesForTower(tower.id, tower.towerCode);
+      const towerAlerts = this.alertsForTower(tower.id, tower.towerCode);
+      const allTowerAnomalies = this.anomaliesForTower(tower.id, tower.towerCode);
+      const openAnomalies = allTowerAnomalies.filter((a) => !this.isAnomalyClosed(a));
+
+      const hasAlert =
+        (this.showAlertsLayer() && towerAlerts.length > 0) ||
+        (this.showDefectsLayer() && openAnomalies.some((a) => a.severity >= 4.5));
+      const hasAnomaly = this.showDefectsLayer() && !hasAlert && openAnomalies.length > 0;
 
       let markerClass = 'custom-tower-marker';
       if (hasAlert) markerClass += ' has-alert';
-      else if (anomalyCount > 0) markerClass += ' has-anomaly';
+      else if (hasAnomaly) markerClass += ' has-anomaly';
       if (isSelected) markerClass += ' is-selected';
 
       const icon = L.divIcon({
@@ -889,7 +895,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
       const marker = L.marker([tower.latitude, tower.longitude], {
         icon,
-        zIndexOffset: isSelected ? 1200 : hasAlert ? 800 : 100,
+        zIndexOffset: isSelected ? 1200 : hasAlert ? 800 : hasAnomaly ? 400 : 100,
       });
 
       marker.on('click', () => {
@@ -899,9 +905,9 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       });
 
       const statusBadge = hasAlert
-        ? '<div style="color: #dc2626; font-weight: 700;">⚠ Cảnh báo khẩn cấp</div>'
-        : anomalyCount > 0
-        ? `<div style="color: #ea580c; font-weight: 700;">● Có ${anomalyCount} sự cố phát hiện</div>`
+        ? '<div style="color: #dc2626; font-weight: 700;">⚠ Cảnh báo khẩn cấp (Đỏ)</div>'
+        : hasAnomaly
+        ? `<div style="color: #ca8a04; font-weight: 700;">● Có ${openAnomalies.length} sự cố phát hiện (Vàng)</div>`
         : '';
       const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
       marker.bindTooltip(
@@ -915,89 +921,25 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   private renderDefects(): void {
     this.defectsLayer.clearLayers();
-    if (!this.showDefectsLayer()) return;
-
-    const defects = this.filteredAnomalies();
-    defects.forEach((defect) => {
-      const isSelected = this.selectedMarkerId() === defect.id;
-      const sevClass = defect.severity >= 4.5 ? 'sev-critical' : defect.severity >= 3.5 ? 'sev-high' : 'sev-med';
-      const icon = L.divIcon({
-        className: `custom-defect-marker ${sevClass}${isSelected ? ' is-selected' : ''}`,
-        html: `<span>!</span>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-
-      const marker = L.marker([defect.latitude, defect.longitude], {
-        icon,
-        zIndexOffset: isSelected ? 1200 : 500,
-      });
-      marker.on('click', () => {
-        this.selectedMarkerId.set(defect.id);
-        this.selectedEntity.set({ type: 'anomaly', data: defect });
-        this.renderAllLayers();
-      });
-
-      marker.bindTooltip(
-        `<div style="font-weight: 700; color: #dc2626;">${escapeHtml(defect.category)}</div><div style="font-size: 11px;">${escapeHtml(defect.towerCode)} · Mức độ ${this.severityLabel(defect.severity)}/5 · AI ${this.confidencePercent(defect.confidenceScore)}%</div>`,
-        { direction: 'top', offset: [0, -10] },
-      );
-
-      this.defectsLayer.addLayer(marker);
-    });
+    // Toàn bộ bất thường gắn với cột điện được thể hiện trực quan bằng cột điện màu vàng (hoặc đỏ nếu khẩn cấp).
+    // Không hiển thị marker bất thường nằm chơ trọi riêng lẻ trên bản đồ.
   }
 
   private renderAlerts(): void {
     this.alertsLayer.clearLayers();
-    if (!this.showAlertsLayer()) return;
-
-    // Các cảnh báo gắn với cột điện đã được thể hiện trực quan bằng cột điện màu đỏ (renderTowers).
-    // Chỉ hiển thị marker cảnh báo riêng nếu cảnh báo đó không thuộc bất kỳ cột điện nào trên bản đồ.
-    const towerIds = new Set(this.towers().map((t) => t.id));
-    const towerCodes = new Set(this.towers().map((t) => t.towerCode));
-
-    this.alerts().forEach((alert) => {
-      const isLinkedToTower =
-        Boolean(alert.towerId && towerIds.has(alert.towerId)) ||
-        Boolean(alert.towerCode && towerCodes.has(alert.towerCode));
-      if (isLinkedToTower) return;
-
-      const isSelected = this.selectedMarkerId() === alert.id;
-      const icon = L.divIcon({
-        className: `custom-alert-marker${isSelected ? ' is-selected' : ''}`,
-        html: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-
-      const marker = L.marker([alert.latitude, alert.longitude], {
-        icon,
-        zIndexOffset: isSelected ? 1200 : 1000,
-      });
-      marker.on('click', () => {
-        this.selectedMarkerId.set(alert.id);
-        this.selectedEntity.set({ type: 'alert', data: alert });
-        this.renderAllLayers();
-      });
-
-      marker.bindTooltip(
-        `<div style="font-weight: 800; color: #dc2626;">${escapeHtml(alert.title)}</div><div style="font-size: 11px;">Ưu tiên: ${escapeHtml(alert.priority)}</div>`,
-        { direction: 'top', offset: [0, -14] },
-      );
-
-      this.alertsLayer.addLayer(marker);
-    });
+    // Toàn bộ cảnh báo khẩn cấp gắn với cột điện được thể hiện trực quan bằng cột điện màu đỏ (renderTowers).
+    // Không hiển thị marker cảnh báo nằm chơ trọi riêng lẻ trên bản đồ.
   }
 
   protected applyFilters(): void {
-    this.renderDefects();
+    this.renderTowers();
   }
 
   protected resetFilters(): void {
     this.searchCode.set('');
     this.severityFilter.set('');
     this.statusFilter.set('');
-    this.renderDefects();
+    this.renderTowers();
   }
 
   /** Region filter is applied server-side by GET /gis/infrastructure?administrativeAreaId=. */
@@ -1106,8 +1048,15 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     return this.alerts().filter((alert) => alert.towerId === towerId || Boolean(towerCode && alert.towerCode === towerCode));
   }
 
-  protected anomaliesForTower(towerId: string): readonly GisAnomalyFeature[] {
-    return this.anomalies().filter((anomaly) => anomaly.towerId === towerId);
+  protected anomaliesForTower(towerId: string, towerCode?: string): readonly GisAnomalyFeature[] {
+    return this.anomalies().filter(
+      (anomaly) => anomaly.towerId === towerId || Boolean(towerCode && anomaly.towerCode === towerCode),
+    );
+  }
+
+  protected needsAiReview(anomaly: GisAnomalyFeature): boolean {
+    const status = this.effectiveAnomalyStatus(anomaly).toLowerCase();
+    return status === 'pending' || status === 'inreview';
   }
 
   /** GIS severity = category severity weight × 5 (0–5). */

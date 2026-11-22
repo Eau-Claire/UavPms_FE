@@ -111,3 +111,4 @@ describe('AiAnalysisSessionStore', () => {
     expect(store.filteredDetections()).toHaveLength(2);
   });
 });
+
