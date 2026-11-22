@@ -58,6 +58,8 @@ const normalizeArray = (value: unknown): readonly unknown[] => {
   return Array.isArray(list) ? list : [];
 };
 
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+
 export const normalizeNotification = (value: unknown, fallbackId = ''): AppNotification => {
   const source = record(value);
   const id = stringValue(pick(source, 'id', 'notificationId', 'Id', 'NotificationId'), fallbackId);
@@ -66,12 +68,14 @@ export const normalizeNotification = (value: unknown, fallbackId = ''): AppNotif
     new Date(0).toISOString(),
   );
   const readAt = pick(source, 'readAt', 'readTime', 'ReadAt', 'ReadTime');
+  const rawRefId = stringValue(pick(source, 'referenceId', 'entityId', 'ReferenceId', 'EntityId')).trim();
+  const referenceId = !rawRefId || rawRefId === EMPTY_GUID ? undefined : rawRefId;
   return {
     id,
     userId: stringValue(pick(source, 'userId', 'recipientId', 'UserId', 'RecipientId')) || undefined,
     type: stringValue(pick(source, 'type', 'notificationType', 'Type', 'NotificationType')) || undefined,
     referenceType: stringValue(pick(source, 'referenceType', 'entityType', 'ReferenceType', 'EntityType')) || undefined,
-    referenceId: stringValue(pick(source, 'referenceId', 'entityId', 'ReferenceId', 'EntityId')) || undefined,
+    referenceId,
     title: stringValue(pick(source, 'title', 'subject', 'Title', 'Subject'), 'Notification'),
     body: stringValue(pick(source, 'body', 'message', 'content', 'description', 'Body', 'Message', 'Content', 'Description')),
     createdAt,

@@ -28,26 +28,40 @@ const normalize = (value: string | null | undefined): string => (value ?? '').tr
 export const referenceTypeLabel = (referenceType: string | null | undefined): string =>
   REFERENCE_LABELS[normalize(referenceType)] ?? (referenceType?.trim() || 'Mục liên quan');
 
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * Where "open" on a notification should go for this role, or `null` when there is no page the role may open
  * (so the header never links to the 403 page).
  */
 export const notificationLink = (notification: NotificationRef, role: RoleInput): NotificationLink | null => {
-  const id = notification.referenceId?.trim();
-  switch (normalize(notification.referenceType)) {
+  const rawId = notification.referenceId?.trim();
+  const id = rawId && rawId !== EMPTY_GUID ? rawId : undefined;
+  const refType = normalize(notification.referenceType);
+  const type = (notification.type ?? '').trim().toUpperCase();
+
+  switch (refType) {
     case 'mission': {
       if (!id) return null;
-      const needsAcceptance = ACCEPTANCE_TYPES.has((notification.type ?? '').trim().toUpperCase());
+      const needsAcceptance = ACCEPTANCE_TYPES.has(type);
       if (needsAcceptance && isFieldRole(role) && canAccess(role, ROUTE_ROLES.missionAssignee)) {
         return { commands: ['/missions', id, 'inspector'], label: 'Tiếp nhận nhiệm vụ' };
       }
       return { commands: ['/missions', id], label: 'Đến trang nhiệm vụ' };
     }
     case 'maintenanceticket':
-      return id && canAccess(role, ROUTE_ROLES.maintenance) ? { commands: ['/maintenance', id], label: 'Mở phiếu bảo trì' } : null;
+    case 'maintenance':
+      if (!canAccess(role, ROUTE_ROLES.maintenance)) return null;
+      return id ? { commands: ['/maintenance', id], label: 'Mở phiếu bảo trì' } : { commands: ['/maintenance'], label: 'Mở danh sách phiếu bảo trì' };
     case 'detectedanomaly':
-      return id && canAccess(role, ROUTE_ROLES.aiReview) ? { commands: ['/ai-review', id], label: 'Thẩm định phát hiện AI' } : null;
+    case 'anomaly':
+    case 'defect':
+      if (!canAccess(role, ROUTE_ROLES.aiReview)) return null;
+      return id
+        ? { commands: ['/ai-review', id], label: 'Thẩm định phát hiện AI' }
+        : { commands: ['/ai-review'], label: 'Mở danh sách duyệt khuyết tật' };
     case 'emergencyalert':
+    case 'alert':
       return canAccess(role, ROUTE_ROLES.emergencyAlerts)
         ? {
             commands: ['/emergency-alerts'],

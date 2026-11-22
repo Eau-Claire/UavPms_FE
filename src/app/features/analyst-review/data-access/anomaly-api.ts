@@ -284,20 +284,30 @@ export class AnomalyApi {
   }
 
   /**
-   * Lấy chi tiết Anomaly theo ID: tìm trong pending, nếu không có thì tìm trong history cache
+   * Lấy chi tiết Anomaly theo ID: tìm trong history cache, gọi GET /anomalies/{id}, hoặc tìm trong pending
    */
   getAnomalyById(id: string): Observable<AnomalyItem | null> {
-    const fromHistory = this.history.getReview(id);
+    const cleanId = id?.trim();
+    if (!cleanId || cleanId === '00000000-0000-0000-0000-000000000000') {
+      return of(null);
+    }
+
+    const fromHistory = this.history.getReview(cleanId);
     if (fromHistory) {
       return of(fromHistory);
     }
 
-    return this.listPending({ pageIndex: 1, pageSize: 100 }).pipe(
-      map((res) => {
-        const found = res.items.find((it) => it.id === id);
-        return found ?? this.history.getReview(id) ?? null;
-      }),
-      catchError(() => of(this.history.getReview(id) ?? null)),
+    return this.http.get<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(cleanId)}`).pipe(
+      map((res) => normalizeAnomalyItem(unwrapApiData(res))),
+      catchError(() =>
+        this.listPending({ pageIndex: 1, pageSize: 100 }).pipe(
+          map((res) => {
+            const found = res.items.find((it) => it.id === cleanId);
+            return found ?? this.history.getReview(cleanId) ?? null;
+          }),
+          catchError(() => of(this.history.getReview(cleanId) ?? null)),
+        ),
+      ),
     );
   }
 

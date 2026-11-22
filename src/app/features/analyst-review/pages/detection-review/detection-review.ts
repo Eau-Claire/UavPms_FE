@@ -88,7 +88,7 @@ export class DetectionReview {
     return list.indexOf(current);
   });
   protected readonly nextPendingId = computed(() => {
-    const list = this.queueIds();
+    const list = this.queueIds().filter((id) => id && id !== '00000000-0000-0000-0000-000000000000');
     const current = this.detectionId();
     const idx = list.indexOf(current);
     if (idx !== -1 && idx + 1 < list.length) {
@@ -124,7 +124,12 @@ export class DetectionReview {
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      this.detectionId.set(params.get('id') ?? '');
+      const id = (params.get('id') ?? '').trim();
+      if (!id || id === '00000000-0000-0000-0000-000000000000') {
+        void this.router.navigate(['/ai-review'], { replaceUrl: true });
+        return;
+      }
+      this.detectionId.set(id);
       this.detection.set(null);
       this.supersededItems.set([]);
       this.analysisRun.set(null);
@@ -140,6 +145,10 @@ export class DetectionReview {
   private initData(): void {
     const navState = history.state as ReviewNavigationState | undefined;
     const currentId = this.detectionId();
+    if (!currentId || currentId === '00000000-0000-0000-0000-000000000000') {
+      void this.router.navigate(['/ai-review'], { replaceUrl: true });
+      return;
+    }
 
     // Tải hàng đợi pending để lấy danh sách sự cố tiếp theo
     this.api
@@ -147,7 +156,9 @@ export class DetectionReview {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
-          this.queueIds.set(res.items.map((it) => it.id));
+          this.queueIds.set(
+            res.items.map((it) => it.id).filter((id) => id && id !== '00000000-0000-0000-0000-000000000000'),
+          );
         },
       });
 
@@ -253,7 +264,7 @@ export class DetectionReview {
           this.towerRequired.set(false);
 
           const next = this.nextPendingId();
-          if (next && next !== item.id) {
+          if (next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000') {
             this.toast.success(`Đã chấp nhận phát hiện #${item.id}. Đang chuyển sang sự cố tiếp theo...`);
             void this.router.navigate(['/ai-review', next]);
           } else {
@@ -312,7 +323,7 @@ export class DetectionReview {
           );
 
           const next = this.nextPendingId();
-          if (next && next !== item.id) {
+          if (next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000') {
             this.toast.warning(`Đã từ chối phát hiện #${item.id}. Đang chuyển sang sự cố tiếp theo...`);
             void this.router.navigate(['/ai-review', next]);
           } else {
