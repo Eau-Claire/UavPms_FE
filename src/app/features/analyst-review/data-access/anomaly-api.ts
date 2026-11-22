@@ -178,7 +178,7 @@ export class AnomalyApi {
           // Lọc bỏ những mục đã được thẩm định trong cache client (nếu có)
           const filteredItems = page.items.filter((item) => {
             const reviewed = this.history.getReview(item.id);
-            return !reviewed || reviewed.validationStatus === 'Pending';
+            return !reviewed || reviewed.validationStatus === 'Pending' || reviewed.validationStatus === 'InReview';
           });
           return {
             ...page,

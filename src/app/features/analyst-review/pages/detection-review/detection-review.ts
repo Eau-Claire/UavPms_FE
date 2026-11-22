@@ -17,6 +17,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { ToastService } from '../../../../core/toast/toast.service';
+import { roleFamily } from '../../../../core/auth/roles';
 import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
   AnalysisRunInfo,
@@ -110,7 +111,19 @@ export class DetectionReview {
   protected readonly rejectDetailNotes = signal('');
   protected readonly rejectReasons = REJECT_REASONS;
 
-  protected readonly canReview = computed(() => REVIEW_ROLES.has(this.auth.user()?.role?.toLowerCase() ?? ''));
+  protected readonly canReview = computed(() => {
+    const family = roleFamily(this.auth.user()?.role);
+    return family === 'analyst' || family === 'manager' || family === 'admin';
+  });
+
+  protected readonly isReReviewing = signal(false);
+
+  protected readonly isReviewable = computed(() => {
+    const item = this.detection();
+    if (!item || item.supersededById) return false;
+    const status = item.validationStatus;
+    return status === 'Pending' || status === 'InReview';
+  });
 
   protected readonly executionLocation = computed(
     () => this.analysisRun()?.executionLocation ?? this.detection()?.executionLocation ?? null,
@@ -192,6 +205,7 @@ export class DetectionReview {
   private setDetection(item: AnomalyItem, superseded: readonly AnomalyItem[]): void {
     this.detection.set(item);
     this.supersededItems.set(superseded);
+    this.isReReviewing.set(false);
     const rawNotes = item.analystNotes || '';
     const isAiSlop = /^ai\s/i.test(rawNotes) || /severity=/i.test(rawNotes) || /evaluation:/i.test(rawNotes);
     this.generalNotes.set(isAiSlop ? '' : rawNotes);

@@ -202,7 +202,7 @@
             </div>
           }
 
-          @if (item.analystNotes && item.validationStatus !== 'Pending') {
+          @if (item.analystNotes) {
             <div class="existing-notes-box">
               <div class="notes-header-label">Ghi chú thẩm định:</div>
               <div class="notes-body-text">{{ item.analystNotes }}</div>
@@ -211,10 +211,15 @@
         </div>
 
         <!-- FORM QUYẾT ĐỊNH THẨM ĐỊNH -->
-        @if (canReview() && item.validationStatus === 'Pending' && !item.supersededById) {
+        @if (canReview() && !item.supersededById && (isReviewable() || isReReviewing())) {
           <section class="review-actions-panel" aria-label="Thao tác phê duyệt">
             <div class="decision-header-row">
               <span class="info-section-title">Quyết định của Chuyên viên thẩm định</span>
+              @if (isReReviewing()) {
+                <span style="font-size: 11px; color: #2563eb; font-weight: 600; background: #eff6ff; padding: 2px 8px; border-radius: 4px;">
+                  Đang thẩm định lại
+                </span>
+              }
             </div>
 
             <label for="analyst-notes-input" class="notes-input-label">
@@ -241,7 +246,7 @@
                 <span>Từ chối</span>
               </button>
 
-              <!-- NÚT 2: CHẤP NHẬN (Màu xanh navy EVN thanh lịch) -->
+              <!-- NÚT 2: XÁC NHẬN (Màu xanh navy EVN thanh lịch) -->
               <button
                 type="button"
                 class="btn-approve"
@@ -250,7 +255,7 @@
                 title="Xác nhận phát hiện này thành khuyết tật chính thức"
               >
                 <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
-                <span>Chấp nhận</span>
+                <span>Xác nhận</span>
               </button>
             </div>
 
@@ -265,6 +270,26 @@
                 <span>Kích hoạt cảnh báo khẩn cấp</span>
               </button>
             }
+          </section>
+        } @else if (canReview() && !item.supersededById && (item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved')) {
+          <section class="review-actions-panel" aria-label="Trạng thái thẩm định">
+            <div class="reviewed-status-box">
+              <p class="reviewed-status-text">
+                Sự cố này đã được thẩm định với trạng thái:
+                <strong>{{ item.validationStatus }}</strong>
+              </p>
+              <div style="margin-top: 10px;">
+                <button
+                  type="button"
+                  class="btn-approve"
+                  style="height: 32px; font-size: 12px; padding: 0 14px; background: #2563eb; border-color: #1d4ed8; color: #fff;"
+                  (click)="isReReviewing.set(true)"
+                >
+                  <span nz-icon nzType="edit"></span>
+                  <span>Thẩm định lại</span>
+                </button>
+              </div>
+            </div>
           </section>
         } @else if (!canReview()) {
           <div class="role-notice-banner">
