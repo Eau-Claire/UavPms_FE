@@ -61,11 +61,20 @@
     <button
       type="button"
       class="button small"
+      [class.primary]="statusFilter() === 'Reviewed'"
+      [class.secondary]="statusFilter() !== 'Reviewed'"
+      (click)="setStatusFilter('Reviewed')"
+    >
+      Đã duyệt
+    </button>
+    <button
+      type="button"
+      class="button small"
       [class.primary]="statusFilter() === 'Confirmed'"
       [class.secondary]="statusFilter() !== 'Confirmed'"
       (click)="setStatusFilter('Confirmed')"
     >
-      Đã duyệt
+      Chấp nhận
     </button>
     <button
       type="button"
@@ -74,7 +83,7 @@
       [class.secondary]="statusFilter() !== 'Rejected'"
       (click)="setStatusFilter('Rejected')"
     >
-      Đã từ chối
+      Từ chối
     </button>
     <button
       type="button"

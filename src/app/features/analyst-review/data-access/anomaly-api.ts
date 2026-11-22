@@ -4,6 +4,7 @@ import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
+import { AnomalyHistoryService } from './anomaly-history.service';
 
 export type AnomalyValidationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Resolved';
 
@@ -158,6 +159,7 @@ export const anomalyErrorMessage = (error: unknown, fallback = 'Đã xảy ra l�
 })
 export class AnomalyApi {
   private readonly http = inject(HttpClient);
+  private readonly history = inject(AnomalyHistoryService);
   private readonly baseUrl = environment.apiBaseUrl;
 
   listPending(params?: AnomalyListParams): Observable<AnomalyPage> {
@@ -170,7 +172,133 @@ export class AnomalyApi {
 
     return this.http
       .get<unknown>(`${this.baseUrl}/anomalies/pending`, { params: queryParams })
-      .pipe(map((response) => normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize)));
+      .pipe(
+        map((response) => {
+          const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
+          // Lọc bỏ những mục đã được thẩm định trong cache client (nếu có)
+          const filteredItems = page.items.filter((item) => {
+            const reviewed = this.history.getReview(item.id);
+            return !reviewed || reviewed.validationStatus === 'Pending';
+          });
+          return {
+            ...page,
+            items: filteredItems,
+            totalCount: page.totalCount - (page.items.length - filteredItems.length),
+          };
+        }),
+      );
+  }
+
+  /**
+   * Lấy danh sách các phát hiện đã được thẩm định (Confirmed hoặc Rejected hoặc tất cả đã duyệt)
+   */
+  listReviewed(
+    status: 'ALL_REVIEWED' | 'Confirmed' | 'Rejected' = 'ALL_REVIEWED',
+    params?: AnomalyListParams,
+  ): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    const search = params?.search?.trim().toLowerCase();
+
+    let allReviewed = this.history.getReviewedItems();
+
+    if (status === 'Confirmed') {
+      allReviewed = allReviewed.filter(
+        (i) => i.validationStatus === 'Confirmed' || i.validationStatus === 'Resolved',
+      );
+    } else if (status === 'Rejected') {
+      allReviewed = allReviewed.filter((i) => i.validationStatus === 'Rejected');
+    }
+
+    if (search) {
+      allReviewed = allReviewed.filter(
+        (i) =>
+          i.categoryName.toLowerCase().includes(search) ||
+          (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
+          (i.missionName && i.missionName.toLowerCase().includes(search)) ||
+          i.id.toLowerCase().includes(search),
+      );
+    }
+
+    const totalCount = allReviewed.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const pagedItems = allReviewed.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+
+    return of({
+      items: pagedItems,
+      totalCount,
+      pageIndex,
+      pageSize,
+      totalPages,
+    });
+  }
+
+  /**
+   * Lấy tất cả phát hiện: Hợp nhất hàng đợi Chờ duyệt và các phát hiện Đã duyệt
+   */
+  listAll(params?: AnomalyListParams): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    const search = params?.search?.trim().toLowerCase();
+
+    return this.listPending({ pageIndex: 1, pageSize: 100, search }).pipe(
+      map((pendingPage) => {
+        let allReviewed = this.history.getReviewedItems();
+        if (search) {
+          allReviewed = allReviewed.filter(
+            (i) =>
+              i.categoryName.toLowerCase().includes(search) ||
+              (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
+              (i.missionName && i.missionName.toLowerCase().includes(search)) ||
+              i.id.toLowerCase().includes(search),
+          );
+        }
+
+        // Kết hợp Pending + Reviewed
+        const mapById = new Map<string, AnomalyItem>();
+        allReviewed.forEach((it) => mapById.set(it.id, it));
+        pendingPage.items.forEach((it) => {
+          if (!mapById.has(it.id)) {
+            mapById.set(it.id, it);
+          }
+        });
+
+        const merged = Array.from(mapById.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+
+        const totalCount = merged.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+        const pagedItems = merged.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+
+        return {
+          items: pagedItems,
+          totalCount,
+          pageIndex,
+          pageSize,
+          totalPages,
+        };
+      }),
+      catchError(() => this.listReviewed('ALL_REVIEWED', params)),
+    );
+  }
+
+  /**
+   * Lấy chi tiết Anomaly theo ID: tìm trong pending, nếu không có thì tìm trong history cache
+   */
+  getAnomalyById(id: string): Observable<AnomalyItem | null> {
+    const fromHistory = this.history.getReview(id);
+    if (fromHistory) {
+      return of(fromHistory);
+    }
+
+    return this.listPending({ pageIndex: 1, pageSize: 100 }).pipe(
+      map((res) => {
+        const found = res.items.find((it) => it.id === id);
+        return found ?? this.history.getReview(id) ?? null;
+      }),
+      catchError(() => of(this.history.getReview(id) ?? null)),
+    );
   }
 
   validate(id: string, request: AnomalyValidateRequest): Observable<void> {

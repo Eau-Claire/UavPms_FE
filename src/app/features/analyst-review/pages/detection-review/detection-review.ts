@@ -18,6 +18,7 @@ import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { AnomalyTowerAssignmentPanel } from '../../components/anomaly-tower-assignment/anomaly-tower-assignment';
 import { ToastService } from '../../../../core/toast/toast.service';
+import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
   AnalysisRunInfo,
   AnomalyApi,
@@ -57,6 +58,7 @@ export class DetectionReview {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(AnomalyApi);
+  private readonly history = inject(AnomalyHistoryService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
@@ -79,26 +81,12 @@ export class DetectionReview {
   protected readonly canOpenMaintenance = computed(() => isMaintenanceManager(this.auth.user()?.role));
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
-  // Queue & Navigation controls
+  // Queue controls
   protected readonly queueIds = signal<string[]>([]);
   protected readonly queueIndex = computed(() => {
     const list = this.queueIds();
     const current = this.detectionId();
     return list.indexOf(current);
-  });
-  protected readonly hasPrevious = computed(() => this.queueIndex() > 0);
-  protected readonly hasNext = computed(() => {
-    const idx = this.queueIndex();
-    return idx !== -1 && idx < this.queueIds().length - 1;
-  });
-  protected readonly previousId = computed(() => {
-    const idx = this.queueIndex();
-    return idx > 0 ? this.queueIds()[idx - 1] : null;
-  });
-  protected readonly nextId = computed(() => {
-    const idx = this.queueIndex();
-    const list = this.queueIds();
-    return idx !== -1 && idx < list.length - 1 ? list[idx + 1] : null;
   });
   protected readonly nextPendingId = computed(() => {
     const list = this.queueIds();
@@ -136,7 +124,6 @@ export class DetectionReview {
   });
 
   constructor() {
-    // The page is reused when navigating between an edge result and its cloud replacement.
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       this.detectionId.set(params.get('id') ?? '');
       this.detection.set(null);
@@ -155,51 +142,38 @@ export class DetectionReview {
     const navState = history.state as ReviewNavigationState | undefined;
     const currentId = this.detectionId();
 
+    // Tải hàng đợi pending để lấy danh sách sự cố tiếp theo
+    this.api
+      .listPending({ pageIndex: 1, pageSize: 100 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.queueIds.set(res.items.map((it) => it.id));
+        },
+      });
+
     if (navState?.anomaly && navState.anomaly.id === currentId) {
       this.setDetection(navState.anomaly, navState.superseded ?? []);
       this.loading.set(false);
       return;
     }
 
-    // Look the anomaly up in the pending queue; if not pending, check confirmed defects.
     this.loading.set(true);
     this.api
-      .listPending({ pageIndex: 1, pageSize: 100 })
+      .getAnomalyById(currentId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: (res) => {
-          this.queueIds.set(res.items.map((it) => it.id));
-          const found = res.items.find((it) => it.id === currentId);
-          if (found) {
-            this.setDetection(found, groupSuperseded(res.items).supersededByReplacement.get(found.id) ?? []);
-            this.loading.set(false);
+        next: (item) => {
+          if (item) {
+            this.setDetection(item, []);
           } else {
-            // Not in pending: check if it's an already confirmed/processed defect
-            this.api
-              .listConfirmed({ pageIndex: 1, pageSize: 50 })
-              .pipe(
-                takeUntilDestroyed(this.destroyRef),
-                finalize(() => this.loading.set(false)),
-              )
-              .subscribe({
-                next: (confirmedRes) => {
-                  const confirmedFound = confirmedRes.items.find((it) => it.id === currentId);
-                  if (confirmedFound) {
-                    this.setDetection(confirmedFound, []);
-                  } else {
-                    this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi.`);
-                  }
-                },
-                error: () => {
-                  this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi.`);
-                },
-              });
+            this.error.set(`Không tìm thấy sự cố #${currentId} trong hệ thống.`);
           }
         },
         error: (err: unknown) => {
-          this.loading.set(false);
           this.error.set(anomalyErrorMessage(err, 'Không thể tải dữ liệu sự cố.'));
         },
       });
@@ -252,18 +226,14 @@ export class DetectionReview {
     );
     this.towerRequired.set(false);
     this.feedbackType.set('success');
-    this.feedbackMessage.set(`Đã gán cột ${result.towerCode} cho bất thường. Bạn có thể phê duyệt ngay bây giờ.`);
+    this.feedbackMessage.set(`Đã gán cột ${result.towerCode} cho bất thường. Bạn có thể chấp nhận ngay bây giờ.`);
   }
 
-  // --- APPROVE FLOW ---
+  // --- APPROVE FLOW (CHẤP NHẬN) ---
   protected approveDetection(): void {
     const item = this.detection();
     if (!item || this.actionBusy() || item.supersededById) return;
 
-    if (!confirm(`Xác nhận phê duyệt sự cố "${item.categoryName}" thành sự cố kỹ thuật chính thức?`)) {
-      return;
-    }
-
     const notes = this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
@@ -277,61 +247,19 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
-          this.detection.update((current) => (current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null));
+          this.history.saveReview(item, 'Confirmed', notes);
+          this.detection.update((current) =>
+            current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null,
+          );
           this.towerRequired.set(false);
-          this.feedbackType.set('success');
-          this.feedbackMessage.set('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận vào hệ thống.');
-          this.toast.success('Đã phê duyệt sự cố thành công! Kết quả đã được xác nhận.');
-          this.maintenanceLinkVisible.set(true);
-        },
-        error: (err: unknown) => {
-          if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
-          const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
-          this.feedbackType.set('error');
-          this.feedbackMessage.set(msg);
-          this.toast.error(msg);
-        },
-      });
-  }
 
-  protected goToPrevious(): void {
-    const id = this.previousId();
-    if (id) {
-      void this.router.navigate(['/ai-review', id]);
-    }
-  }
-
-  protected goToNext(): void {
-    const id = this.nextId() || this.nextPendingId();
-    if (id) {
-      void this.router.navigate(['/ai-review', id]);
-    }
-  }
-
-  protected approveAndNext(): void {
-    const item = this.detection();
-    if (!item || this.actionBusy() || item.supersededById) return;
-
-    const notes = this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
-    this.actionBusy.set(true);
-    this.feedbackMessage.set('');
-    this.maintenanceLinkVisible.set(false);
-
-    this.api
-      .validate(item.id, { status: 'Confirmed', analystNotes: notes })
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.actionBusy.set(false)),
-      )
-      .subscribe({
-        next: () => {
-          this.toast.success(`Đã phê duyệt sự cố #${item.id}. Chuyển sang sự cố tiếp theo...`);
           const next = this.nextPendingId();
           if (next && next !== item.id) {
+            this.toast.success(`Đã chấp nhận phát hiện #${item.id}. Đang chuyển sang sự cố tiếp theo...`);
             void this.router.navigate(['/ai-review', next]);
           } else {
-            this.detection.update((current) => (current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null));
-            this.toast.info('Đã hoàn tất thẩm định tất cả sự cố trong hàng đợi!');
+            this.toast.success(`Đã chấp nhận phát hiện #${item.id}. Hoàn tất toàn bộ hàng đợi thẩm định!`);
+            void this.router.navigate(['/ai-review']);
           }
         },
         error: (err: unknown) => {
@@ -344,58 +272,7 @@ export class DetectionReview {
       });
   }
 
-  protected confirmRejectAndNext(): void {
-    const item = this.detection();
-    if (!item || this.actionBusy()) return;
-
-    const reason = this.selectedRejectReason();
-    const detail = this.rejectDetailNotes().trim();
-    const fullNotes = detail ? `[${reason}] ${detail}` : `[${reason}] Bác bỏ nhận diện AI.`;
-
-    this.actionBusy.set(true);
-    this.feedbackMessage.set('');
-    this.maintenanceLinkVisible.set(false);
-
-    this.api
-      .validate(item.id, { status: 'Rejected', analystNotes: fullNotes })
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => {
-          this.actionBusy.set(false);
-          this.showRejectModal.set(false);
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.toast.warning(`Đã bác bỏ phát hiện #${item.id}. Chuyển sang sự cố tiếp theo...`);
-          const next = this.nextPendingId();
-          if (next && next !== item.id) {
-            void this.router.navigate(['/ai-review', next]);
-          } else {
-            this.detection.update((current) => (current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null));
-            this.toast.info('Đã hoàn tất thẩm định toàn bộ hàng đợi!');
-          }
-        },
-        error: (err: unknown) => {
-          const msg = anomalyErrorMessage(err, 'Không thể bác bỏ sự cố.');
-          this.feedbackType.set('error');
-          this.feedbackMessage.set(msg);
-          this.toast.error(msg);
-        },
-      });
-  }
-
-  protected goToNextPending(): void {
-    const nextId = this.nextPendingId();
-    if (nextId) {
-      void this.router.navigate(['/ai-review', nextId]);
-    } else {
-      this.toast.info('Đã hoàn thành toàn bộ hàng đợi thẩm định.');
-      void this.router.navigate(['/ai-review']);
-    }
-  }
-
-  // --- REJECT FLOW ---
+  // --- REJECT FLOW (TỪ CHỐI) ---
   protected openRejectModal(): void {
     this.selectedRejectReason.set(REJECT_REASONS[0].value);
     this.rejectDetailNotes.set('');
@@ -430,13 +307,19 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
+          this.history.saveReview(item, 'Rejected', fullNotes);
           this.detection.update((current) =>
             current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null,
           );
-          this.generalNotes.set(fullNotes);
-          this.feedbackType.set('success');
-          this.feedbackMessage.set('Đã từ chối phát hiện AI thành công.');
-          this.toast.success('Đã từ chối phát hiện AI thành công.');
+
+          const next = this.nextPendingId();
+          if (next && next !== item.id) {
+            this.toast.warning(`Đã từ chối phát hiện #${item.id}. Đang chuyển sang sự cố tiếp theo...`);
+            void this.router.navigate(['/ai-review', next]);
+          } else {
+            this.toast.warning(`Đã từ chối phát hiện #${item.id}. Hoàn tất toàn bộ hàng đợi thẩm định!`);
+            void this.router.navigate(['/ai-review']);
+          }
         },
         error: (err: unknown) => {
           const msg = anomalyErrorMessage(err, 'Không thể từ chối phát hiện.');
@@ -481,12 +364,10 @@ export class DetectionReview {
   }
 
   private calculateBoxStyle(box: AnomalyBoundingBox, naturalW: number, naturalH: number): ComputedBoxStyle | null {
-    // Percentages of the image (normalized boxes are converted to 0..100 by the API layer).
     if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) {
       return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
     }
 
-    // Absolute pixels on the original image: wait for the image size.
     if (naturalW > 0 && naturalH > 0) {
       return {
         left: `${Math.max(0, Math.min(95, (box.x / naturalW) * 100))}%`,

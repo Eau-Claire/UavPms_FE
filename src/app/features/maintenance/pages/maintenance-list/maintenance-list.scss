@@ -54,6 +54,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 180px;
+
+    .tech-name-text {
+      display: inline-block;
+      max-width: 170px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+  }
+
+  td.td-m-date {
+    white-space: nowrap;
+    min-width: 120px;
   }
 
   td.td-m-actions {

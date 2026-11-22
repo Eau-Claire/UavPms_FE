@@ -92,18 +92,18 @@
               <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
               <td class="td-m-tech">
                 @if (ticket.technicianId) {
-                  {{ technicianName(ticket) }}
+                  <span class="tech-name-text" [title]="technicianName(ticket)">{{ technicianName(ticket) }}</span>
                 } @else {
                   <span class="maintenance-unassigned">Chưa giao</span>
                 }
               </td>
-              <td>
+              <td class="td-m-date">
                 <div class="maintenance-date-wrap" [class.maintenance-overdue]="isOverdue(ticket)">
                   <span class="maintenance-date-val">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</span>
                   @if (isOverdue(ticket)) { <span class="maintenance-overdue-tag">Quá hạn</span> }
                 </div>
               </td>
-              <td><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
+              <td class="td-m-date"><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
               <td class="td-m-actions">
                 <a class="maintenance-btn-open" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
                   <span nz-icon nzType="eye" aria-hidden="true"></span>

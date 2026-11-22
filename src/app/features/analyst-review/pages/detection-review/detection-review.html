@@ -6,63 +6,41 @@
         <span class="separator">/</span>
         <strong>CHI TIẾT SỰ CỐ #{{ detectionId() }}</strong>
       </nav>
-      <h1>Thẩm định kết quả phát hiện khuyết tật</h1>
+      <h1 class="page-title">Thẩm định kết quả phát hiện khuyết tật</h1>
       <p class="review-subtitle">
         Kiểm tra hình ảnh độ phân giải cao, vị trí khoanh vùng và ra quyết định thẩm định kỹ thuật
       </p>
     </div>
-
-    <div class="header-queue-nav">
-      <div class="queue-nav-controls">
-        <button
-          type="button"
-          class="action-btn btn-nav"
-          [disabled]="!hasPrevious() || actionBusy()"
-          (click)="goToPrevious()"
-          title="Xem phát hiện trước"
-        >
-          <span nz-icon nzType="left"></span> Mục trước
-        </button>
-
-        <span class="queue-counter">
-          @if (queueIndex() !== -1 && queueIds().length > 0) {
-            Khuyết tật {{ queueIndex() + 1 }} / {{ queueIds().length }}
-          } @else {
-            Đã duyệt
-          }
-        </span>
-
-        <button
-          type="button"
-          class="action-btn btn-nav"
-          [disabled]="!hasNext() || actionBusy()"
-          (click)="goToNext()"
-          title="Xem phát hiện tiếp theo"
-        >
-          Mục tiếp <span nz-icon nzType="right"></span>
-        </button>
-      </div>
-
-      <button type="button" class="action-btn btn-outline" (click)="goBack()">
-        <span nz-icon nzType="unordered-list"></span>
-        Danh sách
-      </button>
-    </div>
   </div>
 
   @if (loading()) {
-    <div style="background: #ffffff; padding: 60px; text-align: center; border-radius: 6px; border: 1px solid #e2e8f0;">
-      <span nz-icon nzType="loading" style="font-size: 36px; color: #0284c7;"></span>
-      <p style="margin-top: 12px; color: #64748b;">Đang tải hình ảnh và dữ liệu kiểm tra...</p>
+    <div style="background: #ffffff; padding: 60px; text-align: center; border-radius: 6px; border: 1px solid #cbd8e5;">
+      <span nz-icon nzType="loading" style="font-size: 36px; color: #10387d;"></span>
+      <p style="margin-top: 12px; color: #64748b; font-size: 13px;">Đang tải hình ảnh và dữ liệu kiểm tra...</p>
     </div>
   } @else if (detection(); as item) {
+    <!-- Nút quay lại danh sách nằm bên trái, ngay phía trên khung hình -->
+    <div class="review-back-action-bar">
+      <button type="button" class="action-btn-back" (click)="goBack()">
+        <span nz-icon nzType="arrow-left" aria-hidden="true"></span>
+        <span>Quay lại danh sách</span>
+      </button>
+
+      @if (queueIndex() !== -1 && queueIds().length > 0) {
+        <span class="queue-counter-tag">
+          Đang xem phát hiện {{ queueIndex() + 1 }} / {{ queueIds().length }}
+        </span>
+      }
+    </div>
+
     <div class="review-detail-layout">
+      <!-- CỘT TRÁI: KHUNG HÌNH ẢNH LỚN VÀ RỘNG RÃI -->
       <section class="inspection-viewport-card" aria-label="Khung hiển thị hình ảnh kiểm tra">
         <div class="viewport-toolbar">
           <div class="toolbar-title">
             <span nz-icon nzType="picture"></span>
             <span>Ảnh kiểm tra hiện trường</span>
-            <span style="font-size: 11px; opacity: 0.7; font-family: monospace;">
+            <span class="image-dimen-tag">
               @if (imgNaturalWidth() > 0) {
                 ({{ imgNaturalWidth() }} × {{ imgNaturalHeight() }}px)
               }
@@ -143,151 +121,145 @@
         </div>
       </section>
 
+      <!-- CỘT PHẢI: THÔNG TIN PHÁT HIỆN & FORM THẨM ĐỊNH GỌN GÀNG -->
       <aside class="review-info-card" aria-label="Thông tin chi tiết sự cố">
-        <div class="defect-hero">
-          <div class="info-section-title">Thông tin phát hiện kỹ thuật</div>
-          <h2 class="defect-title">{{ item.categoryName }}</h2>
+        <div class="info-top-block">
+          <div class="defect-hero">
+            <div class="info-section-title">Thông tin phát hiện kỹ thuật</div>
+            <h2 class="defect-title">{{ item.categoryName }}</h2>
 
-          <div class="defect-badges">
-            <span class="status-pill {{ statusClass(item) }}">
-              <span class="status-dot"></span>
-              {{ statusText(item) }}
-            </span>
-            <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
-              Độ tin cậy: {{ item.confidenceScore }}%
-            </span>
+            <div class="defect-badges">
+              <span class="status-pill {{ statusClass(item) }}">
+                <span class="status-dot"></span>
+                {{ statusText(item) }}
+              </span>
+              <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
+                Độ tin cậy: {{ item.confidenceScore }}%
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div class="detail-property-list">
-          <div class="prop-item">
-            <span class="prop-label">Mã sự cố:</span>
-            <span class="prop-value" style="font-family: monospace;">#{{ item.id }}</span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Cột điện:</span>
-            @if (item.towerId) {
-              <span class="prop-value">{{ item.towerCode || 'Đã gắn cột' }}</span>
-            } @else {
-              <span class="prop-value" style="color: #475569;">Chưa gắn cột điện</span>
-            }
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Nhiệm vụ bay:</span>
-            <span class="prop-value">{{ item.missionName || item.missionCode || 'Không gắn nhiệm vụ' }}</span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Nguồn xử lý:</span>
-            <span class="prop-value" style="font-family: monospace; font-size: 12px; background: #ffffff; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px;">
-              {{ item.aiSource || 'Không rõ' }}
-              @if (analysisRun()?.modelVersion) { v{{ analysisRun()?.modelVersion }} }
-            </span>
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Môi trường xử lý:</span>
-            @if (executionLocation(); as location) {
-              <span class="prop-value">{{ executionLabels[location] }}</span>
-            } @else {
-              <span class="prop-value">Chưa xác định</span>
-            }
-          </div>
-          <div class="prop-item">
-            <span class="prop-label">Thời điểm ghi nhận:</span>
-            <span class="prop-value">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
-          </div>
-        </div>
-
-        @if (item.supersededById) {
-          <div class="role-notice-banner" role="note">
-            <span nz-icon nzType="swap" aria-hidden="true"></span>
-            <span>
-              Kết quả Edge này đã được kết quả Cloud thay thế nên không cần thẩm định.
-              <a [routerLink]="['/ai-review', item.supersededById]">Mở kết quả thay thế</a>
-            </span>
-          </div>
-        }
-
-        @if (supersededItems().length) {
-          <div class="role-notice-banner" role="note">
-            <span nz-icon nzType="cloud" aria-hidden="true"></span>
-            <span>
-              Kết quả Cloud này thay thế {{ supersededItems().length }} kết quả Edge:
-              @for (old of supersededItems(); track old.id) {
-                <a [routerLink]="['/ai-review', old.id]">{{ old.categoryName }} ({{ old.confidenceScore }}%)</a>@if (!$last) {, }
+          <div class="detail-property-list">
+            <div class="prop-item">
+              <span class="prop-label">Mã sự cố:</span>
+              <span class="prop-value" style="font-family: monospace;">#{{ item.id }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Cột điện:</span>
+              @if (item.towerId) {
+                <span class="prop-value">{{ item.towerCode || 'Đã gắn cột' }}</span>
+              } @else {
+                <span class="prop-value text-unassigned">Chưa gắn cột điện</span>
               }
-            </span>
-          </div>
-        }
-
-        @if (!item.supersededById && item.validationStatus !== 'Resolved') {
-          <app-anomaly-tower-assignment
-            [anomalyId]="item.id"
-            [towerId]="item.towerId"
-            [towerCode]="item.towerCode"
-            [disabled]="!canReview()"
-            [highlight]="towerRequired()"
-            (assigned)="onTowerAssigned($event)"
-          />
-        }
-
-        @if (item.analystNotes) {
-          <div style="background: #f1f5f9; padding: 12px; border-radius: 8px; border-left: 3px solid #0284c7;">
-            <div style="font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px; text-transform: uppercase;">
-              Ghi chú thẩm định hiện tại:
             </div>
-            <div style="font-size: 13px; color: #1e293b; white-space: pre-wrap;">
-              {{ item.analystNotes }}
+            <div class="prop-item">
+              <span class="prop-label">Nhiệm vụ bay:</span>
+              <span class="prop-value">{{ item.missionName || item.missionCode || 'Không gắn nhiệm vụ' }}</span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Nguồn xử lý:</span>
+              <span class="prop-value" style="font-family: monospace; font-size: 11.5px; background: #ffffff; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px;">
+                {{ item.aiSource || 'Không rõ' }}
+                @if (analysisRun()?.modelVersion) { v{{ analysisRun()?.modelVersion }} }
+              </span>
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Nơi chạy:</span>
+              @if (executionLocation(); as location) {
+                <span class="prop-value">{{ executionLabels[location] }}</span>
+              } @else {
+                <span class="prop-value">Chưa xác định</span>
+              }
+            </div>
+            <div class="prop-item">
+              <span class="prop-label">Thời điểm ghi nhận:</span>
+              <span class="prop-value">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
           </div>
-        }
 
+          @if (item.supersededById) {
+            <div class="role-notice-banner" role="note">
+              <span nz-icon nzType="swap" aria-hidden="true"></span>
+              <span>
+                Kết quả Edge này đã được kết quả Cloud thay thế nên không cần thẩm định.
+                <a [routerLink]="['/ai-review', item.supersededById]">Mở kết quả thay thế</a>
+              </span>
+            </div>
+          }
+
+          @if (supersededItems().length) {
+            <div class="role-notice-banner" role="note">
+              <span nz-icon nzType="cloud" aria-hidden="true"></span>
+              <span>
+                Kết quả Cloud này thay thế {{ supersededItems().length }} kết quả Edge:
+                @for (old of supersededItems(); track old.id) {
+                  <a [routerLink]="['/ai-review', old.id]">{{ old.categoryName }} ({{ old.confidenceScore }}%)</a>@if (!$last) {, }
+                }
+              </span>
+            </div>
+          }
+
+          @if (!item.supersededById && item.validationStatus !== 'Resolved') {
+            <app-anomaly-tower-assignment
+              [anomalyId]="item.id"
+              [towerId]="item.towerId"
+              [towerCode]="item.towerCode"
+              [disabled]="!canReview()"
+              [highlight]="towerRequired()"
+              (assigned)="onTowerAssigned($event)"
+            />
+          }
+
+          @if (item.analystNotes && item.validationStatus !== 'Pending') {
+            <div class="existing-notes-box">
+              <div class="notes-header-label">Ghi chú thẩm định:</div>
+              <div class="notes-body-text">{{ item.analystNotes }}</div>
+            </div>
+          }
+        </div>
+
+        <!-- FORM QUYẾT ĐỊNH THẨM ĐỊNH -->
         @if (canReview()) {
           <section class="review-actions-panel" aria-label="Thao tác phê duyệt">
-            <div class="info-section-title">Quyết định của Chuyên viên thẩm định</div>
-
             @if (item.validationStatus === 'Pending' && !item.supersededById) {
-              <label for="analyst-notes-input" style="font-size: 12px; font-weight: 600; color: #475569;">
-                Ghi chú thẩm định bổ sung (tùy chọn):
+              <div class="decision-header-row">
+                <span class="info-section-title">Quyết định của Chuyên viên thẩm định</span>
+              </div>
+
+              <label for="analyst-notes-input" class="notes-input-label">
+                Ghi chú thẩm định kỹ thuật (tùy chọn):
               </label>
               <textarea
                 id="analyst-notes-input"
                 class="analyst-notes-input"
-                placeholder="Nhập nhận định kỹ thuật hoặc hướng xử lý đề xuất..."
+                placeholder="Nhập nhận định kỹ thuật hoặc nguyên nhân..."
                 [ngModel]="generalNotes()"
                 (ngModelChange)="generalNotes.set($event)"
               ></textarea>
 
               <div class="action-btn-group">
+                <!-- NÚT 1: TỪ CHỐI (Màu đỏ mận EVN thanh lịch) -->
                 <button
                   type="button"
                   class="btn-reject"
                   [disabled]="actionBusy()"
                   (click)="openRejectModal()"
+                  title="Bác bỏ kết quả phát hiện AI này"
                 >
                   <span nz-icon nzType="close-circle"></span>
-                  <span>Bác bỏ</span>
+                  <span>Từ chối</span>
                 </button>
 
+                <!-- NÚT 2: CHẤP NHẬN (Màu xanh navy EVN thanh lịch) -->
                 <button
                   type="button"
                   class="btn-approve"
                   [disabled]="actionBusy()"
                   (click)="approveDetection()"
-                  title="Phê duyệt sự cố này"
+                  title="Xác nhận phát hiện này thành khuyết tật chính thức"
                 >
                   <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
-                  <span>Phê duyệt</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-approve-next"
-                  [disabled]="actionBusy()"
-                  (click)="approveAndNext()"
-                  title="Phê duyệt sự cố này và chuyển sang sự cố tiếp theo"
-                >
-                  <span nz-icon nzType="forward"></span>
-                  <span>Duyệt & Tiếp tục &rarr;</span>
+                  <span>Chấp nhận</span>
                 </button>
               </div>
 
@@ -303,24 +275,14 @@
                 </button>
               }
             } @else {
-              <div style="padding: 14px; background: #f8fafc; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0;">
-                <p style="margin: 0; font-size: 13px; color: #475569;">
+              <div class="reviewed-status-box">
+                <p class="reviewed-status-text">
                   Sự cố này đã được thẩm định với trạng thái:
-                  <strong style="color: #0f172a;">{{ statusText(item) }}</strong>.
+                  <strong>{{ statusText(item) }}</strong>.
                 </p>
-                <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                  @if (hasPrevious()) {
-                    <button type="button" class="action-btn btn-nav" (click)="goToPrevious()">
-                      <span nz-icon nzType="left"></span> Mục trước
-                    </button>
-                  }
-                  @if (hasNext()) {
-                    <button type="button" class="action-btn" style="background: #10387d; color: #ffffff; border: none; padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goToNext()">
-                      <span>Mục tiếp theo</span>
-                      <span nz-icon nzType="arrow-right" style="margin-left: 6px;"></span>
-                    </button>
-                  }
-                  <button type="button" class="action-btn btn-outline" style="padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goBack()">
+                <div class="reviewed-actions-row">
+                  <button type="button" class="button secondary small" (click)="goBack()">
+                    <span nz-icon nzType="arrow-left"></span>
                     <span>Về danh sách</span>
                   </button>
                 </div>
@@ -330,7 +292,7 @@
         } @else {
           <div class="role-notice-banner">
             <span nz-icon nzType="info-circle"></span>
-            <span>Chỉ tài khoản <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền phê duyệt hoặc bác bỏ kết quả phát hiện.</span>
+            <span>Chỉ tài khoản <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền thẩm định kết quả phát hiện.</span>
           </div>
         }
       </aside>
@@ -343,8 +305,8 @@
         {{ error() || 'Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.' }}
       </p>
       <div style="display: flex; justify-content: center; gap: 12px;">
-        <button type="button" class="action-btn btn-primary" (click)="goBack()">
-          <span nz-icon nzType="left"></span> Quay lại danh sách
+        <button type="button" class="button primary" (click)="goBack()">
+          <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
         </button>
       </div>
     </div>
@@ -357,14 +319,14 @@
       <div class="modal-head">
         <h3>
           <span nz-icon nzType="close-circle"></span>
-          Bác bỏ kết quả phát hiện
+          Từ chối kết quả phát hiện
         </h3>
         <button type="button" class="btn-close" aria-label="Đóng" (click)="closeRejectModal()">✕</button>
       </div>
 
       <div class="modal-body">
         <p style="margin: 0; font-size: 13px; color: #64748b;">
-          Vui lòng chọn lý do bác bỏ phát hiện này:
+          Vui lòng chọn lý do từ chối phát hiện này:
         </p>
 
         <div>
@@ -411,16 +373,6 @@
           }
           Xác nhận từ chối
         </button>
-        @if (nextPendingId()) {
-          <button
-            type="button"
-            class="btn-confirm-reject-next"
-            [disabled]="actionBusy()"
-            (click)="confirmRejectAndNext()"
-          >
-            Từ chối & Tiếp tục &rarr;
-          </button>
-        }
       </div>
     </div>
   </div>

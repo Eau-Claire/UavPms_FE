@@ -45,7 +45,7 @@ export class DetectionList {
   protected readonly search = signal('');
   protected readonly viewMode = signal<'grid' | 'table'>('grid');
   protected readonly showSuperseded = signal(false);
-  protected readonly statusFilter = signal<'ALL' | 'Pending' | 'Confirmed' | 'Rejected'>('Pending');
+  protected readonly statusFilter = signal<'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'>('Pending');
   protected readonly pendingCount = signal(0);
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
@@ -62,25 +62,22 @@ export class DetectionList {
   protected readonly hiddenSupersededCount = computed(() => this.grouping().hiddenCount);
 
   protected readonly displayedItems = computed<readonly AnomalyItem[]>(() => {
-    const base = this.showSuperseded() ? this.response().items : this.grouping().visible;
-    const filter = this.statusFilter();
-    if (filter === 'ALL') return base;
-    if (filter === 'Confirmed') {
-      return base.filter((item) => item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved');
-    }
-    return base.filter((item) => item.validationStatus === filter);
+    return this.showSuperseded() ? this.response().items : this.grouping().visible;
   });
 
   protected readonly emptyStateIcon = computed(() => {
     if (this.statusFilter() === 'Confirmed') return 'file-done';
     if (this.statusFilter() === 'Rejected') return 'stop';
+    if (this.statusFilter() === 'Reviewed') return 'audit';
     return 'check-circle';
   });
 
   protected readonly emptyStateTitle = computed(() => {
     switch (this.statusFilter()) {
+      case 'Reviewed':
+        return 'Chưa có phát hiện nào đã được thẩm định';
       case 'Confirmed':
-        return 'Chưa có phát hiện nào được phê duyệt';
+        return 'Chưa có phát hiện nào được chấp nhận';
       case 'Rejected':
         return 'Không có phát hiện nào bị từ chối';
       case 'ALL':
@@ -93,10 +90,12 @@ export class DetectionList {
 
   protected readonly emptyStateDescription = computed(() => {
     switch (this.statusFilter()) {
+      case 'Reviewed':
+        return 'Tất cả các kết quả đã thẩm định (chấp nhận hoặc từ chối) sẽ hiển thị tại đây.';
       case 'Confirmed':
-        return 'Các kết quả phát hiện khuyết tật sau khi được thẩm định và xác nhận sẽ hiển thị tại đây.';
+        return 'Các kết quả phát hiện khuyết tật sau khi được chấp nhận sẽ hiển thị tại đây.';
       case 'Rejected':
-        return 'Các kết quả phát hiện bị bác bỏ hoặc báo động sai sẽ hiển thị tại đây.';
+        return 'Các kết quả phát hiện bị từ chối hoặc báo động sai sẽ hiển thị tại đây.';
       case 'ALL':
         return 'Không có dữ liệu phù hợp với điều kiện tìm kiếm hiện tại.';
       case 'Pending':
@@ -133,7 +132,7 @@ export class DetectionList {
     this.load();
   }
 
-  protected setStatusFilter(nextFilter: 'ALL' | 'Pending' | 'Confirmed' | 'Rejected'): void {
+  protected setStatusFilter(nextFilter: 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'): void {
     if (this.statusFilter() === nextFilter) return;
     this.statusFilter.set(nextFilter);
     this.page.set(1);
@@ -145,10 +144,19 @@ export class DetectionList {
     this.error.set('');
 
     const filter = this.statusFilter();
-    const isConfirmedMode = filter === 'Confirmed';
-    const req$ = isConfirmedMode
-      ? this.api.listConfirmed({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() })
-      : this.api.listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    let req$;
+
+    if (filter === 'Pending') {
+      req$ = this.api.listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    } else if (filter === 'Reviewed') {
+      req$ = this.api.listReviewed('ALL_REVIEWED', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    } else if (filter === 'Confirmed') {
+      req$ = this.api.listReviewed('Confirmed', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    } else if (filter === 'Rejected') {
+      req$ = this.api.listReviewed('Rejected', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    } else {
+      req$ = this.api.listAll({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+    }
 
     req$
       .pipe(
