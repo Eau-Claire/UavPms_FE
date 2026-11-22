@@ -138,10 +138,21 @@ export class AnomalyHistoryService {
   }
 
   isReviewed(id: string): boolean {
-    return this.reviews().has(id);
+    const item = this.reviews().get(id);
+    return (
+      !!item &&
+      (item.validationStatus === 'Confirmed' ||
+        item.validationStatus === 'Rejected' ||
+        item.validationStatus === 'Resolved')
+    );
   }
 
-  saveReview(item: AnomalyItem, status: 'Confirmed' | 'Rejected', notes: string): AnomalyItem {
+  saveReview(
+    item: AnomalyItem,
+    status: 'Confirmed' | 'Rejected',
+    notes: string,
+    aliasIds?: readonly string[],
+  ): AnomalyItem {
     const updated: AnomalyItem = {
       ...item,
       validationStatus: status,
@@ -151,6 +162,13 @@ export class AnomalyHistoryService {
 
     const currentMap = new Map(this.reviews());
     currentMap.set(updated.id, updated);
+    if (aliasIds && aliasIds.length > 0) {
+      for (const alias of aliasIds) {
+        if (alias && alias.trim()) {
+          currentMap.set(alias.trim(), { ...updated, id: alias.trim() });
+        }
+      }
+    }
     this.reviews.set(currentMap);
     this.persist(currentMap);
     return updated;

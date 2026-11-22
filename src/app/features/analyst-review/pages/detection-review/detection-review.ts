@@ -271,7 +271,16 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
-          this.history.saveReview(item, 'Confirmed', notes);
+          const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
+          const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+          this.history.saveReview(item, 'Confirmed', notes, aliasIds);
+
+          if (matchingAlert) {
+            this.alertsApi.reviewAlert(matchingAlert.id, { status: 'Confirmed', notes }).subscribe({ error: () => undefined });
+            this.alertsApi.removeActive(matchingAlert.id);
+          }
+          this.alertsApi.removeActive(item.id);
+
           this.detection.update((current) =>
             current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null,
           );
@@ -331,7 +340,16 @@ export class DetectionReview {
       )
       .subscribe({
         next: () => {
-          this.history.saveReview(item, 'Rejected', fullNotes);
+          const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
+          const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+          this.history.saveReview(item, 'Rejected', fullNotes, aliasIds);
+
+          if (matchingAlert) {
+            this.alertsApi.reviewAlert(matchingAlert.id, { status: 'Dismissed', notes: fullNotes }).subscribe({ error: () => undefined });
+            this.alertsApi.removeActive(matchingAlert.id);
+          }
+          this.alertsApi.removeActive(item.id);
+
           this.detection.update((current) =>
             current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null,
           );

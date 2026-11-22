@@ -12,6 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { debounceTime, distinctUntilChanged, finalize, Subject } from 'rxjs';
+import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import {
@@ -33,6 +34,7 @@ import {
 })
 export class DetectionList {
   private readonly api = inject(AnomalyApi);
+  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
@@ -144,6 +146,20 @@ export class DetectionList {
     this.error.set('');
 
     const filter = this.statusFilter();
+    if (filter === 'Pending' || filter === 'ALL') {
+      this.alertsApi
+        .fetchActiveAlerts()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => this.fetchList(filter),
+          error: () => this.fetchList(filter),
+        });
+    } else {
+      this.fetchList(filter);
+    }
+  }
+
+  private fetchList(filter: 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'): void {
     let req$;
 
     if (filter === 'Pending') {

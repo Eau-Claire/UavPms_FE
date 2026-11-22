@@ -126,8 +126,20 @@ export class EmergencyAlertsApi {
     );
   }
 
-  private removeActive(id: string): void {
-    this.activeAlertsState.update((list) => list.filter((alert) => alert.id !== id));
+  removeActive(idOrAnomalyId: string): void {
+    const clean = idOrAnomalyId?.trim();
+    if (!clean) return;
+    this.activeAlertsState.update((list) =>
+      list.filter((alert) => alert.id !== clean && alert.anomalyId !== clean),
+    );
+  }
+
+  findActiveByAnomalyOrAlertId(idOrAnomalyId: string): ActiveEmergencyAlert | undefined {
+    const clean = idOrAnomalyId?.trim();
+    if (!clean) return undefined;
+    return this.activeAlertsState().find(
+      (alert) => alert.id === clean || alert.anomalyId === clean,
+    );
   }
 }
 

@@ -18,6 +18,8 @@ import { isAdminRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
+import { AnomalyApi, mapAlertToAnomaly } from '../../../analyst-review/data-access/anomaly-api';
+import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
 import { ToastService } from '../../../../core/toast/toast.service';
 import {
   ActiveEmergencyAlert,
@@ -77,6 +79,8 @@ export class EmergencyAlertsReview {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(Auth);
   private readonly api = inject(EmergencyAlertsApi);
+  private readonly anomalyHistory = inject(AnomalyHistoryService);
+  private readonly anomalyApi = inject(AnomalyApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
@@ -363,7 +367,21 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: () => {
           done();
-          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id);
+          const anomalyStatus: 'Confirmed' | 'Rejected' = status === 'Confirmed' ? 'Confirmed' : 'Rejected';
+          const anomalyItem = mapAlertToAnomaly(alert);
+          const aliasIds = [alert.id, alert.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+          this.anomalyHistory.saveReview(anomalyItem, anomalyStatus, notes, aliasIds);
+
+          if (alert.anomalyId && alert.anomalyId.trim()) {
+            this.anomalyApi.validate(alert.anomalyId, { status: anomalyStatus, analystNotes: notes }).subscribe({ error: () => undefined });
+          }
+
+          this.api.removeActive(alert.id);
+          if (alert.anomalyId) {
+            this.api.removeActive(alert.anomalyId);
+          }
+
+          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id && a.anomalyId !== alert.anomalyId);
           this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
           this.loadActive();
           this.loadHistory(1);
