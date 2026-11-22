@@ -209,7 +209,83 @@ export class AnomalyApi {
       catchError(() => of(null)),
     );
   }
+
+  /** Lấy danh sách các phát hiện khuyết tật đã được thẩm định & xác nhận (Confirmed) */
+  listConfirmed(params?: AnomalyListParams): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    return this.http
+      .get<unknown>(`${this.baseUrl}/monitor/inspections`, {
+        params: { isDefect: true, page: pageIndex, pageSize },
+      })
+      .pipe(
+        map((response) => normalizeConfirmedInspectionsPage(unwrapApiData(response), pageIndex, pageSize)),
+        catchError(() =>
+          this.http
+            .get<unknown>(`${this.baseUrl}/monitor/recent-defects`, {
+              params: { page: pageIndex, pageSize },
+            })
+            .pipe(
+              map((response) => normalizeConfirmedInspectionsPage(unwrapApiData(response), pageIndex, pageSize)),
+              catchError(() => of({ items: [], totalCount: 0, pageIndex, pageSize, totalPages: 1 })),
+            ),
+        ),
+      );
+  }
 }
+
+export const normalizeConfirmedInspectionsPage = (
+  value: unknown,
+  fallbackPage: number,
+  fallbackPageSize: number,
+): AnomalyPage => {
+  const root = record(value);
+  const rawItems = itemsOf(root['items'] ?? root['data'] ?? value);
+  const pagination = record(root['pagination'] ?? root['page']);
+  const totalCount = numberValue(pick(pagination, 'totalItems', 'totalCount', 'total') ?? rawItems.length);
+  const pageSize = numberValue(pick(pagination, 'pageSize', 'size') ?? fallbackPageSize) || fallbackPageSize;
+  const pageIndex = numberValue(pick(pagination, 'page', 'pageIndex') ?? fallbackPage) || fallbackPage;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const items: AnomalyItem[] = rawItems.map((raw) => {
+    const r = record(raw);
+    const id = stringValue(pick(r, 'inspectionId', 'id', 'defectId'));
+    const mediaUrl = stringValue(pick(r, 'imageUrl', 'mediaUrl', 'cropUrl', 'fileUrl'));
+    const missionTitle = stringValue(pick(r, 'missionTitle', 'missionCode', 'missionName'));
+    const defectType = stringValue(pick(r, 'defectType', 'categoryName', 'name'), 'Khuyết tật đã thẩm định');
+    const detectedAt = stringValue(pick(r, 'detectedAt', 'createdAt', 'timestamp'), new Date().toISOString());
+
+    return {
+      id,
+      mediaUrl,
+      towerId: optionalString(pick(r, 'towerId')),
+      towerCode: optionalString(pick(r, 'towerCode')),
+      missionCode: missionTitle || null,
+      missionName: missionTitle || null,
+      categoryName: defectType,
+      categoryCode: null,
+      boundingBox: undefined,
+      confidenceScore: 95,
+      validationStatus: 'Confirmed',
+      analystNotes: 'Sự cố đã được thẩm định và xác nhận vào hệ thống.',
+      aiSource: 'Cloud',
+      analysisRunId: null,
+      executionLocation: 'Cloud',
+      supersededById: null,
+      createdAt: detectedAt,
+      severity: 3,
+      isEmergency: false,
+    };
+  });
+
+  return {
+    items,
+    totalCount,
+    pageIndex,
+    pageSize,
+    totalPages,
+  };
+};
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};

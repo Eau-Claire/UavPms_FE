@@ -54,16 +54,16 @@
       class="button small"
       [class.primary]="statusFilter() === 'Pending'"
       [class.secondary]="statusFilter() !== 'Pending'"
-      (click)="statusFilter.set('Pending')"
+      (click)="setStatusFilter('Pending')"
     >
-      Chờ duyệt ({{ response().totalCount }})
+      Chờ duyệt ({{ pendingCount() || (statusFilter() === 'Pending' ? response().totalCount : 0) }})
     </button>
     <button
       type="button"
       class="button small"
       [class.primary]="statusFilter() === 'Confirmed'"
       [class.secondary]="statusFilter() !== 'Confirmed'"
-      (click)="statusFilter.set('Confirmed')"
+      (click)="setStatusFilter('Confirmed')"
     >
       Đã duyệt
     </button>
@@ -72,7 +72,7 @@
       class="button small"
       [class.primary]="statusFilter() === 'Rejected'"
       [class.secondary]="statusFilter() !== 'Rejected'"
-      (click)="statusFilter.set('Rejected')"
+      (click)="setStatusFilter('Rejected')"
     >
       Đã từ chối
     </button>
@@ -81,7 +81,7 @@
       class="button small"
       [class.primary]="statusFilter() === 'ALL'"
       [class.secondary]="statusFilter() !== 'ALL'"
-      (click)="statusFilter.set('ALL')"
+      (click)="setStatusFilter('ALL')"
     >
       Tất cả
     </button>
@@ -156,9 +156,9 @@
     </div>
   } @else if (!displayedItems().length) {
     <div class="empty-state-card">
-      <span nz-icon nzType="check-circle" class="empty-state-icon" aria-hidden="true"></span>
-      <h3>Không có phát hiện nào cần thẩm định</h3>
-      <p>Tất cả các kết quả phát hiện đã được xử lý hoặc không có dữ liệu phù hợp với từ khóa tìm kiếm.</p>
+      <span nz-icon [nzType]="emptyStateIcon()" class="empty-state-icon" aria-hidden="true"></span>
+      <h3>{{ emptyStateTitle() }}</h3>
+      <p>{{ emptyStateDescription() }}</p>
     </div>
   } @else if (viewMode() === 'grid') {
     <section class="detections-grid" aria-label="Danh sách phát hiện sự cố">
@@ -302,7 +302,7 @@
                     class="action-btn btn-primary btn-sm"
                     (click)="$event.stopPropagation(); openDetail(item)"
                   >
-                    Xem &amp; Duyệt
+                    {{ item.validationStatus === 'Confirmed' ? 'Xem chi tiết' : 'Thẩm định' }}
                   </button>
                 </td>
               </tr>

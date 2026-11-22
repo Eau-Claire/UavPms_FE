@@ -1,6 +1,6 @@
 <div class="review-page">
   <div class="review-page-head">
-    <div>
+    <div class="head-info">
       <nav class="review-breadcrumb" aria-label="Đường dẫn">
         <a routerLink="/ai-review" class="breadcrumb-link">DUYỆT KẾT QUẢ PHÁT HIỆN</a>
         <span class="separator">/</span>
@@ -12,10 +12,40 @@
       </p>
     </div>
 
-    <div class="header-actions" style="display: flex; gap: 8px;">
+    <div class="header-queue-nav">
+      <div class="queue-nav-controls">
+        <button
+          type="button"
+          class="action-btn btn-nav"
+          [disabled]="!hasPrevious() || actionBusy()"
+          (click)="goToPrevious()"
+          title="Xem phát hiện trước"
+        >
+          <span nz-icon nzType="left"></span> Mục trước
+        </button>
+
+        <span class="queue-counter">
+          @if (queueIndex() !== -1 && queueIds().length > 0) {
+            Khuyết tật {{ queueIndex() + 1 }} / {{ queueIds().length }}
+          } @else {
+            Đã duyệt
+          }
+        </span>
+
+        <button
+          type="button"
+          class="action-btn btn-nav"
+          [disabled]="!hasNext() || actionBusy()"
+          (click)="goToNext()"
+          title="Xem phát hiện tiếp theo"
+        >
+          Mục tiếp <span nz-icon nzType="right"></span>
+        </button>
+      </div>
+
       <button type="button" class="action-btn btn-outline" (click)="goBack()">
-        <span nz-icon nzType="left"></span>
-        Quay lại danh sách
+        <span nz-icon nzType="unordered-list"></span>
+        Danh sách
       </button>
     </div>
   </div>
@@ -243,9 +273,21 @@
                   class="btn-approve"
                   [disabled]="actionBusy()"
                   (click)="approveDetection()"
+                  title="Phê duyệt sự cố này"
                 >
                   <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
                   <span>Phê duyệt</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-approve-next"
+                  [disabled]="actionBusy()"
+                  (click)="approveAndNext()"
+                  title="Phê duyệt sự cố này và chuyển sang sự cố tiếp theo"
+                >
+                  <span nz-icon nzType="forward"></span>
+                  <span>Duyệt & Tiếp tục &rarr;</span>
                 </button>
               </div>
 
@@ -267,9 +309,14 @@
                   <strong style="color: #0f172a;">{{ statusText(item) }}</strong>.
                 </p>
                 <div style="margin-top: 14px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                  @if (nextPendingId()) {
-                    <button type="button" class="action-btn" style="background: #10387d; color: #ffffff; border: none; padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goToNextPending()">
-                      <span>Duyệt mục tiếp theo</span>
+                  @if (hasPrevious()) {
+                    <button type="button" class="action-btn btn-nav" (click)="goToPrevious()">
+                      <span nz-icon nzType="left"></span> Mục trước
+                    </button>
+                  }
+                  @if (hasNext()) {
+                    <button type="button" class="action-btn" style="background: #10387d; color: #ffffff; border: none; padding: 6px 14px; font-weight: 600; border-radius: 4px; cursor: pointer;" (click)="goToNext()">
+                      <span>Mục tiếp theo</span>
                       <span nz-icon nzType="arrow-right" style="margin-left: 6px;"></span>
                     </button>
                   }
@@ -287,6 +334,19 @@
           </div>
         }
       </aside>
+    </div>
+  } @else {
+    <div class="empty-state-card" style="background: #ffffff; padding: 48px; text-align: center; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 16px;">
+      <span nz-icon nzType="info-circle" style="font-size: 48px; color: #94a3b8; margin-bottom: 16px;"></span>
+      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Không tìm thấy dữ liệu phát hiện khuyết tật</h3>
+      <p style="color: #64748b; max-width: 480px; margin: 0 auto 20px; font-size: 14px;">
+        {{ error() || 'Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.' }}
+      </p>
+      <div style="display: flex; justify-content: center; gap: 12px;">
+        <button type="button" class="action-btn btn-primary" (click)="goBack()">
+          <span nz-icon nzType="left"></span> Quay lại danh sách
+        </button>
+      </div>
     </div>
   }
 </div>
@@ -351,20 +411,17 @@
           }
           Xác nhận từ chối
         </button>
+        @if (nextPendingId()) {
+          <button
+            type="button"
+            class="btn-confirm-reject-next"
+            [disabled]="actionBusy()"
+            (click)="confirmRejectAndNext()"
+          >
+            Từ chối & Tiếp tục &rarr;
+          </button>
+        }
       </div>
-    </div>
-  </div>
-} @else {
-  <div class="empty-state-card" style="background: #ffffff; padding: 48px; text-align: center; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 16px;">
-    <span nz-icon nzType="info-circle" style="font-size: 48px; color: #94a3b8; margin-bottom: 16px;"></span>
-    <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Không tìm thấy dữ liệu phát hiện khuyết tật</h3>
-    <p style="color: #64748b; max-width: 480px; margin: 0 auto 20px; font-size: 14px;">
-      Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.
-    </p>
-    <div style="display: flex; justify-content: center; gap: 12px;">
-      <button type="button" class="action-btn btn-primary" (click)="goBack()">
-        <span nz-icon nzType="left"></span> Quay lại danh sách
-      </button>
     </div>
   </div>
 }

@@ -81,6 +81,25 @@ export class DetectionReview {
 
   // Queue & Navigation controls
   protected readonly queueIds = signal<string[]>([]);
+  protected readonly queueIndex = computed(() => {
+    const list = this.queueIds();
+    const current = this.detectionId();
+    return list.indexOf(current);
+  });
+  protected readonly hasPrevious = computed(() => this.queueIndex() > 0);
+  protected readonly hasNext = computed(() => {
+    const idx = this.queueIndex();
+    return idx !== -1 && idx < this.queueIds().length - 1;
+  });
+  protected readonly previousId = computed(() => {
+    const idx = this.queueIndex();
+    return idx > 0 ? this.queueIds()[idx - 1] : null;
+  });
+  protected readonly nextId = computed(() => {
+    const idx = this.queueIndex();
+    const list = this.queueIds();
+    return idx !== -1 && idx < list.length - 1 ? list[idx + 1] : null;
+  });
   protected readonly nextPendingId = computed(() => {
     const list = this.queueIds();
     const current = this.detectionId();
@@ -142,13 +161,12 @@ export class DetectionReview {
       return;
     }
 
-    // No GET /anomalies/{id} exists: look the anomaly up in the pending queue.
+    // Look the anomaly up in the pending queue; if not pending, check confirmed defects.
     this.loading.set(true);
     this.api
       .listPending({ pageIndex: 1, pageSize: 100 })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
       )
       .subscribe({
         next: (res) => {
@@ -156,11 +174,34 @@ export class DetectionReview {
           const found = res.items.find((it) => it.id === currentId);
           if (found) {
             this.setDetection(found, groupSuperseded(res.items).supersededByReplacement.get(found.id) ?? []);
+            this.loading.set(false);
           } else {
-            this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi. Có thể sự cố đã được thẩm định.`);
+            // Not in pending: check if it's an already confirmed/processed defect
+            this.api
+              .listConfirmed({ pageIndex: 1, pageSize: 50 })
+              .pipe(
+                takeUntilDestroyed(this.destroyRef),
+                finalize(() => this.loading.set(false)),
+              )
+              .subscribe({
+                next: (confirmedRes) => {
+                  const confirmedFound = confirmedRes.items.find((it) => it.id === currentId);
+                  if (confirmedFound) {
+                    this.setDetection(confirmedFound, []);
+                  } else {
+                    this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi.`);
+                  }
+                },
+                error: () => {
+                  this.error.set(`Không tìm thấy sự cố #${currentId} trong hàng đợi.`);
+                },
+              });
           }
         },
-        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải dữ liệu sự cố.')),
+        error: (err: unknown) => {
+          this.loading.set(false);
+          this.error.set(anomalyErrorMessage(err, 'Không thể tải dữ liệu sự cố.'));
+        },
       });
   }
 
@@ -246,6 +287,97 @@ export class DetectionReview {
         error: (err: unknown) => {
           if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
           const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
+          this.feedbackType.set('error');
+          this.feedbackMessage.set(msg);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  protected goToPrevious(): void {
+    const id = this.previousId();
+    if (id) {
+      void this.router.navigate(['/ai-review', id]);
+    }
+  }
+
+  protected goToNext(): void {
+    const id = this.nextId() || this.nextPendingId();
+    if (id) {
+      void this.router.navigate(['/ai-review', id]);
+    }
+  }
+
+  protected approveAndNext(): void {
+    const item = this.detection();
+    if (!item || this.actionBusy() || item.supersededById) return;
+
+    const notes = this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
+    this.actionBusy.set(true);
+    this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
+
+    this.api
+      .validate(item.id, { status: 'Confirmed', analystNotes: notes })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.success(`Đã phê duyệt sự cố #${item.id}. Chuyển sang sự cố tiếp theo...`);
+          const next = this.nextPendingId();
+          if (next && next !== item.id) {
+            void this.router.navigate(['/ai-review', next]);
+          } else {
+            this.detection.update((current) => (current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null));
+            this.toast.info('Đã hoàn tất thẩm định tất cả sự cố trong hàng đợi!');
+          }
+        },
+        error: (err: unknown) => {
+          if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
+          const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
+          this.feedbackType.set('error');
+          this.feedbackMessage.set(msg);
+          this.toast.error(msg);
+        },
+      });
+  }
+
+  protected confirmRejectAndNext(): void {
+    const item = this.detection();
+    if (!item || this.actionBusy()) return;
+
+    const reason = this.selectedRejectReason();
+    const detail = this.rejectDetailNotes().trim();
+    const fullNotes = detail ? `[${reason}] ${detail}` : `[${reason}] Bác bỏ nhận diện AI.`;
+
+    this.actionBusy.set(true);
+    this.feedbackMessage.set('');
+    this.maintenanceLinkVisible.set(false);
+
+    this.api
+      .validate(item.id, { status: 'Rejected', analystNotes: fullNotes })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.actionBusy.set(false);
+          this.showRejectModal.set(false);
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.toast.warning(`Đã bác bỏ phát hiện #${item.id}. Chuyển sang sự cố tiếp theo...`);
+          const next = this.nextPendingId();
+          if (next && next !== item.id) {
+            void this.router.navigate(['/ai-review', next]);
+          } else {
+            this.detection.update((current) => (current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null));
+            this.toast.info('Đã hoàn tất thẩm định toàn bộ hàng đợi!');
+          }
+        },
+        error: (err: unknown) => {
+          const msg = anomalyErrorMessage(err, 'Không thể bác bỏ sự cố.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
           this.toast.error(msg);

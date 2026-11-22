@@ -74,6 +74,57 @@
     gap: 8px;
     flex-shrink: 0;
   }
+
+  .header-queue-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .queue-nav-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+
+      .btn-nav {
+        height: 28px;
+        padding: 0 8px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        color: #1e293b;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: background 0.15s ease, border-color 0.15s ease;
+
+        &:hover:not(:disabled) {
+          background: #e2e8f0;
+          border-color: #94a3b8;
+        }
+
+        &:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+      }
+
+      .queue-counter {
+        font-size: 12px;
+        font-weight: 700;
+        color: #0f172a;
+        padding: 0 8px;
+        white-space: nowrap;
+      }
+    }
+  }
 }
 
 /* =============================================================
@@ -841,13 +892,14 @@
   .viewport-stage {
     position: relative;
     width: 100%;
-    min-height: 480px;
-    max-height: 70vh;
+    height: 440px;
+    min-height: 380px;
+    max-height: 460px;
     background: #020617;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: auto;
+    overflow: hidden;
     user-select: none;
 
     .image-canvas-wrapper {
@@ -859,7 +911,7 @@
 
       img {
         max-width: 100%;
-        max-height: 68vh;
+        max-height: 420px;
         width: auto;
         height: auto;
         display: block;
@@ -1021,8 +1073,12 @@
 
     .action-btn-group {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      grid-template-columns: 1fr 1fr 1.3fr;
+      gap: 8px;
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+      }
 
       button {
         height: 44px;
@@ -1049,6 +1105,17 @@
           &:hover:not(:disabled) {
             background: #15803d;
             box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+          }
+        }
+
+        &.btn-approve-next {
+          background: #10387d;
+          color: #ffffff;
+          border: 1px solid #0d2e67;
+
+          &:hover:not(:disabled) {
+            background: #092552;
+            box-shadow: 0 4px 12px rgba(16, 56, 125, 0.3);
           }
         }
 

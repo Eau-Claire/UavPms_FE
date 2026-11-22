@@ -46,6 +46,7 @@ export class DetectionList {
   protected readonly viewMode = signal<'grid' | 'table'>('grid');
   protected readonly showSuperseded = signal(false);
   protected readonly statusFilter = signal<'ALL' | 'Pending' | 'Confirmed' | 'Rejected'>('Pending');
+  protected readonly pendingCount = signal(0);
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
 
   protected readonly response = signal<AnomalyPage>({
@@ -64,7 +65,44 @@ export class DetectionList {
     const base = this.showSuperseded() ? this.response().items : this.grouping().visible;
     const filter = this.statusFilter();
     if (filter === 'ALL') return base;
+    if (filter === 'Confirmed') {
+      return base.filter((item) => item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved');
+    }
     return base.filter((item) => item.validationStatus === filter);
+  });
+
+  protected readonly emptyStateIcon = computed(() => {
+    if (this.statusFilter() === 'Confirmed') return 'file-done';
+    if (this.statusFilter() === 'Rejected') return 'stop';
+    return 'check-circle';
+  });
+
+  protected readonly emptyStateTitle = computed(() => {
+    switch (this.statusFilter()) {
+      case 'Confirmed':
+        return 'Chưa có phát hiện nào được phê duyệt';
+      case 'Rejected':
+        return 'Không có phát hiện nào bị từ chối';
+      case 'ALL':
+        return 'Không tìm thấy kết quả phát hiện nào';
+      case 'Pending':
+      default:
+        return 'Không có phát hiện nào cần thẩm định';
+    }
+  });
+
+  protected readonly emptyStateDescription = computed(() => {
+    switch (this.statusFilter()) {
+      case 'Confirmed':
+        return 'Các kết quả phát hiện khuyết tật sau khi được thẩm định và xác nhận sẽ hiển thị tại đây.';
+      case 'Rejected':
+        return 'Các kết quả phát hiện bị bác bỏ hoặc báo động sai sẽ hiển thị tại đây.';
+      case 'ALL':
+        return 'Không có dữ liệu phù hợp với điều kiện tìm kiếm hiện tại.';
+      case 'Pending':
+      default:
+        return 'Tất cả các kết quả phát hiện khuyết tật đã được xử lý hoàn tất hoặc không có dữ liệu phù hợp.';
+    }
   });
 
   protected readonly pageNumbers = computed(() =>
@@ -95,19 +133,37 @@ export class DetectionList {
     this.load();
   }
 
+  protected setStatusFilter(nextFilter: 'ALL' | 'Pending' | 'Confirmed' | 'Rejected'): void {
+    if (this.statusFilter() === nextFilter) return;
+    this.statusFilter.set(nextFilter);
+    this.page.set(1);
+    this.load();
+  }
+
   protected load(): void {
     this.loading.set(true);
     this.error.set('');
 
-    this.api
-      .listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() })
+    const filter = this.statusFilter();
+    const isConfirmedMode = filter === 'Confirmed';
+    const req$ = isConfirmedMode
+      ? this.api.listConfirmed({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() })
+      : this.api.listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
+
+    req$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: (res) => this.response.set(res),
-        error: (err: unknown) => this.error.set(anomalyErrorMessage(err, 'Không thể tải hàng đợi thẩm định.')),
+        next: (res) => {
+          this.response.set(res);
+          if (filter === 'Pending') {
+            this.pendingCount.set(res.totalCount);
+          }
+        },
+        error: (err: unknown) =>
+          this.error.set(anomalyErrorMessage(err, 'Không thể tải danh sách kết quả thẩm định.')),
       });
   }
 

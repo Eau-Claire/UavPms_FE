@@ -71,6 +71,38 @@ describe('AnomalyApi', () => {
     expect(distance).toBe(55.6);
   });
 
+  it('lists confirmed defects via monitor inspections fallback', () => {
+    let page: AnomalyPage | undefined;
+    api.listConfirmed({ pageIndex: 1, pageSize: 15 }).subscribe((p) => (page = p));
+    const req = http.expectOne((r) => r.url === `${base}/monitor/inspections`);
+    expect(req.request.params.get('isDefect')).toBe('true');
+    req.flush({
+      success: true,
+      data: {
+        items: [
+          {
+            inspectionId: 'ins-1',
+            imageUrl: 'https://cdn/b.jpg',
+            defectType: 'Rỉ sét',
+            confidenceScore: 0.88,
+            towerId: 't-1',
+            towerCode: 'HCM-TB-01',
+            detectedAt: '2026-11-20T10:00:00Z',
+          },
+        ],
+        totalCount: 1,
+        pageIndex: 1,
+        pageSize: 15,
+        totalPages: 1,
+      },
+    });
+
+    expect(page?.items.length).toBe(1);
+    expect(page?.items[0].id).toBe('ins-1');
+    expect(page?.items[0].categoryName).toBe('Rỉ sét');
+    expect(page?.items[0].validationStatus).toBe('Confirmed');
+  });
+
   it('does not swallow validation errors and explains TOWER_REQUIRED in Vietnamese', () => {
     let error: unknown;
     api.validate('a1', { status: 'Confirmed' }).subscribe({ error: (err) => (error = err) });
