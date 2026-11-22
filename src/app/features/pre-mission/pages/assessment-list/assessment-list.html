@@ -96,17 +96,17 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 125px;">Mã đánh giá</th>
-              <th>Phạm vi (Khu vực / Cột)</th>
-              <th style="width: 145px;">Khung giờ dự kiến</th>
+              <th style="width: 120px;">Mã đánh giá</th>
+              <th style="min-width: 180px; max-width: 250px;">Phạm vi (Khu vực / Cột)</th>
+              <th style="width: 160px;">Khung giờ dự kiến</th>
               <th style="width: 85px;" class="text-center">Mặt bằng</th>
               <th style="width: 85px;" class="text-center">Nhân sự</th>
               <th style="width: 85px;" class="text-center">UAV</th>
               <th style="width: 85px;" class="text-center">Kỹ thuật</th>
               <th style="width: 110px;" class="text-center">Trạng thái</th>
               <th style="width: 125px;">Hiệu lực đến</th>
-              <th style="width: 110px;" class="text-center">Nhiệm vụ</th>
-              <th style="width: 110px;" class="text-center">Thao tác</th>
+              <th style="width: 100px;" class="text-center">Nhiệm vụ</th>
+              <th style="width: 95px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -140,23 +140,23 @@
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ isSiteReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Mặt bằng: ' + (isSiteReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isSiteReady(item) ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isSiteReady(item) ? 'pass' : 'fail' }}" [title]="'Mặt bằng: ' + (isSiteReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isSiteReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ isPersonnelReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Nhân sự: ' + (isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isPersonnelReady(item) ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isPersonnelReady(item) ? 'pass' : 'fail' }}" [title]="'Nhân sự: ' + (isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ isUavReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Thiết bị UAV: ' + (isUavReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isUavReady(item) ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isUavReady(item) ? 'pass' : 'fail' }}" [title]="'Thiết bị UAV: ' + (isUavReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isUavReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="sub-pill {{ isTechnicalReady(item) ? 'tone-success' : 'tone-pending' }}" [title]="'Kiểm định KT: ' + (isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isTechnicalReady(item) ? 'Đạt' : 'Chưa' }}
+                    <span class="sub-pill {{ isTechnicalReady(item) ? 'pass' : 'fail' }}" [title]="'Kiểm định KT: ' + (isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">

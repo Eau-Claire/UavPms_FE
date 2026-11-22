@@ -14,11 +14,6 @@
       }
     </p>
   </div>
-  <div class="tower-actions">
-    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
-      <span nz-icon nzType="reload" aria-hidden="true"></span><span>Tải lại</span>
-    </button>
-  </div>
 </header>
 
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
@@ -38,6 +33,15 @@
       @for (priority of priorities; track priority) {
         <option [value]="priority">{{ priorityLabel(priority) }}</option>
       }
+    </select>
+  </div>
+  <div class="tower-filter">
+    <label for="maintenance-sort">Sắp xếp</label>
+    <select id="maintenance-sort" [value]="sortBy()" (change)="setSortBy($any($event.target).value)">
+      <option value="priority_desc">Ưu tiên cao → thấp</option>
+      <option value="priority_asc">Ưu tiên thấp → cao</option>
+      <option value="date_desc">Thời gian gần nhất → xa nhất</option>
+      <option value="date_asc">Thời gian xa nhất → gần nhất</option>
     </select>
   </div>
 </form>
@@ -71,7 +75,7 @@
         </thead>
         <tbody>
           @for (ticket of rows(); track ticket.id) {
-            <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
+            <tr>
               <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
               <td class="td-m-desc" [title]="ticket.description">
                 <div class="maintenance-desc-wrap">

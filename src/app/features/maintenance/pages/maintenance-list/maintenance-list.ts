@@ -75,15 +75,44 @@ export class MaintenanceList {
     initialValue: this.filters.getRawValue(),
   });
 
-  /** Rows on screen: the server page for managers, the filtered "my tickets" list for technicians. */
+  protected readonly sortBy = signal<'priority_desc' | 'priority_asc' | 'date_desc' | 'date_asc'>('priority_desc');
+
+  private static readonly PRIORITY_WEIGHT: Record<string, number> = {
+    Emergency: 4,
+    High: 3,
+    Medium: 2,
+    Low: 1,
+  };
+
+  /** Rows on screen: the server page for managers, the filtered "my tickets" list for technicians, with client-side sort applied. */
   protected readonly rows = computed<readonly MaintenanceTicket[]>(() => {
-    if (this.isManager()) return this.page().items;
-    const { status, priority } = this.filterValue();
-    return this.myTickets().filter(
-      (ticket) =>
-        (!status || ticket.status === status || (status === 'Closed' && isClosedStatus(ticket.status))) &&
-        (!priority || ticket.priority === priority),
-    );
+    let list: readonly MaintenanceTicket[];
+    if (this.isManager()) {
+      list = this.page().items;
+    } else {
+      const { status, priority } = this.filterValue();
+      list = this.myTickets().filter(
+        (ticket) =>
+          (!status || ticket.status === status || (status === 'Closed' && isClosedStatus(ticket.status))) &&
+          (!priority || ticket.priority === priority),
+      );
+    }
+
+    const sort = this.sortBy();
+    return [...list].sort((a, b) => {
+      if (sort === 'priority_desc' || sort === 'priority_asc') {
+        const weightA = MaintenanceList.PRIORITY_WEIGHT[a.priority] ?? 0;
+        const weightB = MaintenanceList.PRIORITY_WEIGHT[b.priority] ?? 0;
+        const diff = sort === 'priority_desc' ? weightB - weightA : weightA - weightB;
+        if (diff !== 0) return diff;
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      }
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sort === 'date_asc' ? timeA - timeB : timeB - timeA;
+    });
   });
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.page().totalCount / this.pageSize())));
@@ -146,6 +175,10 @@ export class MaintenanceList {
   protected changePageSize(value: string): void {
     this.pageSize.set(Number(value) || 20);
     this.goToPage(0);
+  }
+
+  protected setSortBy(sort: 'priority_desc' | 'priority_asc' | 'date_desc' | 'date_asc'): void {
+    this.sortBy.set(sort);
   }
 
   protected resetFilters(): void {
