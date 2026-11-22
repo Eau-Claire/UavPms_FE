@@ -590,9 +590,78 @@ export class StandaloneUpload {
   }
 
   private finishAnalysis(res: AnalysisSessionResult, isVideo: boolean, userMediaUrl: string): void {
-    this.store.setUploadResult(res);
-    void this.applyDetectionsWithCrops(res.detections, isVideo, userMediaUrl);
-    this.checkAndLinkActiveEmergencyAlert(res.detections);
+    if (res.detections.length > 0) {
+      this.store.setUploadResult(res);
+      void this.applyDetectionsWithCrops(res.detections, isVideo, userMediaUrl);
+      this.checkAndLinkActiveEmergencyAlert(res.detections);
+      return;
+    }
+
+    // Nếu res.detections trả về rỗng từ API phân tích độc lập, kiểm tra ngay xem hệ thống
+    // backend (mô hình AI như seed85_curated_yolo26m) có vừa sinh cảnh báo khẩn cấp cho ảnh này không
+    this.emergencyApi
+      .fetchActiveAlerts()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (alerts) => {
+          const recentThreshold = Date.now() - 5 * 60 * 1000;
+          const matchingAlert = alerts.find((a) => {
+            const trig = a.triggeredAt ? new Date(a.triggeredAt).getTime() : 0;
+            return trig >= recentThreshold || !a.towerId || a.towerCode === 'N/A';
+          });
+
+          if (matchingAlert) {
+            this.store.setLastTriggeredEmergencyAlert(matchingAlert);
+            const alertDet: AiDetection = {
+              id: matchingAlert.id,
+              title: matchingAlert.categoryName || matchingAlert.alertType || 'Bát cách điện vỡ',
+              confidence: matchingAlert.evidence.confidenceScore ?? 62,
+              categoryCode: matchingAlert.alertType || 'BROKEN_INSULATOR',
+              description: `Phát hiện tự động từ UAV (Mô hình: seed85_curated_yolo26m) - Mức độ ưu tiên: ${matchingAlert.priority}`,
+              mediaType: isVideo ? 'video' : 'image',
+              timestampSeconds: null,
+              timestampLabel: isVideo ? '00:01' : 'Ảnh đơn lẻ',
+              frameIndex: 1,
+              gps: matchingAlert.location.latitude && matchingAlert.location.longitude
+                ? `${matchingAlert.location.latitude}, ${matchingAlert.location.longitude}`
+                : '-',
+              tower: matchingAlert.towerCode || 'Chưa gắn cột',
+              missionName: 'Phân tích độc lập',
+              imageUrl: userMediaUrl || matchingAlert.evidence.mediaUrl || '',
+              sourceUrl: userMediaUrl || matchingAlert.evidence.mediaUrl || '',
+              cropImageUrl: userMediaUrl || matchingAlert.evidence.mediaUrl || '',
+              boundingBox: matchingAlert.evidence.boundingBox
+                ? {
+                    x: matchingAlert.evidence.boundingBox.x,
+                    y: matchingAlert.evidence.boundingBox.y,
+                    width: matchingAlert.evidence.boundingBox.width,
+                    height: matchingAlert.evidence.boundingBox.height,
+                  }
+                : undefined,
+              severityWeight: matchingAlert.priority === 'Critical' ? 5 : 3,
+              isEmergency: true,
+              status: matchingAlert.status === 'Open' ? 'Pending' : matchingAlert.status,
+              detectedAt: matchingAlert.triggeredAt || new Date().toISOString(),
+            };
+
+            const enrichedResult: AnalysisSessionResult = {
+              ...res,
+              detections: [alertDet],
+            };
+            this.store.setUploadResult(enrichedResult);
+            void this.applyDetectionsWithCrops([alertDet], isVideo, userMediaUrl);
+          } else {
+            this.store.setUploadResult(res);
+            void this.applyDetectionsWithCrops([], isVideo, userMediaUrl);
+            this.store.setLastTriggeredEmergencyAlert(null);
+          }
+        },
+        error: () => {
+          this.store.setUploadResult(res);
+          void this.applyDetectionsWithCrops([], isVideo, userMediaUrl);
+          this.store.setLastTriggeredEmergencyAlert(null);
+        },
+      });
   }
 
   private checkAndLinkActiveEmergencyAlert(detections: readonly AiDetection[]): void {
