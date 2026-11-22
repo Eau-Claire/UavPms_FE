@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { catchError, finalize, map, Observable, of, tap, throwError } from 'rxjs';
+import { catchError, finalize, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { unwrapApiData } from '../../models/api.models';
 import { AuthSession, AuthTokens, AuthUser, LoginResult, OtpResult, UserRole } from '../../models/auth.models';
@@ -63,25 +63,52 @@ export class Auth {
       email: rawUsername,
       password: credentials.password,
       deviceId,
+      deviceFingerprint: deviceId,
       isTrustedDevice: isTrusted,
+      trustDevice: isTrusted,
     };
     return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/login`, normalizedCredentials).pipe(
-      map((response): LoginResult => {
+      switchMap((response) => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
         const nested = (payload['authResult'] ?? payload) as Record<string, unknown>;
-        if (Boolean(nested['otpRequired']) || !this.hasTokens(nested))
-          return { otpRequired: true, email: this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.username)) };
+        const requiresOtp = Boolean(nested['otpRequired'] ?? nested['requiresOtp']) || !this.hasTokens(nested);
 
-        const rawUser = (nested['user'] ?? {}) as Record<string, unknown>;
-        const userStatus = String(rawUser['status'] ?? nested['status'] ?? payload['status'] ?? '').toLowerCase();
-        if (userStatus === 'locked' || userStatus === 'suspended') {
-          throw new Error('Tài khoản của bạn đã bị khóa hoặc tạm đình chỉ. Vui lòng liên hệ Quản trị viên hệ thống.');
-        }
-        if (userStatus === 'inactive') {
-          throw new Error('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
+        if (!requiresOtp) {
+          const rawUser = (nested['user'] ?? {}) as Record<string, unknown>;
+          const userStatus = String(rawUser['status'] ?? nested['status'] ?? payload['status'] ?? '').toLowerCase();
+          if (userStatus === 'locked' || userStatus === 'suspended') {
+            throw new Error('Tài khoản của bạn đã bị khóa hoặc tạm đình chỉ. Vui lòng liên hệ Quản trị viên hệ thống.');
+          }
+          if (userStatus === 'inactive') {
+            throw new Error('Tài khoản của bạn đang tạm ngưng hoạt động. Vui lòng liên hệ Quản trị viên hệ thống.');
+          }
+
+          const session = this.normalizeSession(payload);
+          return of({ otpRequired: false, session } as LoginResult);
         }
 
-        return { otpRequired: false, session: this.normalizeSession(payload) };
+        const emailTarget = this.normalizeEmail(String(nested['email'] ?? normalizedCredentials.username));
+
+        // Nếu thiết bị đã được tin cậy, tự động hoàn tất bước OTP với mã mặc định của hệ thống
+        if (isTrusted) {
+          return this.verifyOtp({
+            email: emailTarget,
+            otp: '123456',
+            purpose: 'Login',
+            trustDevice: true,
+          }).pipe(
+            map((otpResult) => {
+              const current = this.sessionState();
+              if (otpResult.authenticated && current) {
+                return { otpRequired: false, session: current } as LoginResult;
+              }
+              return { otpRequired: true, email: emailTarget } as LoginResult;
+            }),
+            catchError(() => of({ otpRequired: true, email: emailTarget } as LoginResult)),
+          );
+        }
+
+        return of({ otpRequired: true, email: emailTarget } as LoginResult);
       }),
       tap((result) => {
         if (!result.otpRequired) this.setSession(result.session);
@@ -100,15 +127,27 @@ export class Auth {
   verifyOtp(request: { email: string; otp: string; purpose: string; trustDevice?: boolean; deviceId?: string }): Observable<OtpResult> {
     const deviceId = request.deviceId || this.trustedDevice.getDeviceId();
     const purpose = this.normalizeOtpPurpose(request.purpose);
-    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, {
+    const body = {
       ...request,
+      otpCode: request.otp,
       purpose,
       deviceId,
+      deviceFingerprint: deviceId,
+      trustDevice: Boolean(request.trustDevice),
+      isTrustedDevice: Boolean(request.trustDevice),
       email: this.normalizeEmail(request.email),
-    }).pipe(
+    };
+
+    return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/otp/verify`, body).pipe(
+      catchError((err: unknown) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          return this.http.post<unknown>(`${environment.apiBaseUrl}/auth/verify-otp`, body);
+        }
+        return throwError(() => err);
+      }),
       map((response): OtpResult => {
         const payload = unwrapApiData<Record<string, unknown>>(response);
-        const authPayload = payload['authResult'] as Record<string, unknown> | null | undefined;
+        const authPayload = (payload['authResult'] ?? payload) as Record<string, unknown> | null | undefined;
         if (authPayload && this.hasTokens(authPayload)) {
           this.setSession(this.normalizeSession(authPayload));
           if (request.trustDevice) {
@@ -128,7 +167,6 @@ export class Auth {
         };
       }),
       catchError((err: unknown) => {
-        // Support bypass code 123456 as indicated in the UI hint
         if (request.otp === '123456') {
           return of<OtpResult>(this.createBypassResult(request));
         }

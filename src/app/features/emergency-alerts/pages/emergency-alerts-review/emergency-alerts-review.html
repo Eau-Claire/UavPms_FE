@@ -97,19 +97,11 @@
               <main class="alert-inspection-panel">
                 <div class="inspection-header">
                   <div class="header-details">
-                    <div class="category-chip">
-                      <span class="alert-type-label">{{ alert.alertType }}</span>
+                    <div class="header-title-row">
+                      <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
                       <span class="severity-pill" [class.critical]="alert.priority === 'Critical'">
                         Mức độ: {{ priorityLabels[alert.priority] }}
                       </span>
-                    </div>
-                    <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
-                    <div class="inspection-sub-meta">
-                      <span><strong>Cột điện:</strong> {{ alert.towerCode || 'Chưa gắn cột' }}</span>
-                      <span class="meta-dot" aria-hidden="true">•</span>
-                      <span><strong>Kích hoạt lúc:</strong> {{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
-                      <span class="meta-dot" aria-hidden="true">•</span>
-                      <span><strong>Độ trễ truyền:</strong> {{ alert.deliveryLatencySeconds }} giây</span>
                     </div>
                   </div>
                 </div>
@@ -218,6 +210,9 @@
                         <strong class="conf-high">{{ alert.evidence.confidenceScore !== null ? alert.evidence.confidenceScore + '%' : 'Không rõ' }}</strong>
                       </li>
                       <li><span>Trạng thái:</span> <span class="status-badge-active">{{ statusLabels[alert.status] }}</span></li>
+                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
+                      <li><span>Kích hoạt lúc:</span> <strong>{{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</strong></li>
+                      <li><span>Độ trễ truyền:</span> <strong>{{ alert.deliveryLatencySeconds }} giây</strong></li>
                     </ul>
                   </div>
                 </div>

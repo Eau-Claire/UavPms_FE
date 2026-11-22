@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { Auth } from './auth';
+import { TrustedDeviceService } from './trusted-device.service';
 
 describe('Auth', () => {
   let auth: Auth;
@@ -114,6 +115,37 @@ describe('Auth', () => {
     });
     expect(errorMessage).toContain('tạm ngưng hoạt động');
     expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('automatically verifies OTP when device is already trusted', () => {
+    // 1. Trust the device first
+    const trustedDevice = TestBed.inject(TrustedDeviceService);
+    trustedDevice.trustDevice('operator@evn.vn', 30);
+    expect(trustedDevice.isDeviceTrusted('operator@evn.vn')).toBe(true);
+
+    // 2. Perform login which asks for OTP from server
+    let result: any;
+    auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe((val) => (result = val));
+
+    const loginReq = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
+    expect(loginReq.request.body.isTrustedDevice).toBe(true);
+    loginReq.flush({ data: { otpRequired: true, email: 'operator@evn.vn' } });
+
+    // 3. Since device is trusted, Auth automatically calls verifyOtp
+    const otpReq = http.expectOne(`${environment.apiBaseUrl}/auth/otp/verify`);
+    otpReq.flush({
+      data: {
+        authResult: {
+          accessToken: 'trusted-access-token',
+          refreshToken: 'trusted-refresh-token',
+          user: { id: 'u-trusted', email: 'operator@evn.vn', role: 'Inspector' },
+        },
+      },
+    });
+
+    expect(result.otpRequired).toBe(false);
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.user()?.id).toBe('u-trusted');
   });
 });
 

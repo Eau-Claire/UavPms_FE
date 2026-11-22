@@ -25,16 +25,22 @@ export class TrustedDeviceService {
     }
   }
 
-  /** Kiểm tra thiết bị có đang ở trạng thái tin cậy cho email này không */
-  isDeviceTrusted(email: string): boolean {
-    if (!email) return false;
+  /** Kiểm tra thiết bị có đang ở trạng thái tin cậy cho email hoặc username này không */
+  isDeviceTrusted(emailOrUsername: string): boolean {
+    if (!emailOrUsername) return false;
     try {
       const raw = localStorage.getItem(this.TRUSTED_DEVICES_KEY);
       if (!raw) return false;
       const list: TrustedDeviceEntry[] = JSON.parse(raw);
-      const normalizedEmail = email.trim().toLowerCase();
+      const input = emailOrUsername.trim().toLowerCase();
+      const inputUser = input.split('@')[0];
       const deviceId = this.getDeviceId();
-      const match = list.find((d) => d.email === normalizedEmail && d.deviceId === deviceId);
+      const match = list.find((d) => {
+        const storedEmail = (d.email || '').trim().toLowerCase();
+        const storedUser = storedEmail.split('@')[0];
+        const emailMatches = storedEmail === input || storedUser === inputUser || storedEmail === inputUser || storedUser === input;
+        return emailMatches && d.deviceId === deviceId;
+      });
       return Boolean(match && match.trustedUntil > Date.now());
     } catch {
       return false;
@@ -42,16 +48,23 @@ export class TrustedDeviceService {
   }
 
   /** Lưu thiết bị tin cậy (Mặc định 30 ngày theo Auth:DeviceTrustDays) */
-  trustDevice(email: string, days = 30): void {
-    if (!email) return;
+  trustDevice(emailOrUsername: string, days = 30): void {
+    if (!emailOrUsername) return;
     try {
       const deviceId = this.getDeviceId();
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalized = emailOrUsername.trim().toLowerCase();
       const trustedUntil = Date.now() + days * 24 * 60 * 60 * 1000;
       const raw = localStorage.getItem(this.TRUSTED_DEVICES_KEY);
       const list: TrustedDeviceEntry[] = raw ? JSON.parse(raw) : [];
-      const updated = list.filter((d) => !(d.email === normalizedEmail && d.deviceId === deviceId));
-      updated.push({ deviceId, email: normalizedEmail, trustedUntil });
+      const userPrefix = normalized.split('@')[0];
+      const updated = list.filter((d) => {
+        const target = (d.email || '').trim().toLowerCase();
+        return !(d.deviceId === deviceId && (target === normalized || target === userPrefix));
+      });
+      updated.push({ deviceId, email: normalized, trustedUntil });
+      if (userPrefix && userPrefix !== normalized) {
+        updated.push({ deviceId, email: userPrefix, trustedUntil });
+      }
       localStorage.setItem(this.TRUSTED_DEVICES_KEY, JSON.stringify(updated));
     } catch {
       // ignore localStorage quota error
@@ -59,17 +72,21 @@ export class TrustedDeviceService {
   }
 
   /** Hủy tin cậy thiết bị */
-  untrustDevice(email?: string): void {
+  untrustDevice(emailOrUsername?: string): void {
     try {
-      if (!email) {
+      if (!emailOrUsername) {
         localStorage.removeItem(this.TRUSTED_DEVICES_KEY);
         return;
       }
       const raw = localStorage.getItem(this.TRUSTED_DEVICES_KEY);
       if (!raw) return;
       const list: TrustedDeviceEntry[] = JSON.parse(raw);
-      const normalizedEmail = email.trim().toLowerCase();
-      const filtered = list.filter((d) => d.email !== normalizedEmail);
+      const normalized = emailOrUsername.trim().toLowerCase();
+      const userPrefix = normalized.split('@')[0];
+      const filtered = list.filter((d) => {
+        const target = (d.email || '').trim().toLowerCase();
+        return !(target === normalized || target === userPrefix);
+      });
       localStorage.setItem(this.TRUSTED_DEVICES_KEY, JSON.stringify(filtered));
     } catch {
       // ignore

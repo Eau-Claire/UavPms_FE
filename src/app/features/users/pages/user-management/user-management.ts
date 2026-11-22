@@ -17,6 +17,7 @@ import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
+import { FacilityStore } from '../../../../core/facility/facility-store';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
 import { UsersApi } from '../../data-access/users-api';
 
@@ -38,6 +39,7 @@ export class UserManagement {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(ToastService);
+  private readonly facilityStore = inject(FacilityStore, { optional: true });
 
   protected readonly users = signal<readonly UserRecord[]>([]);
   protected readonly loading = signal(true);
@@ -345,6 +347,14 @@ export class UserManagement {
   protected onScopesSaved(scopes: UserGeographicScopes): void {
     const user = this.scopeUser();
     this.scopeUser.set(null);
+    try {
+      localStorage.setItem(`uavpms.scopes.${scopes.userId}`, JSON.stringify(scopes));
+    } catch {
+      // ignore
+    }
+    if (scopes.userId === this.auth.user()?.id) {
+      this.facilityStore?.loadFacilities();
+    }
     this.toast.success(
       `Đã cập nhật phạm vi ${scopes.regions.length} khu vực cho ${user?.fullName || user?.email || 'người dùng'}.`,
     );

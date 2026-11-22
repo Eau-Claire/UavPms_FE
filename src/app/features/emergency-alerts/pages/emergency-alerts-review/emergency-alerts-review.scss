@@ -373,25 +373,23 @@
   padding-bottom: 12px;
   border-bottom: 1px solid #e2e8f0;
 
-  .category-chip {
+  .header-title-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 12px;
+    flex-wrap: wrap;
 
-    .alert-type-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #b91c1c;
-      background: #fee2e2;
-      padding: 2px 8px;
-      border-radius: 4px;
+    .inspection-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
     }
 
     .severity-pill {
       font-size: 11px;
       font-weight: 700;
-      padding: 2px 8px;
+      padding: 3px 10px;
       border-radius: 12px;
       background: #fee2e2;
       color: #ef4444;
@@ -399,34 +397,6 @@
       &.critical {
         background: #ef4444;
         color: #ffffff;
-      }
-    }
-  }
-
-  .inspection-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 6px 0;
-  }
-
-  .inspection-sub-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    font-size: 12px;
-    color: #64748b;
-
-    span {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-
-      &:not(:last-child)::after {
-        content: '•';
-        margin-left: 12px;
-        color: #94a3b8;
       }
     }
   }
