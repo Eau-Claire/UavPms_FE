@@ -15,7 +15,7 @@ export function checkPasswordComplexity(password: string): PasswordComplexityReq
   const hasUpperCase = /[A-Z]/.test(val);
   const hasLowerCase = /[a-z]/.test(val);
   const hasNumber = /[0-9]/.test(val);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>_\-+=~/\[\]\\;']/.test(val);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>_\-+=~/[\]\\;']/.test(val);
   const isValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar;
 
   return {

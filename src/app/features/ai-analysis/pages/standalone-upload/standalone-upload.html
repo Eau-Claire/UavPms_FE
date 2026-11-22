@@ -472,9 +472,14 @@
                   <div
                     class="timeline-track-interactive"
                     (click)="onTimelineScrub($event)"
+                    (keydown.arrowright)="seekVideo(videoCurrentTime() + 5)"
+                    (keydown.arrowleft)="seekVideo(videoCurrentTime() - 5)"
                     role="slider"
                     aria-label="Thanh tua video"
                     tabindex="0"
+                    [attr.aria-valuenow]="videoCurrentTime()"
+                    aria-valuemin="0"
+                    [attr.aria-valuemax]="videoDuration() || 60"
                   >
                     <div class="timeline-base-bar"></div>
                     <div

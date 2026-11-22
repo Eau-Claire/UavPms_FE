@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { ToastItem, ToastService, ToastType } from './toast.service';
+import { ToastService, ToastType } from './toast.service';
 
 @Component({
   selector: 'app-toast-container',

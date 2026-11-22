@@ -548,8 +548,6 @@ export class StandaloneUpload {
           );
           this.store.setLastTriggeredEmergencyAlert(matchedAlert ?? null);
         },
-      });
-  }
         error: () => {
           // ignore
         },

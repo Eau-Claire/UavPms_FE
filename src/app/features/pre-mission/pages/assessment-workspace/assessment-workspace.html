@@ -337,7 +337,7 @@
                       @if (w.referenceTowerCode) {
                         · Cột mốc đối chiếu: <strong>{{ w.referenceTowerCode }}</strong>
                       }
-                      @if (w.latitude != null && w.longitude != null) {
+                      @if (w.latitude !== null && w.longitude !== null) {
                         · Tọa độ: {{ w.latitude | number:'1.4-4' }}°B, {{ w.longitude | number:'1.4-4' }}°Đ
                       }
                     </span>
