@@ -493,6 +493,45 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: (detail) => this.detail.set(detail),
         error: (err: unknown) => {
+          const active = this.activeAlerts().find((a) => a.id === cleanId || a.anomalyId === cleanId);
+          if (active) {
+            this.detail.set({
+              ...active,
+              missionId: null,
+              receivedAt: active.triggeredAt,
+              resolvedAt: null,
+              reviewedByUserId: null,
+              reviewedByName: null,
+              notes: null,
+              escalations: [],
+            });
+            return;
+          }
+          const historyItem = this.historyPage().items.find((h) => h.id === cleanId);
+          if (historyItem) {
+            this.detail.set({
+              id: historyItem.id,
+              anomalyId: '',
+              towerId: null,
+              towerCode: historyItem.towerCode,
+              alertType: historyItem.alertType,
+              categoryName: historyItem.alertType,
+              priority: historyItem.priority,
+              status: historyItem.status,
+              deliveryLatencySeconds: 0,
+              triggeredAt: historyItem.triggeredAt,
+              location: { latitude: null, longitude: null, towerCode: historyItem.towerCode },
+              evidence: { mediaUrl: null, boundingBox: null, confidenceScore: null },
+              missionId: null,
+              receivedAt: historyItem.triggeredAt,
+              resolvedAt: historyItem.resolvedAt,
+              reviewedByUserId: null,
+              reviewedByName: historyItem.reviewedBy,
+              notes: historyItem.notes,
+              escalations: [],
+            });
+            return;
+          }
           if (notifyOnError) {
             this.toast.error(alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo khẩn cấp.'));
           }

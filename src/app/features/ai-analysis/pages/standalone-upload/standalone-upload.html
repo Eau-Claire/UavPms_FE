@@ -255,7 +255,7 @@
           <div class="pipeline-header">
             <div class="pipeline-title-group">
               <h2>Đang tải lên và xử lý tệp dữ liệu...</h2>
-              <p>Hệ thống đang truyền tải tệp và kiểm tra thông tin khuyết tật trên máy chủ.</p>
+              <p>{{ processingMessage() }}</p>
             </div>
             <div class="pipeline-percent font-mono">{{ uploadProgress() }}%</div>
           </div>
@@ -265,32 +265,32 @@
           </div>
 
           <div class="pipeline-steps-flow">
-            <div class="pipe-step done">
+            <div class="pipe-step" [class.done]="processingStep() > 1" [class.active]="processingStep() === 1">
               <span class="pipe-step-num">1</span>
               <div>
                 <strong>Tải tệp lên máy chủ</strong>
                 <small>Truyền tải dữ liệu</small>
               </div>
             </div>
-            <div class="pipe-step done">
+            <div class="pipe-step" [class.done]="processingStep() > 2" [class.active]="processingStep() === 2">
               <span class="pipe-step-num">2</span>
               <div>
                 <strong>Đọc khung hình</strong>
                 <small>Kiểm tra độ phân giải</small>
               </div>
             </div>
-            <div class="pipe-step active">
+            <div class="pipe-step" [class.done]="processingStep() > 3" [class.active]="processingStep() === 3">
               <span class="pipe-step-num">3</span>
               <div>
                 <strong>Xử lý phát hiện</strong>
-                <small>Định vị vùng khuyết tật</small>
+                <small>Nhận diện mô hình AI</small>
               </div>
             </div>
-            <div class="pipe-step">
+            <div class="pipe-step" [class.done]="processingStep() >= 4" [class.active]="processingStep() === 4">
               <span class="pipe-step-num">4</span>
               <div>
                 <strong>Tổng hợp kết quả</strong>
-                <small>Lưu phiên kiểm tra</small>
+                <small>Đồng bộ cảnh báo</small>
               </div>
             </div>
           </div>
@@ -299,6 +299,31 @@
 
     } @else if (workflowStage() === 'inspected') {
       <section class="studio-inspection-workspace" aria-label="Không gian xem kết quả kiểm tra">
+        @if (lastTriggeredEmergencyAlert(); as alert) {
+          <div class="emergency-alert-banner" role="alert">
+            <div class="banner-icon-side">
+              <span nz-icon nzType="alert" class="emergency-icon-pulse" aria-hidden="true"></span>
+            </div>
+            <div class="banner-info-side">
+              <div class="banner-badge-title">
+                <span class="emergency-pill">🚨 CẢNH BÁO KHẨN CẤP ĐÃ ĐƯỢC KÍCH HOẠT</span>
+                <span class="emergency-time font-mono">{{ alert.triggeredAt | date:'HH:mm:ss dd/MM/yyyy' }}</span>
+              </div>
+              <p class="banner-desc">
+                AI đã phát hiện khuyết tật nguy hiểm <strong>{{ alert.categoryName || alert.alertType || 'Bát cách điện vỡ' }}</strong>
+                với độ tin cậy <strong>{{ alert.evidence.confidenceScore ?? 62 }}%</strong>.
+                Sự cố đã được đẩy vào hệ thống Cảnh báo khẩn cấp thời gian thực để thẩm định ngay lập tức.
+              </p>
+            </div>
+            <div class="banner-action-side">
+              <button type="button" class="btn-navigate-emergency" (click)="navigateToEmergencyAlert(alert.id)">
+                <span>Xem tại Cảnh báo khẩn cấp</span>
+                <span nz-icon nzType="arrow-right" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        }
+
         <header class="workbench-toolbar">
           <div class="toolbar-left">
             <span class="session-badge">Mã phiên: {{ uploadSuccessResult()?.id }}</span>
@@ -338,6 +363,24 @@
             >
               <span nz-icon nzType="border" aria-hidden="true"></span>
               <span>Khung đánh dấu: {{ showBoundingBoxes() ? 'BẬT' : 'TẮT' }}</span>
+            </button>
+
+            <input
+              #quickFileInput
+              type="file"
+              multiple
+              [accept]="workflowMode() === 'video' ? 'video/mp4,video/quicktime,video/webm,video/x-msvideo,.mp4,.mov,.webm,.avi' : 'image/jpeg,image/png,image/webp,image/jpg,.jpg,.jpeg,.png,.webp'"
+              (change)="onQuickFileSelected($event)"
+              class="hidden-file-input"
+            />
+            <button
+              type="button"
+              class="btn-quick-new-file"
+              (click)="quickFileInput.click()"
+              title="Tải lên tệp ảnh hoặc video mới để kiểm tra"
+            >
+              <span nz-icon nzType="upload" aria-hidden="true"></span>
+              <span>{{ workflowMode() === 'video' ? 'Tải video mới' : 'Tải ảnh mới' }}</span>
             </button>
 
             <button type="button" class="btn-new-analysis" (click)="onReset()">
@@ -621,6 +664,20 @@
                     </span>
                   </div>
 
+                  @if (selected.isEmergency) {
+                    <div class="inspector-emergency-alert-card">
+                      <div class="alert-card-title">
+                        <span nz-icon nzType="warning" aria-hidden="true"></span>
+                        <strong>Sự cố đe dọa khẩn cấp</strong>
+                      </div>
+                      <p>Khuyết tật này đã được đẩy sang hàng đợi thẩm định khẩn cấp để xử lý ngay tại hiện trường.</p>
+                      <button type="button" class="btn-goto-emergency-alert" (click)="navigateToEmergencyAlert(selected.id)">
+                        <span nz-icon nzType="thunderbolt" aria-hidden="true"></span>
+                        <span>Mở tại Cảnh báo khẩn cấp →</span>
+                      </button>
+                    </div>
+                  }
+
                   <div class="meta-desc-box">
                     <span class="desc-label">Mô tả kỹ thuật:</span>
                     <p>{{ selected.description }}</p>
@@ -675,6 +732,10 @@
               <div class="inspector-empty-state">
                 <span nz-icon nzType="info-circle" class="empty-icon" aria-hidden="true"></span>
                 <p>Chưa có đối tượng nào được chọn hoặc không phát hiện khuyết tật trong phiên này.</p>
+                <button type="button" class="btn-empty-upload-new" (click)="quickFileInput.click()">
+                  <span nz-icon nzType="upload" aria-hidden="true"></span>
+                  <span>Tải ảnh khác để kiểm tra</span>
+                </button>
               </div>
             }
           </aside>
