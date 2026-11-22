@@ -166,6 +166,7 @@ const ANOMALY_ERROR_MESSAGES: Record<string, string> = {
   ANOMALY_RESOLVED: 'Bất thường đã được xử lý xong, không thể đổi cột điện.',
   LOCATION_UNKNOWN: 'Bất thường và ảnh gốc đều không có tọa độ GPS. Vui lòng tìm và chọn cột điện thủ công.',
   NOT_FOUND: 'Không tìm thấy bất thường hoặc cột điện.',
+  ANOMALY_NOT_IN_REVIEW: 'Sự cố này đã được thẩm định trước đó (không còn ở trạng thái chờ duyệt).',
 };
 
 export const apiErrorCode = (error: unknown): string | null => {

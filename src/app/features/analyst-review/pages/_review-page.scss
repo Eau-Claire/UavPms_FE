@@ -1319,7 +1319,8 @@
   }
 }
 
-/* Modal Reject Styles */
+/* Modal Confirm & Reject Styles */
+.confirm-modal-backdrop,
 .reject-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1333,6 +1334,7 @@
   animation: fadeIn 0.2s ease;
 }
 
+.confirm-modal-card,
 .reject-modal-card {
   background: #ffffff;
   border-radius: 16px;
@@ -1353,7 +1355,6 @@
       margin: 0;
       font-size: 18px;
       font-weight: 700;
-      color: #dc2626;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -1373,11 +1374,26 @@
     }
   }
 
+  &.reject-modal-card .modal-head h3 {
+    color: #dc2626;
+  }
+
+  &.confirm-modal-card .modal-head h3 {
+    color: #10387d;
+  }
+
   .modal-body {
     padding: 20px 24px;
     display: flex;
     flex-direction: column;
     gap: 16px;
+
+    .confirm-info-banner {
+      background: #f0f7ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
 
     label {
       font-size: 13px;
@@ -1438,6 +1454,21 @@
 
         &:hover:not(:disabled) {
           background: #b91c1c;
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+
+      &.btn-confirm-approve {
+        background: #10387d;
+        border: none;
+        color: #ffffff;
+
+        &:hover:not(:disabled) {
+          background: #0d2c66;
         }
 
         &:disabled {

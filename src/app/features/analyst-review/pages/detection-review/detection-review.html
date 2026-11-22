@@ -251,7 +251,7 @@
                 type="button"
                 class="btn-approve"
                 [disabled]="actionBusy()"
-                (click)="approveDetection()"
+                (click)="openConfirmModal()"
                 title="Xác nhận phát hiện này thành khuyết tật chính thức"
               >
                 <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
@@ -314,6 +314,68 @@
     </div>
   }
 </div>
+
+@if (showConfirmModal()) {
+  <div class="confirm-modal-backdrop" (click)="closeConfirmModal()">
+    <div class="confirm-modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <h3>
+          <span nz-icon nzType="check-circle"></span>
+          Xác nhận kết quả phát hiện khuyết tật
+        </h3>
+        <button type="button" class="btn-close" aria-label="Đóng" (click)="closeConfirmModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="confirm-info-banner">
+          <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1e3a8a;">
+            Bạn có chắc chắn muốn xác nhận kết quả phát hiện này?
+          </p>
+          <div style="margin-top: 8px; font-size: 13px; color: #334155; line-height: 1.6;">
+            <div>• Khuyết tật: <strong>{{ detection()?.categoryName || 'Bất thường kỹ thuật' }}</strong></div>
+            <div>• Cột điện: <strong>{{ detection()?.towerCode || 'Chưa gán cột' }}</strong></div>
+            <div>• Nhiệm vụ bay: <strong>{{ detection()?.missionName || detection()?.missionCode || 'Chưa xác định' }}</strong></div>
+          </div>
+          <p style="margin: 8px 0 0; font-size: 12px; color: #64748b;">
+            Sau khi xác nhận, sự cố sẽ được ghi nhận vào hồ sơ kỹ thuật chính thức và đưa vào hàng đợi lập phiếu bảo trì.
+          </p>
+        </div>
+
+        <div>
+          <label for="confirm-notes-textarea">Ghi chú thẩm định kỹ thuật (tùy chọn):</label>
+          <textarea
+            id="confirm-notes-textarea"
+            placeholder="Nhập nhận định kỹ thuật hoặc nguyên nhân..."
+            [ngModel]="confirmNotes()"
+            (ngModelChange)="confirmNotes.set($event)"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button
+          type="button"
+          class="btn-cancel"
+          [disabled]="actionBusy()"
+          (click)="closeConfirmModal()"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="button"
+          class="btn-confirm-approve"
+          [disabled]="actionBusy()"
+          (click)="approveDetection()"
+        >
+          @if (actionBusy()) {
+            <span nz-icon nzType="loading"></span>
+          }
+          Xác nhận khuyết tật
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 @if (showRejectModal()) {
   <div class="reject-modal-backdrop" (click)="closeRejectModal()">

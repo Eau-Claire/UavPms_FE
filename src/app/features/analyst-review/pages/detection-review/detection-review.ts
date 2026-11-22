@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -106,6 +107,8 @@ export class DetectionReview {
 
   // Review form state
   protected readonly generalNotes = signal('');
+  protected readonly showConfirmModal = signal(false);
+  protected readonly confirmNotes = signal('');
   protected readonly showRejectModal = signal(false);
   protected readonly selectedRejectReason = signal<string>(REJECT_REASONS[0].value);
   protected readonly rejectDetailNotes = signal('');
@@ -176,8 +179,28 @@ export class DetectionReview {
       });
 
     if (navState?.anomaly && navState.anomaly.id === currentId) {
-      this.setDetection(navState.anomaly, navState.superseded ?? []);
+      const historyReview = this.history.getReview(currentId);
+      const initialItem = historyReview
+        ? {
+            ...navState.anomaly,
+            validationStatus: historyReview.validationStatus,
+            analystNotes: historyReview.analystNotes ?? navState.anomaly.analystNotes,
+          }
+        : navState.anomaly;
+      this.setDetection(initialItem, navState.superseded ?? []);
       this.loading.set(false);
+
+      // Đồng bộ trạng thái mới nhất từ server ở chế độ nền
+      this.api
+        .getAnomalyById(currentId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (fresh) => {
+            if (fresh) {
+              this.setDetection(fresh, navState.superseded ?? []);
+            }
+          },
+        });
       return;
     }
 
@@ -254,11 +277,23 @@ export class DetectionReview {
   }
 
   // --- APPROVE FLOW (CHẤP NHẬN) ---
+  protected openConfirmModal(): void {
+    const item = this.detection();
+    if (!item || this.actionBusy() || item.supersededById) return;
+    this.confirmNotes.set(this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.');
+    this.showConfirmModal.set(true);
+  }
+
+  protected closeConfirmModal(): void {
+    if (this.actionBusy()) return;
+    this.showConfirmModal.set(false);
+  }
+
   protected approveDetection(): void {
     const item = this.detection();
     if (!item || this.actionBusy() || item.supersededById) return;
 
-    const notes = this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
+    const notes = this.confirmNotes().trim() || this.generalNotes().trim() || 'Xác nhận kết quả phát hiện khuyết tật chính xác.';
     this.actionBusy.set(true);
     this.feedbackMessage.set('');
     this.maintenanceLinkVisible.set(false);
@@ -267,7 +302,10 @@ export class DetectionReview {
       .validate(item.id, { status: 'Confirmed', analystNotes: notes })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.actionBusy.set(false)),
+        finalize(() => {
+          this.actionBusy.set(false);
+          this.showConfirmModal.set(false);
+        }),
       )
       .subscribe({
         next: () => {
@@ -296,7 +334,31 @@ export class DetectionReview {
           }
         },
         error: (err: unknown) => {
-          if (apiErrorCode(err) === 'TOWER_REQUIRED') this.towerRequired.set(true);
+          const code = apiErrorCode(err);
+          const rawMsg = err instanceof HttpErrorResponse && err.error?.message ? String(err.error.message) : '';
+
+          if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Confirmed'")) {
+            const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
+            const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+            this.history.saveReview(item, 'Confirmed', notes, aliasIds);
+            if (matchingAlert) {
+              this.alertsApi.removeActive(matchingAlert.id);
+            }
+            this.alertsApi.removeActive(item.id);
+            this.detection.update((current) => current ? { ...current, validationStatus: 'Confirmed' } : null);
+
+            const next = this.nextPendingId();
+            if (next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000') {
+              this.toast.info(`Sự cố #${item.id} đã được xác nhận trước đó. Đang chuyển sang sự cố tiếp theo...`);
+              void this.router.navigate(['/ai-review', next]);
+            } else {
+              this.toast.info(`Sự cố #${item.id} đã được xác nhận trước đó. Đã hoàn tất danh sách chờ thẩm định!`);
+              void this.router.navigate(['/ai-review']);
+            }
+            return;
+          }
+
+          if (code === 'TOWER_REQUIRED') this.towerRequired.set(true);
           const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
@@ -364,6 +426,30 @@ export class DetectionReview {
           }
         },
         error: (err: unknown) => {
+          const code = apiErrorCode(err);
+          const rawMsg = err instanceof HttpErrorResponse && err.error?.message ? String(err.error.message) : '';
+
+          if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Rejected'")) {
+            const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
+            const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+            this.history.saveReview(item, 'Rejected', fullNotes, aliasIds);
+            if (matchingAlert) {
+              this.alertsApi.removeActive(matchingAlert.id);
+            }
+            this.alertsApi.removeActive(item.id);
+            this.detection.update((current) => current ? { ...current, validationStatus: 'Rejected' } : null);
+
+            const next = this.nextPendingId();
+            if (next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000') {
+              this.toast.info(`Sự cố #${item.id} đã được thẩm định trước đó. Đang chuyển sang sự cố tiếp theo...`);
+              void this.router.navigate(['/ai-review', next]);
+            } else {
+              this.toast.info(`Sự cố #${item.id} đã được thẩm định trước đó. Đã hoàn tất danh sách chờ thẩm định!`);
+              void this.router.navigate(['/ai-review']);
+            }
+            return;
+          }
+
           const msg = anomalyErrorMessage(err, 'Không thể từ chối phát hiện.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
