@@ -107,7 +107,9 @@
                     <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
                     <div class="inspection-sub-meta">
                       <span><strong>Cột điện:</strong> {{ alert.towerCode || 'Chưa gắn cột' }}</span>
+                      <span class="meta-dot" aria-hidden="true">•</span>
                       <span><strong>Kích hoạt lúc:</strong> {{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
+                      <span class="meta-dot" aria-hidden="true">•</span>
                       <span><strong>Độ trễ truyền:</strong> {{ alert.deliveryLatencySeconds }} giây</span>
                     </div>
                   </div>

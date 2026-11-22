@@ -10,7 +10,6 @@ import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzNotificationService } from 'ng-zorro-antd/notification';
 import { NzTableModule } from 'ng-zorro-antd/table';
 
 import { Auth } from '../../../../core/auth/auth';
@@ -77,7 +76,6 @@ export class EmergencyAlertsReview {
   private readonly auth = inject(Auth);
   private readonly api = inject(EmergencyAlertsApi);
   private readonly realtime = inject(NotificationsRealtime);
-  private readonly notification = inject(NzNotificationService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -217,10 +215,7 @@ export class EmergencyAlertsReview {
       const isEmergency = notif.type === 'EmergencyAlert' || notif.referenceType === 'EmergencyAlert';
       if (!isEmergency) return;
       this.playWarningBeep();
-      this.notification.error('Cảnh báo khẩn cấp mới', `${notif.title}: ${notif.body}`, {
-        nzDuration: 8000,
-        nzPauseOnHover: true,
-      });
+      this.toast.error(`Cảnh báo khẩn cấp mới: ${notif.title || ''} - ${notif.body || ''}`);
       this.loadActive();
     });
   }
@@ -452,7 +447,7 @@ export class EmergencyAlertsReview {
       )
       .subscribe({
         next: (detail) => this.detail.set(detail),
-        error: (err: unknown) => this.notification.error('Lỗi tải chi tiết', alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo.')),
+        error: (err: unknown) => this.toast.error(alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo khẩn cấp.')),
       });
   }
 
