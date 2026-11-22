@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { GisApi, GisDataSnapshot } from '../../data-access/gis-api';
+import { GisAlert, GisAnomalyFeature, GisApi, GisDataSnapshot, GisTower } from '../../data-access/gis-api';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { GisMonitoring, rectangleToPolygon } from './gis-monitoring';
@@ -38,6 +38,11 @@ interface GisHarness {
   inspectAsset(asset: SelectableAsset): void;
   selectedEntity(): unknown;
   createMission(): void;
+  filteredAnomalies(): readonly unknown[];
+  activeDefectsCount(): number;
+  openAnomaliesForTower(towerId: string, towerCode?: string): number;
+  statusFilter: { (): string; set(v: string): void };
+  navigateToReview(anomalyId: string, anomalyFeature?: unknown): void;
 }
 
 describe('GisMonitoring tower selection', () => {
@@ -373,5 +378,130 @@ describe('GisMonitoring tower selection', () => {
     expect(api.getAllGisData).toHaveBeenLastCalledWith({ administrativeAreaId: 'r1' });
     component.resolveGeometry(polygon);
     expect(api.spatialQuery).toHaveBeenLastCalledWith({ geometry: polygon, filters: { regionId: 'r1' } });
+  });
+
+  describe('anomaly filtering and false alarm handling', () => {
+    const sampleOpenAnomaly: GisAnomalyFeature = {
+      id: 'anom-1',
+      anomalyId: 'anom-1',
+      towerId: 'tow-1',
+      towerCode: 'HCM-TB-T01',
+      category: 'Bát cách điện vỡ',
+      severity: 4,
+      latitude: 10.77,
+      longitude: 106.70,
+      status: 'Pending',
+      confidenceScore: 85,
+    };
+
+    const sampleResolvedAnomaly: GisAnomalyFeature = {
+      id: 'anom-2',
+      anomalyId: 'anom-2',
+      towerId: 'tow-1',
+      towerCode: 'HCM-TB-T01',
+      category: 'Tổ chim',
+      severity: 3,
+      latitude: 10.78,
+      longitude: 106.71,
+      status: 'Resolved',
+      confidenceScore: 80,
+    };
+
+    const sampleRejectedAnomaly: GisAnomalyFeature = {
+      id: 'anom-3',
+      anomalyId: 'anom-3',
+      towerId: 'tow-2',
+      towerCode: 'HCM-TB-T02',
+      category: 'Rỉ sét',
+      severity: 2,
+      latitude: 10.79,
+      longitude: 106.72,
+      status: 'Rejected',
+      confidenceScore: 40,
+    };
+
+    it('filters out resolved and rejected anomalies by default', () => {
+      api.getAllGisData.mockReturnValue(
+        of({
+          towers: [],
+          anomalies: [sampleOpenAnomaly, sampleResolvedAnomaly, sampleRejectedAnomaly],
+          alerts: [],
+        }),
+      );
+      const component = fixture.componentInstance as unknown as GisHarness;
+      component.loadGisData();
+
+      // Default statusFilter is '' which represents open anomalies only
+      expect(component.activeDefectsCount()).toBe(1);
+      const filtered = component.filteredAnomalies() as GisAnomalyFeature[];
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].id).toBe('anom-1');
+    });
+
+    it('counts only open anomalies for towers', () => {
+      api.getAllGisData.mockReturnValue(
+        of({
+          towers: [],
+          anomalies: [sampleOpenAnomaly, sampleResolvedAnomaly, sampleRejectedAnomaly],
+          alerts: [],
+        }),
+      );
+      const component = fixture.componentInstance as unknown as GisHarness;
+      component.loadGisData();
+
+      // tow-1 has 1 open anomaly and 1 resolved anomaly
+      expect(component.openAnomaliesForTower('tow-1', 'HCM-TB-T01')).toBe(1);
+      // tow-2 has only 1 rejected anomaly (false alarm)
+      expect(component.openAnomaliesForTower('tow-2', 'HCM-TB-T02')).toBe(0);
+    });
+
+    it('shows resolved or rejected anomalies when explicitly filtered', () => {
+      api.getAllGisData.mockReturnValue(
+        of({
+          towers: [],
+          anomalies: [sampleOpenAnomaly, sampleResolvedAnomaly, sampleRejectedAnomaly],
+          alerts: [],
+        }),
+      );
+      const component = fixture.componentInstance as unknown as GisHarness;
+      component.loadGisData();
+
+      component.statusFilter.set('Resolved');
+      expect((component.filteredAnomalies() as GisAnomalyFeature[]).length).toBe(1);
+      expect((component.filteredAnomalies() as GisAnomalyFeature[])[0].id).toBe('anom-2');
+
+      component.statusFilter.set('Rejected');
+      expect((component.filteredAnomalies() as GisAnomalyFeature[]).length).toBe(1);
+      expect((component.filteredAnomalies() as GisAnomalyFeature[])[0].id).toBe('anom-3');
+
+      component.statusFilter.set('all');
+      expect((component.filteredAnomalies() as GisAnomalyFeature[]).length).toBe(3);
+    });
+
+    it('navigates to ai-review with anomaly item in navigation state', () => {
+      api.getAllGisData.mockReturnValue(
+        of({
+          towers: [],
+          anomalies: [sampleResolvedAnomaly],
+          alerts: [],
+        }),
+      );
+      const component = fixture.componentInstance as unknown as GisHarness;
+      component.loadGisData();
+
+      component.navigateToReview(sampleResolvedAnomaly.anomalyId, sampleResolvedAnomaly);
+      expect(router.navigate).toHaveBeenCalledWith(
+        ['/ai-review', sampleResolvedAnomaly.anomalyId],
+        expect.objectContaining({
+          state: expect.objectContaining({
+            anomaly: expect.objectContaining({
+              id: sampleResolvedAnomaly.anomalyId,
+              categoryName: 'Tổ chim',
+              validationStatus: 'Resolved',
+            }),
+          }),
+        }),
+      );
+    });
   });
 });

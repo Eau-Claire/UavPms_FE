@@ -26,6 +26,8 @@ import { isManagerRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { MissionTargetSelection, MissionTargetTower } from '../../../missions/data-access/mission-target-selection';
 import { anomalyStatusLabel } from '../../../towers/data-access/tower-labels';
+import { AnomalyItem, AnomalyValidationStatus } from '../../../analyst-review/data-access/anomaly-api';
+import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
 import {
   GisAlert,
   GisAnomalyFeature,
@@ -64,6 +66,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly toast = inject(ToastService);
   protected readonly targetSelection = inject(MissionTargetSelection);
+  private readonly anomalyHistory = inject(AnomalyHistoryService);
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
 
   /** Area selection / target towers is a manager planning tool (it feeds `/pre-mission/new`). */
@@ -205,7 +208,10 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   // Computed metrics
   protected readonly totalTowersCount = computed(() => this.towers().length);
-  protected readonly activeDefectsCount = computed(() => this.anomalies().length);
+  /** Chỉ đếm các sự cố đang mở (loại trừ Resolved và Rejected / Báo động giả) */
+  protected readonly activeDefectsCount = computed(() =>
+    this.anomalies().filter((a) => !this.isAnomalyClosed(a)).length,
+  );
   /** GET /gis/infrastructure only returns alerts that are still Active. */
   protected readonly activeAlertsCount = computed(() => this.alerts().length);
 
@@ -213,17 +219,27 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     const list = this.anomalies();
     const query = this.searchCode().trim().toLowerCase();
     const minSeverity = Number(this.severityFilter() || 0);
-    const status = this.statusFilter();
+    const status = (this.statusFilter() || '').trim().toLowerCase();
 
     return list.filter((item) => {
+      const effectiveStatus = this.effectiveAnomalyStatus(item).toLowerCase();
+      const isClosed = this.isAnomalyClosed(item);
+
       if (query && !item.towerCode.toLowerCase().includes(query) && !item.category.toLowerCase().includes(query)) {
         return false;
       }
       if (minSeverity && item.severity < minSeverity - 0.5) {
         return false;
       }
-      if (status && item.status.toLowerCase() !== status.toLowerCase()) {
-        return false;
+      if (!status || status === 'open') {
+        // Mặc định: Chỉ hiển thị các bất thường đang mở (Pending, InReview, Confirmed), loại bỏ Resolved & Rejected (báo động giả)
+        if (isClosed) return false;
+      } else if (status !== 'all') {
+        if (status === 'pending') {
+          if (effectiveStatus !== 'pending' && effectiveStatus !== 'inreview') return false;
+        } else if (effectiveStatus !== status) {
+          return false;
+        }
       }
       return true;
     });
@@ -857,7 +873,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.towers().forEach((tower) => {
       const isSelected = this.selectedMarkerId() === tower.id;
       const hasAlert = this.alerts().some((a) => a.towerId === tower.id || a.towerCode === tower.towerCode);
-      const anomalyCount = this.anomalies().filter((a) => a.towerId === tower.id || a.towerCode === tower.towerCode).length;
+      const anomalyCount = this.openAnomaliesForTower(tower.id, tower.towerCode);
 
       let markerClass = 'custom-tower-marker';
       if (hasAlert) markerClass += ' has-alert';
@@ -1021,16 +1037,69 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.renderAllLayers();
   }
 
-  protected navigateToReview(anomalyId: string): void {
-    void this.router.navigate(['/ai-review', anomalyId]);
+  protected effectiveAnomalyStatus(anomaly: GisAnomalyFeature): string {
+    const fromHistory =
+      this.anomalyHistory.getReview(anomaly.anomalyId) ||
+      this.anomalyHistory.getReview(anomaly.id);
+    if (fromHistory) {
+      return fromHistory.validationStatus;
+    }
+    return anomaly.status;
+  }
+
+  protected isAnomalyClosed(anomaly: GisAnomalyFeature): boolean {
+    const status = this.effectiveAnomalyStatus(anomaly).toLowerCase();
+    return status === 'resolved' || status === 'rejected' || status === 'dismissed';
+  }
+
+  protected toAnomalyItem(feature: GisAnomalyFeature): AnomalyItem {
+    const effectiveStatus = this.effectiveAnomalyStatus(feature);
+    const score = feature.confidenceScore > 1 ? feature.confidenceScore : Math.round(feature.confidenceScore * 100);
+    return {
+      id: feature.anomalyId || feature.id,
+      mediaUrl: feature.imageUrl || '/images/defect-preview-frame.png',
+      towerId: feature.towerId ?? null,
+      towerCode: feature.towerCode || null,
+      missionCode: null,
+      missionName: feature.towerCode ? `Khảo sát vị trí ${feature.towerCode}` : 'Kiểm tra lưới điện',
+      categoryName: feature.category,
+      categoryCode: null,
+      confidenceScore: Number.isFinite(score) ? score : 80,
+      validationStatus: (effectiveStatus as AnomalyValidationStatus) || 'Pending',
+      analystNotes: '',
+      aiSource: 'Cloud (Server)',
+      analysisRunId: null,
+      executionLocation: 'Cloud',
+      supersededById: null,
+      createdAt: feature.detectedAt || new Date().toISOString(),
+      severity: Math.round(feature.severity),
+      isEmergency: feature.severity >= 4,
+    };
+  }
+
+  protected navigateToReview(anomalyId: string, anomalyFeature?: GisAnomalyFeature): void {
+    const feature = anomalyFeature ?? this.anomalies().find((a) => a.anomalyId === anomalyId || a.id === anomalyId);
+    let anomalyItem: AnomalyItem | undefined;
+    if (feature) {
+      anomalyItem = this.toAnomalyItem(feature);
+      const aliasIds = [anomalyId, feature.id, feature.anomalyId].filter((id): id is string => Boolean(id));
+      this.anomalyHistory.cacheItem(anomalyItem, aliasIds);
+    }
+    void this.router.navigate(['/ai-review', anomalyId], {
+      state: anomalyItem ? { anomaly: anomalyItem } : undefined,
+    });
   }
 
   protected regionName(regionId: string | undefined): string {
     return regionId ? this.regionNames().get(regionId) ?? '' : '';
   }
 
-  protected openAnomaliesForTower(towerId: string): number {
-    return this.anomalies().filter((anomaly) => anomaly.towerId === towerId).length;
+  protected openAnomaliesForTower(towerId: string, towerCode?: string): number {
+    return this.anomalies().filter(
+      (anomaly) =>
+        (anomaly.towerId === towerId || Boolean(towerCode && anomaly.towerCode === towerCode)) &&
+        !this.isAnomalyClosed(anomaly),
+    ).length;
   }
 
   protected alertsForTower(towerId: string, towerCode?: string): readonly GisAlert[] {

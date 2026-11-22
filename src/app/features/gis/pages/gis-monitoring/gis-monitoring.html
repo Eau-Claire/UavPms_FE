@@ -232,9 +232,12 @@
           [ngModel]="statusFilter()"
           (ngModelChange)="statusFilter.set($event); applyFilters()"
         >
-          <option value="">Tất cả trạng thái</option>
-          <option value="Pending">Chờ duyệt</option>
+          <option value="">Sự cố đang mở (Chờ duyệt & Đã xác nhận)</option>
+          <option value="Pending">Chờ thẩm định</option>
           <option value="Confirmed">Đã xác nhận</option>
+          <option value="Resolved">Đã khắc phục (Resolved)</option>
+          <option value="Rejected">Báo động giả / Đã từ chối (Rejected)</option>
+          <option value="all">Tất cả trạng thái (Bao gồm đã đóng)</option>
         </select>
       </div>
 
@@ -361,7 +364,7 @@
             </div>
             <div class="info-row">
               <span>Bất thường đang mở:</span>
-              <strong [style.color]="openAnomaliesForTower(selected.data.id) > 0 ? '#dc2626' : 'inherit'">{{ openAnomaliesForTower(selected.data.id) }}</strong>
+              <strong [style.color]="openAnomaliesForTower(selected.data.id, selected.data.towerCode) > 0 ? '#dc2626' : 'inherit'">{{ openAnomaliesForTower(selected.data.id, selected.data.towerCode) }}</strong>
             </div>
           </div>
 
@@ -397,15 +400,16 @@
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                   <div style="min-width: 0;">
                     <div style="font-weight: 700; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ anom.category }}</div>
-                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Cấp {{ severityLabel(anom.severity) }}/5 · {{ anomalyStatusLabel(anom.status) }}</div>
+                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Cấp {{ severityLabel(anom.severity) }}/5 · {{ anomalyStatusLabel(effectiveAnomalyStatus(anom)) }}</div>
                   </div>
                   @if (canReviewAnomalies()) {
                     <button
                       type="button"
-                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; background: #dc2626; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
-                      (click)="navigateToReview(anom.anomalyId)"
+                      [style.background]="isAnomalyClosed(anom) ? '#475569' : '#dc2626'"
+                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
+                      (click)="navigateToReview(anom.anomalyId, anom)"
                     >
-                      Thẩm định
+                      {{ isAnomalyClosed(anom) ? 'Chi tiết' : 'Thẩm định' }}
                     </button>
                   }
                 </div>
@@ -438,7 +442,7 @@
             </div>
             <div class="info-row">
               <span>Trạng thái:</span>
-              <strong>{{ anomalyStatusLabel(selected.data.status) }}</strong>
+              <strong [style.color]="isAnomalyClosed(selected.data) ? '#16a34a' : '#b91c1c'">{{ anomalyStatusLabel(effectiveAnomalyStatus(selected.data)) }}</strong>
             </div>
             @if (selected.data.detectedAt) {
               <div class="info-row">
@@ -471,14 +475,26 @@
 
       <div class="drawer-footer">
         @if (selected.type === 'anomaly' && canReviewAnomalies()) {
-          <button
-            type="button"
-            class="btn-primary"
-            (click)="navigateToReview(selected.data.anomalyId)"
-          >
-            <span nz-icon nzType="audit" aria-hidden="true"></span>
-            Xem & Thẩm định AI
-          </button>
+          @if (!isAnomalyClosed(selected.data)) {
+            <button
+              type="button"
+              class="btn-primary"
+              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
+            >
+              <span nz-icon nzType="audit" aria-hidden="true"></span>
+              Xem & Thẩm định AI
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn-primary"
+              style="background: #475569;"
+              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
+            >
+              <span nz-icon nzType="file-text" aria-hidden="true"></span>
+              Xem chi tiết sự cố
+            </button>
+          }
         } @else if (selected.type === 'anomaly' && selected.data.towerId) {
           <a
             [routerLink]="['/towers', selected.data.towerId]"

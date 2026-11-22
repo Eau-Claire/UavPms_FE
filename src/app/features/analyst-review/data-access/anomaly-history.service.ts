@@ -127,6 +127,28 @@ export class AnomalyHistoryService {
     }
   }
 
+  cacheItem(item: AnomalyItem, aliasIds?: readonly string[]): void {
+    if (!item?.id) return;
+    const currentMap = new Map(this.reviews());
+    let modified = false;
+    if (!currentMap.has(item.id)) {
+      currentMap.set(item.id, item);
+      modified = true;
+    }
+    if (aliasIds && aliasIds.length > 0) {
+      for (const alias of aliasIds) {
+        if (alias && alias.trim() && !currentMap.has(alias.trim())) {
+          currentMap.set(alias.trim(), { ...item, id: alias.trim() });
+          modified = true;
+        }
+      }
+    }
+    if (modified) {
+      this.reviews.set(currentMap);
+      this.persist(currentMap);
+    }
+  }
+
   getReviewedItems(): AnomalyItem[] {
     return Array.from(this.reviews().values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
