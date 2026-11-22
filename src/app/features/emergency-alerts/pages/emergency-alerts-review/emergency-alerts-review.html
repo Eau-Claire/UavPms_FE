@@ -345,14 +345,10 @@
           <nz-table
             #historyTable
             [nzData]="historyPage().items"
-            [nzFrontPagination]="false"
+            [nzShowPagination]="false"
             [nzLoading]="historyLoading()"
-            [nzTotal]="historyPage().totalCount"
-            [nzPageIndex]="historyPage().page"
-            [nzPageSize]="historyPage().pageSize"
             [nzBordered]="true"
             nzSize="middle"
-            (nzPageIndexChange)="loadHistory($event)"
           >
             <thead>
               <tr>
@@ -418,6 +414,18 @@
               }
             </tbody>
           </nz-table>
+
+          @if (historyPage().totalCount > 0) {
+            <footer class="history-pagination-wrap">
+              <app-pagination
+                [page]="historyPage().page"
+                [totalPages]="historyTotalPages()"
+                [totalCount]="historyPage().totalCount"
+                [pageSize]="historyPage().pageSize"
+                (pageChanged)="loadHistory($event)"
+              />
+            </footer>
+          }
         </div>
       </div>
     }

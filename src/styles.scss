@@ -377,4 +377,42 @@ html, body, button, input, select, textarea {
   border-radius: 0 0 8px 8px !important;
 }
 
+/* =============================================================
+   Global Ant Pagination Horizontal Layout Fix
+   ============================================================= */
+.ant-pagination {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 16px 0 !important;
+
+  li,
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next,
+  .ant-pagination-jump-prev,
+  .ant-pagination-jump-next {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    margin: 0 !important;
+    list-style: none !important;
+    border-radius: 4px !important;
+
+    a {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  }
+}
+
 

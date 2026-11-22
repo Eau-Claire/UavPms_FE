@@ -11,6 +11,7 @@ import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzTableModule } from 'ng-zorro-antd/table';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 
 import { Auth } from '../../../../core/auth/auth';
 import { isAdminRole } from '../../../../core/auth/roles';
@@ -66,6 +67,7 @@ export const URGENCY_LEVELS = [
     NzSelectModule,
     NzTableModule,
     RouterLink,
+    Pagination,
   ],
   templateUrl: './emergency-alerts-review.html',
   styleUrl: './emergency-alerts-review.scss',
@@ -104,6 +106,11 @@ export class EmergencyAlertsReview {
   protected readonly historyPage = signal<EmergencyAlertHistoryPage>({ totalCount: 0, page: 1, pageSize: 10, items: [] });
   protected readonly historyLoading = signal(false);
   protected readonly historyError = signal('');
+  protected readonly historyTotalPages = computed(() => {
+    const total = this.historyPage().totalCount;
+    const size = this.historyPage().pageSize || 10;
+    return Math.max(1, Math.ceil(total / size));
+  });
 
   // --- Detail modal (GET /alerts/{id}) ---
   protected readonly detail = signal<EmergencyAlertDetail | null>(null);
