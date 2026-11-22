@@ -81,7 +81,12 @@
                   <td>
                     @if (item.imageUrl) {
                       <a [href]="item.imageUrl" target="_blank" rel="noopener" class="thumb-link" title="Xem ảnh gốc">
-                        <img [src]="item.imageUrl" alt="Ảnh kiểm tra cho {{ item.missionName }}" class="thumb-img" />
+                        <img
+                          [src]="item.imageUrl"
+                          alt="Ảnh kiểm tra cho {{ item.missionName }}"
+                          class="thumb-img"
+                          (error)="onImageError($event)"
+                        />
                       </a>
                     } @else {
                       <span class="no-image">Không có ảnh</span>

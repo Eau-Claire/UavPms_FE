@@ -75,4 +75,18 @@ export class InspectionHistory {
   protected retry(): void {
     this.store.loadInspections(this.filters());
   }
+
+  protected onImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.style.display = 'none';
+      const parent = target.parentElement;
+      if (parent && !parent.querySelector('.no-image')) {
+        const fallback = document.createElement('span');
+        fallback.className = 'no-image';
+        fallback.textContent = 'Không có ảnh';
+        parent.appendChild(fallback);
+      }
+    }
+  }
 }
