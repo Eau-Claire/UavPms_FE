@@ -214,9 +214,25 @@ export class AnomalyApi {
           const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
           const activeAlerts = this.alertsApi.activeAlerts();
 
-          const isItemReviewed = (id: string | null | undefined): boolean => {
-            if (!id) return false;
-            const rev = this.history.getReview(id);
+          const isItemReviewed = (item: AnomalyItem | string | null | undefined): boolean => {
+            if (!item) return false;
+            if (typeof item === 'object') {
+              if (
+                item.validationStatus === 'Confirmed' ||
+                item.validationStatus === 'Rejected' ||
+                item.validationStatus === 'Resolved'
+              ) {
+                return true;
+              }
+              const rev = this.history.getReview(item.id);
+              return (
+                !!rev &&
+                (rev.validationStatus === 'Confirmed' ||
+                  rev.validationStatus === 'Rejected' ||
+                  rev.validationStatus === 'Resolved')
+              );
+            }
+            const rev = this.history.getReview(item);
             return (
               !!rev &&
               (rev.validationStatus === 'Confirmed' ||
@@ -227,7 +243,7 @@ export class AnomalyApi {
 
           // Nếu không có active alerts (hoặc test unit), giữ đúng cấu trúc page gốc
           if (activeAlerts.length === 0) {
-            const filteredItems = page.items.filter((item) => !isItemReviewed(item.id));
+            const filteredItems = page.items.filter((item) => !isItemReviewed(item));
             return {
               ...page,
               items: filteredItems,
@@ -259,7 +275,7 @@ export class AnomalyApi {
           }
 
           for (const item of page.items) {
-            if (isItemReviewed(item.id)) continue;
+            if (isItemReviewed(item)) continue;
 
             const matchingAlert = activeAlerts.find(
               (a) => a.id === item.id || a.anomalyId === item.id,

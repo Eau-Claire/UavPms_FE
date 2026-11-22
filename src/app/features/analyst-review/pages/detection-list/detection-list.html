@@ -224,7 +224,7 @@
               class="btn-review"
               (click)="$event.stopPropagation(); openDetail(item)"
             >
-              <span>Thẩm định</span>
+              <span>{{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}</span>
               <span nz-icon nzType="right" aria-hidden="true"></span>
             </button>
           </div>
@@ -305,7 +305,7 @@
                     class="action-btn btn-primary btn-sm"
                     (click)="$event.stopPropagation(); openDetail(item)"
                   >
-                    {{ item.validationStatus === 'Confirmed' ? 'Xem chi tiết' : 'Thẩm định' }}
+                    {{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}
                   </button>
                 </td>
               </tr>

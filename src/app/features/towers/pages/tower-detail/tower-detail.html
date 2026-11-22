@@ -79,16 +79,16 @@
         <div class="stat-chip tone-danger">
           <div class="stat-head">
             <span class="stat-label">Bất thường đang mở</span>
-            <strong class="stat-count">{{ data.stats.openAnomalies }}</strong>
+            <strong class="stat-count">{{ stats()?.openAnomalies ?? data.stats.openAnomalies }}</strong>
           </div>
           <small class="stat-sub">Chờ duyệt + đã xác nhận</small>
         </div>
         <div class="stat-chip tone-warning">
           <div class="stat-head">
             <span class="stat-label">Chờ duyệt</span>
-            <strong class="stat-count">{{ data.stats.pendingAnomalies }}</strong>
+            <strong class="stat-count">{{ stats()?.pendingAnomalies ?? data.stats.pendingAnomalies }}</strong>
           </div>
-          <small class="stat-sub">Trên tổng {{ data.stats.totalAnomalies }} bất thường</small>
+          <small class="stat-sub">Trên tổng {{ stats()?.totalAnomalies ?? data.stats.totalAnomalies }} bất thường</small>
         </div>
         <div class="stat-chip tone-info">
           <div class="stat-head">
@@ -115,7 +115,7 @@
         <button #anomaliesTab id="tower-tab-anomalies" type="button" role="tab" aria-controls="tower-panel-anomalies"
           [attr.aria-selected]="activeTab() === 'anomalies'" [attr.tabindex]="activeTab() === 'anomalies' ? 0 : -1"
           [class.active]="activeTab() === 'anomalies'" (click)="selectTab('anomalies')" (keydown)="onTabKeydown($event, anomaliesTab, maintenanceTab)">
-          Bất thường <span class="tower-tab-count">{{ data.anomaliesPagination.totalItems }}</span>
+          Bất thường <span class="tower-tab-count">{{ anomalyTotalCount() }}</span>
         </button>
         <button #maintenanceTab id="tower-tab-maintenance" type="button" role="tab" aria-controls="tower-panel-maintenance"
           [attr.aria-selected]="activeTab() === 'maintenance'" [attr.tabindex]="activeTab() === 'maintenance' ? 0 : -1"
@@ -185,7 +185,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (anomaly of filteredAnomalies(); track anomaly.id) {
+                @for (anomaly of pagedAnomalies(); track anomaly.id) {
                   <tr>
                     <td class="td-thumb">
                       @if (anomaly.cropUrl || anomaly.imageUrl; as src) {
@@ -224,7 +224,7 @@
             </table>
           </div>
           <div class="tower-footer">
-            <app-pagination [page]="data.anomaliesPagination.page" [totalPages]="data.anomaliesPagination.totalPages" [totalCount]="data.anomaliesPagination.totalItems" (pageChanged)="goToAnomalyPage($event)" />
+            <app-pagination [page]="anomalyPage()" [totalPages]="anomalyTotalPages()" [totalCount]="anomalyTotalCount()" (pageChanged)="goToAnomalyPage($event)" />
           </div>
         }
       </div>

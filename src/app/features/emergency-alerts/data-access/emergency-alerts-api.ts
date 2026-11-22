@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { AnomalyHistoryService } from '../../analyst-review/data-access/anomaly-history.service';
 import {
   ActiveEmergencyAlert,
   ALERT_STATUSES,
@@ -48,6 +49,7 @@ const ESCALATION_ROLES = new Set(['manager', 'systemadmin', 'admin']);
 })
 export class EmergencyAlertsApi {
   private readonly http = inject(HttpClient);
+  private readonly history = inject(AnomalyHistoryService);
   private readonly baseUrl = `${environment.apiBaseUrl}/alerts`;
 
   private readonly activeAlertsState = signal<readonly ActiveEmergencyAlert[]>([]);
@@ -56,10 +58,18 @@ export class EmergencyAlertsApi {
   readonly activeAlerts = this.activeAlertsState.asReadonly();
   readonly activeCount = computed(() => this.activeAlertsState().length);
 
-  /** `GET /alerts/active` returns a raw array. */
+  /** `GET /alerts/active` returns a raw array. Filter out alerts that were already reviewed. */
   fetchActiveAlerts(): Observable<readonly ActiveEmergencyAlert[]> {
     return this.http.get<unknown>(`${this.baseUrl}/active`).pipe(
-      map((response) => arrayOf(response).map(normalizeActiveAlert)),
+      map((response) =>
+        arrayOf(response)
+          .map(normalizeActiveAlert)
+          .filter(
+            (alert) =>
+              !this.history.isReviewed(alert.id) &&
+              (!alert.anomalyId || !this.history.isReviewed(alert.anomalyId)),
+          ),
+      ),
       tap((alerts) => this.activeAlertsState.set(alerts)),
     );
   }
