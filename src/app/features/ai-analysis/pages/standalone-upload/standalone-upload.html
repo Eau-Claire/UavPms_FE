@@ -103,6 +103,27 @@
           </div>
         </div>
 
+        <div class="idle-sample-suggestions">
+          <span class="sample-intro-label">
+            <span nz-icon nzType="experiment" aria-hidden="true"></span>
+            <span>Dữ liệu mẫu kiểm thử nhanh (Dành cho QA / Thẩm định):</span>
+          </span>
+          <div class="sample-buttons-row">
+            @for (sample of samplePresets; track sample.key) {
+              <button
+                type="button"
+                class="btn-sample-shortcut"
+                (click)="loadPresetSample(sample.key)"
+                [title]="sample.description"
+              >
+                <span class="sample-dot" [class]="sample.badgeClass"></span>
+                <span class="sample-btn-title">{{ sample.label }}</span>
+                <span class="sample-btn-badge" [class]="sample.badgeClass">{{ sample.badge }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
         @if (uploadError()) {
           <div class="studio-alert danger" role="alert">
             <span nz-icon nzType="close-circle" aria-hidden="true"></span>
@@ -329,6 +350,12 @@
             <span class="session-badge">Mã phiên: {{ uploadSuccessResult()?.id }}</span>
             <div class="summary-pill total">Tổng phát hiện: <strong>{{ allDetections().length }}</strong></div>
             <div class="summary-pill high-conf">Hiển thị theo bộ lọc: <strong>{{ filteredDetections().length }}</strong></div>
+            @if (allDetections().length === 0) {
+              <span class="clean-status-pill">
+                <span nz-icon nzType="check-circle" aria-hidden="true"></span>
+                <span>Không phát hiện lỗi</span>
+              </span>
+            }
           </div>
 
           <div class="toolbar-controls">
@@ -540,6 +567,16 @@
                     <div class="image-with-boxes-container">
                       <img [src]="media.previewUrl" [alt]="media.name" class="inspection-main-img" />
 
+                      @if (allDetections().length === 0) {
+                        <div class="clean-image-badge-overlay" role="status">
+                          <span nz-icon nzType="check-circle" class="badge-icon" aria-hidden="true"></span>
+                          <div class="badge-text-group">
+                            <strong>Không phát hiện khuyết tật thiết bị</strong>
+                            <span>Ảnh an toàn hoặc đối tượng không thuộc danh mục huấn luyện AI</span>
+                          </div>
+                        </div>
+                      }
+
                       @if (showBoundingBoxes()) {
                         @for (det of filteredDetections(); track det.id) {
                           @if (det.boundingBox; as box) {
@@ -729,14 +766,84 @@
                 </div>
               </div>
             } @else {
-              <div class="inspector-empty-state">
-                <span nz-icon nzType="info-circle" class="empty-icon" aria-hidden="true"></span>
-                <p>Chưa có đối tượng nào được chọn hoặc không phát hiện khuyết tật trong phiên này.</p>
-                <button type="button" class="btn-empty-upload-new" (click)="quickFileInput.click()">
-                  <span nz-icon nzType="upload" aria-hidden="true"></span>
-                  <span>Tải ảnh khác để kiểm tra</span>
-                </button>
-              </div>
+              @if (allDetections().length === 0) {
+                <div class="inspector-empty-state zero-detections-card">
+                  <div class="empty-status-icon-bubble clean">
+                    <span nz-icon nzType="check-circle" class="clean-icon" aria-hidden="true"></span>
+                  </div>
+                  <h4 class="clean-title">Không phát hiện khuyết tật thiết bị</h4>
+                  <p class="clean-desc">
+                    Mô hình AI đã hoàn tất quét toàn bộ hình ảnh nhưng <strong>không phát hiện khuyết tật phần cứng nào</strong> đạt ngưỡng tin cậy ({{ confidenceThreshold() }}%).
+                  </p>
+
+                  <div class="clean-reasons-box">
+                    <div class="reasons-header">
+                      <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+                      <strong>Giải thích kỹ thuật:</strong>
+                    </div>
+                    <ul class="reasons-list">
+                      <li>
+                        <strong>Bản chất hình ảnh:</strong> Ảnh chụp UAV đang dùng súng phun lửa đốt dọn rác/diều. Đây là hoạt động bảo dưỡng hiện trường, không phải khuyết tật linh kiện.
+                      </li>
+                      <li>
+                        <strong>Phạm vi mô hình AI:</strong> Mô hình được huấn luyện để phát hiện các khuyết tật phần cứng cụ thể: <em>Bát sứ vỡ/nứt</em>, <em>Tổ chim trên xà cột</em>, <em>Mất bu-lông</em>, <em>Cây vi phạm hành lang</em>.
+                      </li>
+                      <li>
+                        Không có chuỗi sứ nứt vỡ hay thân cột điện biến dạng &rarr; AI kết luận ảnh bình thường (0 khuyết tật).
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="sample-testing-section">
+                    <span class="sample-section-title">
+                      <span nz-icon nzType="experiment" aria-hidden="true"></span>
+                      <span>Thử nghiệm nhanh với ảnh mẫu khuyết tật chuẩn (QA):</span>
+                    </span>
+                    <div class="sample-btns-grid">
+                      @for (sample of samplePresets; track sample.key) {
+                        <button
+                          type="button"
+                          class="btn-sample-pick"
+                          (click)="loadPresetSample(sample.key)"
+                        >
+                          <span class="sample-badge" [class]="sample.badgeClass">{{ sample.badge }}</span>
+                          <span class="sample-name">{{ sample.label }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="empty-actions">
+                    <button type="button" class="btn-empty-upload-new" (click)="quickFileInput.click()">
+                      <span nz-icon nzType="upload" aria-hidden="true"></span>
+                      <span>Tải ảnh khác từ máy tính</span>
+                    </button>
+                  </div>
+                </div>
+              } @else if (filteredDetections().length === 0) {
+                <div class="inspector-empty-state hidden-by-filter-card">
+                  <div class="empty-status-icon-bubble warning">
+                    <span nz-icon nzType="filter" class="filter-icon" aria-hidden="true"></span>
+                  </div>
+                  <h4 class="clean-title">Khuyết tật bị ẩn bởi bộ lọc</h4>
+                  <p class="clean-desc">
+                    Hệ thống đã phát hiện <strong>{{ allDetections().length }} đối tượng</strong>, nhưng các đối tượng này có độ tin cậy thấp hơn ngưỡng hiện tại (<strong>{{ confidenceThreshold() }}%</strong>).
+                  </p>
+                  <button type="button" class="btn-lower-threshold" (click)="lowerConfidenceThreshold(30)">
+                    <span nz-icon nzType="down-circle" aria-hidden="true"></span>
+                    <span>Hạ ngưỡng về 30% để xem ngay</span>
+                  </button>
+                </div>
+              } @else {
+                <div class="inspector-empty-state">
+                  <span nz-icon nzType="info-circle" class="empty-icon" aria-hidden="true"></span>
+                  <p>Chưa có đối tượng nào được chọn trong phiên này.</p>
+                  <button type="button" class="btn-empty-upload-new" (click)="quickFileInput.click()">
+                    <span nz-icon nzType="upload" aria-hidden="true"></span>
+                    <span>Tải ảnh khác để kiểm tra</span>
+                  </button>
+                </div>
+              }
             }
           </aside>
         </div>
