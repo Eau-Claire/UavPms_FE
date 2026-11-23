@@ -91,15 +91,6 @@
       </select>
     </label>
 
-    <label class="review-checkbox-label">
-      <input
-        type="checkbox"
-        [checked]="showSuperseded()"
-        (change)="onShowSupersededChange($event)"
-      />
-      <span>Hiện kết quả Edge đã thay thế ({{ hiddenSupersededCount() }})</span>
-    </label>
-
     <div class="filter-actions">
       <div class="review-view-toggle" role="group" aria-label="Chế độ hiển thị">
         <button

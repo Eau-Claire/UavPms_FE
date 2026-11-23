@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of } from 'rxjs';
+import { inject, Injectable, signal } from '@angular/core';
+import { catchError, forkJoin, map, Observable, of, tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
@@ -198,6 +198,8 @@ export class AnomalyApi {
   private readonly history = inject(AnomalyHistoryService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly baseUrl = environment.apiBaseUrl;
+  private readonly pendingCountState = signal<number | null>(null);
+  readonly pendingCount = this.pendingCountState.asReadonly();
 
   listPending(params?: AnomalyListParams): Observable<AnomalyPage> {
     const pageIndex = params?.pageIndex ?? 1;
@@ -321,6 +323,11 @@ export class AnomalyApi {
             pageSize,
             totalPages,
           };
+        }),
+        tap((page) => {
+          if (!search) {
+            this.pendingCountState.set(page.totalCount);
+          }
         }),
       );
   }
@@ -511,7 +518,7 @@ export class AnomalyApi {
       .pipe(
         map(() => undefined),
         catchError((err: unknown) => {
-          if (matchingAlert && err instanceof HttpErrorResponse && err.status === 404) {
+          if (matchingAlert && err instanceof HttpErrorResponse && (err.status === 404 || err.status === 403)) {
             const alertStatus = request.status === 'Confirmed' ? 'Confirmed' : 'Dismissed';
             return this.alertsApi.reviewAlert(targetAlertId, {
               status: alertStatus,

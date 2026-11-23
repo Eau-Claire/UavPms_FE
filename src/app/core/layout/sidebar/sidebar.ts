@@ -4,6 +4,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../auth/auth';
 import { roleFamily, RoleFamily } from '../../auth/roles';
+import { AnomalyApi } from '../../../features/analyst-review/data-access/anomaly-api';
 import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
 
 export interface NavLinkItem {
@@ -112,13 +113,20 @@ export const SECONDARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
 export class Sidebar {
   private readonly auth = inject(Auth);
   private readonly alertsApi = inject(EmergencyAlertsApi);
+  private readonly anomalyApi = inject(AnomalyApi, { optional: true });
   private readonly destroyRef = inject(DestroyRef);
 
   readonly open = input(false);
   readonly closed = output<void>();
 
   protected readonly family = computed(() => roleFamily(this.auth.user()?.role));
-  protected readonly activeAlertCount = computed(() => this.alertsApi.activeCount());
+  protected readonly activeAlertCount = computed(() => {
+    const pendingTotal = this.anomalyApi?.pendingCount();
+    if (pendingTotal !== null && pendingTotal !== undefined) {
+      return Math.max(pendingTotal, this.alertsApi.activeCount());
+    }
+    return this.alertsApi.activeCount();
+  });
   private readonly showsAlerts = computed(() => PRIMARY_LINKS[this.family()].some((item) => item.path === AI_REVIEW_PATH));
 
   protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => {
@@ -130,18 +138,31 @@ export class Sidebar {
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => SECONDARY_LINKS[this.family()]);
 
   constructor() {
-    // The badge needs `GET /alerts/active` (SystemAdmin, Manager, Analyst): load it once for a role whose menu shows the link.
+    // Load active alerts + pending anomalies (both normal & emergency) once for roles with /ai-review.
     let loadedFor: RoleFamily | null = null;
     effect(() => {
       const family = this.family();
       if (!this.showsAlerts() || loadedFor === family) return;
       loadedFor = family;
-      untracked(() =>
+      untracked(() => {
         this.alertsApi
           .fetchActiveAlerts()
           .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe({ error: () => undefined }),
-      );
+          .subscribe({
+            next: () => {
+              this.anomalyApi
+                ?.listPending({ pageIndex: 1, pageSize: 15 })
+                .pipe(takeUntilDestroyed(this.destroyRef))
+                .subscribe({ error: () => undefined });
+            },
+            error: () => {
+              this.anomalyApi
+                ?.listPending({ pageIndex: 1, pageSize: 15 })
+                .pipe(takeUntilDestroyed(this.destroyRef))
+                .subscribe({ error: () => undefined });
+            },
+          });
+      });
     });
   }
 }

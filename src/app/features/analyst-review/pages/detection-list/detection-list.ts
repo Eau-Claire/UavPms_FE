@@ -71,19 +71,26 @@ export class DetectionList {
   protected readonly hiddenSupersededCount = computed(() => this.grouping().hiddenCount);
 
   protected readonly displayedItems = computed<readonly AnomalyItem[]>(() => {
-    const base = this.showSuperseded() ? this.response().items : this.grouping().visible;
+    const base = this.grouping().visible;
     const priority = this.priorityFilter();
-    if (priority === 'emergency') {
-      return base.filter((item) => this.isEmergencyItem(item));
-    }
-    if (priority === 'normal') {
-      return base.filter((item) => !this.isEmergencyItem(item));
-    }
-    return base;
+    const filtered =
+      priority === 'emergency'
+        ? base.filter((item) => this.isEmergencyItem(item))
+        : priority === 'normal'
+          ? base.filter((item) => !this.isEmergencyItem(item))
+          : [...base];
+
+    // Default sort: Khẩn cấp > Bình thường, then newest (createdAt desc)
+    return filtered.sort((a, b) => {
+      const aEm = this.isEmergencyItem(a) ? 1 : 0;
+      const bEm = this.isEmergencyItem(b) ? 1 : 0;
+      if (aEm !== bEm) return bEm - aEm;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   });
 
   protected readonly hasActiveFilters = computed(() =>
-    Boolean(this.search().trim() || this.priorityFilter() || this.showSuperseded()),
+    Boolean(this.search().trim() || this.priorityFilter()),
   );
 
   protected readonly emptyStateTitle = computed(() => {

@@ -47,60 +47,33 @@
       </div>
     }
 
-    <!-- Quiet Chrome Overview Card: Tower Metadata + Neutral Metric Summary -->
+    <!-- Quiet Chrome Overview Card: Tower Metadata Only (No KPI Strip) -->
     <section class="tower-overview-card" aria-labelledby="tower-info-title">
       <h2 id="tower-info-title" class="sr-only">Thông tin cột điện</h2>
-      <div class="tower-overview-grid">
-        <div class="tower-meta-grid">
-          <div class="meta-item">
-            <span class="meta-label">Mã cột</span>
-            <strong class="meta-val">{{ data.tower.towerCode }}</strong>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Khu vực</span>
-            <span class="meta-val">{{ data.tower.regionName || '—' }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Loại cột</span>
-            <span class="meta-val">{{ data.tower.poleType || '—' }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Tọa độ</span>
-            <span class="meta-val tabular-nums">{{ data.tower.latitude | number: '1.5-6' }}, {{ data.tower.longitude | number: '1.5-6' }}</span>
-          </div>
-          <div class="meta-item meta-address" [title]="data.tower.address || ''">
-            <span class="meta-label">Địa chỉ</span>
-            <span class="meta-val">{{ data.tower.address || '—' }}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">Lần kiểm tra gần nhất</span>
-            <span class="meta-val tabular-nums">{{ data.stats.lastInspectedAt ? (data.stats.lastInspectedAt | date: 'dd/MM/yyyy HH:mm') : 'Chưa kiểm tra' }}</span>
-          </div>
+      <div class="tower-meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Mã cột</span>
+          <strong class="meta-val">{{ data.tower.towerCode }}</strong>
         </div>
-
-        <div class="tower-stats-row" aria-label="Thống kê của cột">
-          <div class="stat-box">
-            <span class="stat-label">Bất thường đang mở</span>
-            <strong class="stat-count tabular-nums" [class.text-red-700]="(stats()?.openAnomalies ?? data.stats.openAnomalies) > 0">
-              {{ stats()?.openAnomalies ?? data.stats.openAnomalies }}
-            </strong>
-            <span class="stat-sub">Chờ duyệt + đã xác nhận</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Chờ duyệt</span>
-            <strong class="stat-count tabular-nums">{{ stats()?.pendingAnomalies ?? data.stats.pendingAnomalies }}</strong>
-            <span class="stat-sub">Tổng {{ stats()?.totalAnomalies ?? data.stats.totalAnomalies }} bất thường</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Phiếu đang xử lý</span>
-            <strong class="stat-count tabular-nums">{{ data.stats.activeTickets }}</strong>
-            <span class="stat-sub">{{ data.stats.openTickets }} mới mở · {{ data.stats.inProgressTickets }} đang làm</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Tổng phiếu bảo trì</span>
-            <strong class="stat-count tabular-nums">{{ data.stats.totalTickets }}</strong>
-            <span class="stat-sub">Toàn bộ lịch sử</span>
-          </div>
+        <div class="meta-item">
+          <span class="meta-label">Khu vực</span>
+          <span class="meta-val">{{ data.tower.regionName || '—' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Loại cột</span>
+          <span class="meta-val">{{ data.tower.poleType || '—' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Tọa độ</span>
+          <span class="meta-val tabular-nums">{{ data.tower.latitude | number: '1.5-6' }}, {{ data.tower.longitude | number: '1.5-6' }}</span>
+        </div>
+        <div class="meta-item meta-address" [title]="data.tower.address || ''">
+          <span class="meta-label">Địa chỉ</span>
+          <span class="meta-val">{{ data.tower.address || '—' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Lần kiểm tra gần nhất</span>
+          <span class="meta-val tabular-nums">{{ data.stats.lastInspectedAt ? (data.stats.lastInspectedAt | date: 'dd/MM/yyyy HH:mm') : 'Chưa kiểm tra' }}</span>
         </div>
       </div>
     </section>
