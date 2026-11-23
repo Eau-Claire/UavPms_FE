@@ -4,6 +4,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessC
 import { provideRouter, withComponentInputBinding, withViewTransitions } from '@angular/router';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth-interceptor';
+import { backendFallbackInterceptor } from './core/http/backend-fallback-interceptor';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
   AimOutline, AlertOutline, AppstoreOutline, ArrowDownOutline, ArrowLeftOutline, ArrowRightOutline, ArrowUpOutline,
@@ -28,7 +29,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, backendFallbackInterceptor])),
     {
       provide: DATE_PIPE_DEFAULT_OPTIONS,
       useValue: { timezone: '+0700', dateFormat: 'dd/MM/yyyy HH:mm' },

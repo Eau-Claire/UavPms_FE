@@ -1,8 +1,8 @@
 import { Injectable, NgZone, inject } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { Subject } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 import { Auth } from '../../../core/auth/auth';
+import { BackendFallbackService } from '../../../core/http/backend-fallback.service';
 import { Mission, MissionCommunicationLog } from '../../../models/missions.models';
 import { AppNotification } from '../../../models/notification.models';
 import { normalizeNotification } from './notifications-api';
@@ -109,6 +109,7 @@ const MF02_BROADCAST_CHANNEL = 'uavpms_mf02_realtime_bus';
 })
 export class NotificationsRealtime {
   private readonly auth = inject(Auth);
+  private readonly backendFallback = inject(BackendFallbackService);
   private readonly zone = inject(NgZone);
   private readonly notificationSubject = new Subject<AppNotification>();
   private readonly aiAnalysisStatusSubject = new Subject<AiAnalysisStatusChangedEvent>();
@@ -255,28 +256,46 @@ export class NotificationsRealtime {
 
   connect(): void {
     if (this.connection?.state === HubConnectionState.Connected || this.starting) return;
-    this.connection = this.buildConnection();
+    const initialHubUrl = this.backendFallback.getActiveHubUrl();
+    this.connection = this.buildConnection(initialHubUrl);
     this.registerHandlers(this.connection);
     this.starting = this.connection
       .start()
       .then(() => {
-        this.zone.run(() => {
-          this.statusSubject.next('connected');
-          for (const mId of this.activeMissionGroups) {
-            this.joinMission(mId);
-          }
-          for (const aId of this.activeAssessmentGroups) {
-            this.joinAssessment(aId);
-          }
-          if (this.isInAssessmentsListGroup) {
-            this.joinAssessmentsList();
-          }
-        });
+        this.onHubConnected();
       })
-      .catch(() => this.zone.run(() => this.statusSubject.next('disconnected')))
+      .catch(() => {
+        if (!this.backendFallback.isUsingFallback() && this.backendFallback.fallbackHubUrl !== initialHubUrl) {
+          this.backendFallback.activateFallback();
+          const fallbackConn = this.buildConnection(this.backendFallback.fallbackHubUrl);
+          this.connection = fallbackConn;
+          this.registerHandlers(fallbackConn);
+          return fallbackConn
+            .start()
+            .then(() => this.onHubConnected())
+            .catch(() => this.zone.run(() => this.statusSubject.next('disconnected')));
+        }
+        this.zone.run(() => this.statusSubject.next('disconnected'));
+        return;
+      })
       .finally(() => {
         this.starting = null;
       });
+  }
+
+  private onHubConnected(): void {
+    this.zone.run(() => {
+      this.statusSubject.next('connected');
+      for (const mId of this.activeMissionGroups) {
+        this.joinMission(mId);
+      }
+      for (const aId of this.activeAssessmentGroups) {
+        this.joinAssessment(aId);
+      }
+      if (this.isInAssessmentsListGroup) {
+        this.joinAssessmentsList();
+      }
+    });
   }
 
   disconnect(): void {
@@ -294,9 +313,9 @@ export class NotificationsRealtime {
     }
   }
 
-  private buildConnection(): HubConnection {
+  private buildConnection(hubUrl: string = this.backendFallback.getActiveHubUrl()): HubConnection {
     return new HubConnectionBuilder()
-      .withUrl(environment.notificationsHubUrl, {
+      .withUrl(hubUrl, {
         accessTokenFactory: () => this.auth.session()?.tokens.accessToken ?? '',
       })
       .withAutomaticReconnect()
