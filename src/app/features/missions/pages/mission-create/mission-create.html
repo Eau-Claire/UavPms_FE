@@ -1,30 +1,25 @@
-<div class="pre-mission-page mission-dispatch-page">
-  <header class="pre-mission-head">
+<div class="ops-page mission-dispatch-page">
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/missions">NHIỆM VỤ BAY</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>{{ editingMissionId() ? 'CHỈNH SỬA THÔNG TIN NHIỆM VỤ (BẢN NHÁP)' : 'TẠO NHIỆM VỤ (BẢN NHÁP)' }}</strong>
+        <a routerLink="/missions">Nhiệm vụ bay</a>
+        <span class="separator" aria-hidden="true">/</span>
+        <strong>{{ editingMissionId() ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ' }}</strong>
       </nav>
       <h1>{{ editingMissionId() ? 'Chỉnh sửa thông tin nhiệm vụ bản nháp' : 'Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi' }}</h1>
       <p>
-        {{ editingMissionId() ? 'Cập nhật tiêu đề, mô tả, mức ưu tiên và chỉ thị quản lý cho nhiệm vụ đang ở trạng thái bản nháp.' : 'Nhiệm vụ được tạo ở trạng thái bản nháp (Draft) từ hồ sơ đánh giá READY. Phạm vi cột, khung giờ bay và nguồn lực được kế thừa từ hồ sơ.' }}
+        {{ editingMissionId() ? 'Cập nhật tiêu đề, mô tả, mức ưu tiên và chỉ thị quản lý cho nhiệm vụ đang ở trạng thái bản nháp.' : 'Nhiệm vụ được tạo ở trạng thái bản nháp từ hồ sơ đánh giá Sẵn sàng. Phạm vi cột, khung giờ bay và nguồn lực được kế thừa từ hồ sơ.' }}
       </p>
     </div>
     <div class="head-actions">
       @if (editingMissionId(); as mid) {
-        <a class="evn-btn secondary" [routerLink]="['/missions', mid]">
-          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Quay lại chi tiết nhiệm vụ
-        </a>
+        <a class="app-btn-secondary" [routerLink]="['/missions', mid]">Quay lại chi tiết</a>
+      } @else if (assessment(); as a) {
+        <a class="app-btn-secondary" [routerLink]="['/pre-mission', a.id]">Về hồ sơ đánh giá</a>
       }
-      @if (assessment(); as a) {
-        <a class="evn-btn secondary" [routerLink]="['/pre-mission', a.id]">
-          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Về hồ sơ đánh giá
-        </a>
-      }
-      <a class="evn-btn secondary" routerLink="/missions">
-        <span nz-icon nzType="unordered-list" aria-hidden="true"></span> Danh sách nhiệm vụ
-      </a>
+      <a class="app-btn-secondary" routerLink="/missions">Danh sách nhiệm vụ</a>
     </div>
   </header>
 
@@ -40,10 +35,10 @@
     <div class="panel-header">
       <div class="header-title-group">
         <h2 id="assessment-panel-title">1. Hồ sơ đánh giá tiền khả thi</h2>
-        <span class="panel-subinfo">Chọn hồ sơ READY còn hiệu lực hoặc mở từ không gian đánh giá</span>
+        <span class="panel-subinfo">Chọn hồ sơ Sẵn sàng còn hiệu lực hoặc mở từ không gian đánh giá</span>
       </div>
       @if (assessment(); as a) {
-        <span class="evn-status" [class.pass]="isAssessmentUsable()" [class.fail]="!isAssessmentUsable()">{{ a.status }}</span>
+        <span [class]="statusColorClass(a.status)">{{ statusLabel(a.status) }}</span>
       }
     </div>
     <div class="panel-body form-body-stack">
@@ -101,7 +96,9 @@
           </div>
           <div class="prop-item">
             <dt class="prop-label">Sức khỏe kỹ thuật</dt>
-            <dd class="prop-value">{{ a.overallTechnicalHealth }}</dd>
+            <dd class="prop-value">
+              <span [class]="statusColorClass(a.overallTechnicalHealth)">{{ statusLabel(a.overallTechnicalHealth) }}</span>
+            </dd>
           </div>
         </dl>
 
@@ -219,12 +216,11 @@
           </div>
           <button
             type="button"
-            class="evn-btn secondary"
+            class="app-btn-secondary"
             (click)="refreshReadiness()"
             [disabled]="refreshingReadiness() || busy()"
           >
-            <span nz-icon [nzType]="refreshingReadiness() ? 'loading' : 'sync'" aria-hidden="true"></span>
-            Đánh giá lại nguồn lực
+            {{ refreshingReadiness() ? 'Đang đánh giá...' : 'Đánh giá lại nguồn lực' }}
           </button>
         </div>
         <div class="panel-body form-body-stack">
@@ -240,8 +236,8 @@
                   <input type="checkbox" [checked]="isPersonnelSelected(p.id)" (change)="togglePersonnel(p.id)" />
                   <span class="candidate-name">{{ p.name }}</span>
                 </label>
-                <span class="evn-status info">{{ roleLabel(p.role) }}</span>
-                <span class="candidate-meta">{{ p.availabilityStatus }}</span>
+                <span class="text-sky-600 font-medium">{{ roleLabel(p.role) }}</span>
+                <span class="candidate-meta" [class]="statusColorClass(p.availabilityStatus)">{{ statusLabel(p.availabilityStatus) }}</span>
                 @if (isPersonnelSelected(p.id)) {
                   <label class="candidate-check required-toggle">
                     <input type="checkbox" [checked]="isPersonnelRequired(p.id)" (change)="toggleRequired(p.id)" />
@@ -286,8 +282,8 @@
                   <span class="candidate-name">{{ d.code }}</span>
                   <span class="candidate-meta">{{ d.model }}</span>
                 </label>
-                <span class="evn-status" [class.pass]="d.technicalHealth === 'Healthy'" [class.warning]="d.technicalHealth === 'Warning'">
-                  {{ d.technicalHealth }}
+                <span [class]="statusColorClass(d.technicalHealth)">
+                  {{ statusLabel(d.technicalHealth) }}
                 </span>
                 <span class="candidate-meta">Pin {{ d.batteryLevel }}%</span>
                 @if (d.suitability === 'SUITABLE_WITH_SPLIT') {
@@ -312,13 +308,12 @@
         </p>
         <div class="footer-right">
           @if (editingMissionId(); as mid) {
-            <a class="evn-btn secondary" [routerLink]="['/missions', mid]">Hủy bỏ</a>
+            <a class="app-btn-secondary" [routerLink]="['/missions', mid]">Hủy bỏ</a>
           } @else {
-            <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
+            <a class="app-btn-secondary" routerLink="/missions">Hủy</a>
           }
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || (!editingMissionId() && !isAssessmentUsable())">
-            <span nz-icon [nzType]="busy() ? 'loading' : 'check'" aria-hidden="true"></span>
-            {{ busy() ? 'Đang lưu...' : (editingMissionId() ? 'Lưu thay đổi nhiệm vụ (Bản nháp)' : 'Lưu bản nháp nhiệm vụ') }}
+          <button type="submit" class="app-btn-primary" [disabled]="busy() || (!editingMissionId() && !isAssessmentUsable())">
+            {{ busy() ? 'Đang lưu...' : (editingMissionId() ? 'Lưu thay đổi nhiệm vụ' : 'Lưu bản nháp nhiệm vụ') }}
           </button>
         </div>
       </footer>

@@ -16,8 +16,8 @@
         </div>
         <div class="emergency-banner-actions">
           @if (canOpenEmergencyCenter()) {
-            <a routerLink="/emergency-alerts" class="emergency-btn-review">
-              Trung tâm Sự cố &rarr;
+            <a routerLink="/ai-review" [queryParams]="{ priority: 'emergency' }" class="app-btn-secondary">
+              Khuyết tật khẩn cấp →
             </a>
           } @else {
             <span class="emergency-banner-note">Quản lý và chuyên viên phân tích đã được thông báo.</span>
@@ -38,7 +38,7 @@
           <strong>{{ mission.missionCode }}</strong>
         </nav>
         <div class="header-title-row">
-          <h1 class="header-mission-code">Nhiệm vụ: {{ mission.missionCode }}</h1>
+          <h1 class="header-mission-code">{{ mission.missionCode }}</h1>
           <span [class]="statusColorClass(mission.status)">{{ statusLabel(mission.status) }}</span>
           @if (mission.priority; as priority) {
             <span class="header-sep" aria-hidden="true">·</span>
@@ -125,28 +125,22 @@
                 <strong class="meta-value">{{ mission.droneCode || 'Chưa gán' }}</strong>
               </div>
               <div class="meta-item">
-                <span class="meta-label">Hạn chót các vai trò xác nhận:</span>
+                <span class="meta-label">Hạn chót xác nhận:</span>
                 @if (confirmationDeadlineDate(); as deadline) {
                   @if (isDeadlineOverdue()) {
-                    <span class="deadline-chip overdue">
-                      QUÁ HẠN: {{ deadlineTimeRemaining() }} ({{ deadline | date:'HH:mm dd/MM/yyyy' }})
+                    <span class="text-rose-600 font-medium tabular-nums">
+                      Quá hạn {{ deadlineTimeRemaining() }} ({{ deadline | date:'HH:mm dd/MM/yyyy' }})
                     </span>
                   } @else if (mission.status === 'PendingAcceptance' || mission.status === 'Draft') {
-                    <span class="deadline-chip pending">
+                    <span class="text-amber-700 font-medium tabular-nums">
                       {{ deadlineTimeRemaining() }} (Trước {{ deadline | date:'HH:mm dd/MM/yyyy' }})
                     </span>
                   } @else if (mission.status === 'Assigned') {
-                    <span class="deadline-chip confirmed">
-                      Toàn đội đã tiếp nhận · Sẵn sàng bay
-                    </span>
+                    <span class="text-emerald-600 font-medium">Toàn đội đã tiếp nhận · Sẵn sàng bay</span>
                   } @else if (mission.status === 'Postponed') {
-                    <span class="deadline-chip postponed">
-                      Có thành viên yêu cầu hoãn
-                    </span>
+                    <span class="text-amber-700 font-medium">Có thành viên yêu cầu hoãn</span>
                   } @else if (mission.status === 'Suspended') {
-                    <span class="deadline-chip suspended">
-                      Đang tạm đình chỉ bay
-                    </span>
+                    <span class="text-rose-600 font-medium">Đang tạm đình chỉ bay</span>
                   }
                 } @else {
                   <span class="meta-value">Chưa thiết lập</span>
@@ -159,17 +153,17 @@
               <div class="team-matrix-header">
                 <div class="team-matrix-title">
                   <strong>Đội ngũ thực hiện</strong>
-                  <span class="confirmed-ratio">
+                  <span class="confirmed-ratio tabular-nums">
                     Đã xác nhận: <strong>{{ mission.confirmedCount || 0 }}/{{ mission.totalRequiredCount || 0 }}</strong>
                   </span>
                 </div>
                 <div class="team-matrix-status">
                   @if (allRolesConfirmed()) {
-                    <span class="matrix-status-pill">100% ĐÃ XÁC NHẬN</span>
+                    <span class="text-emerald-600 font-medium">Đã xác nhận đủ</span>
                   } @else if (postponedMember()) {
-                    <span class="matrix-status-pill">CÓ THÀNH VIÊN HOÃN</span>
+                    <span class="text-amber-700 font-medium">Có thành viên hoãn</span>
                   } @else {
-                    <span class="matrix-status-pill">ĐANG CHỜ TIẾP NHẬN</span>
+                    <span class="text-sky-600 font-medium">Đang chờ tiếp nhận</span>
                   }
                 </div>
               </div>
@@ -353,24 +347,15 @@
           }
         </div>
 
-        <!-- Critical Overdue Warning Callout -->
+        <!-- Critical Overdue Warning Callout (no duplicate reminder button; primary bar above has Gửi nhắc nhở tiếp nhận) -->
         @if (isDeadlineOverdue() && isManager()) {
           <div class="callout-banner overdue-alert qc-callout" role="alert">
             <div class="callout-body">
               <strong>Quá hạn xác nhận tiếp nhận nhiệm vụ</strong>
               <p>
                 Phi công <strong>{{ mission.assignedToUsername || 'Chưa phân công' }}</strong> chưa xác nhận trước hạn chót
-                ({{ confirmationDeadlineDate() | date:'HH:mm dd/MM/yyyy' }}). Vui lòng gửi nhắc nhở hoặc phân công lại.
+                ({{ confirmationDeadlineDate() | date:'HH:mm dd/MM/yyyy' }}). Sử dụng nút <strong>Gửi nhắc nhở tiếp nhận</strong> hoặc phân công lại nhân sự.
               </p>
-            </div>
-            <div class="callout-action">
-              <button
-                type="button"
-                class="app-btn-primary"
-                [disabled]="actionBusy()"
-                (click)="sendReminder()">
-                Gửi nhắc nhở khẩn cấp
-              </button>
             </div>
           </div>
         }
@@ -570,7 +555,7 @@
                         @if (current.kind === 'video') {
                           <video [src]="current.url" controls preload="metadata" (loadedmetadata)="onVideoMetadata($event, current.id)"></video>
                         } @else {
-                          <img [src]="current.url" [alt]="current.name" />
+                          <img [src]="current.url" [alt]="current.name" loading="lazy" decoding="async" />
                         }
                         <span class="kind-tag">{{ current.kind === 'video' ? 'VIDEO 4K' : 'IMAGE' }}</span>
                       </div>
@@ -601,7 +586,7 @@
                         @if (media.kind === 'video') {
                           <video [src]="media.url" muted preload="metadata" (loadedmetadata)="onVideoMetadata($event, media.id)"></video>
                         } @else {
-                          <img [src]="media.url" [alt]="media.name" />
+                          <img [src]="media.url" [alt]="media.name" loading="lazy" decoding="async" />
                         }
                         <span [title]="media.name">{{ middleEllipsis(media.name, 22) }}</span>
                         <i>{{ media.size }} · {{ media.resolution }}</i>
@@ -724,7 +709,7 @@
                       @if (media.kind === 'video') {
                         <video [src]="media.url" muted preload="metadata"></video>
                       } @else {
-                        <img [src]="media.url" [alt]="media.name" />
+                        <img [src]="media.url" [alt]="media.name" loading="lazy" decoding="async" />
                       }
                     </div>
                     <div>
@@ -799,7 +784,7 @@
                       (click)="jumpToDetection(item)"
                     >
                       <div class="defect-image">
-                        <img [src]="item.cropImageUrl || item.imageUrl" [alt]="item.title" (error)="handleDefectImageError($event, item.categoryCode)" />
+                        <img [src]="item.cropImageUrl || item.imageUrl" [alt]="item.title" loading="lazy" decoding="async" (error)="handleDefectImageError($event, item.categoryCode)" />
                         @if (item.boundingBox; as box) {
                           <span class="detection-bbox" [style.left.%]="box.x" [style.top.%]="box.y" [style.width.%]="box.width" [style.height.%]="box.height"></span>
                         }
@@ -932,7 +917,7 @@
                                 (click)="seekVideoDetection(frame, $event)"
                               >
                                 <span class="frame-thumb-box">
-                                  <img [src]="frame.cropImageUrl || frame.imageUrl" [alt]="frame.title" (error)="handleDefectImageError($event, frame.categoryCode)" />
+                                  <img [src]="frame.cropImageUrl || frame.imageUrl" [alt]="frame.title" loading="lazy" decoding="async" (error)="handleDefectImageError($event, frame.categoryCode)" />
                                   <b>{{ frame.confidence }}%</b>
                                 </span>
                                 <strong>{{ frame.title }}</strong>
@@ -948,11 +933,11 @@
                     <div class="detail-image-comparison">
                       <div class="comp-box">
                         <span>Ảnh Crop Vùng Lỗi</span>
-                        <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" (error)="handleDefectImageError($event, selected.categoryCode)" />
+                        <img [src]="selected.cropImageUrl || selected.imageUrl" [alt]="selected.title" loading="lazy" decoding="async" (error)="handleDefectImageError($event, selected.categoryCode)" />
                       </div>
                       <div class="comp-box">
                         <span>Khung hình Gốc</span>
-                        <img [src]="selected.imageUrl" [alt]="selected.title" (error)="handleDefectImageError($event, selected.categoryCode)" />
+                        <img [src]="selected.imageUrl" [alt]="selected.title" loading="lazy" decoding="async" (error)="handleDefectImageError($event, selected.categoryCode)" />
                       </div>
                     </div>
                   }

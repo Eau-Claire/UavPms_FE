@@ -17,18 +17,18 @@
       <form nz-form [formGroup]="form" (ngSubmit)="submit()">
         <nz-form-item class="auth-username-item" [class.ant-form-item-has-error]="form.controls.username.touched && form.controls.username.invalid">
           <nz-form-control>
-            <nz-input-group nzSize="large" nzPrefixIcon="user" class="auth-input">
+            <nz-input-group nzSize="large" class="auth-input">
               <input nz-input type="email" autocomplete="username" formControlName="username" placeholder="nguyenvana@uavpms.vn" />
             </nz-input-group>
             @if (form.controls.username.touched && form.controls.username.invalid) {
-              <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ usernameError() }}</span></div>
+              <div class="ant-form-item-explain"><span class="auth-field-error">{{ usernameError() }}</span></div>
             }
           </nz-form-control>
         </nz-form-item>
 
         <nz-form-item class="auth-password-item" [class.ant-form-item-has-error]="(form.controls.password.touched && form.controls.password.invalid) || error()">
           <nz-form-control>
-            <nz-input-group nzSize="large" nzPrefixIcon="lock" [nzSuffix]="passwordSuffix" class="auth-input ant-input-password">
+            <nz-input-group nzSize="large" [nzSuffix]="passwordSuffix" class="auth-input ant-input-password">
               <input
                 nz-input
                 [type]="passwordVisible() ? 'text' : 'password'"
@@ -38,22 +38,17 @@
               />
             </nz-input-group>
             <ng-template #passwordSuffix>
-              <span
-                nz-icon
-                [nzType]="passwordVisible() ? 'eye' : 'eye-invisible'"
+              <button
+                type="button"
                 (click)="togglePasswordVisibility()"
-                (keydown.enter)="togglePasswordVisibility()"
-                (keydown.space)="togglePasswordVisibility()"
-                tabindex="0"
-                role="button"
                 [attr.aria-label]="passwordVisible() ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
-                style="cursor: pointer;"
-              ></span>
+                style="border: 0; background: transparent; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 4px;"
+              >{{ passwordVisible() ? 'Ẩn' : 'Hiện' }}</button>
             </ng-template>
             @if (form.controls.password.touched && form.controls.password.invalid) {
-              <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Mật khẩu phải có ít nhất 3 ký tự</span></div>
+              <div class="ant-form-item-explain"><span class="auth-field-error">Mật khẩu phải có ít nhất 3 ký tự</span></div>
             } @else if (error()) {
-              <div class="ant-form-item-explain" role="alert"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ error() }}</span></div>
+              <div class="ant-form-item-explain" role="alert"><span class="auth-field-error">{{ error() }}</span></div>
               @if (unverifiedEmail()) {
                 <div style="margin-top: 10px;">
                   <button
@@ -66,22 +61,8 @@
                     [nzLoading]="sendingOtp()"
                     style="border-color: #10387d; color: #10387d; font-weight: 600;"
                   >
-                    <span nz-icon nzType="mail"></span> Gửi mã OTP kích hoạt tài khoản
+                    Gửi mã OTP kích hoạt tài khoản
                   </button>
-                </div>
-              }
-              @if (isApiUnreachable()) {
-                <div style="margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; text-align: center;">
-                  <p style="margin: 0 0 8px 0; font-size: 11.5px; color: #475569; font-weight: 600;">
-                    Đăng nhập thử nghiệm (Ngoại tuyến):
-                  </p>
-                  <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
-                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Admin')">Quản trị viên</button>
-                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Manager')">Trưởng phòng</button>
-                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Inspector')">Thanh tra viên</button>
-                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Technician')">Kỹ thuật viên</button>
-                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Analyst')">Phân tích viên</button>
-                  </div>
                 </div>
               }
             }
@@ -91,7 +72,7 @@
         <div class="auth-form-row"><a class="auth-link" routerLink="/forgot-password">Quên mật khẩu?</a></div>
         <nz-form-item class="auth-submit-item">
           <button nz-button nzType="primary" nzSize="large" [nzBlock]="true" type="submit" class="evn-primary-button" [nzLoading]="busy()" [disabled]="busy()">
-            <span>{{ busy() ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span><span nz-icon nzType="arrow-right"></span>
+            <span>{{ busy() ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
           </button>
         </nz-form-item>
       </form>

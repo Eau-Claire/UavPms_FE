@@ -12,13 +12,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
 import { FacilityStore } from '../../../../core/facility/facility-store';
+import { roleLabelVietnamese } from '../../../../shared/status/status';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
 import { UsersApi } from '../../data-access/users-api';
 
@@ -27,7 +27,7 @@ const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, UserScopeDialog, Pagination],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -415,27 +415,7 @@ export class UserManagement {
   }
 
   protected roleLabel(role: UserRole | string): string {
-    const raw = String(role ?? '').trim();
-    const key = raw.toLowerCase().replace(/[\s_-]/g, '');
-    switch (key) {
-      case 'admin':
-      case 'systemadmin':
-      case 'administrator':
-        return 'SystemAdmin';
-      case 'manager':
-      case 'supervisor':
-        return 'Manager';
-      case 'inspector':
-      case 'pilot':
-        return 'Inspector';
-      case 'technician':
-      case 'maintenancetechnician':
-        return 'Technician';
-      case 'analyst':
-        return 'Analyst';
-      default:
-        return raw;
-    }
+    return roleLabelVietnamese(role);
   }
 
   protected statusLabel(status: UserStatus): string {

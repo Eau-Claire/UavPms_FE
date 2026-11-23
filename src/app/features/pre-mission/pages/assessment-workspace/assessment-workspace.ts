@@ -31,7 +31,6 @@ import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import {
   BetaflightSerialService,
-  SIMULATED_FC_PROFILES,
 } from '../../../../core/services/betaflight-serial.service';
 import { FlightControllerResolveResult } from '../../../../models/flight-controller.models';
 import {
@@ -196,10 +195,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   // Flight Controller (Betaflight MSP)
   protected readonly fcMetadata = this.fcSerial.activeMetadata;
   protected readonly fcConnectionState = this.fcSerial.connectionState;
-  protected readonly fcIsSimulated = this.fcSerial.isSimulated;
   protected readonly fcError = this.fcSerial.errorMessage;
-  protected readonly simulatedProfiles = SIMULATED_FC_PROFILES;
-  protected readonly selectedSimProfile = signal<string>('f405-speedybee');
   protected readonly customFcUidInput = signal<string>('');
   protected readonly showCustomUidInput = signal<boolean>(false);
   protected readonly resolvingFc = signal<boolean>(false);
@@ -209,14 +205,14 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly pairingSuccess = signal<string>('');
   protected readonly pairTargetDroneId = signal<string>('');
 
-  // Mock BIST Telemetry (Giả lập kiểm định viễn trắc lưu về Backend)
-  protected readonly showMockModal = signal<boolean>(false);
-  protected readonly mockSubmitting = signal<boolean>(false);
-  protected readonly mockPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
-  protected readonly mockBatteryLevel = signal<number>(96);
-  protected readonly mockGpsSats = signal<number>(28);
-  protected readonly mockRfQuality = signal<number>(98);
-  protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
+  // Technical inspection checklist modal state
+  protected readonly showChecklistModal = signal<boolean>(false);
+  protected readonly checklistSubmitting = signal<boolean>(false);
+  protected readonly inspectionPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
+  protected readonly checklistBatteryLevel = signal<number>(96);
+  protected readonly checklistGpsSats = signal<number>(28);
+  protected readonly checklistRfQuality = signal<number>(98);
+  protected readonly checklistNotes = signal<string>('Biên bản kiểm định kỹ thuật thiết bị UAV trước nhiệm vụ');
 
   // Khí tượng (tham khảo, không thay đổi kết quả đánh giá của backend)
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
@@ -793,21 +789,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected async connectSimulatedFc(profileId?: string): Promise<void> {
-    this.pairingError.set('');
-    this.pairingSuccess.set('');
-    this.resolvedFcData.set(null);
-    try {
-      const target =
-        profileId ||
-        (this.showCustomUidInput() && this.customFcUidInput().trim() ? this.customFcUidInput().trim() : this.selectedSimProfile());
-      const meta = await this.fcSerial.connectSimulated(target);
-      this.resolveFc(meta.uid);
-    } catch {
-      // Lỗi đã được ghi vào signal của BetaflightSerialService.
-    }
-  }
-
   protected async disconnectFc(): Promise<void> {
     await this.fcSerial.disconnect();
     this.resolvedFcData.set(null);
@@ -900,50 +881,37 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     // item that has none, so the technician records the checklist first; the modal submits it with the FC UID.
     this.error.set('');
     this.checklistManual.set(true);
-    this.showMockModal.set(true);
+    this.showChecklistModal.set(true);
   }
 
   protected onSelectDrone(droneId: string): void {
     this.selectedDroneId.set(droneId);
     this.inspectionResult.set(null);
     this.loadLatestInspection(droneId);
-    const drone = this.item()?.uavCandidates.find((d) => d.id === droneId);
-    if (drone?.code) {
-      const match = this.simulatedProfiles.find((p) => p.id.toLowerCase() === drone.code.toLowerCase());
-      if (match) {
-        this.selectedSimProfile.set(match.id);
-      }
-    }
   }
 
-  protected openMockModal(preset: 'healthy' | 'warning' | 'critical' = 'healthy'): void {
-    this.applyMockPreset(preset);
-    this.checklistManual.set(false);
-    this.showMockModal.set(true);
+  protected closeChecklistModal(): void {
+    if (this.checklistSubmitting()) return;
+    this.showChecklistModal.set(false);
   }
 
-  protected closeMockModal(): void {
-    if (this.mockSubmitting()) return;
-    this.showMockModal.set(false);
-  }
-
-  protected applyMockPreset(preset: 'healthy' | 'warning' | 'critical'): void {
-    this.mockPreset.set(preset);
+  protected applyInspectionPreset(preset: 'healthy' | 'warning' | 'critical'): void {
+    this.inspectionPreset.set(preset);
     if (preset === 'healthy') {
-      this.mockBatteryLevel.set(96);
-      this.mockGpsSats.set(28);
-      this.mockRfQuality.set(98);
-      this.mockNotes.set('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
+      this.checklistBatteryLevel.set(96);
+      this.checklistGpsSats.set(28);
+      this.checklistRfQuality.set(98);
+      this.checklistNotes.set('Biên bản kiểm định kỹ thuật thiết bị UAV trước nhiệm vụ');
     } else if (preset === 'warning') {
-      this.mockBatteryLevel.set(68);
-      this.mockGpsSats.set(14);
-      this.mockRfQuality.set(82);
-      this.mockNotes.set('Cảnh báo mức pin 68% cận ngưỡng và tín hiệu vệ tinh mức trung bình');
+      this.checklistBatteryLevel.set(68);
+      this.checklistGpsSats.set(14);
+      this.checklistRfQuality.set(82);
+      this.checklistNotes.set('Cảnh báo mức pin 68% cận ngưỡng và tín hiệu vệ tinh mức trung bình');
     } else {
-      this.mockBatteryLevel.set(28);
-      this.mockGpsSats.set(4);
-      this.mockRfQuality.set(45);
-      this.mockNotes.set('Cảnh báo lỗi cảm biến IMU, mất liên kết RTK và pin dưới ngưỡng an toàn');
+      this.checklistBatteryLevel.set(28);
+      this.checklistGpsSats.set(4);
+      this.checklistRfQuality.set(45);
+      this.checklistNotes.set('Cảnh báo lỗi cảm biến IMU, mất liên kết RTK và pin dưới ngưỡng an toàn');
     }
   }
 
@@ -1035,9 +1003,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
    * Submits the checklist from the modal (or a BIST preset) as a technical inspection. The payload always has
    * readings for every critical item; the `droneId` in the body is the inspected UAV.
    */
-  protected submitMockBistTelemetry(preset?: 'healthy' | 'warning' | 'critical'): void {
+  protected submitInspectionChecklist(preset?: 'healthy' | 'warning' | 'critical'): void {
     if (preset) {
-      this.applyMockPreset(preset);
+      this.applyInspectionPreset(preset);
       this.checklistManual.set(false);
     }
 
@@ -1058,17 +1026,16 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
     const fcMatches = this.isFcConnected() && this.isFcMatchingAssessmentDrone();
     const metrics = buildInspectionChecklist({
-      preset: this.mockPreset(),
-      batteryLevel: this.mockBatteryLevel(),
-      gpsSatellites: this.mockGpsSats(),
-      rfLinkQuality: this.mockRfQuality(),
+      preset: this.inspectionPreset(),
+      batteryLevel: this.checklistBatteryLevel(),
+      gpsSatellites: this.checklistGpsSats(),
+      rfLinkQuality: this.checklistRfQuality(),
       flightControllerConnected: fcMatches,
     });
-    const manual = this.checklistManual();
     const notes =
-      this.mockNotes().trim() || (manual ? 'Kiểm định kỹ thuật trước nhiệm vụ' : 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01');
+      this.checklistNotes().trim() || 'Kiểm định kỹ thuật trước nhiệm vụ';
 
-    this.mockSubmitting.set(true);
+    this.checklistSubmitting.set(true);
     this.inspecting.set(true);
     this.actionMessage.set('');
     this.error.set('');
@@ -1085,9 +1052,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.inspectionResult.set(res);
-          this.mockSubmitting.set(false);
+          this.checklistSubmitting.set(false);
           this.inspecting.set(false);
-          this.showMockModal.set(false);
+          this.showChecklistModal.set(false);
           this.applyInspectionResultToAssessment(res);
           const code = drone?.code || droneId;
           const passed = res.eligibility === 'ELIGIBLE' && (res.status || '').toLowerCase() === 'passed';
@@ -1126,7 +1093,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           });
         },
         error: (err: unknown) => {
-          this.mockSubmitting.set(false);
+          this.checklistSubmitting.set(false);
           this.inspecting.set(false);
           this.error.set(describeHttpError(err, 'Không thể lưu biên bản kiểm định kỹ thuật. Vui lòng thử lại.'));
         },

@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, ViewEncapsulation } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { roleLabelVietnamese } from '../../../../shared/status/status';
 
 @Component({
   selector: 'app-forbidden',
-  imports: [RouterLink, NzIconModule],
+  imports: [RouterLink],
   templateUrl: './forbidden.html',
   styleUrl: './forbidden.scss',
   encapsulation: ViewEncapsulation.None,
@@ -16,7 +16,7 @@ export class Forbidden {
   private readonly router = inject(Router);
 
   protected readonly user = computed(() => this.auth.user());
-  protected readonly userRole = computed(() => this.user()?.role || 'Chưa xác định');
+  protected readonly userRole = computed(() => roleLabelVietnamese(this.user()?.role));
 
   protected logout(): void {
     this.auth.logout();

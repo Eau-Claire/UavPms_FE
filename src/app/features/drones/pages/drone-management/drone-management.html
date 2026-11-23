@@ -305,19 +305,14 @@
 <div class="modal-backdrop" (click)="closeTechCheck()">
   <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>
-        <span nz-icon nzType="safety-certificate"></span>
-        Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}
-      </h3>
-      <button type="button" class="close-x" (click)="closeTechCheck()">
-        <span nz-icon nzType="close"></span>
-      </button>
+      <h3>Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}</h3>
+      <button type="button" class="close-x" (click)="closeTechCheck()" aria-label="Đóng">×</button>
     </div>
 
     <div class="modal-body">
       <div class="tech-check-intro">
         Biên bản kiểm tra kỹ thuật an toàn theo quy trình MF01. Mọi hạng mục trọng yếu (Khung vỏ, Cánh quạt, Động cơ,
-        Pin, GPS, FC) nếu <strong>FAIL</strong> sẽ đánh giá sức khỏe <strong>CRITICAL</strong> và khóa điều kiện bay của
+        Pin, GPS, FC) nếu <strong>Không đạt</strong> sẽ đánh giá sức khỏe <strong>Lỗi nghiêm trọng</strong> và khóa điều kiện bay của
         UAV.
       </div>
 
@@ -329,7 +324,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="frameBodyPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.frameBodyPassed.value">
-                {{ checkForm.controls.frameBodyPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.frameBodyPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -344,7 +339,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="propellersPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.propellersPassed.value">
-                {{ checkForm.controls.propellersPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.propellersPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -359,7 +354,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="motorsPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.motorsPassed.value">
-                {{ checkForm.controls.motorsPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.motorsPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -374,7 +369,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="cameraPayloadPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.cameraPayloadPassed.value">
-                {{ checkForm.controls.cameraPayloadPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.cameraPayloadPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -389,7 +384,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="batteryPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.batteryPassed.value">
-                {{ checkForm.controls.batteryPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.batteryPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -417,7 +412,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="gpsPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.gpsPassed.value">
-                {{ checkForm.controls.gpsPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.gpsPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -441,7 +436,7 @@
             <label class="check-toggle">
               <input type="checkbox" formControlName="communicationPassed" />
               <span class="toggle-status" [class.pass]="checkForm.controls.communicationPassed.value">
-                {{ checkForm.controls.communicationPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                {{ checkForm.controls.communicationPassed.value ? 'Đạt' : 'Không đạt' }}
               </span>
             </label>
           </div>
@@ -456,14 +451,14 @@
           <div class="check-item-head">
             <span class="item-title">8. Bo mạch điều khiển bay (Flight Controller MSP)</span>
             <div style="display: flex; gap: 8px; align-items: center;">
-              <button type="button" class="button secondary small" (click)="populateFcFromConnectedSerial()"
+              <button type="button" class="app-btn-secondary" (click)="populateFcFromConnectedSerial()"
                 title="Đọc thông số từ cổng USB/Serial kết nối hiện thời">
-                <span nz-icon nzType="usb"></span> Nạp từ FC USB
+                Nạp từ FC USB
               </button>
               <label class="check-toggle">
                 <input type="checkbox" formControlName="flightControllerPassed" />
                 <span class="toggle-status" [class.pass]="checkForm.controls.flightControllerPassed.value">
-                  {{ checkForm.controls.flightControllerPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+                  {{ checkForm.controls.flightControllerPassed.value ? 'Đạt' : 'Không đạt' }}
                 </span>
               </label>
             </div>
@@ -496,13 +491,9 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="button secondary" (click)="closeTechCheck()">Hủy bỏ</button>
-          <button type="submit" class="button primary" [disabled]="busy()">
-            @if (busy()) {
-            <span nz-icon nzType="loading"></span> Đang nộp biên bản...
-            } @else {
-            <span nz-icon nzType="check-square"></span> Nộp Biên Bản Kiểm Định
-            }
+          <button type="button" class="app-btn-secondary" (click)="closeTechCheck()">Hủy bỏ</button>
+          <button type="submit" class="app-btn-primary" [disabled]="busy()">
+            {{ busy() ? 'Đang nộp biên bản...' : 'Nộp biên bản kiểm định' }}
           </button>
         </div>
       </form>
@@ -610,13 +601,8 @@
 <div class="modal-backdrop" (click)="closeGisModal()">
   <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>
-        <span nz-icon nzType="calculator"></span>
-        Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS
-      </h3>
-      <button type="button" class="close-x" (click)="closeGisModal()">
-        <span nz-icon nzType="close"></span>
-      </button>
+      <h3>Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS</h3>
+      <button type="button" class="close-x" (click)="closeGisModal()" aria-label="Đóng">×</button>
     </div>
 
     <div class="modal-body">
@@ -638,12 +624,8 @@
             <input type="number" formControlName="assetCount" min="1" max="200" />
           </div>
           <div class="form-group" style="align-self: flex-end;">
-            <button type="submit" class="button primary" [disabled]="gisBusy()" style="width: 100%;">
-              @if (gisBusy()) {
-              <span nz-icon nzType="loading"></span> Đang tính toán...
-              } @else {
-              <span nz-icon nzType="thunderbolt"></span> Chạy Mô Phỏng Ước Tính
-              }
+            <button type="submit" class="app-btn-primary" [disabled]="gisBusy()" style="width: 100%;">
+              {{ gisBusy() ? 'Đang tính toán...' : 'Tính toán ước tính bay' }}
             </button>
           </div>
         </div>
@@ -683,11 +665,11 @@
               </div>
               <span class="badge" [class]="suitabilityBadgeClass(item.suitability)">
                 @if (item.suitability === 'SUITABLE') {
-                <span nz-icon nzType="check"></span> ĐẠT (SUITABLE)
+                Phù hợp
                 } @else if (item.suitability === 'SUITABLE_WITH_SPLIT') {
-                <span nz-icon nzType="branches"></span> CHIA CHẶNG ({{ item.estimatedFlightsNeeded }} LẦN BAY)
+                Chia chặng ({{ item.estimatedFlightsNeeded }} lần bay)
                 } @else {
-                <span nz-icon nzType="close"></span> KHÔNG PHÙ HỢP
+                Không phù hợp
                 }
               </span>
             </div>
@@ -727,32 +709,24 @@
 <div class="modal-backdrop" (click)="closeFcModal()">
   <div class="modal-dialog" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>
-        <span nz-icon nzType="usb"></span>
-        Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}
-      </h3>
-      <button type="button" class="close-x" (click)="closeFcModal()" [disabled]="fcBusy()">
-        <span nz-icon nzType="close"></span>
-      </button>
+      <h3>Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}</h3>
+      <button type="button" class="close-x" (click)="closeFcModal()" [disabled]="fcBusy()" aria-label="Đóng">×</button>
     </div>
 
     <div class="modal-body">
       @if (fcError()) {
       <div class="error-banner" role="alert">
-        <span nz-icon nzType="alert"></span> {{ fcError() }}
+        {{ fcError() }}
       </div>
       }
 
       <div class="fc-quick-connect-bar">
-        <button type="button" class="sub-action-btn check" (click)="scanFcFromUsb()" [disabled]="fcBusy()">
-          <span nz-icon nzType="usb"></span> Quét USB MSP (Betaflight)
-        </button>
-        <button type="button" class="sub-action-btn history" (click)="simulateFcConnect()" [disabled]="fcBusy()">
-          <span nz-icon nzType="thunderbolt"></span> Mô phỏng UID
+        <button type="button" class="app-btn-secondary" (click)="scanFcFromUsb()" [disabled]="fcBusy()">
+          Quét USB MSP (Betaflight)
         </button>
         @if (targetDroneForFc()?.activeFlightController) {
-        <button type="button" class="sub-action-btn danger" (click)="unpairFc()" [disabled]="fcBusy()">
-          <span nz-icon nzType="disconnect"></span> Hủy ghép nối FC
+        <button type="button" class="app-btn-danger" (click)="unpairFc()" [disabled]="fcBusy()">
+          Hủy ghép nối FC
         </button>
         }
       </div>
@@ -761,7 +735,7 @@
         <div class="form-group">
           <label>Mã UID phần cứng FC (Hardware UID) <span class="req">*</span></label>
           <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: 002100373038510b34313936"
-            style="font-family: monospace;" />
+            class="tabular-nums" />
           <small class="field-hint">Chuỗi định danh độc nhất đọc từ vi điều khiển STM32 qua lệnh MSP_UID.</small>
         </div>
 
@@ -782,13 +756,9 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="button secondary" (click)="closeFcModal()" [disabled]="fcBusy()">Hủy</button>
-          <button type="submit" class="button primary" [disabled]="fcBusy()">
-            @if (fcBusy()) {
-            <span nz-icon nzType="loading"></span> Đang lưu...
-            } @else {
-            <span nz-icon nzType="save"></span> Lưu ghép nối FC
-            }
+          <button type="button" class="app-btn-secondary" (click)="closeFcModal()" [disabled]="fcBusy()">Hủy</button>
+          <button type="submit" class="app-btn-primary" [disabled]="fcBusy()">
+            {{ fcBusy() ? 'Đang lưu...' : 'Lưu ghép nối FC' }}
           </button>
         </div>
       </form>

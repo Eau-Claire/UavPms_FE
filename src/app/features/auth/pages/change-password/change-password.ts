@@ -1,20 +1,15 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Auth } from '../../../../core/auth/auth';
-import { NgOptimizedImage } from '@angular/common';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzInputModule } from 'ng-zorro-antd/input';
 import { checkPasswordComplexity, passwordComplexityValidator } from '../../../../shared/utils/password-validator';
 
 @Component({
   selector: 'app-change-password',
-  imports: [ReactiveFormsModule, NgOptimizedImage, NzButtonModule, NzFormModule, NzIconModule, NzInputModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './change-password.html',
   styleUrl: './change-password.scss',
   encapsulation: ViewEncapsulation.None,

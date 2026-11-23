@@ -12,7 +12,6 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { DroneManagementApi } from '../../data-access/drone-management-api';
@@ -33,12 +32,13 @@ import { BetaflightSerialService } from '../../../../core/services/betaflight-se
 import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
+import { statusLabel as sharedStatusLabel } from '../../../../shared/status/status';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
 
 @Component({
   selector: 'app-drone-management',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, DecimalPipe, Pagination],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, Pagination],
   templateUrl: './drone-management.html',
   styleUrl: './drone-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -235,25 +235,6 @@ export class DroneManagement {
       this.showNotification(`Đã nhận diện FC UID: ${meta.uid}`);
     } catch (err: unknown) {
       this.fcError.set(describeHttpError(err, 'Không thể kết nối Flight Controller qua cổng USB.'));
-    } finally {
-      this.fcBusy.set(false);
-    }
-  }
-
-  protected async simulateFcConnect(): Promise<void> {
-    try {
-      this.fcBusy.set(true);
-      this.fcError.set('');
-      const meta = await this.fcSerial.connectSimulated();
-      this.fcForm.patchValue({
-        flightControllerUid: meta.uid,
-        boardIdentifier: meta.boardIdentifier || 'Betaflight STM32F405',
-        firmwareName: meta.firmwareName || 'Betaflight',
-        firmwareVersion: meta.firmwareVersion || '4.5.1',
-      });
-      this.showNotification(`Đã mô phỏng kết nối FC UID: ${meta.uid}`);
-    } catch (err: unknown) {
-      this.fcError.set('Lỗi mô phỏng kết nối.');
     } finally {
       this.fcBusy.set(false);
     }
@@ -688,23 +669,11 @@ export class DroneManagement {
 
   // --- Helpers ---
   protected statusLabel(status: string): string {
-    const s = (status || '').toUpperCase();
-    if (s === 'AVAILABLE') return 'Khả dụng';
-    if (s === 'INUSE') return 'Đang làm nhiệm vụ';
-    if (s === 'RESERVED') return 'Đã giữ chỗ';
-    if (s === 'MAINTENANCE') return 'Bảo dưỡng';
-    if (s === 'UNAVAILABLE') return 'Tạm ngưng';
-    if (s === 'LOST') return 'Mất thiết bị';
-    return status || 'Chưa rõ';
+    return status ? sharedStatusLabel(status) : 'Chưa rõ';
   }
 
   protected healthLabel(health: string): string {
-    const h = (health || '').toUpperCase();
-    if (h === 'HEALTHY') return 'Đạt an toàn';
-    if (h === 'WARNING') return 'Cảnh báo';
-    if (h === 'CRITICAL') return 'Lỗi - không bay';
-    if (h === 'UNKNOWN') return 'Chưa kiểm tra';
-    return health || 'Chưa kiểm tra';
+    return health ? sharedStatusLabel(health) : 'Chưa kiểm định';
   }
 
   protected statusBadgeClass(status: string): string {

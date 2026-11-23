@@ -15,12 +15,12 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Mission, MissionAssignment, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isInspectorRole, isTechnicianRole, roleLabel } from '../../../../core/auth/roles';
+import { priorityColorClass, statusColorClass, statusLabel as sharedStatusLabel } from '../../../../shared/status/status';
 import {
   AcceptanceState,
   acceptanceState,
@@ -37,7 +37,7 @@ type InspectorFocus = 'flight' | 'analysis' | 'maintenance' | 'other';
 
 @Component({
   selector: 'app-mission-inspector',
-  imports: [DatePipe, RouterLink, NzIconModule],
+  imports: [DatePipe, RouterLink],
   templateUrl: './mission-inspector.html',
   styleUrl: './mission-inspector.scss',
   encapsulation: ViewEncapsulation.None,
@@ -473,8 +473,11 @@ export class MissionInspector {
     }
   }
 
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly priorityColorClass = priorityColorClass;
+
   protected statusLabel(status: string): string {
-    return missionStatusLabel(status);
+    return sharedStatusLabel(status) || missionStatusLabel(status);
   }
 
   protected towerStatusLabel(status: string): string {

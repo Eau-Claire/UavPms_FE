@@ -7,13 +7,12 @@ import { Auth } from '../../../../core/auth/auth';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { passwordComplexityValidator } from '../../../../shared/utils/password-validator';
 
 @Component({
   selector: 'app-reset-password',
-  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzFormModule, NzIconModule, NzInputModule],
+  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzFormModule, NzInputModule],
   templateUrl: './reset-password.html',
   styleUrl: './reset-password.scss',
   encapsulation: ViewEncapsulation.None,

@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnIni
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { ToastService } from '../../../../core/toast/toast.service';
@@ -12,7 +11,7 @@ import { SystemSettingsApi } from '../../data-access/system-settings-api';
 
 @Component({
   selector: 'app-system-settings',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, NzIconModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
   templateUrl: './system-settings.html',
   styleUrl: './system-settings.scss',
   encapsulation: ViewEncapsulation.None,
@@ -32,6 +31,7 @@ export class SystemSettingsPage implements OnInit {
 
   protected readonly settings = signal<readonly SystemSettingItem[]>([]);
   protected readonly loading = signal(false);
+  protected readonly loadError = signal('');
   protected readonly savingKey = signal<string | null>(null);
   protected readonly selectedCategory = signal<string>('ALL');
   protected readonly searchQuery = signal('');
@@ -63,6 +63,7 @@ export class SystemSettingsPage implements OnInit {
 
   protected load(): void {
     this.loading.set(true);
+    this.loadError.set('');
     this.api
       .getAll()
       .pipe(
@@ -71,7 +72,10 @@ export class SystemSettingsPage implements OnInit {
       )
       .subscribe({
         next: (items) => this.settings.set(items),
-        error: () => this.toast.error('Không thể tải danh sách cấu hình hệ thống.'),
+        error: () => {
+          this.settings.set([]);
+          this.loadError.set('Chưa tải được cấu hình hệ thống từ máy chủ (API /system/settings chưa khả dụng).');
+        },
       });
   }
 

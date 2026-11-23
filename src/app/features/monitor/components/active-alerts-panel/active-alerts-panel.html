@@ -59,27 +59,17 @@
             </div>
           </div>
 
-          <!-- Structured summary or text with highlighted numbers -->
-          @if (parseSummary(alert.message); as summary) {
-            <div class="metrics-row">
-              <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
-              <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
-              <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
-              <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
-            </div>
-          } @else {
-            <p class="alert-desc">{{ alert.message }}</p>
-          }
+          <p class="alert-desc">{{ alert.message }}</p>
         </div>
       </article>
     } @empty {
       <div class="empty-alerts">
-        <span>Không có cảnh báo nào{{ filterMode() === 'unread' ? ' chưa đọc' : '' }}.</span>
+        <span>Không có thông báo nào{{ filterMode() === 'unread' ? ' chưa đọc' : '' }}.</span>
       </div>
     }
   </div>
 
-  <!-- Footer: Row 1 = Status & Xem them, Row 2 = Trung tam Canh bao (can le phai) -->
+  <!-- Footer: Row 1 = Status & Xem them, Row 2 = Hang doi khuyet tat (can le phai) -->
   @if (filteredAlerts().length > defaultLimit) {
     <footer class="alerts-footer">
       <div class="footer-row-main">
@@ -87,7 +77,7 @@
           @if (!showAll()) {
             Hiển thị <strong>{{ displayedAlerts().length }}</strong>/{{ filteredAlerts().length }} mới nhất
           } @else {
-            Đang hiển thị tất cả <strong>{{ filteredAlerts().length }}</strong> cảnh báo
+            Đang hiển thị tất cả <strong>{{ filteredAlerts().length }}</strong> thông báo
           }
         </span>
         <button
@@ -100,15 +90,15 @@
       </div>
 
       <div class="footer-row-bottom">
-        <a routerLink="/emergency-alerts" class="emergency-center-link" title="Xem tất cả cảnh báo khẩn cấp">
-          Cảnh báo khẩn cấp →
+        <a routerLink="/ai-review" [queryParams]="{ priority: 'emergency' }" class="emergency-center-link" title="Xem hàng đợi khuyết tật khẩn cấp">
+          Khuyết tật khẩn cấp →
         </a>
       </div>
     </footer>
   } @else if (filteredAlerts().length > 0) {
     <footer class="alerts-footer-compact">
-      <a routerLink="/emergency-alerts" class="emergency-center-link" title="Xem tất cả cảnh báo khẩn cấp">
-        Cảnh báo khẩn cấp →
+      <a routerLink="/ai-review" [queryParams]="{ priority: 'emergency' }" class="emergency-center-link" title="Xem hàng đợi khuyết tật khẩn cấp">
+        Khuyết tật khẩn cấp →
       </a>
     </footer>
   }

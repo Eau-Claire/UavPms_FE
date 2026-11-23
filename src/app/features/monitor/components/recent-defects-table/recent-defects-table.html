@@ -1,5 +1,5 @@
 <div class="table-scroll">
-  <table>
+  <table class="app-data-table">
     <caption class="sr-only">Sự cố phát hiện bởi AI gần đây</caption>
     <thead>
       <tr>
@@ -22,12 +22,14 @@
             }
           </td>
           <td>{{ defect.defectType }}</td>
-          <td>{{ defect.detectedAt | date:'dd/MM/yyyy, HH:mm' }}</td>
+          <td class="tabular-nums">{{ defect.detectedAt | date:'dd/MM/yyyy, HH:mm' }}</td>
           <td>
             @if (defect.imageUrl) {
               <a [href]="defect.imageUrl" target="_blank" rel="noopener" class="thumb-link" title="Xem ảnh kiểm tra">
                 <img
                   [src]="defect.imageUrl"
+                  loading="lazy"
+                  decoding="async"
                   alt="Ảnh kiểm tra của {{ defect.missionName }}"
                   (error)="onImageError($event)"
                 />

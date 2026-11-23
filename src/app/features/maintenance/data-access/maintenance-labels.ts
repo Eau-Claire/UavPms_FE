@@ -1,34 +1,18 @@
 import { UserRole } from '../../../models/auth.models';
+import { priorityLabel, statusLabel, statusTone } from '../../../shared/status/status';
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
-const STATUS_LABELS: Record<string, string> = {
-  Open: 'Mới mở',
-  Assigned: 'Đã giao',
-  InProgress: 'Đang xử lý',
-  PendingVerification: 'Chờ nghiệm thu',
-  Closed: 'Đã đóng',
-  Cancelled: 'Đã hủy',
-  Resolved: 'Đã hoàn thành',
+export const maintenanceStatusLabel = (status: string): string => (status ? statusLabel(status) : '—');
+export const maintenanceStatusTone = (status: string): Tone => (status ? statusTone(status) : 'neutral');
+export const maintenancePriorityLabel = (priority: string): string => (priority ? priorityLabel(priority) : '—');
+export const maintenancePriorityTone = (priority: string): Tone => {
+  const key = (priority || '').toUpperCase();
+  if (key === 'EMERGENCY' || key === 'CRITICAL') return 'danger';
+  if (key === 'HIGH') return 'warning';
+  if (key === 'MEDIUM') return 'info';
+  return 'neutral';
 };
-
-const STATUS_TONES: Record<string, Tone> = {
-  Open: 'warning',
-  Assigned: 'info',
-  InProgress: 'info',
-  PendingVerification: 'warning',
-  Closed: 'success',
-  Cancelled: 'danger',
-  Resolved: 'success',
-};
-
-const PRIORITY_LABELS: Record<string, string> = { Low: 'Thấp', Medium: 'Trung bình', High: 'Cao', Emergency: 'Khẩn cấp' };
-const PRIORITY_TONES: Record<string, Tone> = { Low: 'neutral', Medium: 'info', High: 'warning', Emergency: 'danger' };
-
-export const maintenanceStatusLabel = (status: string): string => STATUS_LABELS[status] ?? status;
-export const maintenanceStatusTone = (status: string): Tone => STATUS_TONES[status] ?? 'neutral';
-export const maintenancePriorityLabel = (priority: string): string => PRIORITY_LABELS[priority] ?? priority;
-export const maintenancePriorityTone = (priority: string): Tone => PRIORITY_TONES[priority] ?? 'neutral';
 
 export const isClosedStatus = (status: string): boolean => status === 'Closed' || status === 'Resolved';
 

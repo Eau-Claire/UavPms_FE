@@ -810,13 +810,13 @@
     </div>
   }
 
-  <!-- Real Technical Inspection Checklist Modal (0 Mock Presets) -->
-  @if (showMockModal()) {
-    <div class="ws-modal-backdrop" tabindex="-1" (click)="closeMockModal()" (keydown.escape)="closeMockModal()" role="dialog" aria-modal="true" aria-labelledby="checklistModalTitle">
-      <div class="ws-modal-dialog" style="max-width: 540px;" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="closeMockModal()">
+  <!-- Real Technical Inspection Checklist Modal -->
+  @if (showChecklistModal()) {
+    <div class="ws-modal-backdrop" tabindex="-1" (click)="closeChecklistModal()" (keydown.escape)="closeChecklistModal()" role="dialog" aria-modal="true" aria-labelledby="checklistModalTitle">
+      <div class="ws-modal-dialog" style="max-width: 540px;" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="closeChecklistModal()">
         <div class="ws-modal-header">
           <h3 id="checklistModalTitle">Nhập kết quả kiểm định kỹ thuật UAV</h3>
-          <button type="button" class="app-btn-action" (click)="closeMockModal()" [disabled]="mockSubmitting()">Đóng</button>
+          <button type="button" class="app-btn-action" (click)="closeChecklistModal()" [disabled]="checklistSubmitting()">Đóng</button>
         </div>
         <div class="ws-modal-body">
           <p class="ws-modal-text">
@@ -826,26 +826,26 @@
           <div class="ws-checklist-grid">
             <div class="ws-field">
               <label for="checklistBattery" class="ws-field-label">Mức pin thực tế (%)</label>
-              <input id="checklistBattery" type="number" min="0" max="100" class="ws-input tabular-nums" [value]="mockBatteryLevel()" (input)="mockBatteryLevel.set(+$any($event.target).value)" />
+              <input id="checklistBattery" type="number" min="0" max="100" class="ws-input tabular-nums" [value]="checklistBatteryLevel()" (input)="checklistBatteryLevel.set(+$any($event.target).value)" />
             </div>
             <div class="ws-field">
               <label for="checklistGps" class="ws-field-label">Số vệ tinh GPS/RTK</label>
-              <input id="checklistGps" type="number" min="0" max="40" class="ws-input tabular-nums" [value]="mockGpsSats()" (input)="mockGpsSats.set(+$any($event.target).value)" />
+              <input id="checklistGps" type="number" min="0" max="40" class="ws-input tabular-nums" [value]="checklistGpsSats()" (input)="checklistGpsSats.set(+$any($event.target).value)" />
             </div>
             <div class="ws-field">
               <label for="checklistRf" class="ws-field-label">Tín hiệu RF viễn trắc (%)</label>
-              <input id="checklistRf" type="number" min="0" max="100" class="ws-input tabular-nums" [value]="mockRfQuality()" (input)="mockRfQuality.set(+$any($event.target).value)" />
+              <input id="checklistRf" type="number" min="0" max="100" class="ws-input tabular-nums" [value]="checklistRfQuality()" (input)="checklistRfQuality.set(+$any($event.target).value)" />
             </div>
             <div class="ws-field">
               <label for="checklistNotes" class="ws-field-label">Ghi chú biên bản</label>
-              <input id="checklistNotes" type="text" class="ws-input" [value]="mockNotes()" (input)="mockNotes.set($any($event.target).value)" />
+              <input id="checklistNotes" type="text" class="ws-input" [value]="checklistNotes()" (input)="checklistNotes.set($any($event.target).value)" />
             </div>
           </div>
         </div>
         <div class="ws-modal-footer">
-          <button type="button" class="app-btn-secondary" (click)="closeMockModal()" [disabled]="mockSubmitting()">Đóng</button>
-          <button type="button" class="app-btn-primary" (click)="submitMockBistTelemetry()" [disabled]="mockSubmitting()">
-            {{ mockSubmitting() ? 'Đang lưu...' : 'Lưu biên bản kiểm định' }}
+          <button type="button" class="app-btn-secondary" (click)="closeChecklistModal()" [disabled]="checklistSubmitting()">Đóng</button>
+          <button type="button" class="app-btn-primary" (click)="submitInspectionChecklist()" [disabled]="checklistSubmitting()">
+            {{ checklistSubmitting() ? 'Đang lưu...' : 'Lưu biên bản kiểm định' }}
           </button>
         </div>
       </div>

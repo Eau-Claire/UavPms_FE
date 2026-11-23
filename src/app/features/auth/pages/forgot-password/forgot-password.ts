@@ -7,12 +7,11 @@ import { Auth } from '../../../../core/auth/auth';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 
 @Component({
   selector: 'app-forgot-password',
-  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzFormModule, NzIconModule, NzInputModule],
+  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzFormModule, NzInputModule],
   templateUrl: './forgot-password.html',
   styleUrl: './forgot-password.scss',
   encapsulation: ViewEncapsulation.None,

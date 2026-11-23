@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,7 +14,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
 import { unwrapApiData } from '../../../../models/api.models';
@@ -125,7 +124,7 @@ export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowSt
 
 @Component({
   selector: 'app-standalone-upload',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink],
   templateUrl: './standalone-upload.html',
   styleUrl: './standalone-upload.scss',
   encapsulation: ViewEncapsulation.None,
@@ -489,7 +488,15 @@ export class StandaloneUpload {
               this.handlePollingTimeout(serverId, analysisType, notes, filesCount, isVideo, userMediaUrl);
             }
           },
-          error: () => {
+          error: (err: unknown) => {
+            if (err instanceof HttpErrorResponse && err.status === 403) {
+              this.uploading.set(false);
+              this.uploadError.set(
+                'Lỗi phân quyền máy chủ (HTTP 403 Forbidden): Vai trò tài khoản hiện tại chưa được cấp quyền truy cập API phân tích AI (GET /api/v1/ai-analysis/{id}). Vui lòng báo backend bổ sung vai trò Admin/SystemAdmin.',
+              );
+              this.store.setWorkflowStage('ready');
+              return;
+            }
             if (this.pollCount < maxPolls) {
               this.pollingTimer = setTimeout(runPoll, pollInterval);
             } else {
@@ -710,8 +717,8 @@ export class StandaloneUpload {
         duration: '-',
         durationSeconds: 0,
         kind: 'image',
-        status: 'Đã phân tích',
-        progress: 100,
+        status: 'Chờ phân tích',
+        progress: 0,
       };
 
       this.store.clearFiles();
@@ -719,80 +726,12 @@ export class StandaloneUpload {
       this.store.setFiles([media]);
       this.store.selectMedia(mediaId);
 
-      let cropUrl = previewUrl;
-      try {
-        cropUrl = await extractCropDataUrl(previewUrl, preset.boundingBox);
-      } catch {
-        // Fallback
-      }
-
-      const det: AiDetection = {
-        id: `det-sample-${preset.key}`,
-        title: preset.title,
-        confidence: preset.confidence,
-        categoryCode: preset.categoryCode,
-        description: preset.description,
-        mediaType: 'image',
-        timestampSeconds: null,
-        timestampLabel: 'Ảnh mẫu chuẩn',
-        frameIndex: 1,
-        gps: preset.gps,
-        tower: preset.tower,
-        missionName: 'Kiểm thử mẫu QA',
-        imageUrl: previewUrl,
-        sourceUrl: previewUrl,
-        cropImageUrl: cropUrl,
-        boundingBox: preset.boundingBox,
-        severityWeight: preset.severityWeight,
-        isEmergency: preset.isEmergency,
-        status: 'Pending',
-        detectedAt: new Date().toISOString(),
-      };
-
-      const sessionResult: AnalysisSessionResult = {
-        id: `sample-${preset.key}-${Date.now().toString().slice(-6)}`,
-        status: 'Completed',
+      this.form.patchValue({
         analysisType: 'DefectDetection',
         notes: `Ảnh mẫu kiểm thử khuyết tật: ${preset.title}`,
-        createdAt: new Date().toISOString(),
-        filesCount: 1,
-        detections: [det],
-      };
+      });
 
-      this.store.setUploadResult(sessionResult);
-      this.store.setWorkflowStage('inspected');
-      this.store.setDetections([det]);
-
-      if (preset.isEmergency) {
-        const emergencyAlert: ActiveEmergencyAlert = {
-          id: `alert-sample-${preset.key}`,
-          anomalyId: det.id,
-          categoryName: preset.title,
-          alertType: preset.categoryCode,
-          priority: 'Critical',
-          towerCode: preset.tower,
-          towerId: 't-sample-01',
-          status: 'Open',
-          deliveryLatencySeconds: 1,
-          triggeredAt: new Date().toISOString(),
-          location: {
-            latitude: 10.8065,
-            longitude: 106.7175,
-            towerCode: preset.tower,
-          },
-          evidence: {
-            confidenceScore: preset.confidence,
-            mediaUrl: previewUrl,
-            boundingBox: {
-              ...preset.boundingBox,
-              isNormalized: true,
-            },
-          },
-        };
-        this.store.setLastTriggeredEmergencyAlert(emergencyAlert);
-      } else {
-        this.store.setLastTriggeredEmergencyAlert(null);
-      }
+      this.onSubmit();
     } catch {
       // ignore
     }

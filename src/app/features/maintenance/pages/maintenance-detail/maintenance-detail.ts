@@ -2,8 +2,8 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { catchError, finalize, map, Observable, of, Subject, switchMap, tap } from 'rxjs';
+import { priorityColorClass, statusColorClass } from '../../../../shared/status/status';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceProof, MaintenanceTicket, MaterialLog } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
@@ -59,7 +59,7 @@ const ACTIONS: Record<TicketAction, ActionConfig> = {
 /** `/maintenance/:id`: ticket detail with the MF04 workflow actions allowed for the current role. */
 @Component({
   selector: 'app-maintenance-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, NzIconModule, DataState, ConfirmDialog, AssignTechnician, DefectImage, MaterialForm, ProofUpload, TicketTimeline],
+  imports: [DatePipe, DecimalPipe, RouterLink, DataState, ConfirmDialog, AssignTechnician, DefectImage, MaterialForm, ProofUpload, TicketTimeline],
   templateUrl: './maintenance-detail.html',
   styleUrl: './maintenance-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -77,8 +77,10 @@ export class MaintenanceDetail {
 
   protected readonly statusLabel = maintenanceStatusLabel;
   protected readonly statusTone = maintenanceStatusTone;
+  protected readonly statusColorClass = statusColorClass;
   protected readonly priorityLabel = maintenancePriorityLabel;
   protected readonly priorityTone = maintenancePriorityTone;
+  protected readonly priorityColorClass = priorityColorClass;
 
   protected readonly ticket = signal<MaintenanceTicket | null>(null);
   protected readonly loading = signal(true);

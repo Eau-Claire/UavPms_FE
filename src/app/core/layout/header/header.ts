@@ -82,7 +82,6 @@ export class Header {
       const u = this.user();
       if (u) {
         this.notifications.connect(u.id);
-        this.notifications.load(u.id, false);
       } else {
         this.notifications.disconnect();
       }

@@ -12,7 +12,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
@@ -20,6 +19,7 @@ import { NotificationsStore } from '../../../notifications/data-access/notificat
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { roleFamily } from '../../../../core/auth/roles';
+import { statusColorClass, statusLabel } from '../../../../shared/status/status';
 import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
   AnalysisRunInfo,
@@ -50,7 +50,7 @@ const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'adm
 
 @Component({
   selector: 'app-detection-review',
-  imports: [DatePipe, RouterLink, FormsModule, NzIconModule],
+  imports: [DatePipe, RouterLink, FormsModule],
   templateUrl: './detection-review.html',
   styleUrl: './detection-review.scss',
   encapsulation: ViewEncapsulation.None,
@@ -524,11 +524,11 @@ export class DetectionReview {
     return null;
   }
 
+  protected readonly statusColorClass = statusColorClass;
+
   protected statusClass(item: AnomalyItem): string {
-    if (item.supersededById) return 'status-rejected';
-    if (item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved') return 'status-confirmed';
-    if (item.validationStatus === 'Rejected') return 'status-rejected';
-    return 'status-pending';
+    if (item.supersededById) return 'text-slate-500 font-medium';
+    return statusColorClass(item.validationStatus || 'Pending');
   }
 
   protected isEmergencyItem(item: AnomalyItem): boolean {
@@ -539,12 +539,8 @@ export class DetectionReview {
   }
 
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Đã thay thế';
-    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận';
-    if (item.validationStatus === 'Resolved') return 'Đã khắc phục';
-    if (item.validationStatus === 'Rejected') return 'Đã từ chối';
-    if (item.validationStatus === 'InReview') return 'Đang thẩm định';
-    return 'Chờ duyệt';
+    if (item.supersededById) return statusLabel('Superseded');
+    return statusLabel(item.validationStatus || 'Pending');
   }
 
   protected confidenceClass(score: number): string {

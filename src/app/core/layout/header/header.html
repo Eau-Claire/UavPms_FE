@@ -45,7 +45,7 @@
                 aria-label="Bộ lọc thông báo"
                 (click)="notificationFiltersOpen.update((value) => !value)"
               >
-                <span nz-icon nzType="filter"></span>
+                Lọc
               </button>
               <button
                 type="button"
@@ -54,7 +54,7 @@
                 aria-label="Làm mới thông báo"
                 (click)="resetNotifications()"
               >
-                <span nz-icon nzType="reload"></span>
+                Làm mới
               </button>
               @if (notifications.unreadCount() > 0) {
                 <button
@@ -63,7 +63,6 @@
                   title="Đánh dấu tất cả thông báo là đã đọc"
                   (click)="markAllAsRead()"
                 >
-                  <span nz-icon nzType="check"></span>
                   Đã đọc
                 </button>
               }
@@ -113,7 +112,7 @@
             <article class="notification-detail">
               <div class="notification-detail-top">
                 <button type="button" class="notification-back" (click)="notifications.clearSelection()">
-                  <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
+                  Quay lại danh sách
                 </button>
                 <time class="notification-detail-time">{{ formatDate(selected.createdAt) }}</time>
               </div>
@@ -121,21 +120,13 @@
               <div class="notification-detail-heading">
                 <span class="notification-type">{{ selected.type || 'Chung' }}</span>
                 @if (selected.referenceType) {
-                  <span class="notification-detail-dot">•</span>
+                  <span class="notification-detail-dot">·</span>
                   <span class="notification-ref">{{ referenceTypeLabel(selected.referenceType) }}</span>
                 }
               </div>
 
               <h3>{{ cleanTitle(selected.title) }}</h3>
 
-              @if (parseSummary(selected.body); as summary) {
-                <div class="metrics-row detail-metrics">
-                  <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
-                  <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
-                  <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
-                  <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
-                </div>
-              }
               <p class="notification-detail-body">{{ selected.body || 'Không có nội dung thông báo.' }}</p>
 
               @if (selected.referenceType || selected.referenceId) {
@@ -148,19 +139,18 @@
               <div class="notification-detail-actions">
                 @if (selectedLink(); as link) {
                   <a class="notification-go-mission-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" (click)="closeNotifications()">
-                    <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
+                    {{ link.label }}
                   </a>
                 }
                 @if (!selected.isRead) {
                   <button type="button" class="notif-btn-secondary" (click)="notifications.markRead(selected.id)">
-                    <span nz-icon nzType="check"></span> Đánh dấu đã đọc
+                    Đánh dấu đã đọc
                   </button>
                 }
               </div>
             </article>
           } @else if (notifications.loading()) {
             <div class="notification-empty">
-              <span nz-icon nzType="loading" [nzSpin]="true"></span>
               <span>Đang tải thông báo...</span>
             </div>
           } @else if (groupedNotifications().length) {
@@ -182,7 +172,6 @@
                     <div class="card-main">
                       <div class="card-header">
                         <div class="card-title-group">
-                          <span nz-icon [nzType]="typeIcon(item.type, item.referenceType)" class="notif-type-icon"></span>
                           <span class="notif-title" [class.unread]="!item.isRead">{{ cleanTitle(item.title) }}</span>
                         </div>
                         <div class="card-meta">
@@ -193,14 +182,7 @@
                         </div>
                       </div>
 
-                      @if (parseSummary(item.body); as summary) {
-                        <div class="metrics-row">
-                          <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
-                          <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
-                          <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
-                          <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
-                        </div>
-                      } @else if (item.body) {
+                      @if (item.body) {
                         <p class="notif-desc">{{ item.body }}</p>
                       }
                     </div>

@@ -4,6 +4,8 @@ import { catchError, forkJoin, map, Observable, of, tap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
+import { Auth } from '../../../core/auth/auth';
+import { isAdminRole } from '../../../core/auth/roles';
 import { EmergencyAlertsApi } from '../../emergency-alerts/data-access/emergency-alerts-api';
 import { ActiveEmergencyAlert } from '../../emergency-alerts/models/emergency-alert.models';
 import { AnomalyHistoryService } from './anomaly-history.service';
@@ -195,10 +197,13 @@ export const anomalyErrorMessage = (error: unknown, fallback = 'Đã xảy ra l�
 })
 export class AnomalyApi {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(Auth);
   private readonly history = inject(AnomalyHistoryService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly baseUrl = environment.apiBaseUrl;
   private readonly pendingCountState = signal<number | null>(null);
+  private pendingEndpointForbidden = false;
+  private aiRunEndpointForbidden = false;
   readonly pendingCount = this.pendingCountState.asReadonly();
 
   listPending(params?: AnomalyListParams): Observable<AnomalyPage> {
@@ -209,18 +214,22 @@ export class AnomalyApi {
     const search = params?.search?.trim();
     if (search) queryParams['search'] = search;
 
-    return this.http
-      .get<unknown>(`${this.baseUrl}/anomalies/pending`, { params: queryParams })
-      .pipe(
-        catchError((err: unknown) => {
-          // SystemAdmin can receive 403 on /anomalies/pending while /anomalies?status=Pending returns 200 OK.
-          if (err instanceof HttpErrorResponse && err.status === 403) {
-            return this.http.get<unknown>(`${this.baseUrl}/anomalies`, {
-              params: { ...queryParams, status: 'Pending' },
-            });
-          }
-          throw err;
-        }),
+    const skipPendingEndpoint = this.pendingEndpointForbidden || isAdminRole(this.auth.user()?.role);
+    const source$ = skipPendingEndpoint
+      ? this.http.get<unknown>(`${this.baseUrl}/anomalies`, { params: { ...queryParams, status: 'Pending' } })
+      : this.http.get<unknown>(`${this.baseUrl}/anomalies/pending`, { params: queryParams }).pipe(
+          catchError((err: unknown) => {
+            if (err instanceof HttpErrorResponse && err.status === 403) {
+              this.pendingEndpointForbidden = true;
+              return this.http.get<unknown>(`${this.baseUrl}/anomalies`, {
+                params: { ...queryParams, status: 'Pending' },
+              });
+            }
+            throw err;
+          }),
+        );
+
+    return source$.pipe(
         map((response) => {
           const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
           const activeAlerts = this.alertsApi.activeAlerts();
@@ -555,9 +564,17 @@ export class AnomalyApi {
 
   /** Reads the AI run behind an anomaly to show where it executed. Resolves to null when unavailable. */
   getAnalysisRun(runId: string): Observable<AnalysisRunInfo | null> {
+    if (this.aiRunEndpointForbidden || isAdminRole(this.auth.user()?.role)) {
+      return of(null);
+    }
     return this.http.get<unknown>(`${this.baseUrl}/ai-analysis/${encodeURIComponent(runId)}`).pipe(
       map((response) => normalizeAnalysisRun(unwrapApiData(response))),
-      catchError(() => of(null)),
+      catchError((err: unknown) => {
+        if (err instanceof HttpErrorResponse && err.status === 403) {
+          this.aiRunEndpointForbidden = true;
+        }
+        return of(null);
+      }),
     );
   }
 

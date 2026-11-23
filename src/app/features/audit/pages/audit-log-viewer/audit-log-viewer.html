@@ -1,215 +1,125 @@
-<div class="audit-viewer-page">
-  <!-- Page Header (Standardized layout like AI Review) -->
-  <header class="page-header audit-page-head">
-    <div class="page-heading-group">
+<div class="ops-page audit-viewer-page">
+  <header class="page-header">
+    <div>
       <nav class="page-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>NHẬT KÝ HỆ THỐNG</strong>
+        <strong>Nhật ký hệ thống</strong>
       </nav>
-      <h1 class="page-title">Nhật ký hệ thống</h1>
-      <p class="page-subtitle">
-        Theo dõi lịch sử thay đổi, kiểm tra và xác thực các thao tác dữ liệu của người dùng và dịch vụ nền trong toàn hệ thống UAV-PMS.
-      </p>
+      <h1>Nhật ký hệ thống</h1>
+      <p>Theo dõi lịch sử thay đổi, kiểm tra và xác thực các thao tác dữ liệu trong toàn hệ thống UAV-PMS.</p>
     </div>
-    <div class="header-actions">
-      <button
-        type="button"
-        class="button secondary audit-btn-refresh"
-        (click)="fetchLogs()"
-        [disabled]="loading()"
-        aria-label="Tải lại nhật ký"
-      >
-        <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span>
-        <span>Làm mới</span>
+    <div class="head-actions">
+      <button type="button" class="app-btn-secondary" (click)="fetchLogs()" [disabled]="loading()" aria-label="Tải lại nhật ký">
+        {{ loading() ? 'Đang tải...' : 'Làm mới' }}
       </button>
-      <button
-        type="button"
-        class="button primary audit-btn-export"
-        (click)="exportCsv()"
-        [disabled]="filteredRecords().length === 0"
-        aria-label="Xuất dữ liệu nhật ký ra CSV"
-      >
-        <span nz-icon nzType="download" aria-hidden="true"></span>
-        <span>Xuất CSV</span>
+      <button type="button" class="app-btn-primary" (click)="exportCsv()" [disabled]="filteredRecords().length === 0" aria-label="Xuất dữ liệu nhật ký ra CSV">
+        Xuất CSV
       </button>
     </div>
   </header>
 
-  <!-- Filter Card -->
-  <section class="audit-filter-card" aria-label="Bộ lọc nhật ký hệ thống">
-    <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="audit-filter-form">
-      <div class="audit-filter-field search-field">
-        <label for="audit-search-input" class="audit-field-label">Tìm kiếm chung</label>
-        <div class="audit-input-wrap">
-          <span nz-icon nzType="search" class="audit-input-icon" aria-hidden="true"></span>
-          <input
-            id="audit-search-input"
-            type="text"
-            formControlName="search"
-            class="audit-input"
-            placeholder="Tìm theo email, IP, User Agent, giá trị thay đổi..."
-            (keydown.enter)="onSearchEnter($event)"
-          />
-          @if (filterForm.controls.search.value) {
-            <button
-              type="button"
-              class="audit-input-clear"
-              (click)="clearSearch()"
-              aria-label="Xóa tìm kiếm"
-            >×</button>
-          }
-        </div>
-      </div>
+  <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="app-filter-bar" aria-label="Bộ lọc nhật ký hệ thống">
+    <div class="filter-search">
+      <input
+        id="audit-search-input"
+        type="search"
+        formControlName="search"
+        aria-label="Tìm kiếm nhật ký"
+        placeholder="Tìm theo email, IP, User Agent, giá trị thay đổi..."
+        (keydown.enter)="onSearchEnter($event)"
+      />
+    </div>
 
-      <div class="audit-filter-field">
-        <label for="audit-action-select" class="audit-field-label">Loại hành động</label>
-        <select id="audit-action-select" formControlName="actionType" class="audit-select">
-          @for (action of actionOptions; track action.value) {
-            <option [value]="action.value">{{ action.label }}</option>
-          }
-        </select>
-      </div>
+    <label class="filter-field">
+      <span class="filter-label">Loại hành động</span>
+      <select id="audit-action-select" formControlName="actionType">
+        @for (action of actionOptions; track action.value) {
+          <option [value]="action.value">{{ action.label }}</option>
+        }
+      </select>
+    </label>
 
-      <div class="audit-filter-field">
-        <label for="audit-table-select" class="audit-field-label">Đối tượng / Bảng</label>
-        <select id="audit-table-select" formControlName="tableName" class="audit-select">
-          @for (tbl of tableOptions; track tbl.value) {
-            <option [value]="tbl.value">{{ tbl.label }}</option>
-          }
-        </select>
-      </div>
-    </form>
-  </section>
+    <label class="filter-field">
+      <span class="filter-label">Đối tượng</span>
+      <select id="audit-table-select" formControlName="tableName">
+        @for (tbl of tableOptions; track tbl.value) {
+          <option [value]="tbl.value">{{ tbl.label }}</option>
+        }
+      </select>
+    </label>
 
-  <!-- Table Content Area -->
-  <section class="audit-table-container evn-table" aria-label="Bảng dữ liệu nhật ký hệ thống">
+    @if (filterForm.controls.search.value) {
+      <button type="button" class="app-btn-secondary" (click)="clearSearch()">Xóa lọc</button>
+    }
+  </form>
+
+  <section class="app-table-card" aria-label="Bảng dữ liệu nhật ký hệ thống">
     @if (error() && filteredRecords().length === 0) {
-      <app-data-state
-        kind="error"
-        title="Đã xảy ra lỗi"
-        [message]="error()"
-        (retry)="fetchLogs()"
-      />
+      <app-data-state kind="error" title="Đã xảy ra lỗi" [message]="error()" (retry)="fetchLogs()" />
     } @else if (loading() && filteredRecords().length === 0) {
-      <app-data-state
-        kind="loading"
-        title="Đang tải dữ liệu..."
-        message="Vui lòng đợi trong giây lát khi hệ thống truy xuất các bản ghi nhật ký mới nhất."
-      />
+      <app-data-state kind="loading" title="Đang tải dữ liệu..." message="Đang truy xuất các bản ghi nhật ký mới nhất." />
     } @else if (filteredRecords().length === 0) {
       <app-data-state
         kind="empty"
         title="Không tìm thấy nhật ký hệ thống nào"
-        [message]="filterForm.controls.search.value ? 'Không có bản ghi nào khớp với từ khóa &quot;' + filterForm.controls.search.value + '&quot;. Hãy thử từ khóa khác hoặc bấm Đặt lại.' : 'Không có bản ghi nào khớp với điều kiện tìm kiếm hiện tại. Hãy thử thay đổi bộ lọc.'"
+        [message]="filterForm.controls.search.value ? 'Không có bản ghi nào khớp với từ khóa tìm kiếm.' : 'Không có bản ghi nào khớp với điều kiện lọc hiện tại.'"
       />
     } @else {
-      <div class="audit-table-scroll">
-        <table class="ant-table" aria-label="Danh sách nhật ký hệ thống">
-          <thead class="ant-table-thead">
+      <div class="app-table-scroll">
+        <table class="app-data-table" style="min-width: 980px;" aria-label="Danh sách nhật ký hệ thống">
+          <thead>
             <tr>
-              <th scope="col" class="th-time">Thời gian</th>
-              <th scope="col" class="th-actor">Người thực hiện</th>
-              <th scope="col" class="th-action">Hành động</th>
-              <th scope="col" class="th-entity">Đối tượng</th>
-              <th scope="col" class="th-record-id">ID bản ghi</th>
-              <th scope="col" class="th-network">IP & Thiết bị</th>
-              <th scope="col" class="th-actions">Thao tác</th>
+              <th scope="col">Thời gian</th>
+              <th scope="col">Người thực hiện</th>
+              <th scope="col">Hành động</th>
+              <th scope="col">Đối tượng</th>
+              <th scope="col">ID bản ghi</th>
+              <th scope="col">IP &amp; Thiết bị</th>
+              <th scope="col" class="col-center col-sticky-right">Thao tác</th>
             </tr>
           </thead>
-          <tbody class="ant-table-tbody">
+          <tbody>
             @for (row of filteredRecords(); track row.id) {
-              <tr class="ant-table-row">
-                <!-- Timestamp -->
-                <td class="td-time">
-                  <div class="time-primary">
-                    {{ row.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}
-                  </div>
-                  <div class="time-secondary" [title]="row.createdAt">
-                    Asia/Ho_Chi_Minh (UTC+7)
-                  </div>
+              <tr>
+                <td class="tabular-nums">
+                  <div class="cell-primary">{{ row.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
+                  <div class="cell-secondary" style="font-size: 11.5px;">UTC+7</div>
                 </td>
-
-                <!-- Actor / Operator Email -->
-                <td class="td-actor">
-                  <div class="actor-wrap">
-                    <span nz-icon nzType="user" class="actor-icon" aria-hidden="true"></span>
-                    <div class="actor-info">
-                      <span class="actor-email" [title]="row.operatorEmail">{{ row.operatorEmail }}</span>
-                      @if (row.userId) {
-                        <span class="actor-uid" [title]="'User ID: ' + row.userId">
-                          ID: {{ row.userId | slice: 0: 8 }}...
-                        </span>
-                      }
+                <td>
+                  <div class="cell-primary" style="white-space: normal; word-break: break-word; max-width: 190px;">{{ row.operatorEmail || 'Hệ thống' }}</div>
+                  @if (row.userId) {
+                    <div class="cell-secondary tabular-nums" style="font-size: 11.5px;" [title]="row.userId">
+                      ID: {{ row.userId | slice: 0 : 8 }}
                     </div>
-                  </div>
+                  }
                 </td>
-
-                <!-- Action Type Badge -->
-                <td class="td-action">
-                  <span class="audit-badge" [class]="actionBadgeClass(row.actionType)">
-                    @if (row.actionType.toLowerCase().includes('evaluat')) {
-                      <span nz-icon nzType="radar-chart" class="badge-icon" aria-hidden="true"></span>
-                    } @else if (row.actionType.toLowerCase().includes('add') || row.actionType.toLowerCase().includes('create')) {
-                      <span nz-icon nzType="plus-circle" class="badge-icon" aria-hidden="true"></span>
-                    } @else if (row.actionType.toLowerCase().includes('delete') || row.actionType.toLowerCase().includes('remove')) {
-                      <span nz-icon nzType="delete" class="badge-icon" aria-hidden="true"></span>
-                    } @else {
-                      <span nz-icon nzType="edit" class="badge-icon" aria-hidden="true"></span>
-                    }
+                <td>
+                  <span [class]="actionBadgeClass(row.actionType) + ' audit-action-text'">
                     {{ actionLabel(row.actionType) }}
                   </span>
                 </td>
-
-                <!-- Entity / Table -->
-                <td class="td-entity">
-                  <div class="entity-name">{{ tableLabel(row.tableName) }}</div>
-                  <code class="entity-table-code">{{ row.tableName }}</code>
+                <td>
+                  <div class="cell-primary" style="white-space: normal; max-width: 220px;">{{ tableLabel(row.tableName) }}</div>
                 </td>
-
-                <!-- Record ID with copy button -->
-                <td class="td-record-id">
-                  <div class="record-id-wrap">
-                    <code class="record-id-text" [title]="row.recordId">{{ row.recordId || '-' }}</code>
+                <td class="tabular-nums">
+                  <div class="record-id-inline">
+                    <span class="cell-secondary cell-truncate" style="max-width: 140px;" [title]="row.recordId">{{ row.recordId || '—' }}</span>
                     @if (row.recordId) {
-                      <button
-                        type="button"
-                        class="btn-copy-id"
-                        (click)="copyText(row.recordId, row.id)"
-                        [title]="copiedId() === row.id ? 'Đã sao chép' : 'Sao chép ID'"
-                        aria-label="Sao chép ID bản ghi"
-                      >
-                        <span
-                          nz-icon
-                          [nzType]="copiedId() === row.id ? 'check' : 'copy'"
-                          aria-hidden="true"
-                        ></span>
+                      <button type="button" class="app-btn-action" (click)="copyText(row.recordId, row.id)">
+                        {{ copiedId() === row.id ? 'Đã chép' : 'Chép' }}
                       </button>
                     }
                   </div>
                 </td>
-
-                <!-- Network info (IP & User Agent) -->
-                <td class="td-network">
-                  <div class="network-wrap">
-                    <div class="ip-chip" [title]="'IP: ' + row.ipAddress">
-                      <span nz-icon nzType="global" class="ip-icon" aria-hidden="true"></span>
-                      <span>{{ row.ipAddress || '-' }}</span>
-                    </div>
-                    <div class="ua-snippet" [title]="row.userAgent">
-                      {{ row.userAgent || '-' }}
-                    </div>
+                <td>
+                  <div class="cell-primary tabular-nums">{{ row.ipAddress || '—' }}</div>
+                  <div class="cell-secondary cell-truncate" style="max-width: 220px; font-size: 11.5px;" [title]="row.userAgent">
+                    {{ row.userAgent || '—' }}
                   </div>
                 </td>
-
-                <!-- Actions -->
-                <td class="td-actions">
-                  <button
-                    type="button"
-                    class="button secondary small"
-                    (click)="openDetail(row)"
-                    aria-label="Xem chi tiết thay đổi của bản ghi"
-                  >
+                <td class="col-center col-sticky-right">
+                  <button type="button" class="app-btn-action" (click)="openDetail(row)" aria-label="Xem chi tiết thay đổi của bản ghi">
                     Chi tiết
                   </button>
                 </td>
@@ -219,137 +129,99 @@
         </table>
       </div>
 
-      <!-- Pagination Footer -->
-      <footer class="audit-pagination-wrap">
-        <app-pagination
-          [page]="pagination().page"
-          [totalPages]="pagination().totalPages"
-          [totalCount]="pagination().totalItems"
-          (pageChanged)="onPageChange($event)"
-        />
-      </footer>
+      <app-pagination
+        [page]="pagination().page"
+        [totalPages]="pagination().totalPages"
+        [totalCount]="pagination().totalItems"
+        (pageChanged)="onPageChange($event)"
+      />
     }
   </section>
 
-  <!-- Detail Modal / Drawer -->
   @if (selectedRecord(); as selected) {
-    <div class="audit-modal-backdrop">
-      <button
-        type="button"
-        class="audit-modal-backdrop-click"
-        (click)="closeDetail()"
-        aria-label="Đóng cửa sổ chi tiết"
-      ></button>
-      <div
-        class="audit-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="audit-modal-title"
-      >
-        <!-- Modal Header -->
+    <div class="audit-modal-backdrop" (click)="closeDetail()" role="dialog" aria-modal="true" aria-labelledby="audit-modal-title">
+      <div class="audit-modal" (click)="$event.stopPropagation()">
         <header class="audit-modal-header">
-          <div class="modal-title-wrap">
-            <h2 id="audit-modal-title" class="modal-title">
-              Chi tiết nhật ký hệ thống
-            </h2>
+          <div>
+            <h2 id="audit-modal-title" class="modal-title">Chi tiết nhật ký hệ thống</h2>
             <div class="modal-tags">
-              <span class="audit-badge" [class]="actionBadgeClass(selected.actionType)">
-                {{ actionLabel(selected.actionType) }}
-              </span>
-              <span class="modal-table-badge">{{ selected.tableName }}</span>
+              <span [class]="actionBadgeClass(selected.actionType) + ' audit-action-text'">{{ actionLabel(selected.actionType) }}</span>
+              <span class="cell-secondary">· {{ tableLabel(selected.tableName) }}</span>
             </div>
           </div>
-          <button
-            type="button"
-            class="modal-close-btn"
-            (click)="closeDetail()"
-            aria-label="Đóng cửa sổ chi tiết"
-          >
-            <span nz-icon nzType="close" aria-hidden="true"></span>
-          </button>
+          <button type="button" class="app-btn-action" (click)="closeDetail()">Đóng</button>
         </header>
 
-        <!-- Modal Body -->
         <div class="audit-modal-body">
-          <!-- Metadata Grid -->
           <section class="meta-section" aria-label="Thông tin tổng quan bản ghi">
             <div class="meta-item">
-              <span class="meta-label">Thời gian:</span>
-              <span class="meta-value font-medium">{{ selected.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
+              <span class="meta-label">Thời gian</span>
+              <span class="meta-value tabular-nums">{{ selected.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Người thực hiện:</span>
-              <span class="meta-value font-medium">{{ selected.operatorEmail || 'Hệ thống' }}</span>
+              <span class="meta-label">Người thực hiện</span>
+              <span class="meta-value">{{ selected.operatorEmail || 'Hệ thống' }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Đối tượng tác động:</span>
-              <span class="meta-value font-medium">{{ tableLabel(selected.tableName) }}</span>
+              <span class="meta-label">Đối tượng tác động</span>
+              <span class="meta-value">{{ tableLabel(selected.tableName) }}</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Địa chỉ IP:</span>
-              <span class="meta-value">{{ selected.ipAddress || '—' }}</span>
+              <span class="meta-label">Địa chỉ IP</span>
+              <span class="meta-value tabular-nums">{{ selected.ipAddress || '—' }}</span>
             </div>
             <div class="meta-item full-width">
-              <span class="meta-label">Thiết bị &amp; Trình duyệt:</span>
-              <span class="meta-value font-medium">{{ parseUserAgent(selected.userAgent) }}</span>
+              <span class="meta-label">Thiết bị &amp; Trình duyệt</span>
+              <span class="meta-value">{{ parseUserAgent(selected.userAgent) }}</span>
             </div>
           </section>
 
-          <!-- Section: Business Change Summary -->
           <section class="diff-section" aria-label="Bảng so sánh giá trị cũ và mới">
-            <h3 class="section-heading" style="font-size: 13px; font-weight: 700; color: #1e293b; margin: 16px 0 8px 0; display: flex; align-items: center; gap: 6px;">
-              <span nz-icon nzType="profile" aria-hidden="true"></span>
-              <span>Chi tiết dữ liệu thay đổi</span>
-            </h3>
-
+            <h3 class="section-heading">Chi tiết dữ liệu thay đổi</h3>
             @if (currentDiff().length === 0) {
-              <div class="diff-empty">
-                Không có dữ liệu thay đổi thuộc tính hoặc thao tác không làm thay đổi giá trị bản ghi.
-              </div>
+              <div class="diff-empty">Không có dữ liệu thay đổi thuộc tính hoặc thao tác không làm thay đổi giá trị bản ghi.</div>
             } @else {
-              <table class="diff-table">
+              <table class="app-data-table diff-table">
                 <thead>
                   <tr>
-                    <th scope="col" class="diff-th-key">Thuộc tính</th>
-                    <th scope="col" class="diff-th-old">Giá trị trước</th>
-                    <th scope="col" class="diff-th-new">Giá trị sau</th>
-                    <th scope="col" class="diff-th-status">Hành động</th>
+                    <th scope="col">Thuộc tính</th>
+                    <th scope="col">Giá trị trước</th>
+                    <th scope="col">Giá trị sau</th>
+                    <th scope="col">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (diff of currentDiff(); track diff.key) {
-                    <tr class="diff-row" [class]="'diff-row-' + diff.status">
-                      <td class="diff-td-key">
-                        <strong style="color: #0f2952; font-size: 12.5px;">{{ fieldLabel(diff.key) }}</strong>
-                        <small style="color: #64748b; font-size: 10.5px; display: block;">{{ diff.key }}</small>
+                    <tr>
+                      <td>
+                        <div class="cell-primary">{{ fieldLabel(diff.key) }}</div>
+                        <div class="cell-secondary" style="font-size: 11px;">{{ diff.key }}</div>
                       </td>
-                      <td class="diff-td-old">
+                      <td>
                         @if (diff.oldValue === '[MASKED]') {
-                          <span class="val-masked">[Mật khẩu được ẩn]</span>
+                          <span class="text-amber-700">[Mật khẩu được ẩn]</span>
                         } @else if (diff.status === 'added') {
-                          <span class="val-null">—</span>
+                          <span class="cell-muted">—</span>
                         } @else {
-                          <span class="val-old">{{ diff.oldValue }}</span>
+                          <span class="text-rose-600">{{ diff.oldValue }}</span>
                         }
                       </td>
-                      <td class="diff-td-new">
+                      <td>
                         @if (diff.newValue === '[MASKED]') {
-                          <span class="val-masked">[Mật khẩu được ẩn]</span>
+                          <span class="text-amber-700">[Mật khẩu được ẩn]</span>
                         } @else if (diff.status === 'deleted') {
-                          <span class="val-null">—</span>
+                          <span class="cell-muted">—</span>
                         } @else {
-                          <span class="val-new" style="font-weight: 600;">{{ diff.newValue }}</span>
+                          <span class="text-emerald-600 font-medium">{{ diff.newValue }}</span>
                         }
                       </td>
-                      <td class="diff-td-status">
-                        <span class="diff-pill" [class]="'diff-pill-' + diff.status">
-                          @switch (diff.status) {
-                            @case ('added') { Thêm mới }
-                            @case ('deleted') { Đã xóa }
-                            @case ('modified') { Cập nhật }
-                            @default { Không đổi }
-                          }
-                        </span>
+                      <td>
+                        @switch (diff.status) {
+                          @case ('added') { <span class="text-emerald-600 font-medium">Thêm mới</span> }
+                          @case ('deleted') { <span class="text-rose-600 font-medium">Đã xóa</span> }
+                          @case ('modified') { <span class="text-amber-700 font-medium">Cập nhật</span> }
+                          @default { <span class="cell-muted">Không đổi</span> }
+                        }
                       </td>
                     </tr>
                   }
@@ -358,11 +230,10 @@
             }
           </section>
 
-          <!-- Drawer Toggle for Technical JSON -->
-          <div style="margin-top: 14px; text-align: right;">
+          <div style="text-align: right;">
             <button
               type="button"
-              style="background: transparent; border: none; font-size: 11.5px; color: #64748b; cursor: pointer; text-decoration: underline;"
+              class="app-btn-action"
               (click)="activeDetailTab.set(activeDetailTab() === 'raw' ? 'diff' : 'raw')"
             >
               {{ activeDetailTab() === 'raw' ? 'Ẩn dữ liệu JSON thô' : 'Xem dữ liệu JSON kỹ thuật' }}
@@ -370,24 +241,21 @@
           </div>
 
           @if (activeDetailTab() === 'raw') {
-            <section class="raw-section" aria-label="Dữ liệu JSON gốc" style="margin-top: 10px;">
+            <section class="raw-section" aria-label="Dữ liệu JSON gốc">
               <div class="raw-block">
-                <div class="raw-block-header"><span>Giá trị cũ:</span></div>
-                <pre class="raw-code"><code>{{ selected.oldValues || 'null' }}</code></pre>
+                <div class="raw-block-header">Giá trị cũ</div>
+                <pre class="raw-code">{{ selected.oldValues || 'null' }}</pre>
               </div>
               <div class="raw-block">
-                <div class="raw-block-header"><span>Giá trị mới:</span></div>
-                <pre class="raw-code"><code>{{ selected.newValues || 'null' }}</code></pre>
+                <div class="raw-block-header">Giá trị mới</div>
+                <pre class="raw-code">{{ selected.newValues || 'null' }}</pre>
               </div>
             </section>
           }
         </div>
 
-        <!-- Modal Footer -->
         <footer class="audit-modal-footer">
-          <button type="button" class="button secondary" (click)="closeDetail()">
-            Đóng
-          </button>
+          <button type="button" class="app-btn-secondary" (click)="closeDetail()">Đóng</button>
         </footer>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { UserRole } from '../../models/auth.models';
+import { roleLabelVietnamese } from '../../shared/status/status';
 
 /**
  * Role families used across the UI. The backend roles are SystemAdmin, Manager, Inspector, Analyst,
@@ -44,13 +45,13 @@ export const isTechnicianRole = (role: RoleInput): boolean => roleFamily(role) =
 export const isFieldRole = (role: RoleInput): boolean => ['inspector', 'analyst', 'technician'].includes(roleFamily(role));
 
 const ROLE_LABELS: Record<RoleFamily, string> = {
-  admin: 'SystemAdmin',
-  manager: 'Manager',
-  inspector: 'Inspector',
-  analyst: 'Analyst',
-  technician: 'Technician',
-  other: 'User',
+  admin: 'Quản trị hệ thống',
+  manager: 'Quản lý vận hành',
+  inspector: 'Phi công',
+  analyst: 'Chuyên viên phân tích',
+  technician: 'Kỹ thuật viên',
+  other: 'Người dùng',
 };
 
-/** Doc role label for showing the signed-in user's role. */
-export const roleLabel = (role: RoleInput): string => ROLE_LABELS[roleFamily(role)];
+/** Unified Vietnamese role label for showing any user's role. */
+export const roleLabel = (role: RoleInput): string => (role ? roleLabelVietnamese(role) : ROLE_LABELS.other);

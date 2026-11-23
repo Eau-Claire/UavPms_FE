@@ -36,20 +36,8 @@ export function sanitizeTicketImage(url?: string | null, categoryCode?: string):
   return url;
 }
 
-export const REAL_DB_TECHNICIANS: readonly TechnicianSummary[] = [
-  {
-    id: '5c2d008d-b68e-4975-9a0d-93c42cd306b4',
-    fullName: 'Kỹ thuật viên kiểm thử',
-    email: 'tech.regression@uavpms.local',
-    activeTicketCount: 1,
-  },
-  {
-    id: '55555555-5555-5555-5555-555555555555',
-    fullName: 'Nguyễn Nhật An',
-    email: 'an.technician@uavpms.local',
-    activeTicketCount: 0,
-  },
-];
+/** Technicians from real backend endpoints only (no hardcoded fallback users). */
+export const REAL_DB_TECHNICIANS: readonly TechnicianSummary[] = [];
 
 /** Maintenance tickets (MF04): OperationsService `/maintenance/tickets`. */
 @Injectable({ providedIn: 'root' })

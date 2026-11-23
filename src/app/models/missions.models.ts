@@ -1,4 +1,5 @@
 import { BaseAuditableEntity } from './api.models';
+import { statusLabel } from '../shared/status/status';
 
 export type MissionPriority = 'NORMAL' | 'HIGH' | 'EMERGENCY' | string;
 
@@ -44,7 +45,7 @@ export const MISSION_STATUSES: readonly MissionStatus[] = [
 ];
 
 export function missionStatusLabel(status: string | null | undefined): string {
-  return normalizeMissionStatus(status);
+  return statusLabel(normalizeMissionStatus(status));
 }
 
 /**

@@ -4,7 +4,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import {
   CreateMissionFromAssessmentRequest,
   InspectionObjective,
@@ -17,14 +16,9 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
 import { isValidGuid, MissionsApi } from '../../data-access/missions-api';
+import { roleLabelVietnamese, statusColorClass, statusLabel } from '../../../../shared/status/status';
 
 const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
-
-const ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Inspector',
-  ANALYST: 'Analyst',
-  TECHNICIAN: 'Technician',
-};
 
 /** Backend default when no deadline is sent (`Mission:ConfirmationDeadlineHours`). */
 const DEFAULT_DEADLINE_HOURS = 24;
@@ -37,7 +31,7 @@ export const MANAGER_INSTRUCTIONS_MAX = 2000;
  */
 @Component({
   selector: 'app-mission-create',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe],
   templateUrl: './mission-create.html',
   styleUrl: './mission-create.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -278,8 +272,11 @@ export class MissionCreate {
     return this.selectedPriorityDefects().includes(key);
   }
 
+  protected readonly statusLabel = statusLabel;
+  protected readonly statusColorClass = statusColorClass;
+
   protected roleLabel(role: string): string {
-    return ROLE_LABELS[role] ?? role;
+    return roleLabelVietnamese(role);
   }
 
   /**

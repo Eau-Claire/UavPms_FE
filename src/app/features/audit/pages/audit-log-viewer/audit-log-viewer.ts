@@ -12,7 +12,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 import {
   AUDIT_ACTION_OPTIONS,
@@ -34,7 +33,7 @@ export interface FieldDiff {
 
 @Component({
   selector: 'app-audit-log-viewer',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, SlicePipe, NzIconModule, DataState, Pagination],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, SlicePipe, DataState, Pagination],
   templateUrl: './audit-log-viewer.html',
   styleUrl: './audit-log-viewer.scss',
   encapsulation: ViewEncapsulation.None,

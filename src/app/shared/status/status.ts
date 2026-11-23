@@ -18,6 +18,8 @@ export const statusTone = (status: string): StatusTone => {
       'RESOLVED',
       'CLOSED',
       'CONFIRMED',
+      'APPROVED',
+      'ACTIVE',
     ].includes(value)
   ) {
     return 'success';
@@ -50,6 +52,9 @@ export const statusTone = (status: string): StatusTone => {
       'INELIGIBLE',
       'SUSPENDED',
       'REJECTED',
+      'DISMISSED',
+      'LOCKED',
+      'LOST',
     ].includes(value)
   ) {
     return 'danger';
@@ -108,6 +113,11 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   CRITICAL: 'Lỗi nghiêm trọng',
   UNKNOWN: 'Chưa kiểm định',
 
+  // User Statuses
+  ACTIVE: 'Hoạt động',
+  INACTIVE: 'Tạm ngưng',
+  LOCKED: 'Đã khóa',
+
   // MaintenanceTicket State Machine
   OPEN: 'Đang mở',
   ASSIGNED: 'Đã phân công',
@@ -122,7 +132,9 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   IN_REVIEW: 'Đang thẩm định',
   UNDERREVIEW: 'Đang thẩm định',
   UNDER_REVIEW: 'Đang thẩm định',
+  APPROVED: 'Đã xác nhận',
   REJECTED: 'Đã từ chối',
+  DISMISSED: 'Đã từ chối',
   SUPERSEDED: 'Đã thay thế',
 
   // AIAnalysisRun State Machine
@@ -137,13 +149,16 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   PASS: 'Đạt',
   PASSED: 'Đạt',
   FEASIBLE: 'Đạt',
-  HEALTHY: 'Đạt',
+  HEALTHY: 'Đạt an toàn',
   ELIGIBLE: 'Đạt',
   AVAILABLE: 'Sẵn sàng',
   FAIL: 'Không đạt',
   NOTELIGIBLE: 'Không đạt',
   NOT_ELIGIBLE: 'Không đạt',
   INELIGIBLE: 'Không đạt',
+  REQUIRESINSPECTION: 'Cần kiểm định',
+  REQUIRES_INSPECTION: 'Cần kiểm định',
+  DEGRADED: 'Suy giảm',
   UNAVAILABLE: 'Không sẵn sàng',
 };
 
@@ -172,9 +187,11 @@ export const statusColorClass = (status: string): string => {
       'AVAILABLE',
       'ELIGIBLE',
       'CONFIRMED',
+      'APPROVED',
       'ACCEPTED',
       'RESOLVED',
       'CLOSED',
+      'ACTIVE',
     ].includes(compact)
   ) {
     return 'text-emerald-600 font-medium';
@@ -190,9 +207,11 @@ export const statusColorClass = (status: string): string => {
       'INELIGIBLE',
       'UNAVAILABLE',
       'REJECTED',
+      'DISMISSED',
       'CRITICAL',
       'EMERGENCY',
       'SUSPENDED',
+      'LOCKED',
       'LOST',
     ].includes(compact)
   ) {
@@ -215,6 +234,9 @@ export const statusColorClass = (status: string): string => {
       'UNDERREVIEW',
       'PENDINGVERIFICATION',
       'ACKNOWLEDGED',
+      'INACTIVE',
+      'REQUIRESINSPECTION',
+      'DEGRADED',
     ].includes(compact)
   ) {
     return 'text-amber-700 font-medium';
@@ -262,4 +284,16 @@ export const priorityColorClass = (priority?: string | null): string => {
   if (key === 'MEDIUM') return 'text-sky-600 font-medium';
   if (key === 'LOW') return 'text-slate-500 font-medium';
   return 'text-slate-600 font-medium';
+};
+
+/** Chuẩn hóa nhãn vai trò người dùng / nhân sự sang tiếng Việt thống nhất (Single Source of Truth). */
+export const roleLabelVietnamese = (role?: string | null): string => {
+  const key = (role ?? '').toString().trim().toUpperCase().replace(/[\s_-]/g, '');
+  if (key === 'ADMIN' || key === 'SYSTEMADMIN' || key === 'ADMINISTRATOR') return 'Quản trị hệ thống';
+  if (key === 'MANAGER' || key === 'SUPERVISOR') return 'Quản lý vận hành';
+  if (key === 'INSPECTOR' || key === 'PILOT' || key === 'COPILOT' || key === 'OBSERVER') return 'Phi công';
+  if (key === 'ANALYST') return 'Chuyên viên phân tích';
+  if (key === 'TECHNICIAN' || key === 'MAINTENANCETECHNICIAN') return 'Kỹ thuật viên';
+  if (key === 'SYSTEM') return 'Hệ thống';
+  return 'Người dùng';
 };

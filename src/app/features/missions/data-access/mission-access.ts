@@ -1,4 +1,5 @@
 import { UserRole } from '../../../models/auth.models';
+import { priorityLabel, roleLabelVietnamese, statusLabel } from '../../../shared/status/status';
 import {
   Mission,
   MissionAssignment,
@@ -233,45 +234,23 @@ export const activitySenderKind = (senderRole: string | null | undefined): Activ
 };
 
 const SENDER_LABELS: Record<ActivitySenderKind, string> = {
-  MANAGER: 'Quản lý',
+  MANAGER: 'Quản lý vận hành',
   INSPECTOR: 'Phi công',
-  ANALYST: 'Phân tích viên',
+  ANALYST: 'Chuyên viên phân tích',
   TECHNICIAN: 'Kỹ thuật viên',
   SYSTEM: 'Hệ thống',
 };
 
 export const activitySenderLabel = (kind: ActivitySenderKind): string => SENDER_LABELS[kind];
 
-const ASSIGNMENT_ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'INSPECTOR',
-  PILOT: 'INSPECTOR',
-  CO_PILOT: 'INSPECTOR',
-  COPILOT: 'INSPECTOR',
-  OBSERVER: 'OBSERVER',
-  ANALYST: 'ANALYST',
-  TECHNICIAN: 'TECHNICIAN',
-  MAINTENANCETECHNICIAN: 'TECHNICIAN',
-  MANAGER: 'MANAGER',
-  ADMIN: 'ADMIN',
-};
-
 /** Vietnamese label for a mission assignment role (`assignmentRole`). */
 export const assignmentRoleLabel = (role: string | null | undefined): string => {
-  const key = (role ?? '').toString().trim().toUpperCase();
-  return ASSIGNMENT_ROLE_LABELS[key] ?? ASSIGNMENT_ROLE_LABELS[key.replace(/[\s-]/g, '')] ?? (key ? key : 'Thành viên');
+  if (!role || !role.trim()) return 'Thành viên';
+  return roleLabelVietnamese(role);
 };
 
 /** Vietnamese label for a mission priority (`NORMAL` / `HIGH` / `EMERGENCY`). */
-export const missionPriorityLabel = (priority: MissionPriority | null | undefined): string => {
-  switch ((priority ?? '').toString().toUpperCase()) {
-    case 'EMERGENCY':
-      return 'Khẩn cấp';
-    case 'HIGH':
-      return 'Ưu tiên cao';
-    default:
-      return 'Bình thường';
-  }
-};
+export const missionPriorityLabel = (priority: MissionPriority | null | undefined): string => priorityLabel(priority);
 
 const TOWER_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Chờ kiểm tra',
@@ -290,30 +269,16 @@ export const towerInspectionStatusLabel = (status: string | null | undefined): s
 export const isTowerInspected = (status: string | null | undefined): boolean =>
   ['INSPECTED', 'COMPLETED'].includes((status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase());
 
-const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Open',
-  PENDING: 'Open',
-  APPROVED: 'Open',
-  ASSIGNED: 'Assigned',
-  INPROGRESS: 'InProgress',
-  PENDINGVERIFICATION: 'PendingVerification',
-  CLOSED: 'Closed',
-  RESOLVED: 'Closed',
-  COMPLETED: 'Closed',
-  CANCELLED: 'Cancelled',
-  CANCELED: 'Cancelled',
-};
-
-/** Label for a maintenance ticket status matching doc state machine. */
+/** Label for a maintenance ticket status matching unified Vietnamese dictionary. */
 export const maintenanceStatusLabel = (status: string | null | undefined): string => {
-  const key = (status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase();
-  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Open');
+  if (!status || !status.trim()) return statusLabel('Open');
+  return statusLabel(status);
 };
 
 /** CSS tone for a maintenance status pill. */
 export const maintenanceStatusTone = (status: string | null | undefined): 'pending' | 'inprogress' | 'completed' => {
-  const label = maintenanceStatusLabel(status);
-  if (label === 'Closed' || label === 'Cancelled') return 'completed';
-  if (label === 'Open' || label === 'PendingVerification') return 'pending';
+  const key = (status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase();
+  if (['CLOSED', 'RESOLVED', 'COMPLETED', 'CANCELLED', 'CANCELED'].includes(key)) return 'completed';
+  if (['OPEN', 'PENDING', 'APPROVED', 'PENDINGVERIFICATION'].includes(key)) return 'pending';
   return 'inprogress';
 };

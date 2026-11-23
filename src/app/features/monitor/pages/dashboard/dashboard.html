@@ -9,41 +9,74 @@
     <app-technician-home />
   }
   @default {
-    <div class="field-home">
-      <app-field-home-header
-        subtitle="Hoạt động nhiệm vụ bay, kết quả kiểm tra kỹ thuật và trạng thái vận hành lưới điện thời gian thực."
-        [loading]="store.loading()"
-        [loadedAt]="loadedAt()"
-        (refresh)="refreshManagerDashboard()"
-      />
+    <div class="ops-page dashboard-ops-page">
+      <header class="page-header">
+        <div>
+          <nav class="page-breadcrumb" aria-label="Đường dẫn">
+            <a routerLink="/dashboard">Tổng quan</a>
+            <span class="separator">/</span>
+            <strong>Bảng điều hành hệ thống</strong>
+          </nav>
+          <h1>Tổng quan vận hành &amp; Giám sát lưới điện</h1>
+          <p>Điều phối nhiệm vụ bay, đánh giá tiền bay, đội bay UAV, thẩm định khuyết tật AI và bảo trì thiết bị.</p>
+        </div>
+        <div class="head-actions">
+          @if (loadedAt(); as at) {
+            <span class="dash-updated tabular-nums" role="status" aria-live="polite">
+              Cập nhật {{ at | date: 'HH:mm' }} · tự làm mới 30 giây
+            </span>
+          }
+          <button type="button" class="app-btn-secondary" (click)="refreshManagerDashboard()" [disabled]="store.loading()">
+            {{ store.loading() ? 'Đang tải...' : 'Làm mới' }}
+          </button>
+        </div>
+      </header>
 
       @if (store.error() && !store.dashboard()) {
         <app-data-state kind="error" [message]="store.error() || ''" (retry)="refreshManagerDashboard()" />
       } @else {
         @if (store.summary(); as summary) {
-          <ul class="count-strip" aria-label="Tóm tắt chỉ số vận hành chính">
-            <li class="count-tile tone-blue">
+          <ul class="dashboard-kpi-grid" aria-label="Tóm tắt chỉ số vận hành cốt lõi">
+            <li class="dash-kpi-card">
               <a routerLink="/missions">
-                <span class="tile-label">Nhiệm vụ đang bay / chờ xử lý</span>
-                <strong class="tile-value">{{ summary.inProgressMissions + summary.pendingMissions }}</strong>
+                <span class="kpi-label">Nhiệm vụ đang vận hành</span>
+                <strong class="kpi-value tabular-nums">{{ summary.inProgressMissions + summary.pendingMissions }}</strong>
+                <span class="kpi-sub tabular-nums">Hoàn thành: {{ summary.completedMissions }}</span>
               </a>
             </li>
-            <li class="count-tile tone-amber">
-              <a routerLink="/inspections">
-                <span class="tile-label">Tổng sự cố phát hiện</span>
-                <strong class="tile-value">{{ summary.totalDefects }}</strong>
+            <li class="dash-kpi-card">
+              <a routerLink="/pre-mission">
+                <span class="kpi-label">Tiền bay sẵn sàng</span>
+                <strong class="kpi-value tabular-nums">{{ readyAssessmentsCount() ?? '—' }}</strong>
+                <span class="kpi-sub tabular-nums">Tổng hồ sơ: {{ totalAssessmentsCount() ?? '—' }}</span>
               </a>
             </li>
-            <li class="count-tile tone-red">
-              <a routerLink="/emergency-alerts">
-                <span class="tile-label">Sự cố khẩn cấp / nghiêm trọng</span>
-                <strong class="tile-value">{{ summary.criticalDefects }}</strong>
+            <li class="dash-kpi-card">
+              <a routerLink="/drones">
+                <span class="kpi-label">Đội bay UAV sẵn sàng</span>
+                <strong class="kpi-value tabular-nums">{{ availableDronesCount() ?? '—' }}</strong>
+                <span class="kpi-sub tabular-nums">Tổng đội bay: {{ totalDronesCount() ?? '—' }} UAV</span>
               </a>
             </li>
-            <li class="count-tile tone-green">
-              <a routerLink="/missions">
-                <span class="tile-label">Nhiệm vụ hoàn thành</span>
-                <strong class="tile-value">{{ summary.completedMissions }}</strong>
+            <li class="dash-kpi-card">
+              <a routerLink="/ai-review">
+                <span class="kpi-label">Khuyết tật chờ thẩm định</span>
+                <strong class="kpi-value tabular-nums text-amber-700">{{ pendingReviewCount() ?? '—' }}</strong>
+                <span class="kpi-sub">Hàng đợi duyệt AI &amp; khẩn cấp</span>
+              </a>
+            </li>
+            <li class="dash-kpi-card">
+              <a [routerLink]="['/ai-review']" [queryParams]="{ priority: 'emergency' }">
+                <span class="kpi-label">Sự cố đã xác nhận</span>
+                <strong class="kpi-value tabular-nums">{{ summary.totalDefects }}</strong>
+                <span class="kpi-sub tabular-nums text-rose-600">Khẩn cấp / nghiêm trọng: {{ summary.criticalDefects }}</span>
+              </a>
+            </li>
+            <li class="dash-kpi-card">
+              <a routerLink="/maintenance">
+                <span class="kpi-label">Phiếu bảo trì đang mở</span>
+                <strong class="kpi-value tabular-nums">{{ openMaintenanceCount() ?? '—' }}</strong>
+                <span class="kpi-sub tabular-nums">Tổng phiếu: {{ totalMaintenanceCount() ?? '—' }}</span>
               </a>
             </li>
           </ul>
@@ -63,7 +96,7 @@
                 <section class="panel" aria-labelledby="mgr-missions-title">
                   <header>
                     <h2 id="mgr-missions-title">Tiến độ nhiệm vụ bay</h2>
-                    <a routerLink="/missions">Danh sách nhiệm vụ &rarr;</a>
+                    <a routerLink="/missions">Danh sách nhiệm vụ →</a>
                   </header>
                   <div class="panel-body-padded">
                     @if (store.missionStatus().length) {
@@ -78,7 +111,7 @@
                 <section class="panel" aria-labelledby="mgr-defects-title">
                   <header>
                     <h2 id="mgr-defects-title">Thống kê sự cố</h2>
-                    <a routerLink="/inspections">Xem thống kê &rarr;</a>
+                    <a routerLink="/inspections">Xem lịch sử kiểm tra →</a>
                   </header>
                   <div class="panel-body-padded">
                     @if (store.defectStatistics().length) {
@@ -94,7 +127,7 @@
               <section class="panel panel-defects" aria-labelledby="mgr-recent-defects-title">
                 <header>
                   <h2 id="mgr-recent-defects-title">Sự cố gần đây trên toàn hệ thống</h2>
-                  <a routerLink="/inspections">Xem tất cả kiểm tra &rarr;</a>
+                  <a routerLink="/inspections">Xem tất cả kiểm tra →</a>
                 </header>
                 @if (store.recentDefects(); as defects) {
                   @if (defects.items.length) {
@@ -107,7 +140,7 @@
             }
           </div>
 
-          <!-- Right Column: Personal Notifications Card (đồng bộ với Analyst / Field Roles) -->
+          <!-- Right Column: Personal Notifications Card -->
           <aside class="home-side" aria-label="Thông báo của tôi">
             <app-personal-alerts-card />
           </aside>

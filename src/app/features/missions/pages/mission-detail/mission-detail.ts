@@ -40,7 +40,7 @@ import { NotificationsStore } from '../../../notifications/data-access/notificat
 import { MissionsApi } from '../../data-access/missions-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { Auth } from '../../../../core/auth/auth';
-import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
+import { isAdminRole, isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
 import {
   MissionTab,
   activitySenderKind,
@@ -981,9 +981,6 @@ export class MissionDetail {
     this.uploadMessage.set('');
     this.selectedDetection.set(null);
     const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, this.mediaQueue());
-    }
 
     previews.forEach((media) => {
       if (media.kind === 'image') {
@@ -996,9 +993,6 @@ export class MissionDetail {
               this.mediaQueue.update((items) =>
                 items.map((it) => (it.id === media.id ? { ...it, url: dataUrl, thumbnailUrl: dataUrl } : it))
               );
-              if (missionId) {
-                this.saveMockMediaQueue(missionId, this.mediaQueue());
-              }
             }
           };
           reader.readAsDataURL(media.file);
@@ -1027,10 +1021,6 @@ export class MissionDetail {
     this.activeMediaId.set('');
     this.uploadProgress.set(0);
     this.uploadMessage.set('');
-    const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, []);
-    }
   }
 
   protected removeMedia(id: string, event?: Event): void {
@@ -1044,10 +1034,6 @@ export class MissionDetail {
     if (!nextQueue.length) {
       this.uploadProgress.set(0);
       this.uploadMessage.set('');
-    }
-    const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, nextQueue);
     }
   }
 
@@ -1977,6 +1963,13 @@ export class MissionDetail {
   }
 
   private loadDetections(missionId: string): void {
+    if (isAdminRole(this.userRole())) {
+      this.detectionsLoading.set(false);
+      this.detections.set([]);
+      this.selectedDetection.set(null);
+      this.loadMediaQueue(missionId);
+      return;
+    }
     this.detectionsLoading.set(true);
     this.api
       .getMissionDetections(missionId)
@@ -2683,9 +2676,5 @@ export class MissionDetail {
         );
       }
     }
-  }
-
-  private saveMockMediaQueue(_missionId: string, _items: readonly MissionMediaPreview[]): void {
-    // No-op: Removed mock media localStorage persistence
   }
 }
