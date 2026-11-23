@@ -25,8 +25,10 @@ export const ROUTE_ROLES = {
   planning: ['Admin', 'Manager'],
   /** `/missions/:id/inspector`: assignee view for field roles. */
   missionAssignee: ['Inspector', 'Analyst', 'Technician', 'MaintenanceTechnician'],
-  /** `/admin/users`, `/system/audit-logs`. */
+  /** `/admin/users`, `/system/audit-logs`: Admin & Manager. */
   administration: ['Admin', 'SystemAdmin', 'Manager'],
+  /** `/system/settings`: SystemAdmin / Admin only. */
+  systemSettings: ['Admin', 'SystemAdmin'],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 /**

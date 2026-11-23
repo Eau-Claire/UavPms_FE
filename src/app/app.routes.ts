@@ -16,7 +16,8 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', loadComponent: () => import('./features/monitor/pages/dashboard/dashboard').then((m) => m.Dashboard), title: 'Tổng quan giám sát | UAV-PMS' },
       { path: 'inspections', loadComponent: () => import('./features/monitor/pages/inspection-history/inspection-history').then((m) => m.InspectionHistory), title: 'Lịch sử kiểm tra | UAV-PMS' },
-      { path: 'change-password', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Đổi mật khẩu | UAV-PMS' },
+      { path: 'account/settings', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Cài đặt tài khoản | UAV-PMS' },
+      { path: 'change-password', redirectTo: 'account/settings', pathMatch: 'full' },
       { path: 'towers', loadComponent: () => import('./features/towers/pages/tower-list/tower-list').then((m) => m.TowerList), title: 'Quản lý cột điện | UAV-PMS' },
       { path: 'towers/:id', loadComponent: () => import('./features/towers/pages/tower-detail/tower-detail').then((m) => m.TowerDetail), title: 'Chi tiết cột điện | UAV-PMS' },
       { path: 'assets', pathMatch: 'full', redirectTo: 'towers' },
@@ -48,7 +49,7 @@ export const routes: Routes = [
       { path: 'audit-logs', redirectTo: 'system/audit-logs' },
       {
         path: 'system/settings',
-        canActivate: [roleGuard(ROUTE_ROLES.administration)],
+        canActivate: [roleGuard(ROUTE_ROLES.systemSettings)],
         loadComponent: () => import('./features/system-settings/pages/system-settings/system-settings').then((m) => m.SystemSettingsPage),
         title: 'Cấu hình hệ thống | UAV-PMS',
       },

@@ -6,6 +6,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
+}
+
+.audit-logs-table td.audit-wrap-cell {
+  white-space: normal;
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.audit-wrap-text {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .audit-action-text {

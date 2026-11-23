@@ -128,8 +128,7 @@ export class Login implements OnInit {
               msgLower.includes('chưa được xác minh') ||
               msgLower.includes('unconfirmed'))
           ) {
-            this.unverifiedEmail.set(true);
-            this.error.set('Tài khoản của bạn chưa xác thực email để kích hoạt đăng nhập.');
+            this.error.set('Tên đăng nhập hoặc mật khẩu không chính xác.');
             return;
           }
 

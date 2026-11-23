@@ -135,9 +135,14 @@ export class DetectionReview {
   );
 
   protected readonly boundingBoxStyle = computed<ComputedBoxStyle | null>(() => {
-    const box = this.detection()?.boundingBox;
-    if (!box) return null;
-    return this.calculateBoxStyle(box, this.imgNaturalWidth(), this.imgNaturalHeight());
+    const item = this.detection();
+    if (!item) return null;
+    const natW = this.imgNaturalWidth();
+    const natH = this.imgNaturalHeight();
+    if (!item.boundingBox) {
+      return natW > 0 && natW <= 320 ? { left: '8%', top: '8%', width: '84%', height: '84%' } : null;
+    }
+    return this.calculateBoxStyle(item.boundingBox, natW, natH);
   });
 
   constructor() {
@@ -254,6 +259,15 @@ export class DetectionReview {
   protected onImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
     img.src = '/images/defect-preview-frame.png';
+  }
+
+  protected onWheelZoom(event: WheelEvent): void {
+    event.preventDefault();
+    if (event.deltaY < 0) {
+      this.zoomIn();
+    } else if (event.deltaY > 0) {
+      this.zoomOut();
+    }
   }
 
   protected zoomIn(): void {
@@ -509,11 +523,19 @@ export class DetectionReview {
   }
 
   private calculateBoxStyle(box: AnomalyBoundingBox, naturalW: number, naturalH: number): ComputedBoxStyle | null {
-    if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) {
-      return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+    const fitsNormalized =
+      box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0 && box.x + box.width <= 100.5 && box.y + box.height <= 100.5;
+    if ((box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) && fitsNormalized) {
+      if (!(naturalW > 0 && naturalW <= 320 && box.x + box.width > naturalW * 0.95)) {
+        return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+      }
     }
 
     if (naturalW > 0 && naturalH > 0) {
+      // Pre-cropped patch whose bounding box belongs to the original parent frame
+      if (box.x + box.width > naturalW * 1.02 || box.y + box.height > naturalH * 1.02) {
+        return { left: '8%', top: '8%', width: '84%', height: '84%' };
+      }
       return {
         left: `${Math.max(0, Math.min(95, (box.x / naturalW) * 100))}%`,
         top: `${Math.max(0, Math.min(95, (box.y / naturalH) * 100))}%`,

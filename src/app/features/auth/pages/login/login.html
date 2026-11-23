@@ -49,22 +49,6 @@
               <div class="ant-form-item-explain"><span class="auth-field-error">Mật khẩu phải có ít nhất 3 ký tự</span></div>
             } @else if (error()) {
               <div class="ant-form-item-explain" role="alert"><span class="auth-field-error">{{ error() }}</span></div>
-              @if (unverifiedEmail()) {
-                <div style="margin-top: 10px;">
-                  <button
-                    nz-button
-                    nzType="default"
-                    nzSize="small"
-                    [nzBlock]="true"
-                    type="button"
-                    (click)="sendActivationOtp()"
-                    [nzLoading]="sendingOtp()"
-                    style="border-color: #10387d; color: #10387d; font-weight: 600;"
-                  >
-                    Gửi mã OTP kích hoạt tài khoản
-                  </button>
-                </div>
-              }
             }
           </nz-form-control>
         </nz-form-item>

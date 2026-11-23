@@ -5,12 +5,11 @@ import { RouterLink } from '@angular/router';
 import { catchError, finalize, map, Observable, of, Subject, switchMap, tap } from 'rxjs';
 import { priorityColorClass, statusColorClass } from '../../../../shared/status/status';
 import { Auth } from '../../../../core/auth/auth';
-import { MaintenanceProof, MaintenanceTicket, MaterialLog } from '../../../../models/maintenance.models';
+import { MaintenanceProof, MaintenanceTicket } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { ConfirmDialog } from '../../../towers/components/confirm-dialog/confirm-dialog';
 import { AssignTechnician } from '../../components/assign-technician/assign-technician';
 import { DefectImage } from '../../components/defect-image/defect-image';
-import { MaterialForm } from '../../components/material-form/material-form';
 import { ProofUpload } from '../../components/proof-upload/proof-upload';
 import { TicketTimeline } from '../../components/ticket-timeline/ticket-timeline';
 import { ToastService } from '../../../../core/toast/toast.service';
@@ -44,7 +43,7 @@ const ACTIONS: Record<TicketAction, ActionConfig> = {
   },
   submit: {
     title: 'Gửi nghiệm thu',
-    message: 'Gửi phiếu cho quản lý nghiệm thu? Hãy chắc chắn đã tải đủ ảnh minh chứng và ghi nhận vật tư.',
+    message: 'Gửi phiếu cho quản lý nghiệm thu? Hãy chắc chắn đã tải đủ ảnh minh chứng sau sửa chữa.',
     label: 'Gửi nghiệm thu',
     success: 'Đã gửi phiếu chờ nghiệm thu.',
   },
@@ -59,7 +58,7 @@ const ACTIONS: Record<TicketAction, ActionConfig> = {
 /** `/maintenance/:id`: ticket detail with the MF04 workflow actions allowed for the current role. */
 @Component({
   selector: 'app-maintenance-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, DataState, ConfirmDialog, AssignTechnician, DefectImage, MaterialForm, ProofUpload, TicketTimeline],
+  imports: [DatePipe, DecimalPipe, RouterLink, DataState, ConfirmDialog, AssignTechnician, DefectImage, ProofUpload, TicketTimeline],
   templateUrl: './maintenance-detail.html',
   styleUrl: './maintenance-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -98,21 +97,40 @@ export class MaintenanceDetail {
   protected readonly isTechnician = computed(() => isMaintenanceTechnician(this.role()));
   protected readonly isAssignedTechnician = computed(() => {
     const ticket = this.ticket();
-    const userId = this.auth.user()?.id;
-    return this.isTechnician() && Boolean(ticket?.technicianId && userId) && ticket?.technicianId === userId;
+    const user = this.auth.user();
+    if (!ticket || !user) return false;
+    const idMatch =
+      Boolean(ticket.technicianId && user.id) &&
+      String(ticket.technicianId).toLowerCase() === String(user.id).toLowerCase();
+    const emailMatch =
+      Boolean(ticket.technician?.email && user.email) &&
+      ticket.technician!.email.toLowerCase() === user.email.toLowerCase();
+    return idMatch || emailMatch;
   });
 
   private readonly status = computed(() => this.ticket()?.status ?? '');
   protected readonly isClosed = computed(() => isClosedStatus(this.status()));
   protected readonly hasProof = computed(() => (this.ticket()?.proofs.length ?? 0) > 0);
-  /** Backend EnsureTechnicianOrAdminAccess: Manager/Admin, or the technician the ticket is assigned to. */
+  /** Manager/Admin, or the technician assigned to this ticket. */
   protected readonly canWork = computed(() => this.isManager() || this.isAssignedTechnician());
-  protected readonly canAssign = computed(() => this.isManager() && this.status() === 'Open');
-  protected readonly canStart = computed(() => this.canWork() && this.status() === 'Open');
-  protected readonly canSubmit = computed(() => this.canWork() && this.status() === 'InProgress');
+  protected readonly canAssign = computed(() => this.isManager() && (this.status() === 'Open' || this.status() === 'Assigned'));
+  protected readonly canStart = computed(() => this.canWork() && (this.status() === 'Open' || this.status() === 'Assigned'));
+  protected readonly canSubmit = computed(() => this.canWork() && (this.status() === 'InProgress' || (this.status() === 'Assigned' && this.hasProof())));
   protected readonly canClose = computed(() => this.isManager() && this.status() === 'PendingVerification');
-  protected readonly canAddEvidence = computed(() => this.canWork() && (this.status() === 'InProgress' || this.status() === 'PendingVerification'));
+  protected readonly canAddEvidence = computed(
+    () => this.canWork() && (this.status() === 'Assigned' || this.status() === 'InProgress' || this.status() === 'PendingVerification'),
+  );
   protected readonly hasActions = computed(() => this.canAssign() || this.canStart() || this.canSubmit() || this.canClose());
+
+  protected cleanNote(text: string | null | undefined): string {
+    if (!text) return '';
+    const cleaned = text
+      .replace(/AI evaluation:[\s\S]*?(confidence\s*[\d.,]+\s*%\.?|$)/gi, '')
+      .replace(/\[AI Review\]\s*/gi, '')
+      .replace(/:\s*$/, '')
+      .trim();
+    return cleaned;
+  }
 
   protected readonly missionId = computed(() => this.ticket()?.anomaly?.missionId);
   protected readonly towerId = computed(() => this.ticket()?.tower?.id ?? this.ticket()?.towerId);
@@ -216,14 +234,10 @@ export class MaintenanceDetail {
         ? {
             ...ticket,
             proofs: [...ticket.proofs, proof],
-            status: ticket.status === 'Open' ? 'InProgress' : ticket.status,
+            status: ticket.status === 'Open' || ticket.status === 'Assigned' ? 'InProgress' : ticket.status,
           }
         : ticket,
     );
-  }
-
-  protected onMaterialLogged(material: MaterialLog): void {
-    this.ticket.update((ticket) => (ticket ? { ...ticket, materials: [...ticket.materials, material] } : ticket));
   }
 
   protected personName(person: { readonly fullName: string; readonly email: string } | undefined): string {

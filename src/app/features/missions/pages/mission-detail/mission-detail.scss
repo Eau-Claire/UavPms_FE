@@ -1,5 +1,5 @@
 .ops-page.mission-live-page { display: flex; flex-direction: column; gap: 14px; color: #0f172a; font-size: 13px; }
-.mission-live-page:not(.workbench-mode) { display: grid; gap: 14px; grid-template-areas: 'header header header' 'tabs tabs tabs' 'dispatch dispatch dispatch' 'telemetry map camera' 'footer footer footer'; grid-template-columns: 260px minmax(360px, 1fr) 260px; grid-template-rows: auto auto auto minmax(420px, auto) auto; }
+.mission-live-page:not(.workbench-mode) { display: grid; gap: 14px; grid-template-areas: 'header header header' 'tabs tabs tabs' 'dispatch dispatch dispatch' 'telemetry map camera'; grid-template-columns: 260px minmax(360px, 1fr) 260px; grid-template-rows: auto auto auto minmax(420px, auto); }
 .mission-detail-skeleton .skeleton { height: 180px; background: #e2e8f0; border-radius: 6px; }
 .mission-live-header { grid-area: header; }
 .header-main-info, .dispatch-info-col, .mission-ai-workbench, .asset-upload-view.mission-tab-upload, .mission-telemetry-panel dl > div, .mission-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -8,23 +8,24 @@
 .header-sep { color: #cbd5e1; }
 .header-sub-desc, .dispatch-role-desc, .member-time, .member-reason, .waypoint-empty, .mission-telemetry-panel dt, .waypoint small, .mission-live-footer small, .mission-card span, .media-specs-grid dt, .card-meta, .timeline-meta-head, .comm-message-header, .milestone-item small, .priority-option-card small { margin: 0; font-size: 12px; color: #64748b; }
 
-.mission-detail-tabs { grid-area: tabs; display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #e2e8f0; }
-.mission-detail-tabs button { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: #64748b; cursor: pointer; }
+.mission-detail-tabs { grid-area: tabs; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; }
+.mission-detail-tabs button { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64748b; font-size: 13px; font-weight: 500; cursor: pointer; }
+.mission-detail-tabs button:hover { color: #0f172a; }
 .mission-detail-tabs button.active { color: #1d4f91; border-bottom-color: #1d4f91; font-weight: 600; }
-.tab-count-bubble, .dispatch-pill-badge, .defect-focus-tag, .summary-pill, .kpi-chip { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; }
-.tab-count-bubble.warn { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+.tab-count-bubble { background: #f1f5f9; color: #475569; border-radius: 999px; font-size: 11px; font-weight: 600; padding: 1px 7px; }
+.dispatch-pill-badge, .defect-focus-tag, .summary-pill, .kpi-chip { background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; }
+.tab-count-bubble.warn { background: #fee2e2; color: #be123c; }
 
 .mf02-manager-dispatch-panel, .mission-telemetry-panel, .mission-map-panel, .mission-camera-panel, .mission-live-footer, .mission-ai-card, .mission-assets-panel, .mission-maintenance-panel, .mission-communication-panel, .mission-audit-sidebar, .mission-card, .upload-card, .queue-card, .mission-upload-footer, .review-left, .review-detail, .modal-dialog, .detection-card, .mission-drop-thumb, .mission-processing-card, .priority-option-card, .comp-box, .matrix-member-card, .selected-target-card, .maint-task-card, .comm-message-item, .map-layer-switch, .waypoint, .upload-feedback, .step, .gallery-frame-btn { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; }
 .mission-map-panel, .upload-card, .queue-card, .review-left, .review-detail, .modal-dialog, .comp-box, .preview-media-visual, .defect-image, .video-player-box { overflow: hidden; }
 .mf02-manager-dispatch-panel, .mission-telemetry-panel, .mission-camera-panel, .mission-media-preview-container, .mission-processing-panel, .detail-body, .modal-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
 .multi-role-team-matrix { display: flex; flex-direction: column; gap: 10px; padding: 12px 0 0; border-top: 1px solid #f1f5f9; }
 
-.emergency-live-banner, .action-feedback-toast, .callout-banner, .linear-state-guard-alert { padding: 10px 14px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.emergency-live-banner, .callout-banner, .linear-state-guard-alert { padding: 10px 14px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
 .emergency-live-banner, .callout-banner.overdue-alert, .callout-banner.suspended-alert { background: #fff1f2; border: 1px solid #fecdd3; color: #991b1b; }
 .callout-banner.postponed-alert, .linear-state-guard-alert { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 .callout-banner p, .linear-state-guard-alert p { margin: 4px 0 0; font-size: 12.5px; }
-.action-feedback-toast { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-.btn-toast-close, .review-detail-close, .btn-modal-close { border: none; background: transparent; font-size: 18px; color: inherit; cursor: pointer; }
+.review-detail-close, .btn-modal-close { border: none; background: transparent; font-size: 18px; color: inherit; cursor: pointer; }
 .emergency-banner-title, .team-matrix-title { font-weight: 600; }
 
 .mf02-manager-dispatch-panel { grid-area: dispatch; }
@@ -65,9 +66,6 @@
 .waypoint.selected { border-color: #1d4f91; background: #f8fafc; }
 .waypoint.selected .waypoint-index { background: #1d4f91; color: #fff; }
 .waypoint strong { flex: 1; }
-
-.mission-live-footer { grid-area: footer; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.mission-live-footer .mission-progress { flex: 1 1 200px; max-width: 340px; }
 
 .mission-footer-upload, .primary-action, .btn-ai-worker-trigger, .mission-ai-primary, .confirm-action, .btn-batch-create-tickets, .btn-send-message, .btn-modal-submit, .choose-file, .ghost-action, .create-ticket-action, .btn-modal-cancel, .review-filters button, .processing-empty-state button, .emergency-btn-dismiss, .reject-action { height: 36px; padding: 0 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .mission-footer-upload, .primary-action, .btn-ai-worker-trigger, .mission-ai-primary, .confirm-action, .btn-batch-create-tickets, .btn-send-message, .btn-modal-submit, .choose-file { background: #1d4f91; border: 1px solid #1d4f91; color: #fff; }

@@ -10,6 +10,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -17,7 +18,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { Observable, catchError, concatMap, finalize, from, of, tap } from 'rxjs';
+import { Observable, catchError, concatMap, finalize, from, of, switchMap, tap } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { priorityColorClass, statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
 import {
   InspectionObjective,
@@ -185,6 +187,7 @@ export class MissionDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
 
   // --- Role rules (mirror MissionController's [Authorize] attributes) ---
   private readonly userRole = computed(() => this.auth.user()?.role);
@@ -214,6 +217,13 @@ export class MissionDetail {
   /** The signed-in user's assignment on this mission, if any. */
   protected readonly myAssignment = computed(() => findMyAssignment(this.mission(), this.auth.user()?.id));
   /** Start/complete flight: managers, or an Inspector who is on this mission's team. */
+  /** Any assigned team member (Inspector, Analyst, Technician) or Manager/Admin can check in at site. */
+  protected readonly canCheckIn = computed(() => {
+    if (this.isManager()) return true;
+    const userId = this.auth.user()?.id;
+    return Boolean(userId && (this.myAssignment() || this.mission()?.assignedToUserId === userId));
+  });
+
   protected readonly canOperateFlight = computed(() => {
     if (this.isManager()) return true;
     if (!this.isFlightCrew()) return false;
@@ -701,6 +711,18 @@ export class MissionDetail {
           this.triggerEmergencySiren(notif.title, notif.body);
         }
       });
+
+    effect(() => {
+      const msg = this.actionMessage();
+      if (!msg) return;
+      const lower = msg.toLowerCase();
+      if (lower.startsWith('không thể') || lower.startsWith('lỗi') || lower.includes('không có quyền') || lower.includes('không thể nhận việc') || lower.includes('không thể báo hoãn')) {
+        this.toast.error(msg);
+      } else {
+        this.toast.success(msg);
+      }
+      untracked(() => this.actionMessage.set(''));
+    });
 
     const timer = setInterval(() => this.currentTime.set(Date.now()), 30000);
     const pollTimer = setInterval(() => {
@@ -1656,6 +1678,36 @@ export class MissionDetail {
           });
         },
         error: (err: unknown) => this.actionMessage.set(this.errorMessage(err)),
+      });
+  }
+
+  protected confirmDraftAndNotify(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .update(currentMission.id, { status: 'PendingAcceptance' })
+      .pipe(
+        catchError(() => of(null)),
+        switchMap(() => this.api.sendReminder(currentMission.id)),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set('Đã xác nhận bản nháp và gửi yêu cầu tiếp nhận tới đội ngũ.');
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'DISPATCHED',
+            status: updated.status,
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err, 'Không thể xác nhận và gửi tiếp nhận nhiệm vụ.')),
       });
   }
 

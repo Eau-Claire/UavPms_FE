@@ -67,7 +67,16 @@
       />
     } @else {
       <div class="app-table-scroll">
-        <table class="app-data-table" style="min-width: 980px;" aria-label="Danh sách nhật ký hệ thống">
+        <table class="app-data-table audit-logs-table" style="min-width: 1020px; table-layout: fixed;" aria-label="Danh sách nhật ký hệ thống">
+          <colgroup>
+            <col style="width: 13%;" />
+            <col style="width: 18%;" />
+            <col style="width: 14%;" />
+            <col style="width: 17%;" />
+            <col style="width: 16%;" />
+            <col style="width: 14%;" />
+            <col style="width: 8%;" />
+          </colgroup>
           <thead>
             <tr>
               <th scope="col">Thời gian</th>
@@ -86,25 +95,25 @@
                   <div class="cell-primary">{{ row.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
                   <div class="cell-secondary" style="font-size: 11.5px;">UTC+7</div>
                 </td>
-                <td>
-                  <div class="cell-primary" style="white-space: normal; word-break: break-word; max-width: 190px;">{{ row.operatorEmail || 'Hệ thống' }}</div>
+                <td class="audit-wrap-cell">
+                  <div class="cell-primary audit-wrap-text">{{ row.operatorEmail || 'Hệ thống' }}</div>
                   @if (row.userId) {
                     <div class="cell-secondary tabular-nums" style="font-size: 11.5px;" [title]="row.userId">
                       ID: {{ row.userId | slice: 0 : 8 }}
                     </div>
                   }
                 </td>
-                <td>
-                  <span [class]="actionBadgeClass(row.actionType) + ' audit-action-text'">
+                <td class="audit-wrap-cell">
+                  <span [class]="actionBadgeClass(row.actionType) + ' audit-action-text audit-wrap-text'">
                     {{ actionLabel(row.actionType) }}
                   </span>
                 </td>
-                <td>
-                  <div class="cell-primary" style="white-space: normal; max-width: 220px;">{{ tableLabel(row.tableName) }}</div>
+                <td class="audit-wrap-cell">
+                  <div class="cell-primary audit-wrap-text" [title]="row.tableName">{{ tableLabel(row.tableName) }}</div>
                 </td>
                 <td class="tabular-nums">
                   <div class="record-id-inline">
-                    <span class="cell-secondary cell-truncate" style="max-width: 140px;" [title]="row.recordId">{{ row.recordId || '—' }}</span>
+                    <span class="cell-secondary cell-truncate" style="max-width: 105px;" [title]="row.recordId">{{ row.recordId || '—' }}</span>
                     @if (row.recordId) {
                       <button type="button" class="app-btn-action" (click)="copyText(row.recordId, row.id)">
                         {{ copiedId() === row.id ? 'Đã chép' : 'Chép' }}
@@ -112,9 +121,9 @@
                     }
                   </div>
                 </td>
-                <td>
+                <td class="audit-wrap-cell">
                   <div class="cell-primary tabular-nums">{{ row.ipAddress || '—' }}</div>
-                  <div class="cell-secondary cell-truncate" style="max-width: 220px; font-size: 11.5px;" [title]="row.userAgent">
+                  <div class="cell-secondary cell-truncate" style="max-width: 100%; font-size: 11.5px;" [title]="row.userAgent">
                     {{ row.userAgent || '—' }}
                   </div>
                 </td>

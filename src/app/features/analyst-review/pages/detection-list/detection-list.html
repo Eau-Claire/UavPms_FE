@@ -8,11 +8,11 @@
         <strong>Duyệt kết quả phát hiện</strong>
       </nav>
       <h1>Hàng đợi thẩm định khuyết tật AI</h1>
-      <p>Xem xét, gắn cột điện và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật từ dữ liệu khảo sát</p>
+      <p>Xem xét và phê duyệt hoặc từ chối các khuyết tật do AI phát hiện từ dữ liệu khảo sát.</p>
     </div>
   </header>
 
-  <!-- 5-Tab Status Navigation -->
+  <!-- 3-Tab Status Navigation -->
   <nav class="review-status-tabs" role="tablist" aria-label="Lọc theo trạng thái thẩm định">
     <button
       type="button"
@@ -21,18 +21,8 @@
       [class.active]="statusFilter() === 'Pending'"
       (click)="setStatusFilter('Pending')"
     >
-      <span>Chờ duyệt</span>
+      <span>Chưa duyệt</span>
       <span class="tab-count tabular-nums">{{ pendingCount() || (statusFilter() === 'Pending' ? response().totalCount : 0) }}</span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="statusFilter() === 'Reviewed'"
-      [class.active]="statusFilter() === 'Reviewed'"
-      (click)="setStatusFilter('Reviewed')"
-    >
-      <span>Đã duyệt</span>
     </button>
 
     <button
@@ -53,16 +43,6 @@
       (click)="setStatusFilter('Rejected')"
     >
       <span>Từ chối</span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="statusFilter() === 'ALL'"
-      [class.active]="statusFilter() === 'ALL'"
-      (click)="setStatusFilter('ALL')"
-    >
-      <span>Tất cả</span>
     </button>
   </nav>
 
@@ -141,23 +121,19 @@
       <div class="app-table-scroll app-table-stage">
         <table class="app-data-table">
           <colgroup>
-            <col style="width: 8%" />
-            <col style="width: 22%" />
-            <col style="width: 12%" />
+            <col style="width: 10%" />
+            <col style="width: 28%" />
+            <col style="width: 16%" />
+            <col style="width: 10%" />
             <col style="width: 14%" />
-            <col style="width: 11%" />
-            <col style="width: 8%" />
-            <col style="width: 11%" />
-            <col style="width: 8%" />
-            <col style="width: 6%" />
+            <col style="width: 12%" />
+            <col style="width: 10%" />
           </colgroup>
           <thead>
             <tr>
               <th scope="col" class="col-center">Ảnh</th>
               <th scope="col">Loại khuyết tật</th>
               <th scope="col">Cột điện</th>
-              <th scope="col">Nguồn xử lý</th>
-              <th scope="col">Nơi chạy</th>
               <th scope="col" class="col-center">Tin cậy</th>
               <th scope="col" class="col-center">Trạng thái</th>
               <th scope="col">Thời gian</th>
@@ -171,8 +147,6 @@
                   <td class="col-center"><span class="app-skeleton-bar w-14"></span></td>
                   <td><span class="app-skeleton-bar w-40"></span></td>
                   <td><span class="app-skeleton-bar w-20"></span></td>
-                  <td><span class="app-skeleton-bar w-24"></span></td>
-                  <td><span class="app-skeleton-bar w-20"></span></td>
                   <td class="col-center"><span class="app-skeleton-bar w-12"></span></td>
                   <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
                   <td><span class="app-skeleton-bar w-20"></span></td>
@@ -181,7 +155,7 @@
               }
             } @else if (!displayedItems().length) {
               <tr>
-                <td colspan="9" class="app-empty-cell">
+                <td colspan="7" class="app-empty-cell">
                   {{ emptyStateTitle() }}
                 </td>
               </tr>
@@ -219,16 +193,6 @@
                     } @else {
                       <span class="text-red-700">Chưa gắn cột</span>
                     }
-                  </td>
-                  <td class="cell-secondary">
-                    <span class="cell-truncate" [title]="item.aiSource || 'Không rõ'">
-                      {{ item.aiSource || 'Không rõ' }}
-                    </span>
-                  </td>
-                  <td class="cell-secondary">
-                    <span class="cell-truncate" [title]="item.executionLocation ? executionLabels[item.executionLocation] : 'Chưa xác định'">
-                      {{ item.executionLocation ? executionLabels[item.executionLocation] : 'Chưa xác định' }}
-                    </span>
                   </td>
                   <td class="col-center tabular-nums">
                     <span [class]="confidenceColorClass(item.confidenceScore)">
@@ -304,6 +268,16 @@
                     fetchpriority="low"
                     (error)="handleImageError($event)"
                   />
+                  @if (cardBoxStyle(item); as box) {
+                    <div
+                      class="card-bbox-overlay"
+                      [style.left]="box.left"
+                      [style.top]="box.top"
+                      [style.width]="box.width"
+                      [style.height]="box.height"
+                      aria-hidden="true"
+                    ></div>
+                  }
                 } @else {
                   <div class="card-no-media">Không có ảnh</div>
                 }
@@ -333,14 +307,6 @@
                     } @else {
                       <strong class="text-red-700">Chưa gắn cột</strong>
                     }
-                  </div>
-                  <div class="meta-row">
-                    <span>Nguồn xử lý</span>
-                    <span class="meta-value-truncate" [title]="item.aiSource || 'Không rõ'">{{ item.aiSource || 'Không rõ' }}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span>Nơi chạy</span>
-                    <span>{{ item.executionLocation ? executionLabels[item.executionLocation] : 'Chưa xác định' }}</span>
                   </div>
                 </div>
               </div>

@@ -254,7 +254,10 @@ export class AuditLogViewer {
 
   protected tableLabel(tableName: string): string {
     const match = this.tableOptions.find((opt) => opt.value.toLowerCase() === tableName.toLowerCase());
-    return match ? match.label : tableName;
+    if (match) {
+      return match.label.replace(/\s*\([^)]*\)\s*$/, '').trim() || match.label;
+    }
+    return tableName;
   }
 
   protected exportCsv(): void {

@@ -6,7 +6,7 @@
         <th>Nhiệm vụ</th>
         <th>Loại sự cố</th>
         <th>Thời gian phát hiện</th>
-        <th>Hình ảnh</th>
+        <th class="col-center">Thao tác</th>
       </tr>
     </thead>
     <tbody>
@@ -23,20 +23,8 @@
           </td>
           <td>{{ defect.defectType }}</td>
           <td class="tabular-nums">{{ defect.detectedAt | date:'dd/MM/yyyy, HH:mm' }}</td>
-          <td>
-            @if (defect.imageUrl) {
-              <a [href]="defect.imageUrl" target="_blank" rel="noopener" class="thumb-link" title="Xem ảnh kiểm tra">
-                <img
-                  [src]="defect.imageUrl"
-                  loading="lazy"
-                  decoding="async"
-                  alt="Ảnh kiểm tra của {{ defect.missionName }}"
-                  (error)="onImageError($event)"
-                />
-              </a>
-            } @else {
-              <span class="no-image" title="Không có ảnh kiểm tra">Không ảnh</span>
-            }
+          <td class="col-center">
+            <a class="app-btn-action" [routerLink]="['/ai-review', defect.id]">Chi tiết</a>
           </td>
         </tr>
       }

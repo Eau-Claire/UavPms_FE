@@ -144,16 +144,26 @@
   }
 
   .card-media {
+    position: relative;
     width: 100%;
     height: 152px;
-    background: #f1f5f9;
+    background: #0f172a;
     overflow: hidden;
 
     img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
+    }
+
+    .card-bbox-overlay {
+      position: absolute;
+      border: 2px solid #ef4444;
+      background: rgba(239, 68, 68, 0.14);
+      border-radius: 3px;
+      pointer-events: none;
+      box-sizing: border-box;
     }
   }
 

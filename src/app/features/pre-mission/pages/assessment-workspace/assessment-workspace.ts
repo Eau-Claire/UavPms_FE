@@ -22,12 +22,14 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import {
   BetaflightSerialService,
@@ -87,6 +89,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly fcSerial = inject(BetaflightSerialService);
   private readonly fcApi = inject(FlightControllerApi);
+  private readonly toast = inject(ToastService);
   private realtimeSub: Subscription | null = null;
 
   /** Tọa độ thực của các cột thuộc khu vực (từ `GET /towers?regionId=`) để vẽ phạm vi lên bản đồ. */
@@ -511,6 +514,22 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   constructor() {
     this.load();
     this.initRealtimeSubscription();
+
+    effect(() => {
+      const msg = this.actionMessage();
+      if (msg) {
+        this.toast.success(msg);
+        untracked(() => this.actionMessage.set(''));
+      }
+    });
+
+    effect(() => {
+      const err = this.error();
+      if (err && this.item()) {
+        this.toast.error(err);
+        untracked(() => this.error.set(''));
+      }
+    });
 
     effect(() => {
       const a = this.item();
@@ -1108,30 +1127,41 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.currentTileLayer = null;
     }
 
-    let tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-    let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
-    let maxZoom = 20;
-    let attribution = '© Google Maps | UAV-PMS GIS';
-    if (type === 'google-hybrid') {
+    let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let subdomains = ['a', 'b', 'c'];
+    let maxZoom = 19;
+    let attribution = '© OpenStreetMap contributors | UAV-PMS GIS';
+    if (type === 'google-streets') {
+      tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
+    } else if (type === 'google-hybrid') {
       tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
     } else if (type === 'google-terrain') {
       tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
       subdomains = [];
       maxZoom = 19;
       attribution = '© Esri Topographic | UAV-PMS GIS';
-    } else if (type === 'carto') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      subdomains = ['a', 'b', 'c', 'd'];
-      maxZoom = 20;
-      attribution = '© OpenStreetMap contributors, © CARTO';
     }
 
     const tileLayer = L.tileLayer(tileUrl, { maxZoom, subdomains, attribution, keepBuffer: 6 });
     let hasFallenBack = false;
     tileLayer.on('tileerror', () => {
-      if (!hasFallenBack) {
+      if (!hasFallenBack && type !== 'carto') {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        if (this.map && this.currentTileLayer) {
+          this.map.removeLayer(this.currentTileLayer);
+        }
+        this.currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
+          attribution: '© OpenStreetMap contributors | UAV-PMS GIS',
+          keepBuffer: 6,
+        }).addTo(this.map!);
       }
     });
     this.currentTileLayer = tileLayer;

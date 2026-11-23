@@ -86,8 +86,7 @@
           <div class="stale-warning" role="status">{{ store.error() }} Đang hiển thị dữ liệu cập nhật thành công gần nhất.</div>
         }
 
-        <div class="home-grid">
-          <div class="home-main">
+        <div class="home-main">
             @if (store.loading() && !store.dashboard()) {
               <app-data-state kind="loading" title="Đang tải dữ liệu vận hành" message="Đang kết nối dịch vụ giám sát…" />
             } @else {
@@ -139,12 +138,6 @@
               </section>
             }
           </div>
-
-          <!-- Right Column: Personal Notifications Card -->
-          <aside class="home-side" aria-label="Thông báo của tôi">
-            <app-personal-alerts-card />
-          </aside>
-        </div>
       }
     </div>
   }

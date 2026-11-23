@@ -251,18 +251,19 @@
           @if (showCommandConsole()) {
             <div class="dispatch-actions-col">
               <div class="manager-action-buttons qc-action-bar">
+                <!-- Check-in available to all assigned roles (Inspector, Analyst, Technician) & Manager/Admin -->
+                @if (canCheckIn() && (mission.status === 'Confirmed' || mission.status === 'Preparing' || (mission.status === 'Assigned' && allRolesConfirmed()))) {
+                  <button
+                    type="button"
+                    class="app-btn-primary"
+                    [disabled]="actionBusy()"
+                    (click)="checkInFlight()">
+                    Check-in tại điểm bay
+                  </button>
+                }
+
                 <!-- Flight lifecycle primary step -->
                 @if (canOperateFlight()) {
-                  @if (mission.status === 'Confirmed' || (mission.status === 'Assigned' && allRolesConfirmed())) {
-                    <button
-                      type="button"
-                      class="app-btn-primary"
-                      [disabled]="actionBusy()"
-                      (click)="checkInFlight()">
-                      Check-in tại điểm bay
-                    </button>
-                  }
-
                   @if (mission.status === 'Ready' || mission.status === 'Preparing' || (!allRolesConfirmed() && mission.status === 'Assigned')) {
                     <button
                       type="button"
@@ -292,7 +293,15 @@
 
                 <!-- Dispatch commands: SystemAdmin and Manager only -->
                 @if (isManager()) {
-                  @if (mission.status === 'PendingAcceptance' || mission.status === 'Draft') {
+                  @if (mission.status === 'Draft') {
+                    <button
+                      type="button"
+                      class="app-btn-primary"
+                      [disabled]="actionBusy()"
+                      (click)="confirmDraftAndNotify()">
+                      Xác nhận &amp; Gửi tiếp nhận
+                    </button>
+                  } @else if (mission.status === 'PendingAcceptance') {
                     <button
                       type="button"
                       class="app-btn-primary"
@@ -400,13 +409,6 @@
           </div>
         }
 
-        <!-- Action Toast Message -->
-        @if (actionMessage()) {
-          <div class="action-feedback-toast" role="status">
-            <span>{{ actionMessage() }}</span>
-            <button type="button" class="btn-toast-close" (click)="actionMessage.set('')">&times;</button>
-          </div>
-        }
       </section>
       <aside class="mission-telemetry-panel">
         <h2>Dữ liệu nhiệm vụ</h2>
@@ -503,29 +505,11 @@
         </section>
       </aside>
 
-      <footer class="mission-live-footer">
-        <div>
-          <strong [title]="mission.title || 'Chưa đặt tên nhiệm vụ'">{{ middleEllipsis(mission.title || 'Chưa đặt tên nhiệm vụ', 48) }}</strong>
-          <small>Tạo lúc {{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy HH:mm') : 'N/A' }}</small>
-        </div>
-        <div class="mission-progress" role="progressbar" [attr.aria-valuenow]="progressPct()" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ nhiệm vụ" [title]="'Tiến độ: ' + progressPct() + '%'"><span [style.width.%]="progressPct()"></span></div>
-        @if (canUpload()) {
-          <button type="button" class="mission-footer-upload" (click)="setTab('upload')">Tải dữ liệu bay</button>
-        }
-      </footer>
-
     } @else {
       <section class="mission-ai-workbench">
         <!-- TAB 2: UPLOAD MEDIA (Inspector Technical Operation) -->
         @if (activeTab() === 'upload' && canUpload()) {
           <section class="asset-upload-view mission-tab-upload" aria-label="Tải dữ liệu bay">
-            <section class="mission-card" aria-label="Thông tin nhiệm vụ">
-              <div class="mission-item"><span>Mã nhiệm vụ</span><strong [title]="mission.missionCode">{{ middleEllipsis(mission.missionCode, 28) }}</strong></div>
-              <div class="mission-item mission-line"><span>Tuyến đường dây</span><strong [title]="displayValue(mission.routeData)">{{ middleEllipsis(displayValue(mission.routeData), 34) }}</strong></div>
-              <div class="mission-item"><span>Trạng thái</span><strong>{{ statusLabel(mission.status) }}</strong></div>
-              <div class="mission-item"><span>Ngày tạo</span><strong>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</strong></div>
-            </section>
-
             @if (isLinearUploadBlocked()) {
               <div class="linear-state-guard-alert" role="alert">
                 <div class="guard-content">

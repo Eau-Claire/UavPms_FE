@@ -324,7 +324,21 @@ export class NotificationsRealtime {
   }
 
   private registerHandlers(connection: HubConnection): void {
-    const receive = (payload: unknown) => this.zone.run(() => this.notificationSubject.next(normalizeNotification(payload)));
+    const recentNotifs = new Map<string, number>();
+    const receive = (payload: unknown) => {
+      const normalized = normalizeNotification(payload);
+      const now = Date.now();
+      const key = normalized.id || `${normalized.title}|${normalized.body}`;
+      const lastSeen = recentNotifs.get(key);
+      if (lastSeen && now - lastSeen < 5000) return;
+      recentNotifs.set(key, now);
+      if (recentNotifs.size > 50) {
+        for (const [k, ts] of recentNotifs) {
+          if (now - ts > 10000) recentNotifs.delete(k);
+        }
+      }
+      this.zone.run(() => this.notificationSubject.next(normalized));
+    };
     connection.on('ReceiveNotification', receive);
     connection.on('NotificationReceived', receive);
     connection.on('NewNotification', receive);

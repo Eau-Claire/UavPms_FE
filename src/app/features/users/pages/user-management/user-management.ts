@@ -19,6 +19,7 @@ import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models
 import { UserRole } from '../../../../models/auth.models';
 import { FacilityStore } from '../../../../core/facility/facility-store';
 import { roleLabelVietnamese } from '../../../../shared/status/status';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
 import { UsersApi } from '../../data-access/users-api';
 
@@ -70,6 +71,7 @@ export class UserManagement {
 
   protected readonly generatedPassword = signal('');
   protected readonly copied = signal(false);
+  protected readonly formError = signal('');
 
   /** GET/POST/PATCH /users are SystemAdmin-only in IdentityService. */
   readonly isAdmin = computed(() => ADMIN_ROLES.includes((this.auth.user()?.role ?? '').toLowerCase()));
@@ -227,6 +229,7 @@ export class UserManagement {
 
   protected openCreate(): void {
     this.editing.set(null);
+    this.formError.set('');
     this.form.reset({ fullName: '', email: '', phone: '', role: 'Inspector', status: 'Active' });
     this.regeneratePassword();
     this.modalOpen.set(true);
@@ -234,6 +237,7 @@ export class UserManagement {
 
   protected openEdit(user: UserRecord): void {
     this.editing.set(user);
+    this.formError.set('');
     this.form.reset({
       fullName: user.fullName,
       email: user.email,
@@ -242,6 +246,19 @@ export class UserManagement {
       status: user.status,
     });
     this.modalOpen.set(true);
+  }
+
+  protected isDuplicateEmail(): boolean {
+    if (this.editing()) return false;
+    const email = this.form.controls.email.value.trim().toLowerCase();
+    if (!email) return false;
+    return this.users().some((u) => u.email.trim().toLowerCase() === email);
+  }
+
+  protected isPhoneInvalid(): boolean {
+    const phone = this.form.controls.phone.value.trim();
+    if (!phone) return false;
+    return !/^(0|\+84)[0-9]{8,10}$/.test(phone.replace(/\s+/g, ''));
   }
 
   protected closeModal(): void {
@@ -259,18 +276,35 @@ export class UserManagement {
   }
 
   private create(): void {
-    if (this.form.invalid) {
+    this.formError.set('');
+    const raw = this.form.getRawValue();
+    const fullName = raw.fullName.trim();
+    const email = raw.email.trim();
+    const phone = raw.phone.trim();
+
+    if (this.form.invalid || fullName.length < 2 || this.isDuplicateEmail() || this.isPhoneInvalid()) {
       this.form.markAllAsTouched();
+      if (!fullName || fullName.length < 2) {
+        this.formError.set('Vui lòng nhập họ và tên hợp lệ (tối thiểu 2 ký tự).');
+      } else if (!email || this.form.controls.email.invalid) {
+        this.formError.set('Vui lòng nhập địa chỉ email đúng định dạng (ví dụ: ten@donvi.vn).');
+      } else if (this.isDuplicateEmail()) {
+        this.formError.set(`Email "${email}" đã tồn tại trong hệ thống. Vui lòng dùng địa chỉ email khác.`);
+      } else if (this.isPhoneInvalid()) {
+        this.formError.set('Số điện thoại không hợp lệ (cần 9–11 chữ số, bắt đầu bằng 0 hoặc +84).');
+      } else {
+        this.formError.set('Vui lòng kiểm tra lại các trường thông tin bắt buộc.');
+      }
       return;
     }
+
     this.busy.set(true);
-    const raw = this.form.getRawValue();
     const temporaryPassword = this.generatedPassword() || this.generateSecurePassword();
     this.api
       .create({
-        fullName: raw.fullName,
-        email: raw.email,
-        phone: raw.phone,
+        fullName,
+        email,
+        phone,
         role: raw.role,
         password: temporaryPassword,
       })
@@ -288,7 +322,11 @@ export class UserManagement {
           });
           this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu khởi tạo: ${temporaryPassword}`);
         },
-        error: () => this.toast.error('Không thể tạo người dùng mới.'),
+        error: (err: unknown) => {
+          const msg = describeHttpError(err, 'Không thể tạo người dùng mới. Vui lòng kiểm tra email có bị trùng hoặc dữ liệu chưa hợp lệ.');
+          this.formError.set(msg);
+          this.toast.error(msg);
+        },
       });
   }
 

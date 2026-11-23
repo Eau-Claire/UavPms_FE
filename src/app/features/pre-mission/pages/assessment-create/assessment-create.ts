@@ -354,27 +354,37 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
       this.currentTileLayer = null;
     }
 
-    let tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-    let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
-    let maxZoom = 20;
-    let attribution = '© Google Maps | UAV-PMS GIS';
+    let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let subdomains = ['a', 'b', 'c'];
+    let maxZoom = 19;
+    let attribution = '© OpenStreetMap contributors | UAV-PMS GIS';
 
-    if (type === 'google-hybrid') {
+    if (type === 'google-streets') {
+      tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
+    } else if (type === 'google-hybrid') {
       tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-    } else if (type === 'carto') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      subdomains = ['a', 'b', 'c', 'd'];
-      maxZoom = 19;
-      attribution = '© CARTO · OpenStreetMap | UAV-PMS';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
     }
 
     const tileLayer = L.tileLayer(tileUrl, { maxZoom, subdomains, attribution, keepBuffer: 6 });
     let hasFallenBack = false;
     tileLayer.on('tileerror', () => {
-      if (!hasFallenBack) {
+      if (!hasFallenBack && type !== 'carto') {
         hasFallenBack = true;
-        // Fallback to CartoDB Voyager which works reliably in all networks
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        if (this.map && this.currentTileLayer) {
+          this.map.removeLayer(this.currentTileLayer);
+        }
+        this.currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
+          attribution: '© OpenStreetMap contributors | UAV-PMS GIS',
+          keepBuffer: 6,
+        }).addTo(this.map!);
       }
     });
     this.currentTileLayer = tileLayer;

@@ -76,7 +76,9 @@
           @if (data.resolvedAt) {
             <div><dt>Đóng lúc</dt><dd>{{ data.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
           }
-          <div class="md-meta-wide"><dt>Mô tả</dt><dd class="md-description">{{ data.description || '—' }}</dd></div>
+          @if (cleanNote(data.description); as desc) {
+            <div class="md-meta-wide"><dt>Mô tả</dt><dd class="md-description">{{ desc }}</dd></div>
+          }
         </dl>
       </section>
 
@@ -97,8 +99,8 @@
               <div><dt>Loại khuyết tật</dt><dd>{{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}</dd></div>
               <div><dt>Độ tin cậy AI</dt><dd>{{ anomaly.confidenceScore | number: '1.0-1' }}%</dd></div>
               <div><dt>Xác nhận lúc</dt><dd>{{ anomaly.validatedAt ? (anomaly.validatedAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd></div>
-              @if (anomaly.analystNotes) {
-                <div class="md-meta-wide"><dt>Ghi chú của chuyên viên phân tích</dt><dd class="md-description">{{ anomaly.analystNotes }}</dd></div>
+              @if (cleanNote(anomaly.analystNotes); as note) {
+                <div class="md-meta-wide"><dt>Ghi chú của chuyên viên phân tích</dt><dd class="md-description">{{ note }}</dd></div>
               }
             </dl>
           </div>
@@ -132,44 +134,6 @@
         }
         @if (canAddEvidence()) {
           <div class="md-subform"><app-proof-upload [ticketId]="data.id" (uploaded)="onProofUploaded($event)" /></div>
-        }
-      </section>
-
-      <section class="tower-card md-card" aria-labelledby="md-materials-title">
-        <div class="md-card-head">
-          <h2 id="md-materials-title">Vật tư đã sử dụng <span class="md-count">{{ data.materials.length }}</span></h2>
-        </div>
-        @if (data.materials.length) {
-          <div class="tower-table-wrap">
-            <table class="tower-table md-materials">
-              <caption class="sr-only">Vật tư đã sử dụng cho phiếu {{ data.ticketCode }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Vật tư</th>
-                  <th scope="col" class="th-md-code">Mã</th>
-                  <th scope="col" class="th-md-qty">Số lượng</th>
-                  <th scope="col">Ghi chú hiện trường</th>
-                  <th scope="col" class="th-md-time">Ghi nhận lúc</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (material of data.materials; track material.id || $index) {
-                  <tr>
-                    <td><strong>{{ material.componentName }}</strong></td>
-                    <td class="tower-mono">{{ material.componentCode || '—' }}</td>
-                    <td>{{ material.quantityUsed }} {{ material.unit }}</td>
-                    <td class="tower-muted">{{ material.fieldObservations || '—' }}</td>
-                    <td>{{ material.loggedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p class="md-empty">Chưa ghi nhận vật tư.</p>
-        }
-        @if (canAddEvidence()) {
-          <div class="md-subform"><app-material-form [ticketId]="data.id" (logged)="onMaterialLogged($event)" /></div>
         }
       </section>
     </div>

@@ -110,9 +110,19 @@
               </p>
             </div>
           </div>
-          <span [class]="isReadyToFly() ? 'text-emerald-600 font-medium' : 'text-amber-700 font-medium'">
-            {{ isReadyToFly() ? 'Sẵn sàng thực hiện' : 'Chờ hoàn tất đội' }}
-          </span>
+          <div class="hero-actions">
+            @if (isReadyToFly()) {
+              <button
+                type="button"
+                class="app-btn-primary"
+                [disabled]="actionBusy()"
+                (click)="checkInAtSite()">
+                Check-in tại điểm bay
+              </button>
+            } @else {
+              <span class="text-amber-700 font-medium">Chờ hoàn tất đội</span>
+            }
+          </div>
         </section>
       }
       @case ('postponed') {

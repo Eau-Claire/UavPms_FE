@@ -582,3 +582,21 @@
     opacity: 0.95;
   }
 }
+
+input[type='date'],
+input[type='datetime-local'] {
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+input[type='date']::-webkit-datetime-edit,
+input[type='datetime-local']::-webkit-datetime-edit {
+  padding: 0;
+  letter-spacing: 0;
+}
+
+input[type='date']::-webkit-datetime-edit-text,
+input[type='datetime-local']::-webkit-datetime-edit-text {
+  padding: 0 2px;
+}

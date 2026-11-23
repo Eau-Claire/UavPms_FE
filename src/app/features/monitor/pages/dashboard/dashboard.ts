@@ -14,7 +14,6 @@ import { AnalystHome } from '../../components/analyst-home/analyst-home';
 import { DefectStatisticsChart } from '../../components/defect-statistics-chart/defect-statistics-chart';
 import { InspectorHome } from '../../components/inspector-home/inspector-home';
 import { MissionStatusOverview } from '../../components/mission-status-overview/mission-status-overview';
-import { PersonalAlertsCard } from '../../components/personal-alerts-card/personal-alerts-card';
 import { RecentDefectsTable } from '../../components/recent-defects-table/recent-defects-table';
 import { TechnicianHome } from '../../components/technician-home/technician-home';
 import { MonitorStore } from '../../data-access/monitor-store';
@@ -32,7 +31,6 @@ import { MonitorStore } from '../../data-access/monitor-store';
     RecentDefectsTable,
     DefectStatisticsChart,
     MissionStatusOverview,
-    PersonalAlertsCard,
     InspectorHome,
     AnalystHome,
     TechnicianHome,

@@ -4,9 +4,8 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { formatAsiaDate } from '../../../shared/utils/date-utils';
 import { Auth } from '../../auth/auth';
-import { isManagerRole, roleLabel } from '../../auth/roles';
+import { isAdminRole, isManagerRole, roleLabel } from '../../auth/roles';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
-import { FacilityItem, FacilityStore } from '../../facility/facility-store';
 import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 
 @Component({
@@ -24,14 +23,12 @@ import { NotificationLink, notificationLink, referenceTypeLabel } from './notifi
 export class Header {
   private readonly auth = inject(Auth);
   protected readonly notifications = inject(NotificationsStore);
-  protected readonly facilityStore = inject(FacilityStore);
   private readonly router = inject(Router);
   readonly menuOpened = output<void>();
   protected readonly user = this.auth.user;
   protected readonly menuOpen = signal(false);
   protected readonly notificationOpen = signal(false);
   protected readonly notificationFiltersOpen = signal(false);
-  protected readonly facilityMenuOpen = signal(false);
 
   protected readonly userEmail = computed(() => {
     const u = this.user();
@@ -46,9 +43,8 @@ export class Header {
     return name.charAt(0).toUpperCase();
   });
   protected readonly userRoleLabel = computed(() => roleLabel(this.user()?.role));
-  /** The working-area picker is a manager tool; field roles work on what is assigned to them. */
-  protected readonly showFacilitySelector = computed(() => isManagerRole(this.user()?.role));
   protected readonly canViewAuditLogs = computed(() => isManagerRole(this.user()?.role));
+  protected readonly canViewSystemSettings = computed(() => isAdminRole(this.user()?.role));
   /** Link for the opened notification, or null when the role has no page for it. */
   protected readonly selectedLink = computed<NotificationLink | null>(() => {
     const selected = this.notifications.selected();
@@ -93,32 +89,12 @@ export class Header {
     this.notificationOpen.set(nextOpen);
     if (nextOpen) {
       this.menuOpen.set(false);
-      this.facilityMenuOpen.set(false);
     }
   }
   protected closeNotifications(): void { this.notificationOpen.set(false); this.notificationFiltersOpen.set(false); this.notifications.clearSelection(); }
 
-  protected toggleFacilityMenu(): void {
-    const nextOpen = !this.facilityMenuOpen();
-    this.facilityMenuOpen.set(nextOpen);
-    if (nextOpen) {
-      this.menuOpen.set(false);
-      this.closeNotifications();
-    }
-  }
-
-  protected closeFacilityMenu(): void {
-    this.facilityMenuOpen.set(false);
-  }
-
-  protected chooseFacility(facility: FacilityItem): void {
-    this.facilityStore.selectFacility(facility);
-    this.facilityMenuOpen.set(false);
-  }
-
   protected onEscape(): void {
     this.closeNotifications();
-    this.closeFacilityMenu();
     this.menuOpen.set(false);
   }
 
@@ -128,9 +104,6 @@ export class Header {
 
     if (this.notificationOpen() && !target.closest('.app-notification-wrap')) {
       this.closeNotifications();
-    }
-    if (this.facilityMenuOpen() && !target.closest('.app-facility-wrap')) {
-      this.closeFacilityMenu();
     }
     if (this.menuOpen() && !target.closest('.app-profile-wrap')) {
       this.menuOpen.set(false);

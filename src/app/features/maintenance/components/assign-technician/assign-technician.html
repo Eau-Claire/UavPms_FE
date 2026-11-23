@@ -35,23 +35,28 @@
   </div>
 
   <div class="mt-field">
-    <label for="assign-due-date">Hạn xử lý</label>
+    <label for="assign-due-date">Hạn xử lý (dd/MM/yyyy)</label>
     <input
       id="assign-due-date"
-      type="date"
+      type="text"
+      inputmode="numeric"
+      maxlength="10"
+      placeholder="dd/MM/yyyy"
       formControlName="dueDate"
-      [min]="minDate"
+      (input)="onDueDateInput($event)"
       aria-describedby="assign-due-hint"
-      [attr.aria-invalid]="form.controls.dueDate.invalid"
+      [attr.aria-invalid]="form.controls.dueDate.invalid && (form.controls.dueDate.touched || form.controls.dueDate.dirty)"
     />
     <span id="assign-due-hint" class="mt-field-hint">
       @if (ticket().dueDate) {
         Hạn hiện tại: {{ ticket().dueDate | date: 'dd/MM/yyyy' }}. Để trống để giữ nguyên.
       } @else {
-        Không bắt buộc.
+        Không bắt buộc. Nhập dạng ngày/tháng/năm.
       }
     </span>
-    @if (form.controls.dueDate.invalid) {
+    @if (form.controls.dueDate.hasError('invalidDate') && (form.controls.dueDate.touched || form.controls.dueDate.dirty)) {
+      <span class="mt-field-error" role="alert">Ngày không hợp lệ (nhập theo định dạng dd/MM/yyyy).</span>
+    } @else if (form.controls.dueDate.hasError('past')) {
       <span class="mt-field-error" role="alert">Hạn xử lý không được ở trong quá khứ.</span>
     }
   </div>

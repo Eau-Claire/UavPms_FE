@@ -56,7 +56,7 @@
           </div>
         </div>
 
-        <div class="viewport-stage">
+        <div class="viewport-stage" (wheel)="onWheelZoom($event)">
           <div class="image-canvas-wrapper" [style.transform]="'scale(' + zoomLevel() + ')'">
             @if (item.mediaUrl) {
               <img
@@ -130,21 +130,6 @@
               <span class="prop-value">{{ item.missionName || item.missionCode || 'Không gắn nhiệm vụ' }}</span>
             </div>
             <div class="prop-item">
-              <span class="prop-label">Nguồn xử lý:</span>
-              <span class="prop-value">
-                {{ item.aiSource || 'Không rõ' }}
-                @if (analysisRun()?.modelVersion) { v{{ analysisRun()?.modelVersion }} }
-              </span>
-            </div>
-            <div class="prop-item">
-              <span class="prop-label">Nơi chạy:</span>
-              @if (executionLocation(); as location) {
-                <span class="prop-value">{{ executionLabels[location] }}</span>
-              } @else {
-                <span class="prop-value">Chưa xác định</span>
-              }
-            </div>
-            <div class="prop-item">
               <span class="prop-label">Thời điểm ghi nhận:</span>
               <span class="prop-value tabular-nums">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
@@ -170,7 +155,7 @@
             </div>
           }
 
-          @if (item.analystNotes) {
+          @if (item.analystNotes && !item.analystNotes.startsWith('AI evaluation:')) {
             <div class="existing-notes-box">
               <div class="notes-header-label">Ghi chú thẩm định:</div>
               <div class="notes-body-text">{{ item.analystNotes }}</div>

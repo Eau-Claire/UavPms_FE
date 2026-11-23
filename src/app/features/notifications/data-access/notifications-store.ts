@@ -38,11 +38,16 @@ export class NotificationsStore {
   readonly userNotifications = computed(() => {
     const list = this.notificationsState();
     const seenIds = new Set<string>();
+    const seenFingerprints = new Set<string>();
     const deduped: AppNotification[] = [];
 
     for (const item of list) {
-      if (seenIds.has(item.id)) continue;
-      seenIds.add(item.id);
+      if (item.id && seenIds.has(item.id)) continue;
+      const minuteBucket = item.createdAt ? item.createdAt.slice(0, 16) : '';
+      const fingerprint = `${(item.title ?? '').trim().toLowerCase()}|${(item.body ?? '').trim().toLowerCase()}|${minuteBucket}`;
+      if (seenFingerprints.has(fingerprint)) continue;
+      if (item.id) seenIds.add(item.id);
+      seenFingerprints.add(fingerprint);
       deduped.push(item);
     }
     return deduped;

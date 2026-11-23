@@ -23,7 +23,7 @@ import {
   groupSuperseded,
 } from '../../data-access/anomaly-api';
 
-type ReviewStatusFilter = 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected';
+type ReviewStatusFilter = 'Pending' | 'Confirmed' | 'Rejected';
 
 @Component({
   selector: 'app-detection-list',
@@ -95,14 +95,10 @@ export class DetectionList {
 
   protected readonly emptyStateTitle = computed(() => {
     switch (this.statusFilter()) {
-      case 'Reviewed':
-        return 'Chưa có phát hiện nào đã được thẩm định';
       case 'Confirmed':
         return 'Chưa có phát hiện nào được chấp nhận';
       case 'Rejected':
         return 'Không có phát hiện nào bị từ chối';
-      case 'ALL':
-        return 'Không tìm thấy kết quả phát hiện nào';
       case 'Pending':
       default:
         return 'Không có phát hiện nào cần thẩm định';
@@ -111,19 +107,24 @@ export class DetectionList {
 
   protected readonly emptyStateDescription = computed(() => {
     switch (this.statusFilter()) {
-      case 'Reviewed':
-        return 'Tất cả các kết quả đã thẩm định (chấp nhận, từ chối hoặc đã khắc phục) sẽ hiển thị tại đây.';
       case 'Confirmed':
         return 'Các kết quả phát hiện khuyết tật sau khi được chấp nhận sẽ hiển thị tại đây.';
       case 'Rejected':
         return 'Các kết quả phát hiện bị từ chối hoặc báo động giả sẽ hiển thị tại đây.';
-      case 'ALL':
-        return 'Không có dữ liệu phù hợp với điều kiện tìm kiếm hiện tại.';
       case 'Pending':
       default:
         return 'Tất cả các kết quả phát hiện khuyết tật đã được xử lý hoàn tất hoặc không có dữ liệu phù hợp.';
     }
   });
+
+  protected cardBoxStyle(item: AnomalyItem): { left: string; top: string; width: string; height: string } | null {
+    const box = item.boundingBox;
+    if (!box) return { left: '10%', top: '10%', width: '80%', height: '80%' };
+    if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100 && box.x + box.width <= 100.5 && box.y + box.height <= 100.5)) {
+      return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+    }
+    return { left: '10%', top: '10%', width: '80%', height: '80%' };
+  }
 
   constructor() {
     this.route.queryParamMap
@@ -163,7 +164,7 @@ export class DetectionList {
     this.error.set('');
 
     const filter = this.statusFilter();
-    if (filter === 'Pending' || filter === 'ALL') {
+    if (filter === 'Pending') {
       this.activeSub = this.alertsApi
         .fetchActiveAlerts()
         .pipe(takeUntilDestroyed(this.destroyRef))
@@ -186,13 +187,9 @@ export class DetectionList {
     const req$ =
       filter === 'Pending'
         ? this.api.listPending(params)
-        : filter === 'Reviewed'
-          ? this.api.listReviewed('ALL_REVIEWED', params)
-          : filter === 'Confirmed'
-            ? this.api.listReviewed('Confirmed', params)
-            : filter === 'Rejected'
-              ? this.api.listReviewed('Rejected', params)
-              : this.api.listAll(params);
+        : filter === 'Confirmed'
+          ? this.api.listReviewed('Confirmed', params)
+          : this.api.listReviewed('Rejected', params);
 
     this.activeSub = req$
       .pipe(

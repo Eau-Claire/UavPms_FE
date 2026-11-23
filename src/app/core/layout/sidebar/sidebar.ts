@@ -35,7 +35,6 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
     { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
     { path: '/admin/users', icon: 'team', label: 'Người dùng' },
-    { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
   ],
   manager: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
@@ -95,7 +94,6 @@ export const SECONDARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   manager: [
     { path: '/system/audit-logs', icon: 'history', label: 'Nhật ký hệ thống' },
-    { path: '/system/settings', icon: 'setting', label: 'Cấu hình hệ thống' },
   ],
   inspector: [],
   analyst: [],
@@ -130,11 +128,7 @@ export class Sidebar {
   });
   private readonly showsAlerts = computed(() => PRIMARY_LINKS[this.family()].some((item) => item.path === AI_REVIEW_PATH));
 
-  protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => {
-    const links = PRIMARY_LINKS[this.family()];
-    const alertCount = this.activeAlertCount();
-    return links.map((item) => (item.path === AI_REVIEW_PATH ? { ...item, badgeCount: alertCount } : item));
-  });
+  protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => PRIMARY_LINKS[this.family()]);
 
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => SECONDARY_LINKS[this.family()]);
 

@@ -6,6 +6,7 @@ import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isManagerRole } from '../../../../core/auth/roles';
 import { Mission } from '../../../../models/missions.models';
 import { InspectionFilters as Filters } from '../../../../models/monitor.models';
+import { formatVietnameseDateInput, parseVietnameseDateToIso } from '../../../../shared/utils/date-utils';
 import { MissionsApi } from '../../../missions/data-access/missions-api';
 import { GUID_PATTERN } from '../../data-access/monitor-api';
 
@@ -72,6 +73,13 @@ export class InspectionFilters {
       .subscribe(() => this.apply());
   }
 
+  protected onDateInput(field: 'fromDate' | 'toDate', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const formatted = formatVietnameseDateInput(input.value);
+    if (input.value !== formatted) input.value = formatted;
+    this.form.controls[field].setValue(formatted);
+  }
+
   protected apply(): void {
     const value = this.form.getRawValue();
     const missionText = value.mission.trim();
@@ -80,8 +88,8 @@ export class InspectionFilters {
       filters: {
         missionId: resolved?.id ?? '',
         isDefect: value.defectStatus === 'all' ? null : value.defectStatus === 'defect',
-        fromDate: value.fromDate,
-        toDate: value.toDate,
+        fromDate: parseVietnameseDateToIso(value.fromDate),
+        toDate: parseVietnameseDateToIso(value.toDate),
         page: 1,
         pageSize: 10,
       },

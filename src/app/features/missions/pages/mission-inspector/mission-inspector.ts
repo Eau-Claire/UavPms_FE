@@ -19,6 +19,7 @@ import { Mission, MissionAssignment, missionStatusLabel, normalizeMissionStatus 
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionsApi } from '../../data-access/missions-api';
 import { Auth } from '../../../../core/auth/auth';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { isAnalystRole, isInspectorRole, isTechnicianRole, roleLabel } from '../../../../core/auth/roles';
 import { priorityColorClass, statusColorClass, statusLabel as sharedStatusLabel } from '../../../../shared/status/status';
 import {
@@ -47,6 +48,7 @@ export class MissionInspector {
   private readonly api = inject(MissionsApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('inspectorMap');
@@ -282,6 +284,29 @@ export class MissionInspector {
       .get(missionId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: (mission) => this.mission.set(mission), error: () => undefined });
+  }
+
+  protected checkInAtSite(): void {
+    const m = this.mission();
+    if (!m || this.actionBusy()) return;
+    this.actionBusy.set(true);
+    this.api
+      .checkIn(m.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.actionBusy.set(false);
+          this.toast.success('Đã hoàn tất check-in tại điểm bay.');
+          this.api
+            .get(m.id)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({ next: (updated) => this.mission.set(updated), error: () => undefined });
+        },
+        error: (err: unknown) => {
+          this.actionBusy.set(false);
+          this.toast.error(describeHttpError(err, 'Không thể check-in tại điểm bay.'));
+        },
+      });
   }
 
   protected openPostponeModal(): void {

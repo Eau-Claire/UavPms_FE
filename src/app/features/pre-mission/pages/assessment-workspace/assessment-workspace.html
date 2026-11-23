@@ -30,49 +30,8 @@
       </div>
     </header>
 
-    <!-- Feedback Banners -->
-    @if (isStaleConflict()) {
-      <div class="ws-banner is-warning" role="alert">
-        <span>{{ error() }}</span>
-        <button type="button" class="app-btn-action" (click)="load()">Làm mới dữ liệu</button>
-      </div>
-    } @else if (error()) {
-      <div class="app-error-banner" role="alert">
-        <span class="truncate">{{ error() }}</span>
-        <button type="button" class="app-btn-action" (click)="error.set('')">Đóng</button>
-      </div>
-    }
-
-    @if (actionMessage()) {
-      <div class="ws-banner is-success" role="status">
-        <span>{{ actionMessage() }}</span>
-        <button type="button" class="app-btn-action" (click)="actionMessage.set('')">Đóng</button>
-      </div>
-    }
-
-    <!-- Lifecycle Notices -->
-    @if (isEvaluating()) {
-      <div class="ws-banner is-info" role="status">
-        <span>Hệ thống đang đối chiếu quy tắc mặt bằng, nhân sự và kiểm định UAV...</span>
-      </div>
-    } @else if (isExpired()) {
-      <div class="ws-banner is-warning" role="alert">
-        <span>Bản đánh giá đã hết hạn hiệu lực ({{ a.validUntil | date:'dd/MM/yyyy HH:mm' }}). Bấm "Đánh giá lại" để cập nhật dữ liệu mới.</span>
-      </div>
-    } @else if (isCancelled()) {
-      <div class="ws-banner is-danger" role="alert">
-        <span>Bản đánh giá tiền nhiệm vụ này đã bị hủy và không thể tiếp tục thực hiện.</span>
-      </div>
-    } @else if (isCompleted()) {
-      <div class="ws-banner is-success" role="status">
-        <span>
-          Đánh giá đã hoàn thành và tạo nhiệm vụ bay
-          @if (a.completedMissionId) {
-            <a [routerLink]="['/missions', a.completedMissionId]" class="app-btn-action" style="margin-left: 6px;">Xem nhiệm vụ</a>
-          }
-        </span>
-      </div>
-    } @else if (failedConditions().length > 0 && !isReady()) {
+    <!-- Unmet readiness conditions (only when not ready and not cancelled/completed) -->
+    @if (!isEvaluating() && !isExpired() && !isCancelled() && !isCompleted() && failedConditions().length > 0 && !isReady()) {
       <div class="ws-banner is-danger ws-banner-stack" role="alert">
         <strong>Chưa đạt điều kiện sẵn sàng — Còn {{ failedConditions().length }} tiêu chuẩn chưa thỏa mãn:</strong>
         <ul class="ws-fail-list">
@@ -123,24 +82,8 @@
         <div class="ws-card-body">
           <div class="ws-meta-grid">
             <div class="ws-meta-item">
-              <span class="meta-label">Mã đánh giá</span>
-              <strong class="meta-val">{{ a.assessmentCode }}</strong>
-            </div>
-            <div class="ws-meta-item">
-              <span class="meta-label">Khu vực / Chi nhánh</span>
-              <strong class="meta-val">{{ a.regionName }}</strong>
-            </div>
-            <div class="ws-meta-item">
               <span class="meta-label">Phạm vi khảo sát</span>
               <span class="meta-val">Theo danh mục vị trí cột đề xuất ({{ a.towers.length }} vị trí)</span>
-            </div>
-            <div class="ws-meta-item">
-              <span class="meta-label">Khung giờ dự kiến</span>
-              <span class="meta-val tabular-nums">{{ a.plannedStart | date:'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date:'dd/MM/yyyy HH:mm' }}</span>
-            </div>
-            <div class="ws-meta-item">
-              <span class="meta-label">Hiệu lực đánh giá đến</span>
-              <span class="meta-val tabular-nums">{{ a.validUntil ? (a.validUntil | date:'dd/MM/yyyy HH:mm') : 'Chưa giới hạn' }}</span>
             </div>
             <div class="ws-meta-item">
               <span class="meta-label">Người khởi tạo</span>
@@ -424,15 +367,6 @@
             <p>Đủ điều kiện = sẵn sàng vận hành + kiểm định kỹ thuật còn hạn tại giờ bay + phạm vi không vượt năng lực bay</p>
           </div>
         </div>
-
-        @if (uavNeedingInspectionCount() > 0) {
-          <div class="ws-banner is-warning ws-inline-alert" role="note">
-            <span>
-              Có <strong>{{ uavNeedingInspectionCount() }}</strong> UAV chưa có biên bản kiểm định kỹ thuật còn hiệu lực hoặc không đạt.
-              Kỹ thuật viên cần kiểm định tại tab "Kiểm định kỹ thuật", sau đó bấm "Đánh giá lại".
-            </span>
-          </div>
-        }
 
         <div class="app-table-scroll">
           <table class="app-data-table" style="min-width: 1080px;">
@@ -737,31 +671,26 @@
       </section>
     }
 
-    <!-- Clean Bottom Action Footer -->
-    <footer class="ws-footer">
-      <div class="ws-footer-status">
-        <span>Trạng thái tổng hợp:</span>
-        <strong [class]="statusColorClass(a.status)">{{ statusLabel(a.status) }}</strong>
-        @if (!canProceedToMf02() && !canManage()) {
-          <span class="ws-footer-reason">· Chế độ chỉ xem</span>
-        }
-      </div>
-      <div class="ws-footer-actions">
-        @if (!isCancelled() && !isCompleted() && canManage()) {
-          <button type="button" class="app-btn-danger" [disabled]="busy()" (click)="openCancelModal()">Hủy đánh giá</button>
-          <button type="button" class="app-btn-secondary" [disabled]="busy()" (click)="reevaluate()">
-            {{ busy() ? 'Đang đánh giá...' : 'Đánh giá lại' }}
-          </button>
-        }
-        @if (canProceedToMf02()) {
-          <a class="app-btn-primary" [routerLink]="['/missions/new']" [queryParams]="{ assessmentId: a.id }">
-            Tạo nhiệm vụ bay
-          </a>
-        } @else if (canManage()) {
-          <button type="button" class="app-btn-primary" disabled>Tạo nhiệm vụ bay</button>
-        }
-      </div>
-    </footer>
+    <!-- Clean Bottom Action Footer (only when actions exist) -->
+    @if ((!isCancelled() && !isCompleted() && canManage()) || canProceedToMf02() || (canManage() && !isCancelled() && !isCompleted())) {
+      <footer class="ws-footer" style="justify-content: flex-end;">
+        <div class="ws-footer-actions">
+          @if (!isCancelled() && !isCompleted() && canManage()) {
+            <button type="button" class="app-btn-danger" [disabled]="busy()" (click)="openCancelModal()">Hủy đánh giá</button>
+            <button type="button" class="app-btn-secondary" [disabled]="busy()" (click)="reevaluate()">
+              {{ busy() ? 'Đang đánh giá...' : 'Đánh giá lại' }}
+            </button>
+          }
+          @if (canProceedToMf02()) {
+            <a class="app-btn-primary" [routerLink]="['/missions/new']" [queryParams]="{ assessmentId: a.id }">
+              Tạo nhiệm vụ bay
+            </a>
+          } @else if (canManage() && !isCancelled() && !isCompleted()) {
+            <button type="button" class="app-btn-primary" disabled>Tạo nhiệm vụ bay</button>
+          }
+        </div>
+      </footer>
+    }
   } @else if (error()) {
     <header class="page-header">
       <div>

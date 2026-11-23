@@ -4,14 +4,20 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { MaintenanceTicket, TechnicianSummary } from '../../../../models/maintenance.models';
+import { formatVietnameseDateInput, parseVietnameseDateToIso } from '../../../../shared/utils/date-utils';
 import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
 
 /** Local calendar day as yyyy-MM-dd. */
 export const localDay = (date: Date): string =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const notInPast = (control: AbstractControl<string>): ValidationErrors | null =>
-  control.value && control.value < localDay(new Date()) ? { past: true } : null;
+const dueDateValidator = (control: AbstractControl<string>): ValidationErrors | null => {
+  const raw = (control.value ?? '').trim();
+  if (!raw) return null;
+  const iso = parseVietnameseDateToIso(raw);
+  if (!iso) return { invalidDate: true };
+  return iso < localDay(new Date()) ? { past: true } : null;
+};
 
 /** Manager/Admin form to (re)assign a technician to an Open ticket: PUT /maintenance/tickets/{id}/assign. */
 @Component({
@@ -38,7 +44,7 @@ export class AssignTechnician {
 
   protected readonly form = this.fb.nonNullable.group({
     technicianId: ['', Validators.required],
-    dueDate: ['', notInPast],
+    dueDate: ['', dueDateValidator],
   });
 
   protected readonly isReassign = computed(() => Boolean(this.ticket().technicianId));
@@ -63,6 +69,13 @@ export class AssignTechnician {
     });
   }
 
+  protected onDueDateInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const formatted = formatVietnameseDateInput(input.value);
+    if (input.value !== formatted) input.value = formatted;
+    this.form.controls.dueDate.setValue(formatted);
+  }
+
   protected technicianLabel(technician: TechnicianSummary): string {
     const name = technician.fullName || technician.email;
     return `${name} — ${technician.activeTicketCount} phiếu chưa đóng`;
@@ -74,10 +87,11 @@ export class AssignTechnician {
       return;
     }
     const { technicianId, dueDate } = this.form.getRawValue();
+    const isoDueDate = dueDate.trim() ? parseVietnameseDateToIso(dueDate) : '';
     this.busy.set(true);
     this.error.set('');
     this.api
-      .assign(this.ticket().id, { technicianId, dueDate: dueDate || undefined })
+      .assign(this.ticket().id, { technicianId, dueDate: isoDueDate || undefined })
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false)))
       .subscribe({
         next: (ticket) => this.assigned.emit(ticket),

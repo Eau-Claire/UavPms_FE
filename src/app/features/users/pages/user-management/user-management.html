@@ -297,22 +297,40 @@
         <button type="button" class="modal-close" aria-label="Đóng cửa sổ" (click)="closeModal()">×</button>
       </header>
 
-      <form [formGroup]="form" (ngSubmit)="save()" class="modal-body">
+      <form [formGroup]="form" (ngSubmit)="save()" class="modal-body" novalidate>
+        @if (formError()) {
+          <div class="app-error-banner" role="alert" style="margin-bottom: 12px;">
+            <span>{{ formError() }}</span>
+          </div>
+        }
         <div class="form-grid">
           <label class="form-field full-width">
             <span class="field-label">Họ và tên <span class="required">*</span></span>
             <input type="text" formControlName="fullName" placeholder="VD: Nguyễn Văn A" />
+            @if (form.controls.fullName.touched && (form.controls.fullName.invalid || form.controls.fullName.value.trim().length < 2)) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Vui lòng nhập họ và tên (tối thiểu 2 ký tự).</small>
+            }
           </label>
 
           <label class="form-field">
             <span class="field-label">Địa chỉ Email <span class="required">*</span></span>
             <input type="email" formControlName="email" placeholder="VD: user@uavpms.vn" [readonly]="editing() !== null"
               [class.readonly-input]="editing() !== null" />
+            @if (!editing() && form.controls.email.touched && form.controls.email.hasError('required')) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Vui lòng nhập địa chỉ email.</small>
+            } @else if (!editing() && form.controls.email.touched && form.controls.email.hasError('email')) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Địa chỉ email không đúng định dạng.</small>
+            } @else if (!editing() && isDuplicateEmail()) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Email này đã tồn tại trong hệ thống.</small>
+            }
           </label>
 
           <label class="form-field">
             <span class="field-label">Số điện thoại</span>
             <input type="tel" formControlName="phone" placeholder="VD: 0912345678" />
+            @if (form.controls.phone.touched && isPhoneInvalid()) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Số điện thoại cần 9–11 chữ số (bắt đầu bằng 0 hoặc +84).</small>
+            }
           </label>
 
           <label class="form-field">
@@ -373,8 +391,8 @@
         }
 
         <footer class="modal-footer">
-          <button type="button" class="evn-btn secondary" (click)="closeModal()">Hủy bỏ</button>
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || form.invalid">
+          <button type="button" class="app-btn-secondary" (click)="closeModal()">Hủy bỏ</button>
+          <button type="submit" class="app-btn-primary" [disabled]="busy()">
             {{ busy() ? 'Đang lưu...' : (editing() ? 'Lưu thay đổi' : 'Tạo người dùng') }}
           </button>
         </footer>
