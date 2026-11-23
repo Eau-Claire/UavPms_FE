@@ -6,12 +6,12 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
-import { AnomalyApi } from '../../../../core/services/anomaly-api';
-import { DroneManagementApi } from '../../../../core/services/drone-management-api';
-import { EmergencyAlertsApi } from '../../../../core/services/emergency-alerts-api';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
-import { MissionsApi } from '../../../../core/services/missions-api';
-import { MonitorApi } from '../../../../core/services/monitor-api';
+import { AnomalyApi } from '../../../analyst-review/data-access/anomaly-api';
+import { DroneManagementApi } from '../../../drones/data-access/drone-management-api';
+import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { MaintenanceApi } from '../../../maintenance/data-access/maintenance-api';
+import { MissionsApi } from '../../../missions/data-access/missions-api';
+import { MonitorApi } from '../../data-access/monitor-api';
 import { MonitorStore } from '../../data-access/monitor-store';
 import { Dashboard } from './dashboard';
 
@@ -51,7 +51,8 @@ describe('Dashboard role routing', () => {
   it('keeps the system dashboard (and its polling) for managers', async () => {
     const { el, store } = await setup('Manager');
     expect(store.startDashboardPolling).toHaveBeenCalledTimes(1);
-    expect(el.querySelector('h1')?.textContent).toContain('Tổng quan hệ thống');
+    expect(el.querySelector('h1')?.textContent).toContain('Xin chào');
+    expect(el.querySelector('app-personal-alerts-card')).not.toBeNull();
     expect(el.querySelector('app-inspector-home')).toBeNull();
   });
 

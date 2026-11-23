@@ -2,11 +2,11 @@
   <!-- EVN Header Bar -->
   <header class="pre-mission-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <span>TIỀN NHIỆM VỤ</span>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
-        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG</strong>
-      </div>
+        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG (MF01)</strong>
+      </nav>
       <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
       <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
     </div>
@@ -19,19 +19,28 @@
     }
   </header>
 
-    <!-- Feedback Alerts -->
-    @if (error()) {
-      <div class="evn-alert" role="alert">
-        <span>{{ error() }}</span>
-        <button type="button" (click)="error.set('')">Đóng</button>
+    <!-- Unified Enterprise KPI Status Bar -->
+    <section class="pre-mission-kpi-bar" aria-label="Tổng quan số liệu đánh giá">
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Tổng số đánh giá</span>
+        <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
       </div>
-    }
-    @if (successMessage()) {
-      <div class="evn-alert" style="background: #f0fdf4; border-color: #86efac; color: #166534;" role="status">
-        <span>{{ successMessage() }}</span>
-        <button type="button" style="color: #166534;" (click)="successMessage.set('')">Đóng</button>
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Sẵn sàng bay</span>
+        <strong class="kpi-bar-value text-approved">{{ stats()[1].value }}</strong>
       </div>
-    }
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Chưa sẵn sàng</span>
+        <strong class="kpi-bar-value text-pending">{{ stats()[2].value }}</strong>
+      </div>
+      <div class="kpi-bar-sep" aria-hidden="true"></div>
+      <div class="kpi-bar-item">
+        <span class="kpi-bar-label">Hết hạn / Hủy</span>
+        <strong class="kpi-bar-value text-danger">{{ stats()[3].value }}</strong>
+      </div>
+    </section>
 
     <!-- Light Blue Filter Toolbar -->
     <section class="pre-mission-filters" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
@@ -77,23 +86,9 @@
       <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="load()">
         <span nz-icon nzType="reload"></span>Làm mới
       </button>
-
-      @if (regionFilter() || statusFilter() || dateFilter() || searchQuery()) {
-        <button type="button" class="evn-btn secondary" (click)="resetFilters()">
-          <span nz-icon nzType="clear"></span>Đặt lại
-        </button>
-      }
     </section>
 
-    <!-- Summary Metric Strip -->
-    <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu">
-      @for (stat of stats(); track stat.label) {
-        <div class="summary-item">
-          <strong>{{ stat.value }}</strong>
-          <span>{{ stat.label }}</span>
-        </div>
-      }
-    </section>
+
 
     <!-- Dense EVN Bordered Table Card -->
     <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
@@ -101,32 +96,31 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 130px;">Mã đánh giá</th>
-              <th style="width: 230px;">Phạm vi (Khu vực / Cột)</th>
-              <th style="width: 170px;">Khung giờ dự kiến</th>
-              <th style="width: 90px;">Mặt bằng</th>
-              <th style="width: 90px;">Nhân sự</th>
-              <th style="width: 90px;">UAV</th>
-              <th style="width: 90px;">Kỹ thuật</th>
-              <th style="width: 105px;">Tổng thể</th>
-              <th style="width: 110px;">Hiệu lực đến</th>
-              <th style="width: 110px;">Ngày tạo</th>
-              <th style="width: 110px;">Cập nhật</th>
-              <th style="width: 135px;" class="text-center">Thao tác</th>
+              <th style="width: 120px;">Mã đánh giá</th>
+              <th style="min-width: 180px; max-width: 250px;">Phạm vi (Khu vực / Cột)</th>
+              <th style="width: 160px;">Khung giờ dự kiến</th>
+              <th style="width: 85px;" class="text-center">Mặt bằng</th>
+              <th style="width: 85px;" class="text-center">Nhân sự</th>
+              <th style="width: 85px;" class="text-center">UAV</th>
+              <th style="width: 85px;" class="text-center">Kỹ thuật</th>
+              <th style="width: 110px;" class="text-center">Trạng thái</th>
+              <th style="width: 125px;">Hiệu lực đến</th>
+              <th style="width: 100px;" class="text-center">Nhiệm vụ</th>
+              <th style="width: 95px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             @if (loading()) {
               @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
                 <tr class="skeleton-row">
-                  <td colspan="12" class="text-center" style="color: #64748b; font-style: italic;">
+                  <td colspan="11" class="text-center" style="color: #64748b; font-style: italic;">
                     Đang tải dữ liệu đánh giá...
                   </td>
                 </tr>
               }
             } @else if (!filteredItems().length) {
               <tr>
-                <td colspan="12" class="text-center" style="padding: 24px; color: #64748b;">
+                <td colspan="11" class="text-center" style="padding: 24px; color: #64748b;">
                   Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
                 </td>
               </tr>
@@ -134,7 +128,7 @@
               @for (item of filteredItems(); track item.id) {
                 <tr>
                   <td>
-                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code" [title]="'Xem chi tiết ' + item.assessmentCode">
+                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
                       {{ item.assessmentCode }}
                     </a>
                   </td>
@@ -146,89 +140,59 @@
                     {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.site.status) }}">
-                      {{ statusLabel(item.site.status) }}
+                    <span class="sub-pill {{ isSiteReady(item) ? 'pass' : 'fail' }}" [title]="'Mặt bằng: ' + (isSiteReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isSiteReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.personnel.status) }}">
-                      {{ statusLabel(item.personnel.status) }}
+                    <span class="sub-pill {{ isPersonnelReady(item) ? 'pass' : 'fail' }}" [title]="'Nhân sự: ' + (isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.uav.status) }}">
-                      {{ statusLabel(item.uav.status) }}
+                    <span class="sub-pill {{ isUavReady(item) ? 'pass' : 'fail' }}" [title]="'Thiết bị UAV: ' + (isUavReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isUavReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.technical.status) }}">
-                      {{ statusLabel(item.technical.status) }}
+                    <span class="sub-pill {{ isTechnicalReady(item) ? 'pass' : 'fail' }}" [title]="'Kiểm định KT: ' + (isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt')">
+                      {{ isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <span class="evn-status {{ statusTone(effectiveStatus(item)) }}">
-                      {{ statusLabel(effectiveStatus(item)) }}
+                    <span class="evn-status {{ statusTone(item.status) }}">
+                      {{ item.status }}
                     </span>
                   </td>
                   <td>
-                    {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
-                  </td>
-                  <td>
-                    <span style="font-size: 11px; color: #334155;">{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
-                  </td>
-                  <td>
-                    <span style="font-size: 10px; color: #64748b;">
-                      {{ item.updatedAt ? (item.updatedAt | date:'dd/MM HH:mm') : '—' }}
+                    <span style="font-size: 11.5px; color: #334155;">
+                      {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
                     </span>
                   </td>
                   <td class="text-center">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    @if (item.completedMissionId) {
+                      <a
+                        [routerLink]="['/missions', item.completedMissionId]"
+                        class="assessment-btn-mission"
+                        title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
+                      >
+                        <span nz-icon nzType="send" aria-hidden="true"></span>
+                        <span>Nhiệm vụ</span>
+                      </a>
+                    } @else {
+                      <span style="color: #94a3b8; font-size: 12px;">—</span>
+                    }
+                  </td>
+                  <td class="text-center">
+                    <div class="assessment-actions-group" style="justify-content: center;">
                       <a
                         [routerLink]="['/pre-mission', item.id]"
-                        class="evn-btn secondary"
-                        style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
-                        title="Mở chi tiết đánh giá"
+                        class="assessment-btn-open"
+                        title="Xem chi tiết hồ sơ đánh giá"
                       >
-                        Mở
+                        <span nz-icon nzType="eye" aria-hidden="true"></span>
+                        <span>Chi tiết</span>
                       </a>
-                      @if (item.completedMissionId) {
-                        <a
-                          [routerLink]="['/missions', item.completedMissionId]"
-                          class="evn-btn secondary"
-                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff;"
-                          title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
-                        >
-                          <span nz-icon nzType="send" nzTheme="outline" style="font-size: 10px;"></span> Nhiệm vụ
-                        </a>
-                      }
-                      @if (canManage() && !isItemCompleted(item) && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
-                        <button
-                          type="button"
-                          class="evn-btn secondary"
-                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
-                          [disabled]="actionBusyId() === item.id"
-                          (click)="reevaluateItem(item, $event)"
-                          title="Đánh giá lại sẵn sàng"
-                        >
-                          @if (actionBusyId() === item.id) {
-                            <span nz-icon nzType="loading"></span>
-                          } @else {
-                            <span nz-icon nzType="reload"></span>
-                          }
-                        </button>
-                      }
-                      @if (canManage() && !isItemCompleted(item) && item.status !== 'CANCELLED' && item.status !== 'EXPIRED') {
-                        <button
-                          type="button"
-                          class="evn-btn secondary"
-                          style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #dc2626;"
-                          [disabled]="actionBusyId() === item.id"
-                          (click)="cancelItem(item, $event)"
-                          title="Hủy bản đánh giá"
-                        >
-                          <span nz-icon nzType="close"></span>
-                        </button>
-                      }
                     </div>
                   </td>
                 </tr>
@@ -239,37 +203,14 @@
       </div>
 
       <!-- Table Footer with Pagination -->
-      <footer>
-        <span>
-          Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ totalCount() || items().length }} đánh giá
-        </span>
-        <div class="evn-pagination">
-          <button
-            type="button"
-            [disabled]="page() <= 1"
-            (click)="goToPage(page() - 1)"
-            aria-label="Trang trước"
-          >
-            <span nz-icon nzType="left"></span>
-          </button>
-          @for (p of pageButtons(); track p) {
-            <button
-              type="button"
-              [class.active]="p === page()"
-              (click)="goToPage(p)"
-            >
-              {{ p }}
-            </button>
-          }
-          <button
-            type="button"
-            [disabled]="page() >= totalPages()"
-            (click)="goToPage(page() + 1)"
-            aria-label="Trang tiếp"
-          >
-            <span nz-icon nzType="right"></span>
-          </button>
-        </div>
+      <footer class="assessment-pagination-wrap">
+        <app-pagination
+          [page]="page()"
+          [totalPages]="totalPages()"
+          [totalCount]="totalCount() || items().length"
+          [pageSize]="pageSize()"
+          (pageChanged)="goToPage($event)"
+        />
       </footer>
     </section>
   

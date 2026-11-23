@@ -1,5 +1,7 @@
 :host {
   display: block;
+  max-width: 100rem;
+  margin-inline: auto;
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #17324d;
 }
@@ -7,22 +9,299 @@
 .inspection-history-page {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
-.inspection-filter-wrapper {
-  app-inspection-filters {
-    display: block;
-    width: 100%;
+/* =============================================================
+   Page Header & Breadcrumbs
+   ============================================================= */
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+
+  .heading-left {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 2px 0;
+    color: #64748b;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+
+    span {
+      color: #64748b;
+    }
+
+    strong {
+      color: #10387d;
+      font-weight: 700;
+    }
+  }
+
+  h1.page-title {
+    margin: 0 0 2px 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #0f2952;
+    letter-spacing: -0.01em;
+  }
+
+  p.review-subtitle {
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 400;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
   }
 }
 
-.text-defect {
-  color: #dc2626 !important;
+/* =============================================================
+   Unified Buttons
+   ============================================================= */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+
+  &.primary {
+    background: #10387d;
+    border-color: #10387d;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #0d2e67;
+      border-color: #0d2e67;
+    }
+  }
+
+  &.secondary {
+    background: #ffffff;
+    border-color: #cbd8e5;
+    color: #17324d;
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #10387d;
+    outline-offset: 1px;
+  }
 }
 
-.text-normal {
-  color: #059669 !important;
+/* =============================================================
+   Compact Status KPI Bar
+   ============================================================= */
+.inspection-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  padding: 8px 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .status-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+
+    .status-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #526b82;
+      white-space: nowrap;
+    }
+
+    .status-value {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.15;
+      color: #0f2952;
+
+      &.text-defect {
+        color: #b91c1c;
+      }
+
+      &.text-normal {
+        color: #15803d;
+      }
+    }
+  }
+
+  .status-sep {
+    width: 1px;
+    height: 28px;
+    background: #cbd8e5;
+    flex-shrink: 0;
+
+    @media (max-width: 600px) {
+      display: none;
+    }
+  }
+}
+
+/* =============================================================
+   Filter Toolbar Card
+   ============================================================= */
+.filter-toolbar {
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.filter-notice {
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 11.5px;
+  line-height: 1.4;
+
+  &.is-info {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1e3a8a;
+  }
+}
+
+/* =============================================================
+   Table Container & Table Styles
+   ============================================================= */
+.table-container {
+  background: #ffffff;
+  border: 1px solid #cbd8e5;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+
+    p, h2 {
+      margin: 0;
+    }
+
+    .kicker {
+      color: #10387d;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h2 {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0f2952;
+      margin-top: 1px;
+    }
+
+    .record-badge {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  .inspection-table {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+
+    thead th {
+      height: 38px;
+      padding: 8px 12px;
+      border: none;
+      border-bottom: 1px solid #cbd8e5;
+      background: #f8fafc;
+      color: #526b82;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 8px 12px;
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+      color: #17324d;
+      vertical-align: middle;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+  }
 }
 
 .mission-cell {
@@ -46,22 +325,28 @@
     font-weight: 700;
     font-size: 12.5px;
   }
+
+  .mission-id {
+    color: #64748b;
+    font-size: 10.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
 }
 
 .thumb-link {
   display: inline-block;
 
   .thumb-img {
-    width: 48px;
-    height: 34px;
+    width: 52px;
+    height: 36px;
     object-fit: cover;
-    border-radius: 2px;
+    border-radius: 4px;
     border: 1px solid #cbd8e5;
     display: block;
     transition: transform 0.15s ease;
 
     &:hover {
-      transform: scale(1.08);
+      transform: scale(1.05);
     }
   }
 }
@@ -70,6 +355,43 @@
   font-size: 11px;
   color: #94a3b8;
   font-style: italic;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &.status-defect {
+    background: #fee2e2;
+    border-color: #fecaca;
+    color: #dc2626;
+
+    .status-dot {
+      background: #dc2626;
+    }
+  }
+
+  &.status-clear {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #059669;
+
+    .status-dot {
+      background: #059669;
+    }
+  }
 }
 
 .defect-type {
@@ -85,4 +407,12 @@
   font-size: 11.5px;
   color: #64748b;
   white-space: nowrap;
+}
+
+.pagination-wrap {
+  padding: 10px 14px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
 }

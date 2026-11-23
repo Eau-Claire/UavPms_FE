@@ -27,33 +27,32 @@ describe('Status Utility', () => {
   });
 
   describe('statusLabel', () => {
-    it('returns official Vietnamese labels for Pre-Mission Assessment statuses', () => {
-      expect(statusLabel('DRAFT')).toBe('Bản nháp');
-      expect(statusLabel('EVALUATING')).toBe('Đang đánh giá');
-      expect(statusLabel('READY')).toBe('Sẵn sàng');
-      expect(statusLabel('NOT_READY')).toBe('Chưa sẵn sàng');
-      expect(statusLabel('EXPIRED')).toBe('Hết hạn');
-      expect(statusLabel('COMPLETED')).toBe('Đã hoàn thành');
-      expect(statusLabel('CANCELLED')).toBe('Đã hủy');
+    it('normalizes uppercase or separated doc statuses into PascalCase without translating to Vietnamese', () => {
+      expect(statusLabel('DRAFT')).toBe('Draft');
+      expect(statusLabel('EVALUATING')).toBe('Evaluating');
+      expect(statusLabel('READY')).toBe('Ready');
+      expect(statusLabel('NOT_READY')).toBe('NotReady');
+      expect(statusLabel('EXPIRED')).toBe('Expired');
+      expect(statusLabel('COMPLETED')).toBe('Completed');
+      expect(statusLabel('CANCELLED')).toBe('Cancelled');
     });
 
-    it('maps legacy statuses to unified Vietnamese labels', () => {
-      expect(statusLabel('CONSUMED')).toBe('Đã hoàn thành');
-      expect(statusLabel('INCOMPLETE')).toBe('Chưa sẵn sàng');
-      expect(statusLabel('NOTREADY')).toBe('Chưa sẵn sàng');
+    it('maps legacy assessment status aliases', () => {
+      expect(statusLabel('CONSUMED')).toBe('Completed');
+      expect(statusLabel('INCOMPLETE')).toBe('NotReady');
+      expect(statusLabel('NOTREADY')).toBe('NotReady');
     });
 
-    it('maps readiness checks to Vietnamese labels', () => {
-      expect(statusLabel('PASS')).toBe('Đạt');
-      expect(statusLabel('PASSED')).toBe('Đạt');
-      expect(statusLabel('FAIL')).toBe('Không đạt');
-      expect(statusLabel('FAILED')).toBe('Không đạt');
-      expect(statusLabel('WARNING')).toBe('Cảnh báo');
-      expect(statusLabel('PENDING')).toBe('Đang chờ');
+    it('keeps readiness check statuses in uppercase or PascalCase', () => {
+      expect(statusLabel('PASS')).toBe('PASS');
+      expect(statusLabel('PASSED')).toBe('Passed');
+      expect(statusLabel('FAIL')).toBe('FAIL');
+      expect(statusLabel('FAILED')).toBe('Failed');
+      expect(statusLabel('PENDING')).toBe('Pending');
     });
 
-    it('falls back to title case for unmapped statuses', () => {
-      expect(statusLabel('CUSTOM_STATE')).toBe('Custom State');
+    it('returns custom or Vietnamese status text unchanged', () => {
+      expect(statusLabel('CUSTOM_STATE')).toBe('CUSTOM_STATE');
     });
 
     it('handles empty input gracefully', () => {

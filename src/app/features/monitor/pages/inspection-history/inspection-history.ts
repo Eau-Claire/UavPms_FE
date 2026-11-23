@@ -2,6 +2,8 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { DataState } from '../../../../shared/components/data-state/data-state';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { InspectionFilterChange, InspectionFilters } from '../../components/inspection-filters/inspection-filters';
 import { InspectionFilters as Filters, InspectionRecord } from '../../../../models/monitor.models';
 import { MonitorStore } from '../../data-access/monitor-store';
@@ -24,7 +26,7 @@ export const matchesMissionSearch = (record: InspectionRecord, search: string): 
 
 @Component({
   selector: 'app-inspection-history',
-  imports: [DatePipe, RouterLink, NzIconModule, InspectionFilters],
+  imports: [DatePipe, RouterLink, NzIconModule, DataState, Pagination, InspectionFilters],
   providers: [MonitorStore],
   templateUrl: './inspection-history.html',
   styleUrl: './inspection-history.scss',
@@ -53,35 +55,6 @@ export class InspectionHistory {
   protected readonly defectCount = computed(() => this.visibleItems().filter((i) => i.isDefect).length);
   protected readonly normalCount = computed(() => this.visibleItems().filter((i) => !i.isDefect).length);
 
-  protected readonly startIndex = computed(() => {
-    const data = this.store.inspections();
-    if (!data || !data.totalCount) return 0;
-    return (data.page - 1) * data.pageSize + 1;
-  });
-
-  protected readonly endIndex = computed(() => {
-    const data = this.store.inspections();
-    if (!data || !data.totalCount) return 0;
-    return Math.min(data.page * data.pageSize, data.totalCount);
-  });
-
-  protected readonly pageButtons = computed(() => {
-    const data = this.store.inspections();
-    const total = data?.totalPages ?? 1;
-    const curr = data?.page ?? 1;
-    const pages: number[] = [];
-    const maxButtons = 5;
-    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    const end = Math.min(total, start + maxButtons - 1);
-    if (end - start + 1 < maxButtons) {
-      start = Math.max(1, end - maxButtons + 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  });
-
   constructor() {
     this.store.loadInspections(this.filters());
   }
@@ -101,5 +74,19 @@ export class InspectionHistory {
 
   protected retry(): void {
     this.store.loadInspections(this.filters());
+  }
+
+  protected onImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.style.display = 'none';
+      const parent = target.parentElement;
+      if (parent && !parent.querySelector('.no-image')) {
+        const fallback = document.createElement('span');
+        fallback.className = 'no-image';
+        fallback.textContent = 'Không có ảnh';
+        parent.appendChild(fallback);
+      }
+    }
   }
 }

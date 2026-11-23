@@ -11,7 +11,6 @@ import {
   canOpenPreMissionAssessment,
   canOperateFlight,
   canReviewDetections,
-  canViewMissionDetections,
   canUploadMissionMedia,
   canViewAllMissions,
   defaultMissionTab,
@@ -119,31 +118,12 @@ describe('mission access rules', () => {
       }
     });
 
-    it('limits detection review strictly to analysts', () => {
+    it('limits detection review and the emergency centre to managers and analysts', () => {
       expect(canReviewDetections('Analyst')).toBe(true);
-      expect(canReviewDetections('Manager')).toBe(false);
-      expect(canReviewDetections('SystemAdmin')).toBe(false);
+      expect(canReviewDetections('Manager')).toBe(true);
       expect(canReviewDetections('Inspector')).toBe(false);
       expect(canReviewDetections('Technician')).toBe(false);
-    });
-
-    it('limits viewing defects only to analysts assigned to that mission', () => {
-      const analystAssigned = mission({
-        team: [assignment({ userId: 'analyst-1', assignmentRole: 'ANALYST', status: 'Active' })],
-      });
-
-      expect(canViewMissionDetections('Analyst', analystAssigned, 'analyst-1')).toBe(true);
-
-      expect(canViewMissionDetections('Analyst', analystAssigned, 'other-analyst')).toBe(false);
-
-      expect(canViewMissionDetections('Manager', analystAssigned, 'analyst-1')).toBe(false);
-      expect(canViewMissionDetections('SystemAdmin', analystAssigned, 'analyst-1')).toBe(false);
-      expect(canViewMissionDetections('Inspector', analystAssigned, 'analyst-1')).toBe(false);
-
-      const revoked = mission({
-        team: [assignment({ userId: 'analyst-1', assignmentRole: 'ANALYST', status: 'Revoked' })],
-      });
-      expect(canViewMissionDetections('Analyst', revoked, 'analyst-1')).toBe(false);
+      expect(canOpenEmergencyAlerts('Inspector')).toBe(false);
     });
 
     it('hides the pre-mission link for analysts and maintenance links for non-technicians', () => {
@@ -216,13 +196,13 @@ describe('mission access rules', () => {
     });
 
     it('translates enums', () => {
-      expect(assignmentRoleLabel('INSPECTOR')).toBe('Phi công / Inspector');
+      expect(assignmentRoleLabel('INSPECTOR')).toBe('INSPECTOR');
       expect(missionPriorityLabel('EMERGENCY')).toBe('Khẩn cấp');
       expect(towerInspectionStatusLabel('Inspected')).toBe('Đã kiểm tra');
-      expect(maintenanceStatusLabel('Pending')).toBe('Chờ xử lý');
-      expect(maintenanceStatusLabel('InProgress')).toBe('Đang sửa chữa');
-      expect(maintenanceStatusLabel('PendingVerification')).toBe('Chờ nghiệm thu');
-      expect(maintenanceStatusLabel('Completed')).toBe('Đã đóng');
+      expect(maintenanceStatusLabel('Pending')).toBe('Open');
+      expect(maintenanceStatusLabel('InProgress')).toBe('InProgress');
+      expect(maintenanceStatusLabel('PendingVerification')).toBe('PendingVerification');
+      expect(maintenanceStatusLabel('Completed')).toBe('Closed');
     });
   });
 

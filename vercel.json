@@ -1,17 +1,27 @@
 {
-  "headers": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/uav-pms-frontend/browser",
+  "rewrites": [
     {
-      "source": "/maps/(.*).pmtiles",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
-        },
-        {
-          "key": "CDN-Cache-Control",
-          "value": "public, s-maxage=31536000, immutable"
-        }
-      ]
+      "source": "/api/v1/:path*",
+      "destination": "https://uavpms.ddns.net/api/v1/:path*"
+    },
+    {
+      "source": "/api-fallback/v1/:path*",
+      "destination": "https://uavpms.duckdns.org/api/v1/:path*"
+    },
+    {
+      "source": "/hubs/:path*",
+      "destination": "https://uavpms.ddns.net/hubs/:path*"
+    },
+    {
+      "source": "/hubs-fallback/:path*",
+      "destination": "https://uavpms.duckdns.org/hubs/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

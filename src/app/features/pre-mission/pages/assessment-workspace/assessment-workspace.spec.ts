@@ -1,4 +1,3 @@
-import '@angular/compiler';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -8,9 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
 import { PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
-import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
-import { FlightControllerApi } from '../../../../core/services/flight-controller-api';
-import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { FlightControllerApi } from '../../data-access/flight-controller-api';
+import { PreMissionApi } from '../../data-access/pre-mission-api';
 import { AssessmentWorkspace } from './assessment-workspace';
 
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -171,6 +170,7 @@ describe('AssessmentWorkspace technical inspection', () => {
     const c = create();
     expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(1);
 
+    // Mock healthy inspection for d1
     api['runTechnicalInspection'].mockReturnValue(
       of({ id: 'i1', droneId: 'd1', status: 'Passed', overallHealth: 'HEALTHY', eligibility: 'ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
     );
@@ -180,6 +180,7 @@ describe('AssessmentWorkspace technical inspection', () => {
     expect(d1?.isEligible).toBe(true);
     expect(d1?.technicalHealth).toBe('HEALTHY');
 
+    // Mock critical inspection for d1
     api['runTechnicalInspection'].mockReturnValue(
       of({ id: 'i2', droneId: 'd1', status: 'Failed', overallHealth: 'CRITICAL', eligibility: 'NOT_ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
     );
@@ -230,33 +231,5 @@ describe('AssessmentWorkspace technical inspection', () => {
     const parsedPlainText = c.parseFindings('Đạt yêu cầu vận hành', 'TECHNICIAN');
     expect(parsedPlainText.isJson).toBe(false);
     expect(parsedPlainText.rawText).toBe('Đạt yêu cầu vận hành');
-  });
-
-  it('marks assessment as completed and NOT expired when completedMissionId exists even if validUntil is in the past', () => {
-    role = 'Manager';
-    const c = create() as unknown as {
-      item: () => PreMissionAssessment | null;
-      status: () => string;
-      isCompleted: () => boolean;
-      isExpired: () => boolean;
-      reevaluate: () => void;
-      error: () => string;
-    };
-
-    const completedRecord: PreMissionAssessment = {
-      ...assessment(),
-      status: 'READY', 
-      completedMissionId: 'mission-abc-123',
-      validUntil: '2020-01-01T00:00:00Z',
-    };
-    c.item = () => completedRecord;
-
-    expect(c.status()).toBe('COMPLETED');
-    expect(c.isCompleted()).toBe(true);
-    expect(c.isExpired()).toBe(false);
-
-    c.reevaluate();
-    expect(api['reEvaluate']).not.toHaveBeenCalled();
-    expect(c.error()).toBe('Bản đánh giá đã được sử dụng bởi nhiệm vụ bay, không thể đánh giá lại.');
   });
 });

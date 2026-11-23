@@ -7,12 +7,59 @@
 .reports-page-container {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+.pre-mission-breadcrumb .breadcrumb-link {
+  color: #10387d;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.icon-pdf {
+  color: #dc2626;
+}
+
+.icon-excel {
+  color: #16a34a;
+}
+
+.pre-mission-summary-strip {
+  .text-approved {
+    color: #059669;
+  }
+
+  .text-pending {
+    color: #d97706;
+  }
+
+  .text-draft {
+    color: #64748b;
+  }
+
+  .text-danger {
+    color: #dc2626;
+  }
 }
 
 /* =============================================================
    Specific Cell Styles for Report Table
    ============================================================= */
+.report-row {
+  cursor: pointer;
+
+  &.is-selected {
+    background: #eff6ff;
+  }
+}
+
+.row-radio {
+  cursor: pointer;
+  accent-color: #1d4f91;
+}
+
 .report-title-cell {
   display: flex;
   flex-direction: column;
@@ -48,23 +95,27 @@
   color: #475569;
 
   &.Periodic,
+  &.PeriodicInspection,
   &.periodic {
     background: #e0f2fe;
     color: #0369a1;
   }
 
   &.Incident,
+  &.DefectReport,
   &.defect {
     background: #fee2e2;
     color: #dc2626;
   }
 
   &.PostRepair,
+  &.ThermalInspection,
   &.thermal {
     background: #fef3c7;
     color: #b45309;
   }
 
+  &.CorridorOverview,
   &.corridor {
     background: #f3e8ff;
     color: #7e22ce;
@@ -106,7 +157,44 @@
 
 .btn-group {
   display: inline-flex;
+  justify-content: flex-end;
   gap: 4px;
+
+  .evn-btn.small {
+    height: 24px;
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 10.5px;
+  }
+}
+
+.empty-cell {
+  text-align: center;
+  padding: 28px 16px !important;
+  color: #64748b;
+
+  .empty-icon {
+    display: block;
+    font-size: 26px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+
+  strong {
+    display: block;
+    color: #0f2952;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 12px;
+  }
+}
+
+.reports-pagination-footer {
+  justify-content: flex-end !important;
 }
 
 /* =============================================================
@@ -134,7 +222,7 @@
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.28);
-  width: min(540px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
@@ -245,6 +333,111 @@
     .field-error {
       color: #dc2626;
       font-size: 11px;
+    }
+  }
+
+  .template-config-preview {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .tpl-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tpl-code-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .tpl-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .tpl-desc {
+      font-size: 11px;
+      color: #475569;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .tpl-sections-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .tpl-sections-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .tpl-sec-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 6px 8px;
+
+      .sec-icon {
+        color: #0284c7;
+        font-size: 13px;
+        margin-top: 2px;
+      }
+
+      .sec-text {
+        strong {
+          display: block;
+          font-size: 11px;
+          color: #1e293b;
+        }
+
+        p {
+          margin: 2px 0 0 0;
+          font-size: 10px;
+          color: #64748b;
+          line-height: 1.3;
+        }
+      }
+    }
+
+    .tpl-footer-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: #64748b;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 6px;
+      margin-top: 4px;
+
+      em {
+        font-style: normal;
+        color: #334155;
+      }
+
+      strong {
+        color: #0f172a;
+      }
     }
   }
 

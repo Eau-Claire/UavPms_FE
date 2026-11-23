@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
-import { UsersApi } from '../../../core/services/users-api';
+import { UsersApi } from './users-api';
 
 describe('UsersApi', () => {
   const url = `${environment.apiBaseUrl}/users`;

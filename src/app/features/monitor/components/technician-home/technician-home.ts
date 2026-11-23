@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from 
 import { RouterLink } from '@angular/router';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
-import { DroneManagementApi } from '../../../../core/services/drone-management-api';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
-import { maintenancePriorityLabel, maintenancePriorityTone } from '../../../../shared/utils/maintenance-labels';
+import { DroneManagementApi } from '../../../drones/data-access/drone-management-api';
+import { MaintenanceApi } from '../../../maintenance/data-access/maintenance-api';
+import { maintenancePriorityLabel, maintenancePriorityTone } from '../../../maintenance/data-access/maintenance-labels';
 import {
   DRONE_ATTENTION_LABELS,
   DroneAttentionItem,

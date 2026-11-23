@@ -40,27 +40,8 @@ export const canOperateFlight = (role: RoleInput): boolean => isManagerRole(role
 /** `POST /missions/{id}/media` is open to SystemAdmin, Manager and Inspector. */
 export const canUploadMissionMedia = canOperateFlight;
 
-/** `POST|PUT /missions/{id}/detections/{d}/review`: Only Analyst has permission to confirm or reject AI detections. */
-export const canReviewDetections = (role: RoleInput): boolean => isAnalystRole(role);
-
-/**
- * BR: Chỉ có Analyst nằm trong nhiệm vụ mà defect đó được phát hiện mới có quyền xem.
- */
-export const canViewMissionDetections = (
-  role: RoleInput,
-  mission: Mission | null | undefined,
-  userId: string | null | undefined,
-): boolean => {
-  if (!isAnalystRole(role) || !mission || !userId) return false;
-  return (mission.team ?? []).some(
-    (a) =>
-      a.userId === userId &&
-      (a.assignmentRole?.toUpperCase() === 'ANALYST') &&
-      a.status !== 'Revoked' &&
-      a.responseStatus !== 'REPLACED' &&
-      a.responseStatus !== 'CANCELLED',
-  );
-};
+/** `POST|PUT /missions/{id}/detections/{d}/review`: SystemAdmin, Manager and Analyst. */
+export const canReviewDetections = (role: RoleInput): boolean => isManagerRole(role) || isAnalystRole(role);
 
 /** Route `/emergency-alerts` allows Admin, Manager and Analyst. */
 export const canOpenEmergencyAlerts = canReviewDetections;
@@ -93,13 +74,13 @@ export const findMyAssignment = (mission: Mission | null | undefined, userId: st
  * Mission statuses in which a member can still accept or ask to postpone their assignment. The backend answers
  * `409 INVALID_MISSION_STATE` outside PendingAcceptance/Assigned/Preparing/Ready (e.g. Draft, Postponed).
  */
-const RESPONSE_OPEN_STATUSES = ['Pending', 'PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
+const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Confirmed', 'Preparing', 'Ready'];
 
 /** `POST /missions/{id}/postpone` (the whole mission) is Manager/SystemAdmin only; members use `/assignments/postpone`. */
 export const canPostponeWholeMission = (role: RoleInput): boolean => isManagerRole(role);
 
 /** Statuses from which `POST /missions/{id}/start` is accepted. */
-const STARTABLE_STATUSES = ['Assigned', 'Preparing', 'Ready'];
+const STARTABLE_STATUSES = ['Ready', 'Assigned', 'Preparing', 'Confirmed'];
 
 /** `Mission:StartToleranceMinutes`: a mission may start at most 2 hours before its planned start. */
 export const START_TOLERANCE_MINUTES = 120;
@@ -169,11 +150,11 @@ export type AcceptanceState = 'none' | 'awaiting' | 'postponed' | 'accepted' | '
 
 export const acceptanceState = (mission: Mission | null | undefined, assignment: MissionAssignment | null): AcceptanceState => {
   if (!mission || !assignment) return 'none';
-  if (assignment.responseStatus === 'POSTPONED') return 'postponed';
-  if (assignment.responseStatus === 'ACCEPTED') return 'accepted';
-  if (String(mission.status).toUpperCase() === 'SUSPENDED') return 'suspended';
   const status = normalizeMissionStatus(mission.status);
-  if (['InProgress', 'Completed', 'Cancelled', 'Draft', 'Postponed'].includes(status)) return 'closed';
+  if (status === 'Suspended') return 'suspended';
+  if (['InProgress', 'Completed', 'Cancelled'].includes(status)) return 'closed';
+  if (assignment.responseStatus === 'ACCEPTED') return 'accepted';
+  if (assignment.responseStatus === 'POSTPONED') return 'postponed';
   return isAwaitingMyResponse(mission, assignment) ? 'awaiting' : 'closed';
 };
 
@@ -194,7 +175,7 @@ export const missionRowLink = (
   if (isManagerRole(role)) return { commands: detail };
   if (isAnalystRole(role) && scope === 'all') return { commands: detail, queryParams: { tab: 'results' } };
   const mine = findMyAssignment(mission, userId);
-
+  // A member whose postponement is still pending also lands on the acceptance page to follow its outcome.
   const postponePending = mine?.responseStatus === 'POSTPONED' && normalizeMissionStatus(mission.status) === 'Postponed';
   if (isAwaitingMyResponse(mission, mine) || postponePending) {
     return { commands: ['/missions', mission.id, 'inspector'] };
@@ -203,12 +184,8 @@ export const missionRowLink = (
 };
 
 /** Tab opened on the mission dashboard when the URL has no `?tab=`. */
-export const defaultMissionTab = (
-  role: RoleInput,
-  status: string | null | undefined,
-  isAssignedAnalyst = true,
-): MissionTab => {
-  if (isAnalystRole(role) && isAssignedAnalyst) return 'results';
+export const defaultMissionTab = (role: RoleInput, status: string | null | undefined): MissionTab => {
+  if (isAnalystRole(role)) return 'results';
   if (isTechnicianRole(role)) return 'maintenance';
   if (isInspectorRole(role) && normalizeMissionStatus(status) === 'InProgress') return 'upload';
   return 'overview';
@@ -266,14 +243,16 @@ const SENDER_LABELS: Record<ActivitySenderKind, string> = {
 export const activitySenderLabel = (kind: ActivitySenderKind): string => SENDER_LABELS[kind];
 
 const ASSIGNMENT_ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công / Inspector',
-  PILOT: 'Phi công',
-  CO_PILOT: 'Phi công phụ',
-  COPILOT: 'Phi công phụ',
-  OBSERVER: 'Quan sát viên',
-  ANALYST: 'Chuyên viên phân tích',
-  TECHNICIAN: 'Kỹ thuật viên',
-  MAINTENANCETECHNICIAN: 'Kỹ thuật viên bảo trì',
+  INSPECTOR: 'INSPECTOR',
+  PILOT: 'INSPECTOR',
+  CO_PILOT: 'INSPECTOR',
+  COPILOT: 'INSPECTOR',
+  OBSERVER: 'OBSERVER',
+  ANALYST: 'ANALYST',
+  TECHNICIAN: 'TECHNICIAN',
+  MAINTENANCETECHNICIAN: 'TECHNICIAN',
+  MANAGER: 'MANAGER',
+  ADMIN: 'ADMIN',
 };
 
 /** Vietnamese label for a mission assignment role (`assignmentRole`). */
@@ -312,26 +291,29 @@ export const isTowerInspected = (status: string | null | undefined): boolean =>
   ['INSPECTED', 'COMPLETED'].includes((status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase());
 
 const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Chờ xử lý',
-  PENDING: 'Chờ xử lý',
-  APPROVED: 'Chờ xử lý',
-  INPROGRESS: 'Đang sửa chữa',
-  PENDINGVERIFICATION: 'Chờ nghiệm thu',
-  RESOLVED: 'Đã đóng',
-  CLOSED: 'Đã đóng',
-  COMPLETED: 'Đã đóng',
+  OPEN: 'Open',
+  PENDING: 'Open',
+  APPROVED: 'Open',
+  ASSIGNED: 'Assigned',
+  INPROGRESS: 'InProgress',
+  PENDINGVERIFICATION: 'PendingVerification',
+  CLOSED: 'Closed',
+  RESOLVED: 'Closed',
+  COMPLETED: 'Closed',
+  CANCELLED: 'Cancelled',
+  CANCELED: 'Cancelled',
 };
 
-/** Vietnamese label for a maintenance ticket status (ticket enum or the mission DTO's simplified value). */
+/** Label for a maintenance ticket status matching doc state machine. */
 export const maintenanceStatusLabel = (status: string | null | undefined): string => {
   const key = (status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase();
-  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Chờ xử lý');
+  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Open');
 };
 
 /** CSS tone for a maintenance status pill. */
 export const maintenanceStatusTone = (status: string | null | undefined): 'pending' | 'inprogress' | 'completed' => {
   const label = maintenanceStatusLabel(status);
-  if (label === 'Đã đóng') return 'completed';
-  if (label === 'Chờ xử lý') return 'pending';
+  if (label === 'Closed' || label === 'Cancelled') return 'completed';
+  if (label === 'Open' || label === 'PendingVerification') return 'pending';
   return 'inprogress';
 };

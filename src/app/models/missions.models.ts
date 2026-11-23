@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 export type MissionPriority = 'NORMAL' | 'HIGH' | 'EMERGENCY' | string;
 
 export type InspectionObjective =
@@ -8,63 +10,45 @@ export type InspectionObjective =
   | string;
 
 export const PRIORITY_DEFECT_CATEGORIES = [
-  { key: 'Insulator', label: 'Khuyết tật cách điện' },
-  { key: 'Conductor', label: 'Khuyết tật dây dẫn' },
-  { key: 'SurgeArrester', label: 'Chống sét van' },
-  { key: 'ForeignObject', label: 'Tổ chim / Dị vật' },
-  { key: 'TowerCorrosion', label: 'Ăn mòn cột' },
-  { key: 'Other', label: 'Khác' },
+  { key: 'Insulator', label: 'Khuyết tật cách điện (Insulator defects)' },
+  { key: 'Conductor', label: 'Khuyết tật dây dẫn (Conductor defects)' },
+  { key: 'SurgeArrester', label: 'Chống sét van (Surge arrester defects)' },
+  { key: 'ForeignObject', label: 'Tổ chim / Dị vật (Foreign objects)' },
+  { key: 'TowerCorrosion', label: 'Ăn mòn cột (Tower corrosion)' },
+  { key: 'Other', label: 'Khác (Other)' },
 ] as const;
 
-/** Trạng thái nhiệm vụ đúng như backend trả về (`MissionStatus.ToString()`). */
-/** Trạng thái nhiệm vụ chuẩn hóa đúng theo Backend (`MissionStatus` enum). */
+/** Trạng thái nhiệm vụ theo Mission State Machine doc. */
 export type MissionStatus =
   | 'Draft'
-  | 'Pending'
-  | 'Ready'
+  | 'PendingAcceptance'
   | 'Postponed'
+  | 'Confirmed'
+  | 'Ready'
   | 'InProgress'
+  | 'Suspended'
   | 'Completed'
   | 'Cancelled'
-  | 'PendingAcceptance'
-  | 'Assigned'
-  | 'Preparing'
-  | 'Suspended'
   | string;
 
-/** Danh sách 7 trạng thái chuẩn của Mission theo thiết kế Backend và State Machine. */
 export const MISSION_STATUSES: readonly MissionStatus[] = [
   'Draft',
-  'Pending',
-  'Ready',
+  'PendingAcceptance',
   'Postponed',
+  'Confirmed',
+  'Ready',
   'InProgress',
+  'Suspended',
   'Completed',
   'Cancelled',
 ];
 
-const MISSION_STATUS_LABELS: Record<string, string> = {
-  Draft: 'Bản nháp',
-  Pending: 'Chờ tiếp nhận',
-  PendingAcceptance: 'Chờ tiếp nhận',
-  Ready: 'Sẵn sàng bay',
-  Assigned: 'Sẵn sàng bay',
-  Preparing: 'Sẵn sàng bay',
-  Postponed: 'Tạm hoãn',
-  Suspended: 'Tạm hoãn',
-  InProgress: 'Đang bay khảo sát',
-  Completed: 'Đã hoàn thành',
-  Cancelled: 'Đã hủy',
-};
-
 export function missionStatusLabel(status: string | null | undefined): string {
-  const normalized = normalizeMissionStatus(status);
-  return MISSION_STATUS_LABELS[normalized] ?? normalized;
+  return normalizeMissionStatus(status);
 }
 
 /**
- * Chuẩn hóa trạng thái nhiệm vụ về 7 trạng thái chuẩn của backend.
- * Khử bỏ các trạng thái dư thừa (`Assigned`, `Preparing`, `Suspended`, `PendingAcceptance`).
+ * Chuẩn hóa trạng thái nhiệm vụ theo 9 state chuẩn của Mission State Machine doc.
  */
 export function normalizeMissionStatus(status: string | null | undefined): MissionStatus {
   const raw = String(status ?? '').trim();
@@ -72,28 +56,30 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
   switch (key) {
     case '':
     case 'DRAFT':
-      return 'Draft';
     case 'PENDING':
+      return 'Draft';
     case 'PENDINGACCEPTANCE':
     case 'PENDINGCONFIRMATION':
-      return 'Pending';
-    case 'READY':
-    case 'ASSIGNED':
-    case 'PREPARING':
-    case 'CONFIRMED':
-    case 'RESUMED':
-      return 'Ready';
+      return 'PendingAcceptance';
     case 'POSTPONED':
-    case 'SUSPENDED':
       return 'Postponed';
+    case 'CONFIRMED':
+    case 'ASSIGNED':
+      return 'Confirmed';
+    case 'PREPARING':
+    case 'READY':
+      return 'Ready';
     case 'INPROGRESS':
     case 'EXECUTING':
     case 'STARTED':
       return 'InProgress';
+    case 'SUSPENDED':
+      return 'Suspended';
     case 'COMPLETED':
       return 'Completed';
     case 'CANCELLED':
     case 'CANCELED':
+    case 'ABORTED':
       return 'Cancelled';
     default:
       return raw;
@@ -135,21 +121,8 @@ export interface MissionAssignmentsOverview {
   readonly assignments: readonly MissionAssignment[];
 }
 
-/** `GET /inspections/mission/{missionId}` (`InspectionReportDto`). */
-export interface MissionBackendMedia {
-  readonly id: string;
-  readonly missionId: string;
-  readonly towerId?: string | null;
-  readonly mediaType: string;
-  readonly fileUrl: string;
-  readonly aiSource?: string;
-  readonly validationStatus: string;
-  readonly capturedAt: string;
-  readonly createdAt: string;
-}
-
 /** `GET /missions/{id}/detections` (`MissionDetectionDto`). */
-export interface MissionBackendDetection {
+export interface MissionBackendDetection extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId: string;
   readonly mediaId?: string;
@@ -178,10 +151,14 @@ export interface MissionBackendDetection {
   readonly reviewedByUserId?: string | null;
   readonly reviewedAt?: string | null;
   readonly reviewNotes?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}/maintenance-tasks` (`MissionMaintenanceTaskDto`). */
-export interface MissionBackendMaintenanceTask {
+export interface MissionBackendMaintenanceTask extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId: string;
   readonly detectionId?: string;
@@ -193,6 +170,9 @@ export interface MissionBackendMaintenanceTask {
   readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | string;
   readonly assignedTeam?: string;
   readonly createdAt?: string;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}/activities` (`MissionActivityDto`). */
@@ -206,24 +186,29 @@ export interface MissionBackendActivity {
   readonly timestamp: string;
 }
 
-export interface MissionAssignment {
+export interface MissionAssignment extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId?: string;
   readonly userId: string;
   readonly userName: string;
   readonly userFullName?: string;
   readonly assignmentRole: MissionOperationalRole;
-  readonly status: string;
+  readonly status: string; // 'Active' | 'Unavailable' | 'Revoked' | string
   readonly responseStatus?: AssignmentResponseStatus;
   readonly isRequired?: boolean;
   readonly assignedAt?: string;
   readonly respondedAt?: string | null;
   readonly responseReason?: string | null;
   readonly checkedInAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** Cột điện thuộc phạm vi nhiệm vụ (`MissionTargetDto`). */
-export interface MissionTarget {
+export interface MissionTarget extends BaseAuditableEntity {
+  readonly id: string;
   readonly towerId: string;
   readonly towerCode: string;
   readonly sequence: number | null;
@@ -231,10 +216,14 @@ export interface MissionTarget {
   readonly latitude?: number;
   readonly longitude?: number;
   readonly regionId?: string;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}` (`MissionDto`). */
-export interface Mission {
+export interface Mission extends BaseAuditableEntity {
   readonly id: string;
   readonly missionCode: string;
   readonly title: string;
@@ -249,6 +238,8 @@ export interface Mission {
   readonly managerUsername: string;
   readonly createdAt: string;
   readonly updatedAt: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
   readonly targets: readonly MissionTarget[];
   readonly sourceAssessmentId?: string | null;
   readonly scheduledStartAt?: string | null;
@@ -273,7 +264,7 @@ export interface Mission {
   readonly emergencyReason?: string | null;
   readonly isImmediate?: boolean;
   readonly communicationLogs?: readonly MissionCommunicationLog[];
-
+  // Tiến độ xác nhận của các thành viên
   readonly confirmedAt?: string | null;
   readonly confirmedCount?: number;
   readonly totalRequiredCount?: number;
@@ -321,7 +312,6 @@ export interface CreateMissionFromAssessmentRequest {
   readonly confirmationDeadline?: string | null;
   /** Chỉ thị của quản lý, gửi kèm thông báo `MISSION_DISPATCH` (tối đa 2.000 ký tự). */
   readonly managerInstructions?: string | null;
-  readonly status?: string;
 }
 
 /** Nhiệm vụ vừa tạo (backend trả về thực thể nhiệm vụ). */

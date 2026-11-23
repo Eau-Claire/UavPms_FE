@@ -15,7 +15,9 @@ import {
   TicketPriority,
   TicketStatus,
 } from '../../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
+import { DataState } from '../../../../shared/components/data-state/data-state';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
 import {
   isClosedStatus,
   isMaintenanceManager,
@@ -23,7 +25,7 @@ import {
   maintenancePriorityTone,
   maintenanceStatusLabel,
   maintenanceStatusTone,
-} from '../../../../shared/utils/maintenance-labels';
+} from '../../data-access/maintenance-labels';
 
 const EMPTY_PAGE: MaintenanceTicketPage = { items: [], totalCount: 0, pageIndex: 0, pageSize: 20 };
 
@@ -33,7 +35,7 @@ const EMPTY_PAGE: MaintenanceTicketPage = { items: [], totalCount: 0, pageIndex:
  */
 @Component({
   selector: 'app-maintenance-list',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule, DataState, Pagination],
   templateUrl: './maintenance-list.html',
   styleUrl: './maintenance-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,69 +75,51 @@ export class MaintenanceList {
     initialValue: this.filters.getRawValue(),
   });
 
-  /** Rows on screen: the server page for managers, the filtered "my tickets" list for technicians. */
+  protected readonly sortBy = signal<'priority_desc' | 'priority_asc' | 'date_desc' | 'date_asc'>('priority_desc');
+
+  private static readonly PRIORITY_WEIGHT: Record<string, number> = {
+    Emergency: 4,
+    High: 3,
+    Medium: 2,
+    Low: 1,
+  };
+
+  /** Rows on screen: the server page for managers, the filtered "my tickets" list for technicians, with client-side sort applied. */
   protected readonly rows = computed<readonly MaintenanceTicket[]>(() => {
-    if (this.isManager()) return this.page().items;
-    const { status, priority } = this.filterValue();
-    return this.myTickets().filter(
-      (ticket) =>
-        (!status || ticket.status === status || (status === 'Closed' && isClosedStatus(ticket.status))) &&
-        (!priority || ticket.priority === priority),
-    );
+    let list: readonly MaintenanceTicket[];
+    if (this.isManager()) {
+      list = this.page().items;
+    } else {
+      const { status, priority } = this.filterValue();
+      list = this.myTickets().filter(
+        (ticket) =>
+          (!status || ticket.status === status || (status === 'Closed' && isClosedStatus(ticket.status))) &&
+          (!priority || ticket.priority === priority),
+      );
+    }
+
+    const sort = this.sortBy();
+    return [...list].sort((a, b) => {
+      if (sort === 'priority_desc' || sort === 'priority_asc') {
+        const weightA = MaintenanceList.PRIORITY_WEIGHT[a.priority] ?? 0;
+        const weightB = MaintenanceList.PRIORITY_WEIGHT[b.priority] ?? 0;
+        const diff = sort === 'priority_desc' ? weightB - weightA : weightA - weightB;
+        if (diff !== 0) return diff;
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      }
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sort === 'date_asc' ? timeA - timeB : timeB - timeA;
+    });
   });
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.page().totalCount / this.pageSize())));
   protected readonly unassignedCount = computed(() => (this.isManager() ? this.rows().filter((ticket) => this.isUnassigned(ticket)).length : 0));
   protected readonly hasFilters = computed(() => Boolean(this.filterValue().status || this.filterValue().priority));
 
-  protected readonly startIndex = computed(() => {
-    const total = this.isManager() ? this.page().totalCount : this.rows().length;
-    if (!total) return 0;
-    return this.pageIndex() * this.pageSize() + 1;
-  });
-
-  protected readonly endIndex = computed(() => {
-    const total = this.isManager() ? this.page().totalCount : this.rows().length;
-    if (!total) return 0;
-    return Math.min((this.pageIndex() + 1) * this.pageSize(), total);
-  });
-
-  protected readonly pageButtons = computed(() => {
-    const total = this.totalPages();
-    const curr = this.pageIndex() + 1;
-    const pages: number[] = [];
-    const maxButtons = 5;
-    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    const end = Math.min(total, start + maxButtons - 1);
-    if (end - start + 1 < maxButtons) {
-      start = Math.max(1, end - maxButtons + 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  });
-
-  protected readonly stats = computed(() => {
-    const list = this.rows();
-    const total = this.isManager() ? this.page().totalCount : list.length;
-    return {
-      total,
-      unassigned: this.unassignedCount(),
-      open: list.filter((t) => t.status === 'Open').length,
-      inProgress: list.filter((t) => t.status === 'InProgress').length,
-      pendingVerification: list.filter((t) => t.status === 'PendingVerification').length,
-      closed: list.filter((t) => isClosedStatus(t.status)).length,
-      emergency: list.filter((t) => t.priority === 'Emergency').length,
-    };
-  });
-
   constructor() {
-    try {
-      localStorage.removeItem('uavpms.mock_maintenance_tickets');
-    } catch {
-    }
-
     this.reload$
       .pipe(
         tap(() => {
@@ -163,7 +147,7 @@ export class MaintenanceList {
 
     if (this.isManager()) {
       this.filters.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.goToPage(0));
-
+      // Names for the technician column (the list endpoint returns only technicianId).
       this.api.technicians().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (technicians) => this.technicianNames.set(new Map(technicians.map((technician) => [technician.id, technician.fullName || technician.email]))),
         error: () => this.technicianNames.set(new Map()),
@@ -193,6 +177,10 @@ export class MaintenanceList {
     this.goToPage(0);
   }
 
+  protected setSortBy(sort: 'priority_desc' | 'priority_asc' | 'date_desc' | 'date_asc'): void {
+    this.sortBy.set(sort);
+  }
+
   protected resetFilters(): void {
     this.filters.reset({ status: '', priority: '' });
   }
@@ -207,6 +195,7 @@ export class MaintenanceList {
 
   protected technicianName(ticket: MaintenanceTicket): string {
     if (!ticket.technicianId) return '';
-    return ticket.technician?.fullName || this.technicianNames().get(ticket.technicianId) || 'Đã giao';
+    const raw = ticket.technician?.fullName || this.technicianNames().get(ticket.technicianId) || 'Đã giao';
+    return raw.replace(/\s*\((?:Technician|MaintenanceTechnician|Kỹ thuật viên)\)/gi, '').trim();
   }
 }

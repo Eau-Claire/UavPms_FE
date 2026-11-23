@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { MissionTargetSelection, MissionTargetTower } from '../../../core/services/mission-target-selection';
+import { MissionTargetSelection, MissionTargetTower } from './mission-target-selection';
 
 const tower = (id: string): MissionTargetTower => ({ towerId: id, towerCode: id.toUpperCase(), latitude: 21, longitude: 105 });
 

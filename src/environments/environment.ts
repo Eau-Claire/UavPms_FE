@@ -1,5 +1,7 @@
 export const environment = {
-  apiBaseUrl: 'https://uavpms.ddns.net/api/v1',
-  notificationsHubUrl: 'https://uavpms.ddns.net/hubs/notifications',
+  apiBaseUrl: '/api/v1',
+  fallbackApiBaseUrl: '/api-fallback/v1',
+  notificationsHubUrl: '/hubs/notifications',
+  fallbackNotificationsHubUrl: '/hubs-fallback/notifications',
   dashboardPollIntervalMs: 30_000,
 };

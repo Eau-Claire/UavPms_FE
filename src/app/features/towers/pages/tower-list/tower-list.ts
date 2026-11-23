@@ -9,17 +9,18 @@ import { Auth } from '../../../../core/auth/auth';
 import { RegionLookup, TowerFilters, TowerPage, TowerSummary, TowerUpsertRequest } from '../../../../models/assets.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
-import { ConfirmDialog } from '../../../../shared/components/confirm-dialog/confirm-dialog';
+import { ConfirmDialog } from '../../components/confirm-dialog/confirm-dialog';
 import { TowerFormDialog } from '../../components/tower-form-dialog/tower-form-dialog';
-import { RegionsApi } from '../../../../core/services/regions-api';
-import { canManageInfrastructure } from '../../../../shared/utils/tower-labels';
+import { RegionsApi } from '../../data-access/regions-api';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { canManageInfrastructure } from '../../data-access/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
 const EMPTY_PAGE: TowerPage = { items: [], pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } };
 
 @Component({
   selector: 'app-tower-list',
-  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, NzIconModule, TowerFormDialog, ConfirmDialog],
+  imports: [DecimalPipe, ReactiveFormsModule, RouterLink, NzIconModule, DataState, Pagination, TowerFormDialog, ConfirmDialog],
   templateUrl: './tower-list.html',
   styleUrl: './tower-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +31,7 @@ export class TowerList {
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly reload$ = new Subject<TowerFilters>();
 
   protected readonly pageSizes = [10, 20, 50, 100] as const;
@@ -42,59 +44,6 @@ export class TowerList {
   protected readonly notice = signal<{ readonly tone: 'success' | 'error'; readonly text: string } | null>(null);
   protected readonly page = signal(1);
   protected readonly pageSize = signal(20);
-
-  protected readonly totalItems = computed(() => this.result().pagination.totalItems);
-  protected readonly totalPages = computed(() => this.result().pagination.totalPages);
-
-  protected readonly startIndex = computed(() => {
-    const total = this.totalItems();
-    if (!total) return 0;
-    return (this.page() - 1) * this.pageSize() + 1;
-  });
-
-  protected readonly endIndex = computed(() => {
-    const total = this.totalItems();
-    if (!total) return 0;
-    return Math.min(this.page() * this.pageSize(), total);
-  });
-
-  protected readonly pageButtons = computed(() => {
-    const total = this.totalPages();
-    const curr = this.page();
-    const pages: number[] = [];
-    const maxButtons = 5;
-    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    const end = Math.min(total, start + maxButtons - 1);
-    if (end - start + 1 < maxButtons) {
-      start = Math.max(1, end - maxButtons + 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  });
-
-  protected readonly hasActiveFilters = computed(() => {
-    const v = this.filters.value;
-    return Boolean(v.regionId || (v.search && v.search.trim()));
-  });
-
-  protected readonly stats = computed(() => {
-    const res = this.result();
-    const items = res.items;
-    const total = res.pagination.totalItems;
-    const buLongCount = items.filter((t) => {
-      const p = (t.poleType || '').toLowerCase();
-      return p.includes('bu-lông') || p.includes('bu lông');
-    }).length;
-    const donThanCount = items.filter((t) => (t.poleType || '').toLowerCase().includes('đơn thân')).length;
-    return [
-      { label: 'Tổng số cột điện', value: total },
-      { label: 'Khu vực quản lý', value: this.regions().length },
-      { label: 'Thép bu-lông (trang này)', value: buLongCount },
-      { label: 'Thép đơn thân (trang này)', value: donThanCount },
-    ];
-  });
 
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<TowerSummary | null>(null);
@@ -178,7 +127,7 @@ export class TowerList {
     const lower = type.toLowerCase();
     if (lower.includes('bu-lông') || lower.includes('bu lông')) return 'info';
     if (lower.includes('đơn thân')) return 'success';
-    if (lower.includes('bê tông') || lower.includes('be tong')) return 'warning';
+    if (lower.includes('bê tông') || lower.includes('ly tâm')) return 'warning';
     return 'neutral';
   }
 
@@ -231,7 +180,9 @@ export class TowerList {
     request$.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.saving.set(false))).subscribe({
       next: (tower) => {
         this.closeForm();
-        this.notice.set({ tone: 'success', text: current ? `Đã cập nhật cột ${tower.towerCode || request.towerCode}.` : `Đã thêm cột ${tower.towerCode || request.towerCode}.` });
+        const msg = current ? `Đã cập nhật cột ${tower.towerCode || request.towerCode}.` : `Đã thêm cột ${tower.towerCode || request.towerCode}.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         this.load();
       },
       error: (error: unknown) => this.formError.set(apiErrorMessage(error, current ? 'Không thể cập nhật cột điện.' : 'Không thể tạo cột điện.')),
@@ -251,7 +202,9 @@ export class TowerList {
     this.api.delete(tower.id).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.deleteBusy.set(false))).subscribe({
       next: () => {
         this.deleting.set(null);
-        this.notice.set({ tone: 'success', text: `Đã xóa cột ${tower.towerCode}.` });
+        const msg = `Đã xóa cột ${tower.towerCode}.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         const onlyRowOnPage = this.result().items.length === 1 && this.page() > 1;
         this.goToPage(onlyRowOnPage ? this.page() - 1 : this.page());
       },
@@ -264,18 +217,24 @@ export class TowerList {
     const file = inputElement.files?.[0];
     inputElement.value = '';
     if (!file) return;
-    if (!/\.(xlsx|csv)$/i.test(file.name)) {
-      this.notice.set({ tone: 'error', text: 'Vui lòng chọn tệp định dạng .xlsx hoặc .csv.' });
+    if (!/\.xlsx$/i.test(file.name)) {
+      this.notice.set({ tone: 'error', text: 'Vui lòng chọn tệp Excel định dạng .xlsx.' });
       return;
     }
     this.importing.set(true);
     this.notice.set(null);
     this.api.import(file).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.importing.set(false))).subscribe({
       next: (result) => {
-        this.notice.set({ tone: 'success', text: `Đã nhập ${result.importedCount} cột điện, bỏ qua ${result.skippedCount} dòng không hợp lệ hoặc trùng mã.` });
+        const msg = `Đã nhập ${result.importedCount} cột điện, bỏ qua ${result.skippedCount} dòng không hợp lệ hoặc trùng mã.`;
+        this.notice.set({ tone: 'success', text: msg });
+        this.toast.success(msg);
         this.goToPage(1);
       },
-      error: (error: unknown) => this.notice.set({ tone: 'error', text: apiErrorMessage(error, 'Không thể nhập tệp dữ liệu.') }),
+      error: (error: unknown) => {
+        const msg = apiErrorMessage(error, 'Không thể nhập tệp Excel.');
+        this.notice.set({ tone: 'error', text: msg });
+        this.toast.error(msg);
+      },
     });
   }
 }

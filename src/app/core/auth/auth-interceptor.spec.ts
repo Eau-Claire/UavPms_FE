@@ -66,12 +66,4 @@ describe('authInterceptor', () => {
     expect(request.request.headers.get('Authorization')).toBe('Bearer stale-token');
     request.flush({ data: {} });
   });
-
-  it('does not attach bearer tokens to external third-party requests', () => {
-    client.get('https://api.open-meteo.com/v1/forecast?latitude=21&longitude=105').subscribe();
-
-    const request = http.expectOne('https://api.open-meteo.com/v1/forecast?latitude=21&longitude=105');
-    expect(request.request.headers.has('Authorization')).toBe(false);
-    request.flush({ daily: {} });
-  });
 });

@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { MaintenanceTicket, MaintenanceTicketPage } from '../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage, toDueDateIso } from '../../../core/services/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage, toDueDateIso } from './maintenance-api';
 
 describe('MaintenanceApi', () => {
   const url = `${environment.apiBaseUrl}/maintenance/tickets`;

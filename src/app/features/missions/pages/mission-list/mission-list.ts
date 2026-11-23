@@ -5,6 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import {
@@ -15,16 +17,14 @@ import {
   missionStatusLabel,
   normalizeMissionStatus,
 } from '../../../../models/missions.models';
-import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { MissionLink, MissionListScope, canViewAllMissions, missionRowLink } from '../../data-access/mission-access';
-import { MissionsApi } from '../../../../core/services/missions-api';
-import { PreMissionApi } from '../../../../core/services/pre-mission-api';
-import { PreMissionAssessment } from '../../../../models/pre-mission.models';
+import { MissionsApi } from '../../data-access/missions-api';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-mission-list',
-  imports: [DatePipe, RouterLink, NzIconModule],
+  imports: [DatePipe, RouterLink, NzIconModule, Pagination],
   templateUrl: './mission-list.html',
   styleUrl: './mission-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -35,25 +35,8 @@ export class MissionList {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly preMissionApi = inject(PreMissionApi, { optional: true });
+  private readonly toast = inject(ToastService);
   private readonly searchInput = new Subject<string>();
-
-  private readonly assessments = signal<readonly PreMissionAssessment[]>([]);
-  private readonly regionsMap = signal<ReadonlyMap<string, string>>(new Map());
-
-  private readonly assessmentByMissionId = computed(() => {
-    const map = new Map<string, PreMissionAssessment>();
-    for (const a of this.assessments()) {
-      if (a.completedMissionId) {
-        map.set(a.completedMissionId.toLowerCase(), a);
-      }
-      map.set(a.id.toLowerCase(), a);
-      if (a.assessmentCode) {
-        map.set(a.assessmentCode.toLowerCase(), a);
-      }
-    }
-    return map;
-  });
 
   protected readonly user = computed(() => this.auth.user());
   protected readonly canCreateMission = computed(() => isManagerRole(this.user()?.role));
@@ -67,8 +50,9 @@ export class MissionList {
   protected readonly search = signal('');
   protected readonly status = signal('');
   protected readonly priority = signal<string>('');
-  protected readonly sortBy = signal<string>('priority');
+  protected readonly sortBy = signal<string>('createdAt');
   protected readonly sortDescending = signal<boolean>(true);
+  protected readonly sortOption = signal<string>('createdAt_desc');
   protected readonly scope = signal<MissionListScope>(isManagerRole(this.auth.user()?.role) ? 'all' : 'my');
   protected readonly response = signal<MissionPage>({ items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 1 });
   protected readonly statsTotalCount = signal(0);
@@ -77,11 +61,17 @@ export class MissionList {
   protected readonly pageButtons = computed(() => this.compactPages(this.page(), this.response().totalPages));
   protected readonly stats = computed(() => {
     const items = this.statsItems();
+    const isPending = (s: string) => ['Draft', 'PendingAcceptance', 'Confirmed', 'Ready'].includes(normalizeMissionStatus(s));
+    const isInProgress = (s: string) => normalizeMissionStatus(s) === 'InProgress';
+    const isCompleted = (s: string) => normalizeMissionStatus(s) === 'Completed';
+    const isFailed = (s: string) => this.isFailed(s);
+
     return [
-      { label: 'Tổng nhiệm vụ', value: this.statsTotalCount(), tone: 'total', icon: 'file-text' },
-      { label: 'Đang xử lý / Chờ bay', value: items.filter((item) => this.isInProgress(item.status)).length, tone: 'warning', icon: 'reload' },
-      { label: 'Đã hoàn thành', value: items.filter((item) => item.status === 'Completed').length, tone: 'success', icon: 'check-circle' },
-      { label: 'Cảnh báo lỗi', value: items.filter((item) => this.isFailed(item.status)).length, tone: 'danger', icon: 'exclamation-circle' },
+      { label: 'Tổng nhiệm vụ', value: this.statsTotalCount(), tone: 'total' },
+      { label: 'Chờ xử lý', value: items.filter((item) => isPending(item.status)).length, tone: 'warning' },
+      { label: 'Đang bay', value: items.filter((item) => isInProgress(item.status)).length, tone: 'info' },
+      { label: 'Hoàn thành', value: items.filter((item) => isCompleted(item.status)).length, tone: 'success' },
+      { label: 'Sự cố / Hủy', value: items.filter((item) => isFailed(item.status)).length, tone: 'danger' },
     ];
   });
 
@@ -102,6 +92,7 @@ export class MissionList {
           return;
         }
 
+        // Live update status in the table
         this.response.update((curr) => {
           const index = curr.items.findIndex(
             (m) => m.id === event.missionId || m.missionCode === event.missionId,
@@ -113,6 +104,7 @@ export class MissionList {
           return { ...curr, items: newItems };
         });
 
+        // Live update stats cards
         this.statsItems.update((items) => {
           const index = items.findIndex(
             (m) => m.id === event.missionId || m.missionCode === event.missionId,
@@ -123,23 +115,6 @@ export class MissionList {
           return newItems;
         });
       });
-
-    if (this.preMissionApi) {
-      this.preMissionApi
-        .list({ page: 1, pageSize: 100 })
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: (res) => this.assessments.set(res.items || []),
-          error: () => {},
-        });
-      this.preMissionApi
-        .getRegions()
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: (regs) => this.regionsMap.set(new Map(regs.map((r) => [r.id, r.name]))),
-          error: () => {},
-        });
-    }
 
     this.load();
   }
@@ -225,13 +200,6 @@ export class MissionList {
     this.load();
   }
 
-  protected resetFilters(): void {
-    this.search.set('');
-    this.status.set('');
-    this.priority.set('');
-    this.applyFilters();
-  }
-
   protected updateSearch(value: string): void {
     this.search.set(value);
     this.searchInput.next(value);
@@ -250,9 +218,32 @@ export class MissionList {
 
   protected priorityLabel(priority?: string): string {
     const p = (priority || 'NORMAL').toUpperCase();
-    if (p === 'EMERGENCY') return '⚡ KHẨN CẤP';
-    if (p === 'HIGH') return '🔥 CAO';
-    return '○ BÌNH THƯỜNG';
+    if (p === 'EMERGENCY') return 'Khẩn cấp';
+    if (p === 'HIGH') return 'Cao';
+    return 'Bình thường';
+  }
+
+  protected objectiveLabel(objective?: string): string {
+    if (!objective) return '';
+    const clean = objective.trim();
+    const normalized = clean
+      .replace(/([a-z])([A-Z])/g, '$1_$2')
+      .replace(/[\s-]/g, '_')
+      .toUpperCase();
+    const map: Record<string, string> = {
+      PERIODIC_INSPECTION: 'Kiểm tra định kỳ',
+      INCIDENT_INVESTIGATION: 'Điều tra sự cố',
+      CORRIDOR_MONITORING: 'Giám sát hành lang',
+      POST_REPAIR_INSPECTION: 'Kiểm tra sau sửa chữa',
+      ROUTINE_PATROL: 'Tuần tra định kỳ',
+      EMERGENCY_SURVEY: 'Khảo sát khẩn cấp',
+      THERMAL_AUDIT: 'Kiểm tra nhiệt',
+      THERMAL_INSPECTION: 'Kiểm tra nhiệt lượng',
+      DEFECT_INSPECTION: 'Kiểm tra khuyết tật',
+      DEFECT_REPORT: 'Báo cáo khuyết tật',
+      CORRIDOR_OVERVIEW: 'Tổng quan hành lang',
+    };
+    return map[normalized] || map[clean] || 'Kiểm tra kỹ thuật';
   }
 
   protected priorityClass(priority?: string): string {
@@ -269,9 +260,49 @@ export class MissionList {
     return 'neutral';
   }
 
+  protected setSortOption(value: string): void {
+    this.sortOption.set(value);
+    switch (value) {
+      case 'createdAt_desc':
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(true);
+        break;
+      case 'createdAt_asc':
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(false);
+        break;
+      case 'priority_desc':
+        this.sortBy.set('priority');
+        this.sortDescending.set(true);
+        break;
+      case 'priority_asc':
+        this.sortBy.set('priority');
+        this.sortDescending.set(false);
+        break;
+    }
+    this.page.set(1);
+    this.load();
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.status.set('');
+    this.priority.set('');
+    this.sortOption.set('createdAt_desc');
+    this.sortBy.set('createdAt');
+    this.sortDescending.set(true);
+    this.page.set(1);
+    this.load();
+  }
+
   protected togglePrioritySort(): void {
     if (this.sortBy() === 'priority') {
-      this.sortDescending.set(!this.sortDescending());
+      if (this.sortDescending()) {
+        this.sortDescending.set(false);
+      } else {
+        this.sortBy.set('createdAt');
+        this.sortDescending.set(true);
+      }
     } else {
       this.sortBy.set('priority');
       this.sortDescending.set(true);
@@ -280,14 +311,14 @@ export class MissionList {
   }
 
   protected statusLabel(status: string): string {
-    return missionStatusLabel(status);
+    return normalizeMissionStatus(status);
   }
 
   protected statusClass(status: string): string {
     const normalized = normalizeMissionStatus(status);
     if (this.isFailed(normalized)) return 'danger';
-    if (['Completed', 'Assigned', 'Ready'].includes(normalized)) return 'success';
-    if (this.isInProgress(normalized) || normalized === 'Pending' || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
+    if (['Completed', 'Confirmed', 'Ready'].includes(normalized)) return 'success';
+    if (normalized === 'InProgress' || normalized === 'PendingAcceptance' || normalized === 'Postponed') return 'warning';
     return 'neutral';
   }
 
@@ -296,57 +327,8 @@ export class MissionList {
     return missionRowLink(mission, this.user()?.role, this.user()?.id, this.scope());
   }
 
-  protected assessmentForMission(mission: Mission): PreMissionAssessment | undefined {
-    const map = this.assessmentByMissionId();
-    if (mission.id && map.has(mission.id.toLowerCase())) {
-      return map.get(mission.id.toLowerCase());
-    }
-    if (mission.sourceAssessmentId && map.has(mission.sourceAssessmentId.toLowerCase())) {
-      return map.get(mission.sourceAssessmentId.toLowerCase());
-    }
-    const pmaMatch = (mission.title || '').match(/\[(PMA-[A-Za-z0-9_-]+)\]/i);
-    if (pmaMatch && map.has(pmaMatch[1].toLowerCase())) {
-      return map.get(pmaMatch[1].toLowerCase());
-    }
-    return undefined;
-  }
-
-  protected missionRegion(mission: Mission): string {
-    if (mission.regionName && mission.regionName.trim()) {
-      return mission.regionName.trim();
-    }
-    const a = this.assessmentForMission(mission);
-    if (a?.regionName && a.regionName.trim()) {
-      return a.regionName.trim();
-    }
-    if (mission.regionId && this.regionsMap().has(mission.regionId)) {
-      return this.regionsMap().get(mission.regionId)!;
-    }
-    const match = (mission.title || '').match(/^Kiểm tra\s+(.+?)(?:\s*\[[A-Za-z0-9_-]+\])?$/i);
-    if (match && match[1]?.trim()) {
-      return match[1].trim();
-    }
-    return mission.routeData || mission.description || 'Chưa xác định';
-  }
-
-  protected missionTowerCount(mission: Mission): number {
-    if (mission.targets && mission.targets.length > 0) {
-      return mission.targets.length;
-    }
-    const a = this.assessmentForMission(mission);
-    if (a?.towers && a.towers.length > 0) {
-      return a.towers.length;
-    }
-    return 0;
-  }
-
   protected routeLabel(mission: Mission): string {
-    const reg = this.missionRegion(mission);
-    const count = this.missionTowerCount(mission);
-    if (count > 0 && reg !== 'Chưa xác định') {
-      return `${reg} · ${count} cột`;
-    }
-    return reg;
+    return mission.routeData || mission.description || 'Chưa có tuyến';
   }
 
   protected startIndex(): number {
@@ -383,7 +365,7 @@ export class MissionList {
   }
 
   private isInProgress(status: string): boolean {
-    return ['Ready', 'InProgress', 'Pending', 'PendingAcceptance'].includes(normalizeMissionStatus(status));
+    return ['Preparing', 'Ready', 'InProgress', 'PendingAcceptance'].includes(normalizeMissionStatus(status));
   }
 
   private isFailed(status: string): boolean {
@@ -417,8 +399,7 @@ export class MissionList {
  */
 function liveStatus(event: { type: string; status?: string | null }, current: MissionStatus): MissionStatus {
   if (event.status) return normalizeMissionStatus(event.status);
-  if (event.type === 'SUSPENDED' || event.type === 'POSTPONED') return 'Postponed';
-  if (event.type === 'REASSIGNED') return 'Pending';
+  if (event.type === 'SUSPENDED') return 'Suspended';
   if (event.type === 'CANCELLED') return 'Cancelled';
   return current;
 }

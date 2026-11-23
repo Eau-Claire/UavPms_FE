@@ -44,14 +44,6 @@
     outline-offset: 1px;
   }
 
-  input:disabled,
-  select:disabled {
-    background: #f1f5f9;
-    color: #64748b;
-    border-color: #cbd5e1;
-    cursor: not-allowed;
-  }
-
   [aria-invalid='true'] { border-color: #b91c1c; }
 }
 

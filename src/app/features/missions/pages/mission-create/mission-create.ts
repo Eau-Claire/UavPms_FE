@@ -3,9 +3,8 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signa
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, of } from 'rxjs';
+import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { statusLabel } from '../../../../shared/status/status';
 import {
   CreateMissionFromAssessmentRequest,
   InspectionObjective,
@@ -16,15 +15,15 @@ import {
 import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
-import { PreMissionApi } from '../../../../core/services/pre-mission-api';
-import { isValidGuid, markMissionAsDraft } from '../../../../core/services/missions-api';
+import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
+import { isValidGuid, MissionsApi } from '../../data-access/missions-api';
 
 const ROLE_ORDER: Record<string, number> = { INSPECTOR: 0, ANALYST: 1, TECHNICIAN: 2 };
 
 const ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công / Inspector',
-  ANALYST: 'Chuyên viên phân tích',
-  TECHNICIAN: 'Kỹ thuật viên',
+  INSPECTOR: 'Inspector',
+  ANALYST: 'Analyst',
+  TECHNICIAN: 'Technician',
 };
 
 /** Backend default when no deadline is sent (`Mission:ConfirmationDeadlineHours`). */
@@ -45,6 +44,7 @@ export const MANAGER_INSTRUCTIONS_MAX = 2000;
 })
 export class MissionCreate {
   private readonly preMissionApi = inject(PreMissionApi);
+  private readonly missionsApi = inject(MissionsApi);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -52,25 +52,15 @@ export class MissionCreate {
 
   protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
   protected readonly instructionsMax = MANAGER_INSTRUCTIONS_MAX;
-  protected readonly statusLabel = statusLabel;
 
+  protected readonly editingMissionId = signal<string | null>(null);
   protected readonly readyAssessments = signal<readonly PreMissionAssessment[]>([]);
   protected readonly loadingList = signal(false);
   protected readonly assessment = signal<PreMissionAssessment | null>(null);
-  protected readonly selectedAssessmentId = signal<string>('');
   protected readonly loadingAssessment = signal(false);
   protected readonly refreshingReadiness = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
-
-  protected readonly selectableAssessments = computed<readonly PreMissionAssessment[]>(() => {
-    const list = [...this.readyAssessments()];
-    const current = this.assessment();
-    if (current && !list.some((item) => item.id === current.id)) {
-      list.unshift(current);
-    }
-    return list;
-  });
 
   protected readonly selectedPersonnelIds = signal<readonly string[]>([]);
   /** Members who must accept before the mission can start (`isRequired: true`). */
@@ -99,7 +89,8 @@ export class MissionCreate {
 
   protected readonly isAssessmentUsable = computed(() => {
     const a = this.assessment();
-    return !!a && (a.status || '').toUpperCase() === 'READY' && !a.completedMissionId && !isExpired(a);
+    const isReadyStatus = (a?.status ?? '').toUpperCase() === 'READY';
+    return !!a && isReadyStatus && !a.completedMissionId && !isExpired(a);
   });
 
   /** Cấu hình định mức nhân sự và giới hạn UAV được thiết lập từ hồ sơ (FindingsJson). */
@@ -190,23 +181,41 @@ export class MissionCreate {
 
     const assessmentId = this.route.snapshot.queryParamMap.get('assessmentId');
     if (assessmentId && isValidGuid(assessmentId)) {
-      this.selectedAssessmentId.set(assessmentId);
       this.selectAssessment(assessmentId);
     }
-    const queryParams$ = this.route.queryParamMap ?? of(this.route.snapshot.queryParamMap);
-    queryParams$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      const qId = params.get('assessmentId');
-      if (qId && isValidGuid(qId) && qId !== this.selectedAssessmentId()) {
-        this.selectedAssessmentId.set(qId);
-        this.selectAssessment(qId);
-      }
-    });
+
+    const editMissionId = this.route.snapshot.queryParamMap.get('editMissionId');
+    if (editMissionId && isValidGuid(editMissionId)) {
+      this.editingMissionId.set(editMissionId);
+      this.missionsApi
+        .get(editMissionId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (m) => {
+            this.form.patchValue({
+              title: m.title,
+              description: m.description,
+              priority: m.priority ?? 'NORMAL',
+              objective: m.objective ?? 'PERIODIC_INSPECTION',
+              emergencyReason: m.emergencyReason ?? '',
+              isImmediate: m.isImmediate ?? false,
+              managerInstructions: m.managerInstructions ?? '',
+            });
+            if (m.sourceAssessmentId && isValidGuid(m.sourceAssessmentId)) {
+              this.selectAssessment(m.sourceAssessmentId);
+            }
+          },
+          error: (err: unknown) => {
+            this.error.set(describeHttpError(err, 'Không thể tải thông tin nhiệm vụ để chỉnh sửa.'));
+          },
+        });
+    }
+
     this.loadReadyAssessments();
   }
 
   protected onAssessmentSelect(event: Event): void {
     const id = (event.target as HTMLSelectElement).value;
-    this.selectedAssessmentId.set(id);
     if (!id) {
       this.assessment.set(null);
       this.resetSelections();
@@ -220,7 +229,7 @@ export class MissionCreate {
       this.selectedPersonnelIds.update((ids) => ids.filter((x) => x !== id));
       this.requiredPersonnelIds.update((ids) => ids.filter((x) => x !== id));
     } else {
-
+      // A newly selected member is required by default; the manager can make them optional.
       this.selectedPersonnelIds.update((ids) => [...ids, id]);
       this.requiredPersonnelIds.update((ids) => (ids.includes(id) ? ids : [...ids, id]));
     }
@@ -292,7 +301,7 @@ export class MissionCreate {
         next: (updated) => {
           this.assessment.set(updated);
           this.pruneSelections();
-          if (updated.status !== 'READY') {
+          if ((updated.status ?? '').toUpperCase() !== 'READY') {
             this.error.set('Sau khi đánh giá lại, hồ sơ không còn ở trạng thái READY. Vui lòng xử lý tại không gian đánh giá.');
           }
         },
@@ -302,6 +311,40 @@ export class MissionCreate {
 
   protected submit(): void {
     this.error.set('');
+    const f = this.form.getRawValue();
+
+    if (this.editingMissionId()) {
+      const editId = this.editingMissionId()!;
+      if (this.form.invalid) {
+        this.form.markAllAsTouched();
+        this.error.set('Vui lòng nhập tên nhiệm vụ (tối thiểu 5 ký tự) và các trường bắt buộc.');
+        return;
+      }
+      this.busy.set(true);
+      this.missionsApi
+        .update(editId, {
+          title: f.title.trim(),
+          description: f.description.trim() || undefined,
+          priority: f.priority,
+          objective: f.objective,
+          managerInstructions: f.managerInstructions.trim() || undefined,
+          status: 'Draft',
+        })
+        .pipe(
+          takeUntilDestroyed(this.destroyRef),
+          finalize(() => this.busy.set(false)),
+        )
+        .subscribe({
+          next: () => {
+            void this.router.navigate(['/missions', editId], { queryParams: { updated: 'true' } });
+          },
+          error: (err: unknown) => {
+            this.error.set(describeHttpError(err, 'Không thể cập nhật thông tin nhiệm vụ bản nháp.'));
+          },
+        });
+      return;
+    }
+
     const a = this.assessment();
     if (!a) {
       this.error.set('Vui lòng chọn một hồ sơ đánh giá tiền khả thi ở trạng thái READY.');
@@ -311,7 +354,6 @@ export class MissionCreate {
       this.error.set('Hồ sơ đánh giá đã hết hạn, đã tạo nhiệm vụ hoặc chưa ở trạng thái READY.');
       return;
     }
-    const f = this.form.getRawValue();
     if (f.priority === 'EMERGENCY' && f.emergencyReason.trim().length < 10) {
       this.form.controls.emergencyReason.markAsTouched();
       this.error.set('Lý do khẩn cấp bắt buộc nhập tối thiểu 10 ký tự khi chọn mức ưu tiên Khẩn cấp.');
@@ -355,6 +397,7 @@ export class MissionCreate {
     const deadline = this.resolveDeadline(f.confirmationDeadline, a);
     if (deadline === false) return;
 
+    // Người đầu tiên là Inspector chính (backend lấy Personnel[0] làm người phụ trách).
     const required = new Set(this.requiredPersonnelIds());
     const orderedPersonnel: MissionPersonnelAssignment[] = [...personnel]
       .sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
@@ -368,7 +411,6 @@ export class MissionCreate {
       droneIds: droneIds,
       priority: f.priority,
       objective: f.objective,
-      status: 'Draft',
       priorityDefects: this.selectedPriorityDefects().length ? [...this.selectedPriorityDefects()] : null,
       emergencyReason: f.priority === 'EMERGENCY' ? f.emergencyReason.trim() : null,
       isImmediate: f.isImmediate,
@@ -387,7 +429,6 @@ export class MissionCreate {
       .subscribe({
         next: (mission) => {
           if (mission.id) {
-            markMissionAsDraft(mission.id);
             void this.router.navigate(['/missions', mission.id], { queryParams: { created: 'true' } });
           } else {
             void this.router.navigate(['/missions']);
@@ -424,7 +465,6 @@ export class MissionCreate {
   }
 
   private selectAssessment(id: string): void {
-    this.selectedAssessmentId.set(id);
     this.loadingAssessment.set(true);
     this.error.set('');
     this.resetSelections();
@@ -522,7 +562,10 @@ export class MissionCreate {
 }
 
 function isExpired(a: PreMissionAssessment): boolean {
-  return !!a.validUntil && new Date(a.validUntil).getTime() <= Date.now();
+  if (!a.validUntil) return false;
+  if ((a.status ?? '').toUpperCase() === 'EXPIRED') return true;
+  const time = new Date(a.validUntil).getTime();
+  return !Number.isNaN(time) && time <= Date.now();
 }
 
 /** `now + 24h`, capped at the planned start; empty when the planned start is (almost) past (backend default). */
@@ -530,7 +573,7 @@ function defaultDeadline(a: PreMissionAssessment): string {
   const now = Date.now();
   const start = new Date(a.plannedStart).getTime();
   if (Number.isNaN(start) || start <= now + 60_000) return '';
-
+  // Rounded down to the minute by the input format, so the default never lands after the planned start.
   return toDatetimeLocal(new Date(Math.min(now + DEFAULT_DEADLINE_HOURS * 3_600_000, start)));
 }
 

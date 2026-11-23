@@ -82,7 +82,7 @@ describe('TowerDetail', () => {
   it('keeps a separate page per tab', async () => {
     await setup();
     const component = fixture.componentInstance as unknown as DetailHarness;
-
+    // The backend applies one page number to both lists.
     api.history.mockReturnValue(of(history(3, 3)));
     component.goToAnomalyPage(3);
     component.selectTab('maintenance');

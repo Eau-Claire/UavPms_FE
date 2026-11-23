@@ -19,8 +19,11 @@ describe('roles', () => {
     expect(isTechnicianRole('maintenancetechnician')).toBe(true);
   });
 
-  it('labels roles in Vietnamese', () => {
-    expect(roleLabel('MaintenanceTechnician')).toBe('Kỹ thuật viên');
-    expect(roleLabel('Analyst')).toBe('Chuyên viên phân tích');
+  it('labels roles according to doc', () => {
+    expect(roleLabel('MaintenanceTechnician')).toBe('Technician');
+    expect(roleLabel('Analyst')).toBe('Analyst');
+    expect(roleLabel('SystemAdmin')).toBe('SystemAdmin');
+    expect(roleLabel('Manager')).toBe('Manager');
+    expect(roleLabel('Inspector')).toBe('Inspector');
   });
 });

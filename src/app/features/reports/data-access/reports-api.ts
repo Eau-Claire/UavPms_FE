@@ -123,6 +123,8 @@ export class ReportsApi {
   }
 }
 
+// ---------------- Normalization ----------------
+
 const recordOf = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
@@ -253,6 +255,7 @@ export function fileNameFromDisposition(header: string | null): string | null {
     try {
       return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
     } catch {
+      // fall through to the plain filename
     }
   }
   const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(header);

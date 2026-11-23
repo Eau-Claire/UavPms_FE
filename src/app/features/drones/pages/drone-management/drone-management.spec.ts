@@ -2,10 +2,11 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, beforeEach, it, expect, vi } from 'vitest';
 import { DroneManagement } from './drone-management';
-import { DroneManagementApi } from '../../../../core/services/drone-management-api';
+import { DroneManagementApi } from '../../data-access/drone-management-api';
 import { UavRecord } from '../../../../models/drone-management.models';
 import { Auth } from '../../../../core/auth/auth';
 
@@ -82,6 +83,7 @@ describe('DroneManagement Component', () => {
     await TestBed.configureTestingModule({
       imports: [DroneManagement],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: DroneManagementApi, useValue: apiMock },
@@ -126,6 +128,8 @@ describe('DroneManagement Component', () => {
     Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map((b) => b.getAttribute('title') ?? b.textContent?.trim() ?? '');
 
   it('shows add, edit, delete and the GIS estimate to managers', () => {
+    (component as any).openHistory(mockDrones[0]);
+    fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Xóa UAV');
     expect(titles).toContain('Chỉnh sửa thông số UAV');
@@ -135,6 +139,7 @@ describe('DroneManagement Component', () => {
 
   it('lets technicians edit and check drones but not delete or plan', () => {
     authUser.set({ id: 'u2', role: 'MaintenanceTechnician' });
+    (component as any).openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Chỉnh sửa thông số UAV');
@@ -151,7 +156,7 @@ describe('DroneManagement Component', () => {
       expect(titles).not.toContain('Chỉnh sửa thông số UAV');
       expect(titles).not.toContain('Xóa UAV');
       expect(titles.some((t) => t.includes('Thêm UAV mới'))).toBe(false);
-      expect(titles).toContain('Lịch sử kiểm định kỹ thuật');
+      expect(titles.some((t) => t.includes('Chi tiết'))).toBe(true);
     }
   });
 

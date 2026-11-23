@@ -29,6 +29,7 @@ export class TowerFormDialog implements OnInit {
   readonly busy = input(false);
   readonly errorMessage = input('');
   readonly submitted = output<TowerUpsertRequest>();
+  readonly requestDelete = output<TowerSummary>();
   readonly closed = output<void>();
 
   protected readonly form = this.fb.group({
@@ -59,11 +60,6 @@ export class TowerFormDialog implements OnInit {
         latitude: tower.latitude,
         longitude: tower.longitude,
       });
-      this.form.controls.regionId.disable();
-      this.form.controls.towerCode.disable();
-    } else {
-      this.form.controls.regionId.enable();
-      this.form.controls.towerCode.enable();
     }
   }
 
@@ -116,6 +112,7 @@ export class TowerFormDialog implements OnInit {
         const dlg = this.dialog()?.nativeElement;
         if (dlg?.open) dlg.close();
       } catch {
+        // no-op
       }
       this.closed.emit();
     }

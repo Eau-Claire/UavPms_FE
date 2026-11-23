@@ -1,15 +1,15 @@
 <div class="pre-mission-page review-page">
-  <!-- TẦNG 1: Header Bar & Breadcrumb -->
+  <!-- Header Bar & Breadcrumb -->
   <header class="pre-mission-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <a routerLink="/ai-review">THẨM ĐỊNH KỸ THUẬT</a>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
-        <strong>DUYỆT KẾT QUẢ PHÁT HIỆN AI</strong>
-      </div>
-      <h1>Duyệt kết quả phát hiện sự cố AI</h1>
+        <strong>DUYỆT KẾT QUẢ PHÁT HIỆN</strong>
+      </nav>
+      <h1>Hàng đợi thẩm định khuyết tật AI</h1>
       <p>
-        Xem xét, gán cột điện và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật từ dữ liệu khảo sát thiết bị bay và máy chủ
+        Xem xét, gán cột điện và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật từ dữ liệu khảo sát (Edge và Cloud)
       </p>
     </div>
 
@@ -27,95 +27,87 @@
     </div>
   </header>
 
-  <!-- TẦNG 1.5: Status Tabs -->
+  <!-- 5-Tab Smart Status Filters -->
   <nav class="review-status-tabs" role="tablist" aria-label="Lọc theo trạng thái thẩm định">
     <button
       type="button"
       role="tab"
-      [attr.aria-selected]="selectedStatus() === 'all'"
-      [class.active]="selectedStatus() === 'all'"
-      (click)="selectStatus('all')"
+      [attr.aria-selected]="statusFilter() === 'Pending'"
+      [class.active]="statusFilter() === 'Pending'"
+      (click)="setStatusFilter('Pending')"
+    >
+      <span>Chờ duyệt</span>
+      <span class="tab-badge" [class.active-badge]="statusFilter() === 'Pending'">
+        {{ pendingCount() || (statusFilter() === 'Pending' ? response().totalCount : 0) }}
+      </span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="statusFilter() === 'Reviewed'"
+      [class.active]="statusFilter() === 'Reviewed'"
+      (click)="setStatusFilter('Reviewed')"
+    >
+      <span>Đã duyệt</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="statusFilter() === 'Confirmed'"
+      [class.active]="statusFilter() === 'Confirmed'"
+      (click)="setStatusFilter('Confirmed')"
+    >
+      <span>Chấp nhận</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="statusFilter() === 'Rejected'"
+      [class.active]="statusFilter() === 'Rejected'"
+      (click)="setStatusFilter('Rejected')"
+    >
+      <span>Từ chối</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      [attr.aria-selected]="statusFilter() === 'ALL'"
+      [class.active]="statusFilter() === 'ALL'"
+      (click)="setStatusFilter('ALL')"
     >
       <span>Tất cả</span>
-      <span class="tab-badge" [class.active-badge]="selectedStatus() === 'all'">
-        {{ statusCounts().all }}
-      </span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="selectedStatus() === 'pending'"
-      [class.active]="selectedStatus() === 'pending'"
-      (click)="selectStatus('pending')"
-    >
-      <span>Chờ thẩm định</span>
-      <span class="tab-badge" [class.active-badge]="selectedStatus() === 'pending'">
-        {{ statusCounts().pending }}
-      </span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="selectedStatus() === 'confirmed'"
-      [class.active]="selectedStatus() === 'confirmed'"
-      (click)="selectStatus('confirmed')"
-    >
-      <span>Đã xác nhận</span>
-      <span class="tab-badge" [class.active-badge]="selectedStatus() === 'confirmed'">
-        {{ statusCounts().confirmed }}
-      </span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="selectedStatus() === 'rejected'"
-      [class.active]="selectedStatus() === 'rejected'"
-      (click)="selectStatus('rejected')"
-    >
-      <span>Đã từ chối</span>
-      <span class="tab-badge" [class.active-badge]="selectedStatus() === 'rejected'">
-        {{ statusCounts().rejected }}
-      </span>
-    </button>
-
-    <button
-      type="button"
-      role="tab"
-      [attr.aria-selected]="selectedStatus() === 'resolved'"
-      [class.active]="selectedStatus() === 'resolved'"
-      (click)="selectStatus('resolved')"
-    >
-      <span>Đã xử lý</span>
-      <span class="tab-badge" [class.active-badge]="selectedStatus() === 'resolved'">
-        {{ statusCounts().resolved }}
-      </span>
     </button>
   </nav>
 
-  <!-- TẦNG 2: Feedback Alert -->
+  <!-- Feedback Alerts -->
   @if (error()) {
-    <div class="evn-alert danger" role="alert">
-      <span nz-icon nzType="close-circle" class="alert-icon" aria-hidden="true"></span>
-      <span class="alert-content">{{ error() }}</span>
-      <button type="button" class="alert-close" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
+    <div class="evn-alert" role="alert">
+      <div class="alert-main">
+        <span nz-icon nzType="close-circle" aria-hidden="true"></span>
+        <span>{{ error() }}</span>
+      </div>
+      <button type="button" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
     </div>
   }
 
   @if (hiddenSupersededCount() > 0 && !showSuperseded()) {
     <div class="evn-alert info" role="note">
-      <span nz-icon nzType="info-circle" class="alert-icon" aria-hidden="true"></span>
-      <span class="alert-content">
-        Đã ẩn {{ hiddenSupersededCount() }} kết quả từ thiết bị bay đã được kết quả từ máy chủ thay thế. Chúng được gộp vào kết quả thay thế tương ứng.
-      </span>
+      <div class="alert-main">
+        <span nz-icon nzType="info-circle" aria-hidden="true"></span>
+        <span>
+          Đã ẩn {{ hiddenSupersededCount() }} kết quả Edge đã được kết quả Cloud thay thế. Chúng được gộp vào kết quả thay thế tương ứng.
+        </span>
+      </div>
     </div>
   }
 
-  <!-- TẦNG 3: Filter Toolbar -->
+  <!-- EVN Light Blue Filter Toolbar -->
   <section class="pre-mission-filters" aria-label="Bộ lọc kết quả">
-    <div class="filter-item search-grow">
+    <div class="search-input-wrap">
       <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
       <input
         type="search"
@@ -126,134 +118,100 @@
       />
     </div>
 
-    <div class="filter-item">
-      <label class="filter-checkbox-label">
-        <input
-          type="checkbox"
-          [checked]="showSuperseded()"
-          (change)="onShowSupersededChange($event)"
-        />
-        <span>Hiện kết quả Edge bị thay thế ({{ hiddenSupersededCount() }})</span>
-      </label>
-    </div>
+    <label class="filter-checkbox-label">
+      <input
+        type="checkbox"
+        [checked]="showSuperseded()"
+        (change)="onShowSupersededChange($event)"
+      />
+      <span>Hiện kết quả Edge đã bị thay thế ({{ hiddenSupersededCount() }})</span>
+    </label>
 
-    <div class="filter-item">
-      <span class="filter-label">Hiển thị:</span>
-      <select
-        [value]="pageSize()"
-        (change)="changePageSize($any($event.target).value)"
-        aria-label="Số dòng hiển thị mỗi trang"
-      >
-        @for (size of pageSizes; track size) {
-          <option [value]="size">{{ size }} / trang</option>
-        }
-      </select>
-    </div>
-
-    <div class="filter-item view-mode-toggle">
-      <button
-        type="button"
-        class="evn-btn secondary"
-        [class.active]="viewMode() === 'table'"
-        (click)="viewMode.set('table')"
-        title="Dạng danh sách bảng"
-        aria-label="Dạng danh sách bảng"
-      >
-        <span nz-icon nzType="menu" aria-hidden="true"></span> Bảng
-      </button>
+    <div class="view-mode-toggle">
       <button
         type="button"
         class="evn-btn secondary"
         [class.active]="viewMode() === 'grid'"
+        aria-label="Dạng lưới thẻ"
+        [attr.aria-pressed]="viewMode() === 'grid'"
         (click)="viewMode.set('grid')"
         title="Dạng lưới thẻ"
-        aria-label="Dạng lưới thẻ"
       >
         <span nz-icon nzType="appstore" aria-hidden="true"></span> Lưới
       </button>
-    </div>
-
-    <button
-      type="button"
-      class="evn-btn secondary"
-      (click)="load()"
-      [disabled]="loading()"
-      title="Làm mới danh sách"
-    >
-      <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span> Làm mới
-    </button>
-
-    @if (hasActiveFilters()) {
       <button
         type="button"
         class="evn-btn secondary"
-        (click)="resetFilters()"
-        title="Đặt lại bộ lọc"
+        [class.active]="viewMode() === 'table'"
+        aria-label="Dạng danh sách bảng"
+        [attr.aria-pressed]="viewMode() === 'table'"
+        (click)="viewMode.set('table')"
+        title="Dạng danh sách bảng"
       >
-        <span nz-icon nzType="clear" aria-hidden="true"></span> Đặt lại
+        <span nz-icon nzType="menu" aria-hidden="true"></span> Bảng
       </button>
-    }
+    </div>
   </section>
 
-  <!-- TẦNG 4: Summary Metric Strip -->
+  <!-- Summary Metric Strip -->
   <div class="pre-mission-summary-strip" aria-label="Thống kê thẩm định">
     <div class="summary-item">
-      <span class="summary-val">{{ response().totalCount }}</span>
-      <span class="summary-label">
-        {{ selectedStatus() === 'pending' ? 'Chờ thẩm định' : selectedStatus() === 'confirmed' ? 'Đã xác nhận' : selectedStatus() === 'rejected' ? 'Đã từ chối' : 'Tổng số sự cố' }}
-      </span>
+      <span>Tổng số:</span>
+      <strong>{{ response().totalCount }}</strong>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ criticalCount() }}</span>
-      <span class="summary-label">Sự cố khẩn cấp</span>
+      <span>Sự cố khẩn cấp:</span>
+      <strong class="text-danger">{{ criticalCount() }}</strong>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ highConfidenceCount() }}</span>
-      <span class="summary-label">Độ tin cậy cao (≥90%)</span>
+      <span>Độ tin cậy cao (≥90%):</span>
+      <strong class="text-success">{{ highConfidenceCount() }}</strong>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ missingTowerCount() }}</span>
-      <span class="summary-label">Chưa gắn cột</span>
+      <span>Chưa gắn cột:</span>
+      <strong class="text-warning">{{ missingTowerCount() }}</strong>
     </div>
   </div>
 
-  <!-- TẦNG 5: Dense Bordered Table Card & Grid -->
+  <!-- Table View vs Grid View -->
   @if (viewMode() === 'table') {
-    <div class="pre-mission-table-card">
+    <div class="pre-mission-table-card" [attr.aria-busy]="loading()">
       <div class="table-scroll">
         <table>
-          <caption class="sr-only">Danh sách sự cố</caption>
+          <caption class="sr-only">Danh sách phát hiện chờ thẩm định</caption>
           <thead>
             <tr>
-              <th scope="col" style="width: 56px; text-align: center;">Hình ảnh</th>
+              <th scope="col" style="width: 64px;" class="text-center">Hình ảnh</th>
               <th scope="col">Loại khuyết tật</th>
               <th scope="col">Cột điện</th>
               <th scope="col">Nguồn xử lý</th>
               <th scope="col">Nơi chạy</th>
-              <th scope="col" style="text-align: center;">Độ tin cậy</th>
-              <th scope="col" style="text-align: center;">Trạng thái</th>
+              <th scope="col" class="text-center">Độ tin cậy</th>
+              <th scope="col" class="text-center">Trạng thái</th>
               <th scope="col">Thời gian</th>
-              <th scope="col" style="text-align: right;">Thao tác</th>
+              <th scope="col" class="text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             @if (loading()) {
               <tr>
                 <td colspan="9" class="empty-cell">
-                  <span nz-icon nzType="loading" [nzSpin]="true"></span> Đang tải danh sách sự cố...
+                  <span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span>
+                  Đang tải danh sách kết quả thẩm định...
                 </td>
               </tr>
             } @else if (!displayedItems().length) {
               <tr>
                 <td colspan="9" class="empty-cell">
-                  <span nz-icon nzType="inbox" style="font-size: 24px; color: #94a3b8;"></span>
-                  <p>{{ selectedStatus() === 'pending' ? 'Không có phát hiện nào cần thẩm định.' : 'Không có sự cố nào phù hợp với bộ lọc.' }}</p>
+                  <span nz-icon [nzType]="emptyStateIcon()" class="empty-cell-icon" aria-hidden="true"></span>
+                  <strong>{{ emptyStateTitle() }}</strong>
+                  <p>{{ emptyStateDescription() }}</p>
                 </td>
               </tr>
             } @else {
               @for (item of displayedItems(); track item.id) {
                 <tr class="table-data-row" (click)="openDetail(item)">
-                  <td class="img-cell" style="text-align: center;">
+                  <td class="text-center">
                     @if (item.mediaUrl) {
                       <img
                         [src]="item.mediaUrl"
@@ -262,12 +220,17 @@
                         (error)="handleImageError($event)"
                       />
                     } @else {
-                      <span class="no-thumb" nz-icon nzType="picture"></span>
+                      <span class="no-thumb" nz-icon nzType="picture" aria-hidden="true"></span>
                     }
                   </td>
                   <td>
                     <div class="defect-name-cell">
-                      <strong>{{ item.categoryName }}</strong>
+                      <div class="table-cat-title">
+                        <strong>{{ item.categoryName }}</strong>
+                        @if (isEmergencyItem(item)) {
+                          <span class="evn-status danger emergency-badge-sm">Khẩn cấp</span>
+                        }
+                      </div>
                       @if (supersededCountFor(item) > 0) {
                         <span class="superseded-chip">Thay thế {{ supersededCountFor(item) }} kết quả Edge</span>
                       }
@@ -288,12 +251,12 @@
                       {{ item.executionLocation ? executionLabels[item.executionLocation] : 'Chưa xác định' }}
                     </span>
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <span class="evn-status" [class]="confidenceTone(item.confidenceScore)">
                       {{ item.confidenceScore }}%
                     </span>
                   </td>
-                  <td style="text-align: center;">
+                  <td class="text-center">
                     <span class="evn-status" [class]="statusTone(item)">
                       {{ statusText(item) }}
                     </span>
@@ -301,15 +264,13 @@
                   <td class="time-cell">
                     {{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}
                   </td>
-                  <td style="text-align: right;">
+                  <td class="text-right">
                     <button
                       type="button"
                       class="evn-btn primary"
                       (click)="$event.stopPropagation(); openDetail(item)"
-                      [title]="item.validationStatus === 'Pending' ? 'Thẩm định chi tiết' : 'Xem chi tiết'"
                     >
-                      <span nz-icon [nzType]="item.validationStatus === 'Pending' ? 'audit' : 'eye'" aria-hidden="true"></span>
-                      {{ item.validationStatus === 'Pending' ? 'Thẩm định' : 'Xem chi tiết' }}
+                      {{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}
                     </button>
                   </td>
                 </tr>
@@ -319,46 +280,19 @@
         </table>
       </div>
 
-      <!-- TẦNG 6: Table Footer & Pagination -->
-      <footer>
-        <span class="page-info">
-          Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ response().totalCount }} sự cố phát hiện
-        </span>
-        <nav class="evn-pagination" aria-label="Phân trang danh sách sự cố">
-          <button
-            type="button"
-            class="page-btn"
-            [disabled]="page() <= 1"
-            (click)="setPage(page() - 1)"
-            aria-label="Trang trước"
-          >
-            <span nz-icon nzType="left" aria-hidden="true"></span>
-          </button>
-          @for (p of pageButtons(); track p) {
-            <button
-              type="button"
-              class="page-btn"
-              [class.active]="p === page()"
-              (click)="setPage(p)"
-              [attr.aria-current]="p === page() ? 'page' : null"
-            >
-              {{ p }}
-            </button>
-          }
-          <button
-            type="button"
-            class="page-btn"
-            [disabled]="page() >= response().totalPages"
-            (click)="setPage(page() + 1)"
-            aria-label="Trang sau"
-          >
-            <span nz-icon nzType="right" aria-hidden="true"></span>
-          </button>
-        </nav>
-      </footer>
+      @if (response().totalCount > 0) {
+        <footer class="table-pagination-footer">
+          <app-pagination
+            [page]="page()"
+            [totalPages]="response().totalPages"
+            [totalCount]="response().totalCount"
+            [pageSize]="pageSize()"
+            (pageChanged)="setPage($event)"
+          />
+        </footer>
+      }
     </div>
   } @else {
-    <!-- GRID VIEW -->
     @if (loading()) {
       <div class="detections-grid" aria-busy="true">
         @for (item of [1, 2, 3, 4, 5, 6]; track item) {
@@ -373,9 +307,9 @@
       </div>
     } @else if (!displayedItems().length) {
       <div class="empty-state-card">
-        <span nz-icon nzType="check-circle" class="empty-state-icon" aria-hidden="true"></span>
-        <h3>Không có phát hiện nào cần thẩm định</h3>
-        <p>Tất cả các kết quả phát hiện đã được xử lý hoặc không có dữ liệu phù hợp với từ khóa tìm kiếm.</p>
+        <span nz-icon [nzType]="emptyStateIcon()" class="empty-state-icon" aria-hidden="true"></span>
+        <h3>{{ emptyStateTitle() }}</h3>
+        <p>{{ emptyStateDescription() }}</p>
       </div>
     } @else {
       <section class="detections-grid" aria-label="Danh sách phát hiện sự cố">
@@ -391,10 +325,15 @@
                 />
               }
               <div class="card-badges">
-                <span class="status-pill {{ statusClass(item) }}">
-                  <span class="status-dot"></span>
-                  {{ statusText(item) }}
-                </span>
+                <div class="badge-group-left">
+                  <span class="status-pill {{ statusClass(item) }}">
+                    <span class="status-dot"></span>
+                    {{ statusText(item) }}
+                  </span>
+                  @if (isEmergencyItem(item)) {
+                    <span class="emergency-pill">Khẩn cấp</span>
+                  }
+                </div>
                 <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
                   {{ item.confidenceScore }}%
                 </span>
@@ -409,6 +348,12 @@
               <h2 class="card-title">{{ item.categoryName }}</h2>
 
               <div class="card-meta-list">
+                @if (isEmergencyItem(item)) {
+                  <div class="meta-row meta-row-emergency">
+                    <span>Mức độ:</span>
+                    <strong class="text-danger">Sự cố khẩn cấp</strong>
+                  </div>
+                }
                 <div class="meta-row">
                   <span>Cột điện:</span>
                   @if (item.towerId) {
@@ -443,8 +388,7 @@
                 class="btn-review"
                 (click)="$event.stopPropagation(); openDetail(item)"
               >
-                <span nz-icon [nzType]="item.validationStatus === 'Pending' ? 'audit' : 'eye'" aria-hidden="true"></span>
-                <span>{{ item.validationStatus === 'Pending' ? 'Thẩm định' : 'Xem chi tiết' }}</span>
+                <span>{{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}</span>
                 <span nz-icon nzType="right" aria-hidden="true"></span>
               </button>
             </div>
@@ -452,42 +396,17 @@
         }
       </section>
 
-      <footer class="review-pagination-footer">
-        <span class="total-text">
-          Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số <strong>{{ response().totalCount }}</strong> sự cố phát hiện
-        </span>
-        <nav class="evn-pagination" aria-label="Phân trang">
-          <button
-            type="button"
-            class="page-btn"
-            aria-label="Trang trước"
-            [disabled]="page() <= 1"
-            (click)="setPage(page() - 1)"
-          >
-            <span nz-icon nzType="left" aria-hidden="true"></span>
-          </button>
-          @for (p of pageButtons(); track p) {
-            <button
-              type="button"
-              class="page-btn"
-              [class.active]="p === page()"
-              [attr.aria-current]="p === page() ? 'page' : null"
-              (click)="setPage(p)"
-            >
-              {{ p }}
-            </button>
-          }
-          <button
-            type="button"
-            class="page-btn"
-            aria-label="Trang sau"
-            [disabled]="page() >= response().totalPages"
-            (click)="setPage(page() + 1)"
-          >
-            <span nz-icon nzType="right" aria-hidden="true"></span>
-          </button>
-        </nav>
-      </footer>
+      @if (response().totalCount > 0) {
+        <footer class="review-pagination-footer">
+          <app-pagination
+            [page]="page()"
+            [totalPages]="response().totalPages"
+            [totalCount]="response().totalCount"
+            [pageSize]="pageSize()"
+            (pageChanged)="setPage($event)"
+          />
+        </footer>
+      }
     }
   }
 </div>

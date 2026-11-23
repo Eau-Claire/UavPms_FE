@@ -1,0 +1,59 @@
+name: CI/CD - Test, Build & Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - review-2
+      - main
+  pull_request:
+    branches:
+      - review-2
+      - main
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  ci-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npx ng test --watch=false
+
+      - name: Build production bundle (PR verification)
+        if: github.event_name == 'pull_request'
+        run: npm run build
+
+      - name: Install Vercel CLI
+        if: github.event_name == 'push'
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        if: github.event_name == 'push'
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts for Vercel
+        if: github.event_name == 'push'
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Production to Vercel
+        if: github.event_name == 'push'
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Deployed URL: $DEPLOY_URL"
+          echo "### Vercel Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "Live URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY

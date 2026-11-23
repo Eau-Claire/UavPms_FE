@@ -6,13 +6,13 @@ import { provideNzIcons } from 'ng-zorro-antd/icon';
 import {
   ArrowLeftOutline,
   LoadingOutline,
-  SaveOutline,
   SendOutline,
   SyncOutline,
   UnorderedListOutline,
 } from '@ant-design/icons-angular/icons';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
-import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
+import { MissionsApi } from '../../data-access/missions-api';
 import { MissionCreate } from './mission-create';
 
 const ASSESSMENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -77,7 +77,14 @@ describe('MissionCreate', () => {
             createMission,
           },
         },
-        provideNzIcons([ArrowLeftOutline, UnorderedListOutline, SyncOutline, SendOutline, SaveOutline, LoadingOutline]),
+        {
+          provide: MissionsApi,
+          useValue: {
+            get: vi.fn(() => of({})),
+            update: vi.fn(() => of({})),
+          },
+        },
+        provideNzIcons([ArrowLeftOutline, UnorderedListOutline, SyncOutline, SendOutline, LoadingOutline]),
         provideRouter([]),
         {
           provide: ActivatedRoute,
@@ -97,11 +104,7 @@ describe('MissionCreate', () => {
 
   it('loads the assessment from the query string and preselects eligible candidates only', () => {
     setup(ASSESSMENT_ID);
-    expect(component['selectedAssessmentId']()).toBe(ASSESSMENT_ID);
     expect(component['assessment']()?.id).toBe(ASSESSMENT_ID);
-    expect(component['selectableAssessments']().some((a) => a.id === ASSESSMENT_ID)).toBe(true);
-    const select = fixture.nativeElement.querySelector('#assessment-select') as HTMLSelectElement;
-    expect(select.value).toBe(ASSESSMENT_ID);
     expect(component['selectedPersonnelIds']()).toEqual(['u-insp', 'u-ana']);
     expect(component['selectedDroneId']()).toBe('d1');
     expect(component['requiredPersonnelIds']()).toEqual(['u-insp', 'u-ana']);
@@ -121,6 +124,13 @@ describe('MissionCreate', () => {
     component['form'].patchValue({ title: 'Kiểm tra tuyến A' });
     component['submit']();
     expect(createMission).not.toHaveBeenCalled();
+  });
+
+  it('allows submission when the assessment has TitleCase status "Ready"', () => {
+    assessment = readyAssessment({ status: 'Ready' });
+    setup(ASSESSMENT_ID);
+    expect(component['isAssessmentUsable']()).toBe(true);
+    expect(component['error']()).toBe('');
   });
 
   it('requires an inspector among the selected personnel', () => {
@@ -164,7 +174,6 @@ describe('MissionCreate', () => {
     expect(req.priority).toBe('EMERGENCY');
     expect(req.objective).toBe('INCIDENT_FOLLOW_UP');
     expect(req.priorityDefects).toEqual(['Insulator']);
-    expect(req.status).toBe('Draft');
     expect(req.idempotencyKey).toBeTruthy();
     expect(navigate).toHaveBeenCalledWith(['/missions', 'mission-1'], { queryParams: { created: 'true' } });
   });

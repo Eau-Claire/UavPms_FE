@@ -35,12 +35,19 @@ describe('notificationLink', () => {
     expect(notificationLink(anomaly, 'Manager')?.commands).toEqual(['/ai-review', 'a1']);
     expect(notificationLink(anomaly, 'Inspector')).toBeNull();
     expect(notificationLink(anomaly, 'Technician')).toBeNull();
+
+    // Fallback to queue list when referenceId is empty or empty GUID
+    const emptyGuidAnomaly = { type: 'NewDetections', referenceType: 'DetectedAnomaly', referenceId: '00000000-0000-0000-0000-000000000000' };
+    expect(notificationLink(emptyGuidAnomaly, 'Analyst')?.commands).toEqual(['/ai-review']);
   });
 
-  it('opens emergency alerts for roles allowed on /emergency-alerts', () => {
+  it('opens emergency alerts only for roles allowed on /emergency-alerts', () => {
     const alert = { type: 'EmergencyAlert', referenceType: 'EmergencyAlert', referenceId: 'e1' };
     expect(notificationLink(alert, 'Analyst')?.commands).toEqual(['/emergency-alerts']);
-    expect(notificationLink(alert, 'Inspector')?.commands).toEqual(['/emergency-alerts']);
+    expect(notificationLink(alert, 'Inspector')).toBeNull();
+
+    const emptyGuidAlert = { type: 'EmergencyAlert', referenceType: 'EmergencyAlert', referenceId: '00000000-0000-0000-0000-000000000000' };
+    expect(notificationLink(emptyGuidAlert, 'Analyst')?.queryParams).toBeUndefined();
   });
 
   it('has no link for unknown or empty references', () => {

@@ -6,8 +6,8 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
-import { MissionsApi, normalizeMission } from '../../../../core/services/missions-api';
-import { MonitorApi } from '../../../../core/services/monitor-api';
+import { MissionsApi, normalizeMission } from '../../../missions/data-access/missions-api';
+import { MonitorApi } from '../../data-access/monitor-api';
 import { InspectorHome } from './inspector-home';
 
 const ME = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -46,7 +46,7 @@ describe('InspectorHome', () => {
   it('greets the user with the role label and loads only personal data', async () => {
     const { el, missionsApi, monitorApi } = await setup();
     expect(el.querySelector('h1')?.textContent).toContain('Nguyễn Văn Bay');
-    expect(el.textContent).toContain('Phi công / Thanh tra bay');
+    expect(el.textContent).toContain('Inspector');
     expect(missionsApi.my).toHaveBeenCalledTimes(1);
     expect(monitorApi.getAlerts).toHaveBeenCalledTimes(1);
     expect(el.textContent).toContain('Bạn được giao NV-001');
@@ -63,7 +63,7 @@ describe('InspectorHome', () => {
 
     const upcoming = section(el, 'upcoming');
     expect(upcoming.textContent).toContain('NV-002');
-    expect(upcoming.textContent).toContain('Sẵn sàng bay');
+    expect(upcoming.textContent).toContain('Ready');
     expect(upcoming.querySelector('a.action-link')?.getAttribute('href')).toBe('/missions/m-ready');
 
     expect(section(el, 'flying').querySelector('a.action-link')?.getAttribute('href')).toBe('/missions/m-flying');

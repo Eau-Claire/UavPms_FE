@@ -3,8 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, catchError, finalize, timer } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { DashboardSnapshot, InspectionFilters, PagedResponse, InspectionRecord } from '../../../models/monitor.models';
-import { NotificationsStore } from '../../../core/notifications/notifications-store';
-import { MonitorApi, getReadAlertIds, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../../core/services/monitor-api';
+import { NotificationsStore } from '../../notifications/data-access/notifications-store';
+import { MonitorApi, getReadAlertIds, markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from './monitor-api';
 
 @Injectable({
   providedIn: 'root',
@@ -35,17 +35,11 @@ export class MonitorStore {
     const notifReadMap = new Map(notifs.map((n) => [n.id, n.isRead]));
     const readSet = getReadAlertIds();
 
-    return rawAlerts
-      .map((alert) => {
-        const isReadInNotifs = notifReadMap.get(alert.id);
-        const isRead = alert.isRead || isReadInNotifs === true || readSet.has(alert.id);
-        return isRead === alert.isRead ? alert : { ...alert, isRead };
-      })
-      .sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
-      });
+    return rawAlerts.map((alert) => {
+      const isReadInNotifs = notifReadMap.get(alert.id);
+      const isRead = alert.isRead || isReadInNotifs === true || readSet.has(alert.id);
+      return isRead === alert.isRead ? alert : { ...alert, isRead };
+    });
   });
 
   startDashboardPolling(): void {

@@ -1,21 +1,23 @@
-:host {
-  display: block;
-  max-width: 100rem;
-  margin-inline: auto;
-  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
-}
+@use '../../towers-shared' as shared;
+
+@include shared.page;
 
 .tower-import {
   position: relative;
-  cursor: pointer;
+}
 
-  &:focus-within {
-    outline: 2px solid #1d4f91;
-    outline-offset: 2px;
-  }
+.tower-import:focus-within {
+  outline: 2px solid #1d4f91;
+  outline-offset: 2px;
+}
 
-  &.is-busy {
-    cursor: progress;
-    opacity: 0.7;
-  }
+.tower-import.is-busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.tower-import-hint {
+  margin: -12px 0 16px;
+  color: #526b82;
+  font-size: 12px;
 }

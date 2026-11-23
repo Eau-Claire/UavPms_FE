@@ -22,6 +22,7 @@ export const roleGuard = (allowedRoles: readonly UserRole[]): CanActivateFn => {
       return true;
     }
 
+    // Unauthorized - redirect to dedicated Access Denied (403) page
     return router.createUrlTree(['/403']);
   };
 };

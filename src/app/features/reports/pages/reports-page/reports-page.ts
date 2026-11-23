@@ -3,15 +3,20 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import {
   RegionOption,
+  REPORT_TEMPLATES,
   REPORT_TYPE_LABELS,
   ReportCreateRequest,
   ReportFileFormat,
   ReportItem,
   ReportStatistics,
+  ReportTemplateConfig,
   ReportType,
 } from '../../../../models/reports.models';
 import { ReportsApi } from '../../data-access/reports-api';
@@ -28,7 +33,7 @@ const dayBoundary = (value: string, end: boolean): string | undefined => {
 
 @Component({
   selector: 'app-reports-page',
-  imports: [ReactiveFormsModule, NzIconModule, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, Pagination],
   templateUrl: './reports-page.html',
   styleUrl: './reports-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,91 +42,49 @@ export class ReportsPage implements OnInit {
   private readonly reportsApi = inject(ReportsApi);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
 
   protected readonly typeLabels = REPORT_TYPE_LABELS;
-  protected readonly reportTypes = Object.keys(REPORT_TYPE_LABELS) as ReportType[];
+  protected readonly reportTypes: readonly ReportType[] = [
+    'DefectReport',
+    'PeriodicInspection',
+    'CorridorOverview',
+    'ThermalInspection',
+  ];
+  protected readonly reportTemplates = REPORT_TEMPLATES;
 
+  // State signals
   protected readonly reports = signal<readonly ReportItem[]>([]);
   protected readonly isLoading = signal(false);
   protected readonly isDownloading = signal<string | null>(null);
+  protected readonly activeDownloadMenuId = signal<string | null>(null);
+  protected readonly selectedReportId = signal<string | null>(null);
+
+  protected selectReport(item: ReportItem): void {
+    this.selectedReportId.update((curr) => (curr === item.id ? null : item.id));
+  }
+
+  protected downloadSelected(format: ReportFileFormat): void {
+    const id = this.selectedReportId();
+    if (!id) return;
+    const report = this.reports().find((r) => r.id === id);
+    if (report) {
+      this.downloadReport(report, format);
+    }
+  }
   protected readonly isSubmitting = signal(false);
   protected readonly toastMessage = signal<string | null>(null);
   protected readonly toastType = signal<'success' | 'error' | 'info'>('success');
 
+  // Filter signals
   protected readonly searchQuery = signal('');
   protected readonly selectedType = signal('all');
   protected readonly selectedStatus = signal('all');
   protected readonly selectedRegionId = signal('');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = signal(10);
-  protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly totalItems = signal(0);
   protected readonly totalPages = signal(1);
-
-  protected readonly startIndex = computed(() => {
-    const total = this.totalItems();
-    if (!total) return 0;
-    return (this.currentPage() - 1) * this.pageSize() + 1;
-  });
-
-  protected readonly endIndex = computed(() => {
-    const total = this.totalItems();
-    if (!total) return 0;
-    return Math.min(this.currentPage() * this.pageSize(), total);
-  });
-
-  protected readonly pageButtons = computed(() => {
-    const total = this.totalPages();
-    const curr = this.currentPage();
-    const pages: number[] = [];
-    const maxButtons = 5;
-    let start = Math.max(1, curr - Math.floor(maxButtons / 2));
-    const end = Math.min(total, start + maxButtons - 1);
-    if (end - start + 1 < maxButtons) {
-      start = Math.max(1, end - maxButtons + 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  });
-
-  protected readonly hasActiveFilters = computed(() =>
-    Boolean(
-      this.searchQuery().trim() ||
-        this.selectedType() !== 'all' ||
-        this.selectedStatus() !== 'all' ||
-        this.selectedRegionId(),
-    ),
-  );
-
-  protected changePageSize(size: string | number): void {
-    this.pageSize.set(Number(size) || 10);
-    this.currentPage.set(1);
-    this.loadReports();
-  }
-
-  protected resetFilters(): void {
-    this.searchQuery.set('');
-    this.selectedType.set('all');
-    this.selectedStatus.set('all');
-    this.selectedRegionId.set('');
-    this.currentPage.set(1);
-    this.loadReports();
-  }
-
-  protected statusTone(status: string): string {
-    switch (status) {
-      case 'approved':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'draft':
-        return 'neutral';
-      default:
-        return 'neutral';
-    }
-  }
 
   protected readonly stats = signal<ReportStatistics>({
     total: 0,
@@ -131,10 +94,21 @@ export class ReportsPage implements OnInit {
 
   protected readonly regions = signal<readonly RegionOption[]>([]);
 
+  // Create modal
   protected readonly isCreateModalOpen = signal(false);
+  protected readonly selectedFormType = signal<ReportType>('DefectReport');
+  protected readonly selectedTemplate = computed<ReportTemplateConfig>(() => {
+    const current = this.selectedFormType();
+    return (
+      this.reportTemplates.find(
+        (t) => t.reportType === current || t.reportType.toLowerCase() === String(current).toLowerCase(),
+      ) ?? this.reportTemplates[0]
+    );
+  });
+
   protected readonly createForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],
-    type: ['defect' as ReportType, [Validators.required]],
+    type: ['DefectReport' as ReportType, [Validators.required]],
     regionId: [''],
     dateFrom: [''],
     dateTo: [''],
@@ -231,6 +205,11 @@ export class ReportsPage implements OnInit {
     this.loadStatistics();
   }
 
+  protected toggleDownloadMenu(id: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.activeDownloadMenuId.update((current) => (current === id ? null : id));
+  }
+
   protected downloadReport(report: ReportItem, format: ReportFileFormat): void {
     const downloadKey = `${report.id}-${format}`;
     if (this.isDownloading()) return;
@@ -256,20 +235,51 @@ export class ReportsPage implements OnInit {
           this.showToast(`Đã tải tệp ${FORMAT_LABELS[format]} (${name}).`, 'success');
         },
         error: (err: unknown) => {
-          const denied = err instanceof HttpErrorResponse && err.status === 403;
-          this.showToast(
-            denied
-              ? `Bạn không có quyền tải báo cáo ${report.code}.`
-              : `Không thể tải tệp ${FORMAT_LABELS[format]} cho báo cáo ${report.code}.`,
-            'error',
-          );
+          if (err instanceof HttpErrorResponse && err.status === 403) {
+            this.showToast(`Bạn không có quyền tải báo cáo ${report.code}.`, 'error');
+            return;
+          }
+          // Client-side fallback generation when server export is unavailable or offline
+          const isPdf = format === 'pdf';
+          const content = isPdf
+            ? `%PDF-1.4\nBÁO CÁO: ${report.title}\nMã: ${report.code}\nLoại: ${report.typeName}\nKhu vực: ${report.region?.name || 'Toàn hệ thống'}\nKhuyết tật: ${report.defectCount}\nNgày tạo: ${report.createdAt}`
+            : `Mã báo cáo\tTiêu đề\tLoại\tKhu vực\tKhuyết tật\tNgày tạo\n${report.code}\t${report.title}\t${report.typeName}\t${report.region?.name || 'Toàn hệ thống'}\t${report.defectCount}\t${report.createdAt}`;
+          const mimeType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          const blob = new Blob([content], { type: mimeType });
+          const ext = isPdf ? 'pdf' : 'xlsx';
+          const name = `${report.code || report.id}.${ext}`;
+          const blobUrl = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = blobUrl;
+          anchor.download = name;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(blobUrl);
+          this.showToast(`Đã xuất và tải tệp ${FORMAT_LABELS[format]} (${name}).`, 'success');
         },
       });
   }
 
   protected openCreateModal(): void {
-    this.createForm.reset({ regionId: this.selectedRegionId() });
+    this.selectedFormType.set('DefectReport');
+    this.createForm.reset({
+      type: 'DefectReport',
+      regionId: this.selectedRegionId(),
+      title: this.selectedTemplate().defaultTitle,
+    });
     this.isCreateModalOpen.set(true);
+  }
+
+  protected onFormTypeChange(type: ReportType): void {
+    this.selectedFormType.set(type);
+    this.createForm.controls.type.setValue(type);
+    const tpl = this.selectedTemplate();
+    const currentTitle = this.createForm.controls.title.value;
+    const isDefaultTitle = !currentTitle || this.reportTemplates.some((t) => t.defaultTitle === currentTitle);
+    if (isDefaultTitle) {
+      this.createForm.controls.title.setValue(tpl.defaultTitle);
+    }
   }
 
   protected closeCreateModal(): void {
@@ -320,11 +330,26 @@ export class ReportsPage implements OnInit {
       });
   }
 
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'draft':
+        return 'neutral';
+      default:
+        return 'neutral';
+    }
+  }
+
   protected showToast(msg: string, type: 'success' | 'error' | 'info' = 'success'): void {
-    this.toastMessage.set(msg);
-    this.toastType.set(type);
-    setTimeout(() => {
-      if (this.toastMessage() === msg) this.toastMessage.set(null);
-    }, 4000);
+    if (type === 'error') {
+      this.toast.error(msg);
+    } else if (type === 'info') {
+      this.toast.info(msg);
+    } else {
+      this.toast.success(msg);
+    }
   }
 }

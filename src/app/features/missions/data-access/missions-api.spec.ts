@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { Mission } from '../../../models/missions.models';
-import { MissionsApi, markMissionAsDraft, markMissionAsDispatched } from '../../../core/services/missions-api';
+import { MissionsApi } from './missions-api';
 
 describe('MissionsApi', () => {
   let api: MissionsApi;
@@ -41,7 +41,7 @@ describe('MissionsApi', () => {
     expect(mission.targets[0]).toEqual(
       expect.objectContaining({ towerId: 't1', towerCode: 'HP-001', sequence: 1, latitude: 20.8, longitude: 106.6 }),
     );
-    expect(mission.status).toBe('Pending');
+    expect(mission.status).toBe('PendingAcceptance');
     expect(mission.priority).toBe('HIGH');
     expect(mission.objective).toBe('INCIDENT_FOLLOW_UP');
     expect(mission.confirmedCount).toBe(1);
@@ -111,33 +111,5 @@ describe('MissionsApi', () => {
     api.acceptAssignment('m1').subscribe();
     http.expectOne(`${base}/m1/assignments/accept`).flush({ success: true });
     http.expectOne(`${base}/m1`).flush({ data: { id: 'm1' } });
-  });
-
-  it('preserves Draft status for newly created missions until dispatched', () => {
-    markMissionAsDraft('m-draft');
-    let mission: Mission | undefined;
-    api.get('m-draft').subscribe((res) => (mission = res));
-    http.expectOne(`${base}/m-draft`).flush({
-      data: { id: 'm-draft', status: 'PendingAcceptance', title: 'Nhiệm vụ nháp' },
-    });
-    expect(mission?.status).toBe('Draft');
-
-    markMissionAsDispatched('m-draft');
-    api.get('m-draft').subscribe((res) => (mission = res));
-    http.expectOne(`${base}/m-draft`).flush({
-      data: { id: 'm-draft', status: 'PendingAcceptance', title: 'Nhiệm vụ nháp' },
-    });
-    expect(mission?.status).toBe('Pending');
-  });
-
-  it('updates mission priority via PATCH or saves override fallback on error', () => {
-    let result: Mission | undefined;
-    api.updatePriority('m1', { priority: 'HIGH', objective: 'TARGETED_REINSPECTION' }).subscribe((res) => (result = res));
-    const req = http.expectOne(`${base}/m1/priority`);
-    expect(req.request.method).toBe('PATCH');
-    req.flush({
-      data: { id: 'm1', priority: 'HIGH', status: 'Assigned', objective: 'TargetedReinspection' },
-    });
-    expect(result?.priority).toBe('HIGH');
   });
 });
