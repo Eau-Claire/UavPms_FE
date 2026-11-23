@@ -253,6 +253,13 @@ export class MissionList {
     return 'priority-normal';
   }
 
+  protected priorityTone(priority?: string): string {
+    const p = (priority || 'NORMAL').toUpperCase();
+    if (p === 'EMERGENCY') return 'danger';
+    if (p === 'HIGH') return 'warning';
+    return 'neutral';
+  }
+
   protected setSortOption(value: string): void {
     this.sortOption.set(value);
     switch (value) {

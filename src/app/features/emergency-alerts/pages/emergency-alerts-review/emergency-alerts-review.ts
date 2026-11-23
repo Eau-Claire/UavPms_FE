@@ -5,12 +5,6 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzModalModule } from 'ng-zorro-antd/modal';
-import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzTableModule } from 'ng-zorro-antd/table';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 
 import { Auth } from '../../../../core/auth/auth';
@@ -63,12 +57,6 @@ export const URGENCY_LEVELS = [
     DecimalPipe,
     ReactiveFormsModule,
     NzIconModule,
-    NzButtonModule,
-    NzTagModule,
-    NzModalModule,
-    NzInputModule,
-    NzSelectModule,
-    NzTableModule,
     RouterLink,
     Pagination,
   ],
@@ -336,6 +324,20 @@ export class EmergencyAlertsReview {
       width: Math.max(5, Math.min(100, (box.width / w) * 100)),
       height: Math.max(5, Math.min(100, (box.height / h) * 100)),
     };
+  }
+
+  protected statusTone(status: AlertStatus | string): string {
+    const s = String(status || '').toLowerCase();
+    if (s === 'active' || s === 'open') return 'danger';
+    if (s === 'confirmed' || s === 'resolved') return 'success';
+    if (s === 'escalated' || s === 'acknowledged') return 'warning';
+    return 'neutral';
+  }
+
+  protected priorityTone(priority: string): string {
+    if (priority === 'Critical') return 'danger';
+    if (priority === 'High') return 'warning';
+    return 'info';
   }
 
   protected statusColor(status: AlertStatus | string): string {

@@ -122,6 +122,15 @@ export class TowerList {
     return type;
   }
 
+  protected poleTypeTone(type?: string | null): string {
+    if (!type) return 'neutral';
+    const lower = type.toLowerCase();
+    if (lower.includes('bu-lông') || lower.includes('bu lông')) return 'info';
+    if (lower.includes('đơn thân')) return 'success';
+    if (lower.includes('bê tông') || lower.includes('ly tâm')) return 'warning';
+    return 'neutral';
+  }
+
   protected displayAddress(address?: string | null): string {
     if (!address) return '—';
     return address.replace(/,\s*(TP\.\s*Hồ Chí Minh|TP\.HCM|Thành phố Hồ Chí Minh)$/i, '');

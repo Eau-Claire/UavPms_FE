@@ -330,6 +330,19 @@ export class ReportsPage implements OnInit {
       });
   }
 
+  protected statusTone(status: string): string {
+    switch (status) {
+      case 'approved':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'draft':
+        return 'neutral';
+      default:
+        return 'neutral';
+    }
+  }
+
   protected showToast(msg: string, type: 'success' | 'error' | 'info' = 'success'): void {
     if (type === 'error') {
       this.toast.error(msg);
