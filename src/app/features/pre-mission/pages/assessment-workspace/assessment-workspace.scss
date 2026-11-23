@@ -279,6 +279,7 @@
 
 .ws-tower-tags {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
 }
@@ -291,6 +292,68 @@
   font-size: 12px;
   font-weight: 500;
   color: #334155;
+}
+
+.ws-route-arrow {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:host ::ng-deep {
+  .ws-map-pin-wrapper,
+  .ws-map-dir-wrapper {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .ws-map-tower-pin {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #0284c7;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+
+    &.is-start {
+      background: #1d4f91;
+    }
+
+    &.is-end {
+      background: #0f766e;
+    }
+  }
+
+  .ws-map-tower-label {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14);
+    color: #0f172a;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 2px 6px;
+    white-space: nowrap;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  .ws-map-dir-arrow {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* Weather & Site */

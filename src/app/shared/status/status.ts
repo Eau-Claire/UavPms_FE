@@ -47,6 +47,7 @@ export const statusTone = (status: string): StatusTone => {
       'EMERGENCY',
       'EXPIRED',
       'NOTELIGIBLE',
+      'INELIGIBLE',
       'SUSPENDED',
       'REJECTED',
     ].includes(value)
@@ -142,6 +143,7 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   FAIL: 'Không đạt',
   NOTELIGIBLE: 'Không đạt',
   NOT_ELIGIBLE: 'Không đạt',
+  INELIGIBLE: 'Không đạt',
   UNAVAILABLE: 'Không sẵn sàng',
 };
 
@@ -185,6 +187,7 @@ export const statusColorClass = (status: string): string => {
       'FAIL',
       'FAILED',
       'NOTELIGIBLE',
+      'INELIGIBLE',
       'UNAVAILABLE',
       'REJECTED',
       'CRITICAL',

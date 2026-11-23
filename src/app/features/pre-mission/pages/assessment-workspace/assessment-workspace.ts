@@ -72,9 +72,6 @@ export interface ParsedPersonnelFindings {
   readonly rawText?: string;
 }
 
-/** Backend yêu cầu ít nhất 1 Inspector, 1 Analyst, 1 Technician đủ điều kiện để trụ cột Nhân sự đạt. */
-const REQUIRED_PER_ROLE = 1;
-
 @Component({
   selector: 'app-assessment-workspace',
   imports: [RouterLink, DatePipe, DecimalPipe],
@@ -189,7 +186,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   // Bộ lọc ứng viên nhân sự
   protected readonly personnelSearch = signal('');
   protected readonly selectedRoleFilter = signal<'ALL' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN'>('ALL');
-  protected readonly onlyAvailableFilter = signal<boolean>(true);
+  protected readonly onlyAvailableFilter = signal<boolean>(false);
 
   // Kiểm định kỹ thuật drone
   protected readonly selectedDroneId = signal<string>('');
@@ -293,7 +290,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
         if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
         if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
-      } catch {}
+      } catch {
+        // Ignore malformed findings JSON
+      }
     }
     return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
   });
@@ -406,27 +405,47 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       list = list.filter((p) => p.role === roleFilter);
     }
     const q = this.personnelSearch().trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.rawRole.toLowerCase().includes(q) || p.findings.toLowerCase().includes(q),
-    );
+    if (q) {
+      list = list.filter(
+        (p) => p.name.toLowerCase().includes(q) || p.rawRole.toLowerCase().includes(q) || p.findings.toLowerCase().includes(q),
+      );
+    }
+
+    // Mặc định đẩy người đủ điều kiện & sẵn sàng lên đầu danh sách
+    return [...list].sort((a, b) => {
+      const aEligible = a.isEligible ? 1 : 0;
+      const bEligible = b.isEligible ? 1 : 0;
+      if (aEligible !== bEligible) return bEligible - aEligible;
+
+      const aAvail = a.availabilityStatus === 'Available' ? 1 : 0;
+      const bAvail = b.availabilityStatus === 'Available' ? 1 : 0;
+      if (aAvail !== bAvail) return bAvail - aAvail;
+
+      const aEligStatus = (a.eligibilityStatus || '').toUpperCase() === 'ELIGIBLE' ? 1 : 0;
+      const bEligStatus = (b.eligibilityStatus || '').toUpperCase() === 'ELIGIBLE' ? 1 : 0;
+      if (aEligStatus !== bEligStatus) return bEligStatus - aEligStatus;
+
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    });
   });
 
-  /** Cột trong phạm vi hồ sơ kèm tọa độ (nếu có trong danh mục cột của khu vực). */
+  /** Cột trong phạm vi hồ sơ kèm tọa độ (nếu có trong danh mục cột của khu vực), sắp đúng thứ tự tuyến bay. */
   protected readonly scopeTowers = computed(() => {
     const a = this.item();
     if (!a) return [];
     const byId = new Map(this.regionTowers().map((t) => [t.id, t]));
-    return a.towers.map((t) => {
-      const info = byId.get(t.towerId);
-      return {
-        towerId: t.towerId,
-        sequence: t.sequence,
-        towerCode: t.towerCode || info?.towerCode || t.towerId,
-        latitude: info?.latitude ?? null,
-        longitude: info?.longitude ?? null,
-      };
-    });
+    return [...a.towers]
+      .sort((x, y) => (x.sequence ?? 0) - (y.sequence ?? 0))
+      .map((t) => {
+        const info = byId.get(t.towerId);
+        return {
+          towerId: t.towerId,
+          sequence: t.sequence,
+          towerCode: t.towerCode || info?.towerCode || t.towerId,
+          latitude: info?.latitude ?? null,
+          longitude: info?.longitude ?? null,
+        };
+      });
   });
 
   protected readonly statusTone = statusTone;
@@ -521,7 +540,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     if (a?.id) this.realtime.leaveAssessment(a.id);
     this.realtimeSub?.unsubscribe();
     this.cleanupMap();
-    this.fcSerial.disconnect().catch(() => {});
+    this.fcSerial.disconnect().catch(() => undefined);
   }
 
   private initRealtimeSubscription(): void {
@@ -1181,26 +1200,68 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.markersLayer.clearLayers();
     this.polylineLayer.clearLayers();
 
+    const orderedTowers = this.scopeTowers().filter((t) => t.latitude != null && t.longitude != null);
     const latLngs: [number, number][] = [];
-    for (const t of this.scopeTowers()) {
-      if (t.latitude == null || t.longitude == null) continue;
-      latLngs.push([t.latitude, t.longitude]);
-      const marker = L.circleMarker([t.latitude, t.longitude], {
-        radius: 7,
-        fillColor: '#38bdf8',
-        color: '#0284c7',
-        weight: 2,
-        fillOpacity: 1,
+
+    orderedTowers.forEach((t, idx) => {
+      const lat = t.latitude as number;
+      const lng = t.longitude as number;
+      latLngs.push([lat, lng]);
+
+      const stepNumber = idx + 1;
+      const isStart = idx === 0;
+      const isEnd = orderedTowers.length > 1 && idx === orderedTowers.length - 1;
+      const pinClass = isStart ? 'ws-map-tower-pin is-start' : isEnd ? 'ws-map-tower-pin is-end' : 'ws-map-tower-pin';
+
+      const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'ws-map-pin-wrapper',
+          html: `<div class="${pinClass}">${stepNumber}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
       });
-      marker.bindTooltip(`${t.sequence}. ${t.towerCode}`, { direction: 'top', className: 'evn-map-tooltip', offset: [0, -6] });
+
+      const roleTag = isStart ? ' (Bắt đầu)' : isEnd ? ' (Kết thúc)' : '';
+      marker.bindTooltip(`${stepNumber}. ${t.towerCode}${roleTag}`, {
+        permanent: true,
+        direction: 'right',
+        className: 'ws-map-tower-label',
+        offset: [12, 0],
+      });
       this.markersLayer.addLayer(marker);
-    }
+    });
 
     if (latLngs.length > 1) {
-      this.polylineLayer.addLayer(L.polyline(latLngs, { color: '#0052cc', weight: 3, dashArray: '6, 6' }));
+      this.polylineLayer.addLayer(L.polyline(latLngs, { color: '#1d4f91', weight: 3, dashArray: '7, 6', opacity: 0.9 }));
+
+      // Mũi tên chỉ hướng bay tại trung điểm mỗi chặng từ cột i -> cột i+1
+      for (let i = 0; i < latLngs.length - 1; i++) {
+        const [lat1, lng1] = latLngs[i];
+        const [lat2, lng2] = latLngs[i + 1];
+        const midLat = (lat1 + lat2) / 2;
+        const midLng = (lng1 + lng2) / 2;
+
+        // Góc hướng bay theo hệ tọa độ màn hình (X: Đông+, Y: Nam+)
+        const p1 = this.map.project([lat1, lng1], 16);
+        const p2 = this.map.project([lat2, lng2], 16);
+        const angleDeg = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
+
+        const arrowMarker = L.marker([midLat, midLng], {
+          interactive: false,
+          icon: L.divIcon({
+            className: 'ws-map-dir-wrapper',
+            html: `<div class="ws-map-dir-arrow" style="transform: rotate(${angleDeg.toFixed(1)}deg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3.5L13.5 8L2 12.5L4.8 8L2 3.5Z" fill="#1d4f91" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/></svg></div>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          }),
+        });
+        this.polylineLayer.addLayer(arrowMarker);
+      }
     }
+
     if (latLngs.length) {
-      this.map.fitBounds(L.latLngBounds(latLngs), { padding: [35, 35], maxZoom: 16 });
+      this.map.fitBounds(L.latLngBounds(latLngs), { padding: [45, 70], maxZoom: 16 });
     }
   }
 
