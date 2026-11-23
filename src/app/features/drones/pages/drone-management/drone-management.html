@@ -8,19 +8,9 @@
         <strong>Quản lý UAV</strong>
       </nav>
       <h1>Quản lý đội bay &amp; Phương tiện UAV</h1>
-      <p>Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật, định danh Flight Controller và ước tính năng lực bay GIS</p>
+      <p>Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật và định danh Flight Controller</p>
     </div>
     <div class="head-actions">
-      @if (canManageFleet()) {
-        <button
-          type="button"
-          class="app-btn-secondary"
-          (click)="openGisModal()"
-          title="Ước tính tải Drone theo hành lang GIS"
-        >
-          Ước tính tải GIS
-        </button>
-      }
       @if (canEditDrone()) {
         <button type="button" class="app-btn-primary" (click)="openCreate()" title="Thêm UAV mới">
           Thêm UAV mới
@@ -91,19 +81,17 @@
     </div>
   }
 
-  <!-- Quiet Chrome UAV Fleet Table (Fixed Columns, 1-Line Cells, 0 Icons) -->
+  <!-- Quiet Chrome UAV Fleet Table (6 Focused Columns, 1-Line Cells, 0 Icons) -->
   <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
     <div class="app-table-scroll app-table-stage">
       <table class="app-data-table">
         <colgroup>
           <col style="width: 10%" />
-          <col style="width: 18%" />
-          <col style="width: 10%" />
+          <col style="width: 39%" />
           <col style="width: 12%" />
-          <col style="width: 13%" />
-          <col style="width: 15%" />
           <col style="width: 14%" />
-          <col style="width: 8%" />
+          <col style="width: 16%" />
+          <col style="width: 9%" />
         </colgroup>
         <thead>
           <tr>
@@ -111,8 +99,6 @@
             <th>Tên &amp; Model</th>
             <th class="col-center">Vận hành</th>
             <th class="col-center">Sức khỏe</th>
-            <th>Năng lực bay</th>
-            <th>Flight Controller</th>
             <th>Đo kiểm gần nhất</th>
             <th class="col-center col-sticky-right">Thao tác</th>
           </tr>
@@ -122,18 +108,16 @@
             @for (row of skeletonRows; track row) {
               <tr aria-hidden="true">
                 <td><span class="app-skeleton-bar w-20"></span></td>
-                <td><span class="app-skeleton-bar w-36"></span></td>
+                <td><span class="app-skeleton-bar w-44"></span></td>
                 <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
                 <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
                 <td><span class="app-skeleton-bar w-28"></span></td>
-                <td><span class="app-skeleton-bar w-28"></span></td>
-                <td><span class="app-skeleton-bar w-24"></span></td>
                 <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
               </tr>
             }
           } @else if (filteredDrones().length === 0) {
             <tr>
-              <td colspan="8" class="app-empty-cell">
+              <td colspan="6" class="app-empty-cell">
                 Không tìm thấy phương tiện UAV nào phù hợp với bộ lọc.
               </td>
             </tr>
@@ -162,27 +146,6 @@
                   </span>
                 </td>
                 <td class="tabular-nums cell-secondary">
-                  <span
-                    class="cell-truncate"
-                    [title]="(drone.flightEnduranceMinutes || 35) + ' phút · ' + (drone.operationalRangeKm || 15) + ' km · Pin ' + drone.batteryLevel + '%'"
-                  >
-                    {{ drone.flightEnduranceMinutes || 35 }}p · {{ drone.operationalRangeKm || 15 }}km · {{ drone.batteryLevel }}%
-                  </span>
-                </td>
-                <td>
-                  @if (drone.activeFlightController; as fc) {
-                    <span class="cell-secondary cell-truncate" [title]="fc.flightControllerUid">
-                      {{ fc.flightControllerUid }}
-                    </span>
-                  } @else if (canEditDrone()) {
-                    <button type="button" class="app-btn-action" (click)="openFcModal(drone)">
-                      Ghép nối FC
-                    </button>
-                  } @else {
-                    <span class="cell-muted">Chưa ghép nối</span>
-                  }
-                </td>
-                <td class="tabular-nums cell-secondary">
                   @if (drone.lastTechnicalInspection; as insp) {
                     <span class="cell-truncate" [title]="globalStatusLabel(insp.status) + ' · ' + (insp.completedAt | date: 'dd/MM/yyyy HH:mm')">
                       {{ insp.completedAt | date: 'dd/MM/yyyy HH:mm' }}
@@ -196,7 +159,7 @@
                     type="button"
                     class="app-btn-action"
                     (click)="openHistory(drone)"
-                    title="Chi tiết & Lịch sử kiểm định kỹ thuật"
+                    title="Chi tiết UAV, Flight Controller & Lịch sử kiểm định"
                     [attr.aria-label]="'Chi tiết ' + drone.code"
                   >
                     Chi tiết
@@ -221,33 +184,31 @@
   </section>
 </div>
 
-<!-- ================= MODAL: CREATE / EDIT DRONE ================= -->
+<!-- ================= MODAL: CREATE / EDIT DRONE (Quiet Chrome, 0 Icons) ================= -->
 @if (modalOpen()) {
-<div class="modal-backdrop" (click)="closeModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" tabindex="-1" (click)="closeModal()" (keydown.escape)="closeModal()">
+  <div class="modal-dialog drone-qc-modal" tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="closeModal()">
     <div class="modal-header">
-      <h3>
-        <span nz-icon [nzType]="editingDrone() ? 'edit' : 'plus'"></span>
-        {{ editingDrone() ? 'Chỉnh Sửa Thông Tin UAV' : 'Thêm Mới Phương Tiện UAV' }}
-      </h3>
-      <button type="button" class="close-x" (click)="closeModal()">
-        <span nz-icon nzType="close"></span>
-      </button>
+      <h3>{{ editingDrone() ? 'Chỉnh sửa thông tin UAV' : 'Thêm mới phương tiện UAV' }}</h3>
+      <button type="button" class="app-btn-action" (click)="closeModal()">Đóng</button>
     </div>
 
     <div class="modal-body">
       @if (editingDrone(); as ed) {
       <div class="modal-sub-actions-bar">
-        <button type="button" class="sub-action-btn check" (click)="openTechCheck(ed)">
-          <span nz-icon nzType="safety-certificate"></span> Kiểm tra kỹ thuật (MF01)
+        <button type="button" class="app-btn-secondary" (click)="closeModal(); openFcModal(ed)">
+          {{ ed.activeFlightController ? 'Cập nhật FC' : 'Ghép nối FC' }}
         </button>
-        <button type="button" class="sub-action-btn history" (click)="openHistory(ed)">
-          <span nz-icon nzType="history"></span> Lịch sử kiểm định
+        <button type="button" class="app-btn-secondary" (click)="openTechCheck(ed)">
+          Kiểm tra kỹ thuật
+        </button>
+        <button type="button" class="app-btn-secondary" (click)="openHistory(ed)">
+          Lịch sử kiểm định
         </button>
         @if (canManageFleet()) {
-        <button type="button" class="sub-action-btn danger" (click)="closeModal(); deleteDrone(ed)"
+        <button type="button" class="app-btn-danger" (click)="closeModal(); deleteDrone(ed)"
           [disabled]="ed.operationalStatus === 'InUse'">
-          <span nz-icon nzType="delete"></span> Xóa UAV
+          Xóa UAV
         </button>
         }
       </div>
@@ -328,13 +289,9 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="button secondary" (click)="closeModal()">Hủy bỏ</button>
-          <button type="submit" class="button primary" [disabled]="busy()">
-            @if (busy()) {
-            <span nz-icon nzType="loading"></span> Đang lưu...
-            } @else {
-            <span nz-icon nzType="save"></span> Lưu thông tin UAV
-            }
+          <button type="button" class="app-btn-secondary" (click)="closeModal()">Hủy bỏ</button>
+          <button type="submit" class="app-btn-primary" [disabled]="busy()">
+            {{ busy() ? 'Đang lưu...' : 'Lưu thông tin UAV' }}
           </button>
         </div>
       </form>
@@ -557,35 +514,49 @@
 <!-- ================= MODAL: TECHNICAL INSPECTION HISTORY ================= -->
 @if (historyDrone(); as hd) {
 <div class="modal-backdrop" tabindex="-1" (click)="closeHistory()" (keydown.escape)="closeHistory()">
-  <div class="modal-dialog modal-lg" role="dialog" aria-modal="true" aria-labelledby="drone-history-title"
-    (click)="$event.stopPropagation()" (keydown.escape)="closeHistory()">
+  <div class="modal-dialog modal-lg drone-qc-modal" role="dialog" aria-modal="true" aria-labelledby="drone-history-title"
+    tabindex="-1" (click)="$event.stopPropagation()" (keydown.escape)="closeHistory()">
     <div class="modal-header">
-      <h3 id="drone-history-title">
-        <span nz-icon nzType="history" aria-hidden="true"></span>
-        Lịch sử kiểm định kỹ thuật: {{ hd.code }}
-      </h3>
-      <button type="button" class="close-x" aria-label="Đóng" (click)="closeHistory()">
-        <span nz-icon nzType="close" aria-hidden="true"></span>
-      </button>
+      <h3 id="drone-history-title">Chi tiết &amp; Lịch sử kiểm định kỹ thuật: {{ hd.code }}</h3>
+      <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeHistory()">Đóng</button>
     </div>
 
     <div class="modal-body">
+      <!-- Flight Capability & Flight Controller Details (Consolidated into Detail Modal) -->
+      <div class="drone-detail-specs">
+        <div class="spec-item">
+          <span class="spec-label">Năng lực bay</span>
+          <span class="spec-value tabular-nums">
+            {{ hd.flightEnduranceMinutes || 35 }} phút · {{ hd.operationalRangeKm || 15 }} km · Pin {{ hd.batteryLevel }}%
+          </span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Flight Controller</span>
+          @if (hd.activeFlightController; as fc) {
+            <span class="spec-value tabular-nums">
+              {{ fc.flightControllerUid }} · {{ fc.boardIdentifier || 'Betaflight' }} ({{ fc.firmwareVersion || 'v4.5' }})
+            </span>
+          } @else {
+            <span class="spec-value cell-muted">Chưa ghép nối</span>
+          }
+        </div>
+      </div>
+
       @if (historyLoading()) {
-      <p class="history-state" role="status"><span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span>
-        Đang tải lịch sử kiểm định...</p>
+      <p class="history-state" role="status">Đang tải lịch sử kiểm định...</p>
       } @else if (historyError()) {
       <p class="history-state history-error" role="alert">{{ historyError() }}</p>
       } @else if (!historyItems().length) {
       <p class="history-state">UAV này chưa có lần kiểm định kỹ thuật nào.</p>
       } @else {
-      <div class="history-table-wrap">
-        <table class="history-table">
+      <div class="app-table-scroll">
+        <table class="app-data-table" style="min-width: 680px;">
           <caption class="sr-only">Các lần kiểm định kỹ thuật gần nhất của {{ hd.code }}</caption>
           <thead>
             <tr>
               <th scope="col">Hoàn thành</th>
-              <th scope="col">Kết quả</th>
-              <th scope="col">Sức khỏe</th>
+              <th scope="col" class="col-center">Kết quả</th>
+              <th scope="col" class="col-center">Sức khỏe</th>
               <th scope="col">Kỹ thuật viên</th>
               <th scope="col">Hiệu lực đến</th>
               <th scope="col">Ghi chú</th>
@@ -594,12 +565,12 @@
           <tbody>
             @for (insp of historyItems(); track insp.id) {
             <tr>
-              <td>{{ insp.completedAt ? (insp.completedAt | date:'dd/MM/yyyy HH:mm') : 'Chưa hoàn thành' }}</td>
-              <td>{{ insp.status }}</td>
-              <td><span class="badge" [class]="healthBadgeClass(insp.health)">{{ insp.health }}</span></td>
-              <td>{{ insp.technicianName || '—' }}</td>
-              <td>{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
-              <td>{{ insp.notes || '—' }}</td>
+              <td class="tabular-nums cell-secondary">{{ insp.completedAt ? (insp.completedAt | date:'dd/MM/yyyy HH:mm') : 'Chưa hoàn thành' }}</td>
+              <td class="col-center"><span [class]="statusColorClass(insp.status)">{{ globalStatusLabel(insp.status) }}</span></td>
+              <td class="col-center"><span [class]="statusColorClass(insp.health)">{{ globalStatusLabel(insp.health) }}</span></td>
+              <td class="cell-secondary">{{ insp.technicianName || '—' }}</td>
+              <td class="tabular-nums cell-secondary">{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+              <td class="cell-secondary"><span class="cell-truncate" [title]="insp.notes || ''">{{ insp.notes || '—' }}</span></td>
             </tr>
             }
           </tbody>
@@ -610,25 +581,25 @@
 
     <div class="modal-footer">
       @if (canEditDrone()) {
-      <button type="button" class="button primary" (click)="closeHistory(); openTechCheck(hd)"
-        title="Kiểm định kỹ thuật an toàn (Checklist)">
-        <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
-        <span>Kiểm định an toàn</span>
+      <button type="button" class="app-btn-secondary" (click)="closeHistory(); openFcModal(hd)"
+        title="Ghép nối hoặc cập nhật Flight Controller">
+        {{ hd.activeFlightController ? 'Cập nhật FC' : 'Ghép nối FC' }}
       </button>
-      <button type="button" class="button secondary" (click)="closeHistory(); openEdit(hd)"
+      <button type="button" class="app-btn-primary" (click)="closeHistory(); openTechCheck(hd)"
+        title="Kiểm định kỹ thuật an toàn (Checklist)">
+        Kiểm định an toàn
+      </button>
+      <button type="button" class="app-btn-secondary" (click)="closeHistory(); openEdit(hd)"
         title="Chỉnh sửa thông số UAV">
-        <span nz-icon nzType="edit" aria-hidden="true"></span>
-        <span>Chỉnh sửa</span>
+        Chỉnh sửa
       </button>
       }
       @if (canManageFleet()) {
-      <button type="button" class="button danger" (click)="closeHistory(); deleteDrone(hd)"
+      <button type="button" class="app-btn-danger" (click)="closeHistory(); deleteDrone(hd)"
         [disabled]="hd.operationalStatus === 'InUse'" title="Xóa UAV">
-        <span nz-icon nzType="delete" aria-hidden="true"></span>
-        <span>Xóa UAV</span>
+        Xóa UAV
       </button>
       }
-      <button type="button" class="button secondary" (click)="closeHistory()">Đóng</button>
     </div>
   </div>
 </div>

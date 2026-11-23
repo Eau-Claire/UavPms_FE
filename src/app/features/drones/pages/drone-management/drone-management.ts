@@ -120,11 +120,12 @@ export class DroneManagement {
     };
   });
 
-  // Filtered List
+  // Filtered List (case/separator insensitive so backend casing like HEALTHY / IN_USE always matches)
   protected readonly filteredDrones = computed(() => {
     const term = this.search().trim().toLowerCase();
-    const st = this.statusFilter();
-    const hl = this.healthFilter();
+    const norm = (val?: string | null) => (val || '').trim().toUpperCase().replace(/[\s_-]/g, '');
+    const st = norm(this.statusFilter());
+    const hl = norm(this.healthFilter());
 
     return this.drones().filter((drone) => {
       const matchTerm =
@@ -132,8 +133,8 @@ export class DroneManagement {
         `${drone.code} ${drone.name} ${drone.model} ${drone.serialNumber || ''} ${drone.activeFlightController?.flightControllerUid || ''}`
           .toLowerCase()
           .includes(term);
-      const matchStatus = !st || drone.operationalStatus === st;
-      const matchHealth = !hl || drone.technicalHealth === hl;
+      const matchStatus = !st || norm(drone.operationalStatus) === st;
+      const matchHealth = !hl || norm(drone.technicalHealth) === hl;
       return matchTerm && matchStatus && matchHealth;
     });
   });

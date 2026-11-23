@@ -132,8 +132,17 @@ test('Batch 1 pages (/missions, /towers, /drones, /maintenance) match Quiet Chro
   await expect(page.locator('tbody tr').first()).toContainText('UAV-001');
   await expect(page.locator('.pre-mission-summary-strip')).toHaveCount(0);
   await expect(page.locator('.uav-management-container [nz-icon], .uav-management-container svg')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Ước tính tải GIS' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ước tính tải GIS' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Thêm UAV mới' })).toBeVisible();
+  await expect(page.locator('thead th')).toHaveCount(6);
+  // Verify health filter works case-insensitively & Chi tiết modal shows Flight Controller + 0 icons
+  await page.getByLabel('Lọc theo sức khỏe kỹ thuật').selectOption('Healthy');
+  await expect(page.locator('tbody tr').first()).toContainText('UAV-001');
+  await page.getByRole('button', { name: 'Chi tiết UAV-001' }).click();
+  await expect(page.locator('#drone-history-title')).toContainText('UAV-001');
+  await expect(page.locator('.drone-qc-modal [nz-icon], .drone-qc-modal svg')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Ghép nối FC' })).toBeVisible();
+  await page.locator('.drone-qc-modal .modal-header').getByRole('button', { name: 'Đóng' }).click();
 
   // 4. /maintenance
   await page.goto('/maintenance');

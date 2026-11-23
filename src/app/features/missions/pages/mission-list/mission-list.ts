@@ -320,12 +320,26 @@ export class MissionList implements OnDestroy {
   }
 
   protected assigneeLabel(mission: Mission): string {
-    const parts = [mission.assignedToUsername, mission.droneCode].filter(Boolean);
+    const rawName = (mission.assignedToUsername || '').trim();
+    const displayName = rawName.includes('@')
+      ? rawName.split('@')[0].split('+')[0].trim()
+      : rawName;
+    const parts = [displayName, (mission.droneCode || '').trim()].filter(Boolean);
     return parts.length ? parts.join(' · ') : '—';
   }
 
-  protected readonly statusLabel = statusLabel;
-  protected readonly statusColorClass = statusColorClass;
+  protected statusLabel(status: string): string {
+    const normalized = normalizeMissionStatus(status);
+    if (normalized === 'Completed') return 'Hoàn thành';
+    return statusLabel(normalized);
+  }
+
+  protected statusColorClass(status: string): string {
+    const normalized = normalizeMissionStatus(status);
+    if (normalized === 'Completed') return 'text-emerald-600 font-medium';
+    return statusColorClass(normalized);
+  }
+
   protected readonly priorityLabel = priorityLabel;
   protected readonly priorityColorClass = priorityColorClass;
 

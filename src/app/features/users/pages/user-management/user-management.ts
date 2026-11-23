@@ -43,13 +43,19 @@ export class UserManagement {
   private readonly facilityStore = inject(FacilityStore, { optional: true });
 
   protected readonly users = signal<readonly UserRecord[]>([]);
-  protected readonly loading = signal(true);
+  protected readonly initialLoading = signal(true);
+  protected readonly fetching = signal(false);
+  protected readonly loading = computed(() => this.initialLoading() || this.fetching());
+  protected readonly skeletonRows = Array.from({ length: 10 }, (_, i) => i + 1);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly notice = signal('');
   protected readonly search = signal('');
   protected readonly roleFilter = signal<UserRole | ''>('');
   protected readonly statusFilter = signal<UserStatus | ''>('');
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.roleFilter() || this.statusFilter()),
+  );
   protected readonly modalOpen = signal(false);
   protected readonly editing = signal<UserRecord | null>(null);
   protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);
@@ -147,13 +153,16 @@ export class UserManagement {
 
   /** Admins see every user; Managers only get the active Inspectors from /users/assignable (the full list is admin-only). */
   protected load(): void {
-    this.loading.set(true);
+    this.fetching.set(true);
     this.error.set('');
     const request$ = this.isAdmin() ? this.api.getAll() : this.api.getAssignable();
     request$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.initialLoading.set(false);
+          this.fetching.set(false);
+        }),
       )
       .subscribe({
         next: (users) => this.users.set(users),
@@ -162,6 +171,27 @@ export class UserManagement {
           this.toast.error('Không thể tải danh sách người dùng.');
         },
       });
+  }
+
+  protected onSearchEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.onSearchChange(target?.value ?? '');
+  }
+
+  protected onRoleEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.onRoleFilterChange((target?.value ?? '') as UserRole | '');
+  }
+
+  protected onStatusEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.onStatusFilterChange((target?.value ?? '') as UserStatus | '');
+  }
+
+  protected userStatusColorClass(status: UserStatus): string {
+    if (status === 'Active') return 'text-emerald-600 font-medium';
+    if (status === 'Inactive') return 'text-amber-700 font-medium';
+    return 'text-rose-600 font-medium';
   }
 
   protected clearFilters(): void {
