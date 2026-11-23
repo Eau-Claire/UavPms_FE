@@ -256,13 +256,13 @@
 
           @if (showCommandConsole()) {
             <div class="dispatch-actions-col">
-              <div class="manager-action-buttons">
-                <!-- Flight lifecycle: managers and the mission's flight crew -->
+              <div class="manager-action-buttons qc-action-bar">
+                <!-- Flight lifecycle primary step -->
                 @if (canOperateFlight()) {
                   @if (mission.status === 'Confirmed' || (mission.status === 'Assigned' && allRolesConfirmed())) {
                     <button
                       type="button"
-                      class="btn-manager-primary"
+                      class="app-btn-primary"
                       [disabled]="actionBusy()"
                       (click)="checkInFlight()">
                       Check-in tại điểm bay
@@ -272,7 +272,7 @@
                   @if (mission.status === 'Ready' || mission.status === 'Preparing' || (!allRolesConfirmed() && mission.status === 'Assigned')) {
                     <button
                       type="button"
-                      class="btn-flight-start"
+                      class="app-btn-primary"
                       [disabled]="actionBusy() || !!startBlocker()"
                       [attr.aria-describedby]="startBlocker() ? 'start-blocker-reason' : null"
                       (click)="startFlight()">
@@ -288,7 +288,7 @@
                   @if (mission.status === 'InProgress') {
                     <button
                       type="button"
-                      class="btn-flight-complete"
+                      class="app-btn-primary"
                       [disabled]="actionBusy()"
                       (click)="completeFlight()">
                       Hoàn tất chuyến bay
@@ -301,7 +301,7 @@
                   @if (mission.status === 'PendingAcceptance' || mission.status === 'Draft') {
                     <button
                       type="button"
-                      class="btn-manager-primary"
+                      class="app-btn-primary"
                       [disabled]="actionBusy()"
                       (click)="sendReminder()">
                       Gửi nhắc nhở tiếp nhận
@@ -311,7 +311,7 @@
                   @if (mission.status === 'Suspended') {
                     <button
                       type="button"
-                      class="btn-manager-resume"
+                      class="app-btn-primary"
                       [disabled]="actionBusy()"
                       (click)="resumeMission()">
                       Khôi phục bay
@@ -319,7 +319,7 @@
                   } @else if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
                     <button
                       type="button"
-                      class="btn-manager-suspend"
+                      class="app-btn-secondary"
                       [disabled]="actionBusy()"
                       (click)="openSuspendModal()">
                       Tạm đình chỉ bay
@@ -329,22 +329,22 @@
                   @if (mission.status !== 'Cancelled' && mission.status !== 'Completed') {
                     <button
                       type="button"
-                      class="btn-manager-priority"
+                      class="app-btn-secondary"
                       [disabled]="actionBusy()"
                       (click)="openPriorityModal()">
-                      Điều chỉnh mức độ ưu tiên
+                      Điều chỉnh ưu tiên
                     </button>
 
                     <button
                       type="button"
-                      class="btn-manager-cancel"
+                      class="app-btn-danger"
                       [disabled]="actionBusy()"
                       (click)="openCancelModal()">
-                      Hủy bỏ nhiệm vụ
+                      Hủy nhiệm vụ
                     </button>
                   }
                 } @else if (canUpload() && (mission.status === 'InProgress' || mission.status === 'Completed')) {
-                  <button type="button" class="btn-manager-primary" (click)="setTab('upload')">
+                  <button type="button" class="app-btn-primary" (click)="setTab('upload')">
                     Tải dữ liệu bay
                   </button>
                 }
@@ -355,20 +355,18 @@
 
         <!-- Critical Overdue Warning Callout -->
         @if (isDeadlineOverdue() && isManager()) {
-          <div class="callout-banner overdue-alert" role="alert">
-            <div class="callout-icon">
-              </div>
+          <div class="callout-banner overdue-alert qc-callout" role="alert">
             <div class="callout-body">
-              <strong>CẢNH BÁO: PHI CÔNG ĐÃ QUÁ HẠN XÁC NHẬN TIẾP NHẬN NHIỆM VỤ</strong>
+              <strong>Quá hạn xác nhận tiếp nhận nhiệm vụ</strong>
               <p>
-                Phi công <strong>{{ mission.assignedToUsername || 'Chưa phân công' }}</strong> chưa xác nhận nhận nhiệm vụ này trước thời hạn chót
-                ({{ confirmationDeadlineDate() | date:'HH:mm dd/MM/yyyy' }}). Vui lòng gửi thông báo nhắc nhở khẩn cấp hoặc tái phân công phi công khác để đảm bảo tiến độ bay lưới điện.
+                Phi công <strong>{{ mission.assignedToUsername || 'Chưa phân công' }}</strong> chưa xác nhận trước hạn chót
+                ({{ confirmationDeadlineDate() | date:'HH:mm dd/MM/yyyy' }}). Vui lòng gửi nhắc nhở hoặc phân công lại.
               </p>
             </div>
             <div class="callout-action">
               <button
                 type="button"
-                class="btn-urgent-remind"
+                class="app-btn-primary"
                 [disabled]="actionBusy()"
                 (click)="sendReminder()">
                 Gửi nhắc nhở khẩn cấp
@@ -379,21 +377,18 @@
 
         <!-- Suspended Callout -->
         @if (mission.status === 'Suspended') {
-          <div class="callout-banner suspended-alert" role="alert">
-            <div class="callout-icon">
-              </div>
+          <div class="callout-banner suspended-alert qc-callout" role="alert">
             <div class="callout-body">
-              <strong>LỆNH TẠM ĐÌNH CHỈ BAY ĐANG CÓ HIỆU LỰC</strong>
+              <strong>Lệnh tạm đình chỉ bay đang có hiệu lực</strong>
               <p>
-                Lý do tạm dừng: <em>"{{ mission.suspendedReason || 'Chờ kiểm tra điều kiện an toàn bay & thời tiết.' }}"</em>.
-                Toàn bộ phương tiện UAV phải neo giữ tại bãi hoặc chờ lệnh khôi phục từ Quản lý vận hành.
+                Lý do tạm dừng: "{{ mission.suspendedReason || 'Chờ kiểm tra điều kiện an toàn bay & thời tiết.' }}".
               </p>
             </div>
             @if (isManager()) {
               <div class="callout-action">
                 <button
                   type="button"
-                  class="btn-resume-mission"
+                  class="app-btn-primary"
                   [disabled]="actionBusy()"
                   (click)="resumeMission()">
                   Khôi phục nhiệm vụ bay

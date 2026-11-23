@@ -331,6 +331,10 @@ export class MissionDetail {
   }
 
   protected roleText(assignmentRole: string): string {
+    const raw = (assignmentRoleLabel(assignmentRole) || assignmentRole || '').trim().toUpperCase();
+    if (raw.includes('INSPECT') || raw.includes('PILOT')) return 'Phi công';
+    if (raw.includes('ANALYST')) return 'Phân tích';
+    if (raw.includes('TECH') || raw.includes('MAINT')) return 'Kỹ thuật';
     return assignmentRoleLabel(assignmentRole);
   }
 

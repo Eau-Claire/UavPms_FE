@@ -27,7 +27,6 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import {
@@ -45,7 +44,7 @@ import {
   UavCandidate,
   UavTechnicalEligibility,
 } from '../../../../models/pre-mission.models';
-import { statusLabel, statusTone } from '../../../../shared/status/status';
+import { priorityColorClass, priorityLabel, statusColorClass, statusLabel, statusTone } from '../../../../shared/status/status';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { FlightControllerApi } from '../../data-access/flight-controller-api';
 import {
@@ -78,7 +77,7 @@ const REQUIRED_PER_ROLE = 1;
 
 @Component({
   selector: 'app-assessment-workspace',
-  imports: [RouterLink, DatePipe, DecimalPipe, NzIconModule],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   templateUrl: './assessment-workspace.html',
   styleUrl: './assessment-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -112,6 +111,75 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly canInspectDrone = computed(() => this.canManage() || this.isTechnician());
 
   protected readonly item = signal<PreMissionAssessment | null>(null);
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly priorityLabel = priorityLabel;
+  protected readonly priorityColorClass = priorityColorClass;
+
+  protected roleVietnamese(role?: string | null): string {
+    const r = (role || '').trim().toUpperCase();
+    if (r.includes('INSPECT') || r.includes('PILOT')) return 'Phi công';
+    if (r.includes('ANALYST')) return 'Chuyên viên phân tích';
+    if (r.includes('TECH') || r.includes('MAINT')) return 'Kỹ thuật viên';
+    return role || '—';
+  }
+
+  protected formatCandidateName(name?: string | null): string {
+    const raw = (name || '').trim();
+    if (!raw) return '—';
+    // Shorten raw GUID fallback from backend for readability (full value stays in title tooltip)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+      return `ID ${raw.slice(0, 8).toUpperCase()}`;
+    }
+    return raw;
+  }
+
+  protected severityVietnamese(sev?: string | null): string {
+    const s = (sev || '').trim().toLowerCase();
+    if (s === 'high' || s === 'critical') return 'Cao';
+    if (s === 'medium' || s === 'warning') return 'Trung bình';
+    if (s === 'low' || s === 'info') return 'Thấp';
+    return sev || '—';
+  }
+
+  protected severityColorClass(sev?: string | null): string {
+    const s = (sev || '').trim().toLowerCase();
+    if (s === 'high' || s === 'critical') return 'text-rose-600 font-medium';
+    if (s === 'medium' || s === 'warning') return 'text-amber-700 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected technicalColorClass(elig?: UavTechnicalEligibility): string {
+    if (elig === 'ELIGIBLE') return 'text-emerald-600 font-medium';
+    if (elig === 'CRITICAL') return 'text-rose-600 font-medium';
+    if (elig === 'REQUIRES_INSPECTION' || elig === 'DEGRADED') return 'text-amber-700 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected suitabilityColorClass(suit?: string | null): string {
+    if (suit === 'SUITABLE') return 'text-emerald-600 font-medium';
+    if (suit === 'SUITABLE_WITH_SPLIT') return 'text-amber-700 font-medium';
+    if (suit === 'UNSUITABLE') return 'text-rose-600 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected findingsSummaryList(f: ParsedPersonnelFindings, role: string): readonly { text: string; ok: boolean }[] {
+    if (!f.isJson) {
+      return [{ text: f.rawText || 'Đạt tiêu chuẩn sẵn sàng vận hành', ok: true }];
+    }
+    const items: { text: string; ok: boolean }[] = [];
+    if (f.hasInspectorRole || role === 'INSPECTOR') {
+      items.push({ text: 'Chứng chỉ bay UAV', ok: true });
+    } else if (role === 'TECHNICIAN' || f.role === 'Technician' || f.role === 'MaintenanceTechnician') {
+      items.push({ text: 'KTV bảo trì UAV', ok: true });
+    } else if (role === 'ANALYST' || f.role === 'Analyst') {
+      items.push({ text: 'CV phân tích AI', ok: true });
+    }
+    if (!f.hasValidRole) items.push({ text: 'Thiếu chuẩn vai trò', ok: false });
+    items.push({ text: f.inScope ? 'Đúng địa bàn' : 'Khác địa bàn', ok: f.inScope });
+    items.push({ text: f.isActive ? 'Hồ sơ hợp lệ' : 'Chưa kích hoạt', ok: f.isActive });
+    if (f.hasBookingConflict) items.push({ text: 'Trùng lịch bay', ok: false });
+    return items;
+  }
   protected readonly error = signal('');
   protected readonly actionMessage = signal('');
   protected readonly isStaleConflict = signal(false);
