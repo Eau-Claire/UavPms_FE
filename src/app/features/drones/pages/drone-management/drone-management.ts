@@ -34,6 +34,7 @@ import { FlightControllerApi } from '../../../pre-mission/data-access/flight-con
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
 
 @Component({
   selector: 'app-drone-management',
@@ -66,7 +67,10 @@ export class DroneManagement {
   protected readonly operationalStatuses = UAV_OPERATIONAL_STATUSES;
   protected readonly technicalHealths = UAV_TECHNICAL_HEALTHS;
   protected readonly drones = signal<readonly UavRecord[]>([]);
-  protected readonly loading = signal(true);
+  protected readonly initialLoading = signal(true);
+  protected readonly fetching = signal(false);
+  protected readonly loading = computed(() => this.initialLoading() || this.fetching());
+  protected readonly skeletonRows = Array.from({ length: 10 }, (_, i) => i + 1);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly successMessage = signal('');
@@ -75,6 +79,9 @@ export class DroneManagement {
   protected readonly search = signal('');
   protected readonly statusFilter = signal<UavOperationalStatus | ''>('');
   protected readonly healthFilter = signal<UavTechnicalHealth | ''>('');
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.statusFilter() || this.healthFilter()),
+  );
 
   // Pagination
   protected readonly page = signal(1);
@@ -316,19 +323,50 @@ export class DroneManagement {
   }
 
   protected loadDrones(): void {
-    this.loading.set(true);
+    this.fetching.set(true);
     this.error.set('');
     this.api
       .getDrones()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.initialLoading.set(false);
+          this.fetching.set(false);
+        }),
       )
       .subscribe({
         next: (items) => this.drones.set(items),
         error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể tải danh sách phương tiện UAV.')),
       });
   }
+
+  protected onSearchEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.search.set(target?.value ?? '');
+    this.page.set(1);
+  }
+
+  protected onStatusEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.statusFilter.set((target?.value ?? '') as UavOperationalStatus | '');
+    this.page.set(1);
+  }
+
+  protected onHealthEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.healthFilter.set((target?.value ?? '') as UavTechnicalHealth | '');
+    this.page.set(1);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.statusFilter.set('');
+    this.healthFilter.set('');
+    this.page.set(1);
+  }
+
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly globalStatusLabel = globalStatusLabel;
 
   // --- CRUD Actions ---
   protected openCreate(): void {

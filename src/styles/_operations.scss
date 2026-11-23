@@ -479,6 +479,84 @@
   }
 }
 
+/* CLS-Zero Table Stage (Fixed 10-Row Min-Height + Keep-Previous-Data Opacity) */
+.app-table-stage {
+  min-height: 500px;
+
+  tbody {
+    transition: opacity 0.15s ease;
+
+    &.is-fetching {
+      opacity: 0.6;
+    }
+  }
+}
+
+.app-pagination-footer {
+  padding: 8px 16px 12px;
+  border-top: 1px solid #f1f5f9;
+  background-color: #ffffff;
+}
+
+.app-empty-cell {
+  text-align: center;
+  padding: 36px 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.app-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* Segmented Scope Tabs (e.g. Nhiệm vụ của tôi / Tất cả nhiệm vụ) */
+.app-scope-tabs {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  background-color: #f1f5f9;
+  border-radius: 4px;
+  height: 36px;
+  box-sizing: border-box;
+
+  .app-scope-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover:not(.active) {
+      color: #0f172a;
+    }
+
+    &.active {
+      background-color: #ffffff;
+      color: #1d4f91;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+  }
+}
+
 /* CLS-Zero Table Skeleton Bar */
 .app-skeleton-bar {
   display: inline-block;

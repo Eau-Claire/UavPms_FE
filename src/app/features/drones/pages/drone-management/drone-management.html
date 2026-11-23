@@ -1,74 +1,51 @@
-<div class="pre-mission-page uav-management-container">
-  <!-- TẦNG 1: Header Bar & Breadcrumb -->
-  <header class="pre-mission-head">
+<div class="ops-page uav-management-container">
+  <!-- Header Bar & Breadcrumb (0 Icons, No KPI Strip) -->
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>QUẢN LÝ UAV</strong>
+        <strong>Quản lý UAV</strong>
       </nav>
       <h1>Quản lý đội bay &amp; Phương tiện UAV</h1>
-      <p>
-        Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật (MF01), định danh Flight Controller và ước tính năng lực bay
-        hành lang GIS.
-      </p>
+      <p>Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật, định danh Flight Controller và ước tính năng lực bay GIS</p>
     </div>
     <div class="head-actions">
       @if (canManageFleet()) {
         <button
           type="button"
-          class="evn-btn secondary"
+          class="app-btn-secondary"
           (click)="openGisModal()"
           title="Ước tính tải Drone theo hành lang GIS"
         >
-          <span nz-icon nzType="calculator" aria-hidden="true"></span> Ước tính tải GIS
+          Ước tính tải GIS
         </button>
       }
-      <button
-        type="button"
-        class="evn-btn secondary"
-        (click)="loadDrones()"
-        [disabled]="loading()"
-        title="Làm mới danh sách"
-      >
-        <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span> Làm mới
-      </button>
       @if (canEditDrone()) {
-        <button
-          type="button"
-          class="evn-btn primary"
-          (click)="openCreate()"
-          title="Thêm UAV mới"
-        >
-          <span nz-icon nzType="plus" aria-hidden="true"></span> Thêm UAV mới
+        <button type="button" class="app-btn-primary" (click)="openCreate()" title="Thêm UAV mới">
+          Thêm UAV mới
         </button>
       }
     </div>
   </header>
 
-  <!-- TẦNG 3: Filter Toolbar -->
-  <section class="pre-mission-filters" aria-label="Bộ lọc phương tiện UAV">
-    <div class="filter-item search-grow">
-      <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
+  <!-- Compact Flat Filter Toolbar (36px Controls, 0 Icons, Fixed Xóa lọc) -->
+  <section class="app-filter-bar" role="search" aria-label="Bộ lọc phương tiện UAV">
+    <div class="filter-search">
       <input
-        type="text"
-        placeholder="Tìm kiếm theo mã UAV, tên model, serial, UID phần cứng FC..."
+        type="search"
+        placeholder="Tìm theo mã UAV, model, serial, FC UID..."
         [value]="search()"
-        (input)="search.set($any($event.target).value); page.set(1)"
+        (input)="onSearchEvent($event)"
         aria-label="Tìm kiếm UAV"
       />
-      @if (search()) {
-        <button type="button" class="clear-btn" (click)="search.set(''); page.set(1)" aria-label="Xóa từ khóa">
-          <span nz-icon nzType="close"></span>
-        </button>
-      }
     </div>
 
-    <label>
-      <span>Vận hành:</span>
+    <label class="filter-field">
+      <span class="filter-label">Vận hành</span>
       <select
         [value]="statusFilter()"
-        (change)="statusFilter.set($any($event.target).value); page.set(1)"
+        (change)="onStatusEvent($event)"
         aria-label="Lọc theo trạng thái vận hành"
       >
         <option value="">Tất cả trạng thái</option>
@@ -78,11 +55,11 @@
       </select>
     </label>
 
-    <label>
-      <span>Sức khỏe:</span>
+    <label class="filter-field">
+      <span class="filter-label">Sức khỏe</span>
       <select
         [value]="healthFilter()"
-        (change)="healthFilter.set($any($event.target).value); page.set(1)"
+        (change)="onHealthEvent($event)"
         aria-label="Lọc theo sức khỏe kỹ thuật"
       >
         <option value="">Tất cả sức khỏe</option>
@@ -92,191 +69,138 @@
       </select>
     </label>
 
-    @if (search() || statusFilter() || healthFilter()) {
+    <div class="filter-actions">
       <button
         type="button"
-        class="evn-btn secondary"
-        (click)="search.set(''); statusFilter.set(''); healthFilter.set(''); page.set(1)"
-        title="Đặt lại bộ lọc"
+        class="app-btn-secondary"
+        [disabled]="!hasActiveFilters()"
+        (click)="resetFilters()"
       >
-        <span nz-icon nzType="clear" aria-hidden="true"></span> Đặt lại
+        Xóa lọc
       </button>
-    }
+      <button type="button" class="app-btn-secondary" style="min-width: 90px;" (click)="loadDrones()">
+        {{ fetching() ? 'Đang tải...' : 'Làm mới' }}
+      </button>
+    </div>
   </section>
 
-  <!-- TẦNG 4: Summary Metric Strip -->
-  <div class="pre-mission-summary-strip" aria-label="Thống kê phương tiện UAV">
-    <div class="summary-item">
-      <strong>{{ stats().total }}</strong>
-      <span>Tổng số UAV</span>
+  @if (error()) {
+    <div class="app-error-banner" role="alert">
+      <span class="truncate">{{ error() }}</span>
+      <button type="button" class="app-btn-action" (click)="loadDrones()">Thử lại</button>
     </div>
-    <div class="summary-item">
-      <strong style="color: #166534;">{{ stats().available }}</strong>
-      <span>Khả dụng</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #1d4f91;">{{ stats().inUse }}</strong>
-      <span>Đang bay / Đặt trước</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #b45309;">{{ stats().maintenance }}</strong>
-      <span>Bảo trì / Ngưng dùng</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #166534;">{{ stats().healthy }}</strong>
-      <span>Kỹ thuật tốt</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #dc2626;">{{ stats().critical }}</strong>
-      <span>Lỗi nghiêm trọng</span>
-    </div>
-  </div>
+  }
 
-  <!-- TẦNG 5: UAV Fleet Table -->
-  <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
-    <div class="table-scroll">
-      <table>
+  <!-- Quiet Chrome UAV Fleet Table (Fixed Columns, 1-Line Cells, 0 Icons) -->
+  <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
+    <div class="app-table-scroll app-table-stage">
+      <table class="app-data-table">
+        <colgroup>
+          <col style="width: 10%" />
+          <col style="width: 18%" />
+          <col style="width: 10%" />
+          <col style="width: 12%" />
+          <col style="width: 13%" />
+          <col style="width: 15%" />
+          <col style="width: 14%" />
+          <col style="width: 8%" />
+        </colgroup>
         <thead>
           <tr>
-            <th>Mã &amp; Tên UAV</th>
-            <th>Model / Chủng loại</th>
-            <th style="text-align: center;">Vận hành</th>
-            <th style="text-align: center;">Sức khỏe</th>
+            <th>Mã UAV</th>
+            <th>Tên &amp; Model</th>
+            <th class="col-center">Vận hành</th>
+            <th class="col-center">Sức khỏe</th>
             <th>Năng lực bay</th>
-            <th>Phần cứng Flight Controller</th>
-            <th>Lần đo kiểm gần nhất</th>
-            <th style="text-align: right; width: 140px;">Thao tác</th>
+            <th>Flight Controller</th>
+            <th>Đo kiểm gần nhất</th>
+            <th class="col-center col-sticky-right">Thao tác</th>
           </tr>
         </thead>
-        <tbody>
-          @if (loading()) {
-            <tr>
-              <td colspan="8" class="empty-cell">
-                <span nz-icon nzType="loading" [nzSpin]="true"></span> Đang tải danh sách UAV...
-              </td>
-            </tr>
+        <tbody [class.is-fetching]="fetching() && !initialLoading()">
+          @if (initialLoading()) {
+            @for (row of skeletonRows; track row) {
+              <tr aria-hidden="true">
+                <td><span class="app-skeleton-bar w-20"></span></td>
+                <td><span class="app-skeleton-bar w-36"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
+                <td><span class="app-skeleton-bar w-28"></span></td>
+                <td><span class="app-skeleton-bar w-28"></span></td>
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
+              </tr>
+            }
           } @else if (filteredDrones().length === 0) {
             <tr>
-              <td colspan="8" class="empty-cell">
-                <span nz-icon nzType="inbox" style="font-size: 24px; color: #94a3b8;"></span>
-                <p>Không tìm thấy phương tiện UAV nào phù hợp với bộ lọc.</p>
+              <td colspan="8" class="app-empty-cell">
+                Không tìm thấy phương tiện UAV nào phù hợp với bộ lọc.
               </td>
             </tr>
           } @else {
             @for (drone of paginatedDrones(); track drone.id) {
               <tr>
-                <!-- Code & Name -->
                 <td>
-                  <div class="drone-code-cell">
-                    <span class="evn-code">{{ drone.code }}</span>
-                    <span class="uav-name">{{ drone.name }}</span>
-                    <span class="uav-serial">S/N: {{ drone.serialNumber || 'Chưa gán' }}</span>
-                  </div>
+                  <span class="cell-primary cell-truncate" [title]="drone.code + (drone.serialNumber ? ' · S/N: ' + drone.serialNumber : '')">
+                    {{ drone.code }}
+                  </span>
                 </td>
-
-                <!-- Model & Category -->
                 <td>
-                  <div class="model-cell">
-                    <strong>{{ drone.model }}</strong>
-                    <span class="category-tag">{{ drone.category || 'Quadcopter' }}</span>
-                    @if (drone.assignedRegionName) {
-                      <span class="region-tag">{{ drone.assignedRegionName }}</span>
-                    }
-                  </div>
+                  <span class="cell-primary cell-truncate" [title]="drone.name + ' · ' + drone.model">
+                    {{ drone.name }}
+                    <span class="cell-muted"> · {{ drone.model }}</span>
+                  </span>
                 </td>
-
-                <!-- Operational Status -->
-                <td style="text-align: center;">
-                  <span class="evn-status" [class]="operationalStatusTone(drone.operationalStatus)">
+                <td class="col-center">
+                  <span [class]="statusColorClass(drone.operationalStatus)" [title]="statusLabel(drone.operationalStatus)">
                     {{ statusLabel(drone.operationalStatus) }}
                   </span>
                 </td>
-
-                <!-- Technical Health -->
-                <td style="text-align: center;">
-                  <span class="evn-status" [class]="technicalHealthTone(drone.technicalHealth)">
-                    @if (drone.technicalHealth === 'Healthy') {
-                      <span nz-icon nzType="check-circle" aria-hidden="true"></span>
-                    } @else if (drone.technicalHealth === 'Critical') {
-                      <span nz-icon nzType="close-circle" aria-hidden="true"></span>
-                    } @else if (drone.technicalHealth === 'Warning') {
-                      <span nz-icon nzType="warning" aria-hidden="true"></span>
-                    }
+                <td class="col-center">
+                  <span [class]="statusColorClass(drone.technicalHealth)" [title]="healthLabel(drone.technicalHealth)">
                     {{ healthLabel(drone.technicalHealth) }}
                   </span>
-                  @if (drone.technicalHealth === 'Critical') {
-                    <div class="critical-notice">Không được phép bay</div>
-                  }
                 </td>
-
-                <!-- Capability -->
-                <td>
-                  <div class="cap-cell">
-                    <div><span nz-icon nzType="clock-circle" aria-hidden="true"></span> {{ drone.flightEnduranceMinutes || 35 }} phút</div>
-                    <div><span nz-icon nzType="radar-chart" aria-hidden="true"></span> {{ drone.operationalRangeKm || 15 }} km</div>
-                    <div class="battery-bar">
-                      <div class="bar-fill" [style.width.%]="drone.batteryLevel || 100"></div>
-                      <span class="battery-pct">{{ drone.batteryLevel }}%</span>
-                    </div>
-                  </div>
+                <td class="tabular-nums cell-secondary">
+                  <span
+                    class="cell-truncate"
+                    [title]="(drone.flightEnduranceMinutes || 35) + ' phút · ' + (drone.operationalRangeKm || 15) + ' km · Pin ' + drone.batteryLevel + '%'"
+                  >
+                    {{ drone.flightEnduranceMinutes || 35 }}p · {{ drone.operationalRangeKm || 15 }}km · {{ drone.batteryLevel }}%
+                  </span>
                 </td>
-
-                <!-- Active FC Binding -->
                 <td>
                   @if (drone.activeFlightController; as fc) {
-                    <div class="fc-cell">
-                      <div class="fc-uid" title="FC Hardware UID">
-                        <span nz-icon nzType="usb" aria-hidden="true"></span> {{ fc.flightControllerUid }}
-                      </div>
-                      <div class="fc-meta">{{ fc.boardIdentifier || 'Betaflight' }} ({{ fc.firmwareVersion || 'v4.5' }})</div>
-                      @if (fc.lastSeenAt) {
-                        <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'dd/MM/yyyy HH:mm' }}</div>
-                      }
-                      @if (canEditDrone()) {
-                        <button type="button" class="fc-btn-link" (click)="openFcModal(drone)">
-                          <span nz-icon nzType="edit" aria-hidden="true"></span> Cập nhật FC
-                        </button>
-                      }
-                    </div>
-                  } @else {
-                    <div class="fc-unpaired-wrap">
-                      <span class="fc-unpaired">Chưa ghép nối FC</span>
-                      @if (canEditDrone()) {
-                        <button type="button" class="fc-btn-link pair" (click)="openFcModal(drone)">
-                          <span nz-icon nzType="plus" aria-hidden="true"></span> Ghép nối FC
-                        </button>
-                      }
-                    </div>
-                  }
-                </td>
-
-                <!-- Last Inspection -->
-                <td>
-                  @if (drone.lastTechnicalInspection; as insp) {
-                    <div class="insp-cell">
-                      <div class="insp-status" [class.pass]="insp.status === 'Passed'">
-                        {{ insp.status }} ({{ insp.health }})
-                      </div>
-                      <div class="insp-date">{{ insp.completedAt | date:'dd/MM/yyyy HH:mm' }}</div>
-                    </div>
-                  } @else {
-                    <span class="text-muted">Chưa kiểm tra</span>
-                  }
-                </td>
-
-                <!-- Actions -->
-                <td style="text-align: right;">
-                  <div class="actions-cell" style="justify-content: flex-end;">
-                    <button
-                      type="button"
-                      class="evn-btn secondary"
-                      (click)="openHistory(drone)"
-                      title="Chi tiết & Lịch sử kiểm định kỹ thuật"
-                      [attr.aria-label]="'Chi tiết ' + drone.code"
-                    >
-                      Chi tiết
+                    <span class="cell-secondary cell-truncate" [title]="fc.flightControllerUid">
+                      {{ fc.flightControllerUid }}
+                    </span>
+                  } @else if (canEditDrone()) {
+                    <button type="button" class="app-btn-action" (click)="openFcModal(drone)">
+                      Ghép nối FC
                     </button>
-                  </div>
+                  } @else {
+                    <span class="cell-muted">Chưa ghép nối</span>
+                  }
+                </td>
+                <td class="tabular-nums cell-secondary">
+                  @if (drone.lastTechnicalInspection; as insp) {
+                    <span class="cell-truncate" [title]="globalStatusLabel(insp.status) + ' · ' + (insp.completedAt | date: 'dd/MM/yyyy HH:mm')">
+                      {{ insp.completedAt | date: 'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  } @else {
+                    <span class="cell-muted">Chưa kiểm tra</span>
+                  }
+                </td>
+                <td class="col-center col-sticky-right">
+                  <button
+                    type="button"
+                    class="app-btn-action"
+                    (click)="openHistory(drone)"
+                    title="Chi tiết & Lịch sử kiểm định kỹ thuật"
+                    [attr.aria-label]="'Chi tiết ' + drone.code"
+                  >
+                    Chi tiết
+                  </button>
                 </td>
               </tr>
             }
@@ -285,9 +209,14 @@
       </table>
     </div>
 
-    <footer class="drone-pagination-wrap">
-      <app-pagination [page]="page()" [totalPages]="totalPages()" [totalCount]="filteredDrones().length"
-        [pageSize]="pageSize()" (pageChanged)="page.set($event)" />
+    <footer class="app-pagination-footer">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [totalCount]="filteredDrones().length"
+        [pageSize]="pageSize()"
+        (pageChanged)="page.set($event)"
+      />
     </footer>
   </section>
 </div>

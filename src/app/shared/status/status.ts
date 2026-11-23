@@ -90,11 +90,22 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   DRAFT: 'Bản nháp',
   PENDINGACCEPTANCE: 'Chờ tiếp nhận',
   PENDING_ACCEPTANCE: 'Chờ tiếp nhận',
+  PREPARING: 'Đang chuẩn bị',
   POSTPONED: 'Tạm hoãn',
   CONFIRMED: 'Đã xác nhận',
   INPROGRESS: 'Đang thực hiện',
   IN_PROGRESS: 'Đang thực hiện',
   SUSPENDED: 'Tạm dừng',
+
+  // Drone Operational & Health Statuses
+  INUSE: 'Đang bay',
+  IN_USE: 'Đang bay',
+  RESERVED: 'Đã giữ chỗ',
+  MAINTENANCE: 'Bảo trì',
+  LOST: 'Mất tín hiệu',
+  WARNING: 'Cảnh báo',
+  CRITICAL: 'Lỗi nghiêm trọng',
+  UNKNOWN: 'Chưa kiểm định',
 
   // MaintenanceTicket State Machine
   OPEN: 'Đang mở',
@@ -178,6 +189,7 @@ export const statusColorClass = (status: string): string => {
       'CRITICAL',
       'EMERGENCY',
       'SUSPENDED',
+      'LOST',
     ].includes(compact)
   ) {
     return 'text-rose-600 font-medium';
@@ -191,6 +203,7 @@ export const statusColorClass = (status: string): string => {
     [
       'EXPIRED',
       'WARNING',
+      'MAINTENANCE',
       'POSTPONED',
       'RESERVED',
       'PENDINGACCEPTANCE',
@@ -207,6 +220,7 @@ export const statusColorClass = (status: string): string => {
     [
       'EVALUATING',
       'INPROGRESS',
+      'INUSE',
       'PREPARING',
       'PENDING',
       'DRAFT',
@@ -219,9 +233,29 @@ export const statusColorClass = (status: string): string => {
     return 'text-sky-600 font-medium';
   }
 
-  if (['COMPLETED', 'CONSUMED'].includes(compact)) {
+  if (['COMPLETED', 'CONSUMED', 'UNKNOWN'].includes(compact)) {
     return 'text-slate-600 font-medium';
   }
 
+  return 'text-slate-600 font-medium';
+};
+
+/** Chuẩn hóa nhãn mức độ ưu tiên tiếng Việt thống nhất toàn hệ thống. */
+export const priorityLabel = (priority?: string | null): string => {
+  const key = (priority || 'NORMAL').trim().toUpperCase();
+  if (key === 'EMERGENCY' || key === 'CRITICAL') return 'Khẩn cấp';
+  if (key === 'HIGH') return 'Cao';
+  if (key === 'MEDIUM') return 'Trung bình';
+  if (key === 'LOW') return 'Thấp';
+  return 'Bình thường';
+};
+
+/** Class Tailwind chỉ đổi màu chữ cho mức độ ưu tiên (không viền màu, chuẩn WCAG AA). */
+export const priorityColorClass = (priority?: string | null): string => {
+  const key = (priority || 'NORMAL').trim().toUpperCase();
+  if (key === 'EMERGENCY' || key === 'CRITICAL') return 'text-rose-600 font-medium';
+  if (key === 'HIGH') return 'text-amber-700 font-medium';
+  if (key === 'MEDIUM') return 'text-sky-600 font-medium';
+  if (key === 'LOW') return 'text-slate-500 font-medium';
   return 'text-slate-600 font-medium';
 };
