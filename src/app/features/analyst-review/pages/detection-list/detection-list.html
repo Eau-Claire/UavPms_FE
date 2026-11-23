@@ -78,6 +78,19 @@
       />
     </div>
 
+    <label class="filter-field">
+      <span class="filter-label">Mức độ ưu tiên</span>
+      <select
+        aria-label="Lọc theo mức độ ưu tiên"
+        [value]="priorityFilter()"
+        (change)="onPriorityChange($event)"
+      >
+        <option value="">Tất cả mức độ</option>
+        <option value="emergency">Khẩn cấp</option>
+        <option value="normal">Bình thường</option>
+      </select>
+    </label>
+
     <label class="review-checkbox-label">
       <input
         type="checkbox"
@@ -314,12 +327,14 @@
                 <h2 class="card-title" [title]="item.categoryName">{{ item.categoryName }}</h2>
 
                 <div class="card-meta-list">
-                  @if (isEmergencyItem(item)) {
-                    <div class="meta-row">
-                      <span>Mức độ</span>
-                      <strong class="text-red-700">Sự cố khẩn cấp</strong>
-                    </div>
-                  }
+                  <div class="meta-row">
+                    <span>Mức độ</span>
+                    @if (isEmergencyItem(item)) {
+                      <strong class="text-rose-600">Khẩn cấp</strong>
+                    } @else {
+                      <span>Bình thường</span>
+                    }
+                  </div>
                   <div class="meta-row">
                     <span>Cột điện</span>
                     @if (item.towerId) {

@@ -116,12 +116,13 @@ const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
   RESOLVED: 'Đã xử lý',
 
   // DetectedAnomaly State Machine
-  PENDING: 'Chờ xử lý',
+  PENDING: 'Chờ duyệt',
   INREVIEW: 'Đang thẩm định',
   IN_REVIEW: 'Đang thẩm định',
   UNDERREVIEW: 'Đang thẩm định',
   UNDER_REVIEW: 'Đang thẩm định',
-  REJECTED: 'Từ chối',
+  REJECTED: 'Đã từ chối',
+  SUPERSEDED: 'Đã thay thế',
 
   // AIAnalysisRun State Machine
   QUEUED: 'Chờ xử lý',

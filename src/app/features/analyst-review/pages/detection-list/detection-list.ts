@@ -9,7 +9,7 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, Subject, Subscription } from 'rxjs';
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
@@ -36,6 +36,7 @@ type ReviewStatusFilter = 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Reject
 export class DetectionList {
   private readonly api = inject(AnomalyApi);
   private readonly alertsApi = inject(EmergencyAlertsApi);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchSubject = new Subject<string>();
@@ -48,6 +49,7 @@ export class DetectionList {
   protected readonly page = signal(1);
   protected readonly pageSize = signal(15);
   protected readonly search = signal('');
+  protected readonly priorityFilter = signal<'' | 'emergency' | 'normal'>('');
   protected readonly viewMode = signal<'grid' | 'table'>('grid');
   protected readonly showSuperseded = signal(false);
   protected readonly statusFilter = signal<ReviewStatusFilter>('Pending');
@@ -68,12 +70,20 @@ export class DetectionList {
 
   protected readonly hiddenSupersededCount = computed(() => this.grouping().hiddenCount);
 
-  protected readonly displayedItems = computed<readonly AnomalyItem[]>(() =>
-    this.showSuperseded() ? this.response().items : this.grouping().visible,
-  );
+  protected readonly displayedItems = computed<readonly AnomalyItem[]>(() => {
+    const base = this.showSuperseded() ? this.response().items : this.grouping().visible;
+    const priority = this.priorityFilter();
+    if (priority === 'emergency') {
+      return base.filter((item) => this.isEmergencyItem(item));
+    }
+    if (priority === 'normal') {
+      return base.filter((item) => !this.isEmergencyItem(item));
+    }
+    return base;
+  });
 
   protected readonly hasActiveFilters = computed(() =>
-    Boolean(this.search().trim() || this.showSuperseded()),
+    Boolean(this.search().trim() || this.priorityFilter() || this.showSuperseded()),
   );
 
   protected readonly emptyStateTitle = computed(() => {
@@ -109,6 +119,15 @@ export class DetectionList {
   });
 
   constructor() {
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const p = (params.get('priority') ?? '').trim().toLowerCase();
+        if (p === 'emergency' || p === 'normal') {
+          this.priorityFilter.set(p);
+        }
+      });
+
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((query) => {
@@ -196,8 +215,14 @@ export class DetectionList {
     this.showSuperseded.set((event.target as HTMLInputElement).checked);
   }
 
+  protected onPriorityChange(event: Event): void {
+    const val = ((event.target as HTMLSelectElement | null)?.value ?? '') as '' | 'emergency' | 'normal';
+    this.priorityFilter.set(val);
+  }
+
   protected resetFilters(): void {
     this.search.set('');
+    this.priorityFilter.set('');
     this.showSuperseded.set(false);
     this.page.set(1);
     this.load();
@@ -248,7 +273,10 @@ export class DetectionList {
   }
 
   protected isEmergencyItem(item: AnomalyItem): boolean {
-    return Boolean(item.isEmergency || (item.severity ?? 0) >= 4);
+    if (item.isEmergency) return true;
+    const sev = item.severity;
+    if (sev === null || sev === undefined) return false;
+    return sev > 1 ? sev >= 4 : sev >= 0.85;
   }
 
   protected isItemFinalized(item: AnomalyItem): boolean {
@@ -261,6 +289,6 @@ export class DetectionList {
 
   protected handleImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
-    img.src = '/images/defect-preview-frame.png';
+    img.style.display = 'none';
   }
 }

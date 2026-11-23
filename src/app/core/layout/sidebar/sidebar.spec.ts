@@ -52,13 +52,13 @@ describe('Sidebar', () => {
     expect(alertsApi.fetchActiveAlerts).not.toHaveBeenCalled();
   });
 
-  it('gives analysts the emergency alerts link with the active alert count', () => {
+  it('gives analysts the unified ai-review link with the active alert count', () => {
     const { links, alertsApi } = setup('Analyst');
     expect(links().map((l) => l.href)).toEqual([
-      '/dashboard', '/emergency-alerts', '/ai-review', '/ai-analysis/upload', '/missions', '/gis', '/towers', '/inspections', '/reports',
+      '/dashboard', '/ai-review', '/ai-analysis/upload', '/missions', '/gis', '/towers', '/inspections', '/reports',
     ]);
     expect(alertsApi.fetchActiveAlerts).toHaveBeenCalledTimes(1);
-    expect(links().find((l) => l.href === '/emergency-alerts')?.badge).toBe('3');
+    expect(links().find((l) => l.href === '/ai-review')?.badge).toBe('3');
   });
 
   it('gives technicians maintenance, drones, pre-mission and GIS', () => {

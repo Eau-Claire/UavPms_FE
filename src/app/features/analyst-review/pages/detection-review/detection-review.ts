@@ -344,6 +344,15 @@ export class DetectionReview {
           const code = apiErrorCode(err);
           const rawMsg = err instanceof HttpErrorResponse && err.error?.message ? String(err.error.message) : '';
 
+          if (code === 'TOWER_REQUIRED' || rawMsg.includes('TOWER_REQUIRED') || rawMsg.toLowerCase().includes('tower')) {
+            this.towerRequired.set(true);
+            const msg = 'Máy chủ hiện tại yêu cầu gán cột điện cho sự cố này trước khi xác nhận. Vui lòng chọn cột điện ở danh sách bên dưới.';
+            this.feedbackType.set('error');
+            this.feedbackMessage.set(msg);
+            this.toast.error(msg);
+            return;
+          }
+
           if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Confirmed'")) {
             const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
             const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
@@ -365,7 +374,6 @@ export class DetectionReview {
             return;
           }
 
-          if (code === 'TOWER_REQUIRED') this.towerRequired.set(true);
           const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
@@ -523,13 +531,20 @@ export class DetectionReview {
     return 'status-pending';
   }
 
+  protected isEmergencyItem(item: AnomalyItem): boolean {
+    if (item.isEmergency) return true;
+    const sev = item.severity;
+    if (sev === null || sev === undefined) return false;
+    return sev > 1 ? sev >= 4 : sev >= 0.85;
+  }
+
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Superseded';
-    if (item.validationStatus === 'Confirmed') return 'Confirmed';
-    if (item.validationStatus === 'Resolved') return 'Resolved';
-    if (item.validationStatus === 'Rejected') return 'Rejected';
-    if (item.validationStatus === 'InReview') return 'InReview';
-    return 'Pending';
+    if (item.supersededById) return 'Đã thay thế';
+    if (item.validationStatus === 'Confirmed') return 'Đã xác nhận';
+    if (item.validationStatus === 'Resolved') return 'Đã khắc phục';
+    if (item.validationStatus === 'Rejected') return 'Đã từ chối';
+    if (item.validationStatus === 'InReview') return 'Đang thẩm định';
+    return 'Chờ duyệt';
   }
 
   protected confidenceClass(score: number): string {

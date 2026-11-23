@@ -136,7 +136,7 @@
                 <span class="status-dot"></span>
                 Kết quả thẩm định: {{ statusText(item) }}
               </span>
-              @if (item.isEmergency || (item.severity ?? 0) >= 4) {
+              @if (isEmergencyItem(item)) {
                 <span class="emergency-pill">Khẩn cấp</span>
               }
             </div>

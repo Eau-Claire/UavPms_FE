@@ -14,7 +14,7 @@ export interface NavLinkItem {
   readonly badgeCount?: number;
 }
 
-const EMERGENCY_ALERTS_PATH = '/emergency-alerts';
+const AI_REVIEW_PATH = '/ai-review';
 
 /**
  * Main menu per role family. Field roles only get pages whose route guard and backend API accept them,
@@ -28,8 +28,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
     { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
     { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
-    { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
-    { path: EMERGENCY_ALERTS_PATH, icon: 'exclamation-circle', label: 'Cảnh báo khẩn cấp' },
+    { path: AI_REVIEW_PATH, icon: 'audit', label: 'Duyệt khuyết tật' },
     { path: '/ai-analysis/upload', icon: 'cloud-upload', label: 'Kiểm tra dữ liệu AI' },
     { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì' },
     { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
@@ -43,7 +42,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ bay' },
     { path: '/pre-mission', icon: 'file-protect', label: 'Đánh giá tiền bay' },
     { path: '/drones', icon: 'rocket', label: 'Phương tiện UAV' },
-    { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
+    { path: AI_REVIEW_PATH, icon: 'audit', label: 'Duyệt khuyết tật' },
     { path: '/maintenance', icon: 'tool', label: 'Phiếu bảo trì' },
     { path: '/inspections', icon: 'file-text', label: 'Lịch sử kiểm tra' },
     { path: '/reports', icon: 'file-text', label: 'Báo cáo' },
@@ -59,8 +58,7 @@ export const PRIMARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
   ],
   analyst: [
     { path: '/dashboard', icon: 'dashboard', label: 'Trang chủ' },
-    { path: EMERGENCY_ALERTS_PATH, icon: 'exclamation-circle', label: 'Cảnh báo khẩn cấp' },
-    { path: '/ai-review', icon: 'audit', label: 'Duyệt khuyết tật' },
+    { path: AI_REVIEW_PATH, icon: 'audit', label: 'Duyệt khuyết tật' },
     { path: '/ai-analysis/upload', icon: 'cloud-upload', label: 'Kiểm tra dữ liệu độc lập' },
     { path: '/missions', icon: 'appstore', label: 'Nhiệm vụ của tôi' },
     { path: '/gis', icon: 'environment', label: 'Bản đồ GIS' },
@@ -121,12 +119,12 @@ export class Sidebar {
 
   protected readonly family = computed(() => roleFamily(this.auth.user()?.role));
   protected readonly activeAlertCount = computed(() => this.alertsApi.activeCount());
-  private readonly showsAlerts = computed(() => PRIMARY_LINKS[this.family()].some((item) => item.path === EMERGENCY_ALERTS_PATH));
+  private readonly showsAlerts = computed(() => PRIMARY_LINKS[this.family()].some((item) => item.path === AI_REVIEW_PATH));
 
   protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => {
     const links = PRIMARY_LINKS[this.family()];
     const alertCount = this.activeAlertCount();
-    return links.map((item) => (item.path === EMERGENCY_ALERTS_PATH ? { ...item, badgeCount: alertCount } : item));
+    return links.map((item) => (item.path === AI_REVIEW_PATH ? { ...item, badgeCount: alertCount } : item));
   });
 
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => SECONDARY_LINKS[this.family()]);

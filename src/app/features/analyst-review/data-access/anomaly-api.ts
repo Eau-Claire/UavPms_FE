@@ -12,7 +12,7 @@ export function mapAlertToAnomaly(alert: ActiveEmergencyAlert): AnomalyItem {
   const id = alert.anomalyId || alert.id;
   return {
     id,
-    mediaUrl: alert.evidence?.mediaUrl || '/images/defect-preview-frame.png',
+    mediaUrl: alert.evidence?.mediaUrl || '',
     towerId: alert.towerId ?? null,
     towerCode: alert.towerCode || alert.location?.towerCode || null,
     missionCode: null,
