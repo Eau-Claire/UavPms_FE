@@ -1,84 +1,65 @@
-<div class="reports-page-container">
-  <!-- Header Banner -->
-  <header class="page-heading">
-    <div class="heading-left">
-      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+<div class="pre-mission-page reports-page-container">
+  <!-- Header Bar & Breadcrumb -->
+  <header class="pre-mission-head">
+    <div>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
         <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
-        <strong>BÁO CÁO & PHÂN TÍCH</strong>
+        <strong>BÁO CÁO &amp; PHÂN TÍCH</strong>
       </nav>
-      <h1 class="page-title">Báo cáo và phân tích vận hành</h1>
-      <p class="review-subtitle">Tổng hợp báo cáo kiểm tra theo khu vực, thống kê khuyết tật và xuất dữ liệu báo cáo vận hành.</p>
+      <h1>Báo cáo và phân tích vận hành</h1>
+      <p>Tổng hợp báo cáo kiểm tra theo khu vực, thống kê khuyết tật và xuất dữ liệu báo cáo vận hành.</p>
     </div>
-    <div class="header-actions">
+
+    <div class="head-actions">
       <button
         type="button"
-        class="button secondary"
+        class="evn-btn secondary"
         (click)="refreshReports()"
         [disabled]="isLoading()"
         title="Làm mới danh sách"
       >
-        <span nz-icon [nzType]="isLoading() ? 'loading' : 'reload'" [nzSpin]="isLoading()"></span> Làm mới
+        <span nz-icon [nzType]="isLoading() ? 'loading' : 'reload'" [nzSpin]="isLoading()" aria-hidden="true"></span>
+        Làm mới
       </button>
 
       <button
         type="button"
-        class="button secondary btn-download-pdf"
+        class="evn-btn secondary"
         [disabled]="!selectedReportId() || isDownloading() !== null"
         (click)="downloadSelected('pdf')"
         [title]="selectedReportId() ? 'Tải báo cáo đã chọn dưới dạng PDF' : 'Vui lòng chọn một báo cáo trong danh sách để tải PDF'"
       >
-        <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-pdf' ? 'loading' : 'file-pdf'" style="color: #dc2626;"></span>
+        <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-pdf' ? 'loading' : 'file-pdf'" class="icon-pdf" aria-hidden="true"></span>
         <span>Tải PDF</span>
       </button>
 
       <button
         type="button"
-        class="button secondary btn-download-excel"
+        class="evn-btn secondary"
         [disabled]="!selectedReportId() || isDownloading() !== null"
         (click)="downloadSelected('excel')"
         [title]="selectedReportId() ? 'Tải báo cáo đã chọn dưới dạng Excel' : 'Vui lòng chọn một báo cáo trong danh sách để tải Excel'"
       >
-        <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-excel' ? 'loading' : 'file-excel'" style="color: #16a34a;"></span>
+        <span nz-icon [nzType]="isDownloading() === selectedReportId() + '-excel' ? 'loading' : 'file-excel'" class="icon-excel" aria-hidden="true"></span>
         <span>Tải Excel</span>
       </button>
 
       <button
         type="button"
-        class="button primary"
+        class="evn-btn primary"
         (click)="openCreateModal()"
+        title="Lập báo cáo mới"
       >
-        <span nz-icon nzType="plus"></span> Lập báo cáo mới
+        <span nz-icon nzType="plus" aria-hidden="true"></span>
+        Lập báo cáo mới
       </button>
     </div>
   </header>
 
-  <!-- KPI Status Summary Bar -->
-  <section class="reports-status-bar" aria-label="Thống kê báo cáo">
-    <div class="status-item">
-      <span class="status-label">Tổng số báo cáo</span>
-      <strong class="status-value">{{ stats().total }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Đã duyệt</span>
-      <strong class="status-value text-approved">{{ stats().byStatus.approved }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Chờ duyệt</span>
-      <strong class="status-value text-pending">{{ stats().byStatus.pending }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Bản nháp</span>
-      <strong class="status-value text-draft">{{ stats().byStatus.draft }}</strong>
-    </div>
-  </section>
-
-  <!-- Filter Toolbar Card -->
-  <section class="filter-toolbar">
-    <div class="search-box">
+  <!-- EVN Light Blue Filter Toolbar -->
+  <section class="pre-mission-filters" aria-label="Bộ lọc báo cáo">
+    <div class="search-input-wrap">
       <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
       <input
         id="report-search"
@@ -86,91 +67,120 @@
         placeholder="Tìm theo tiêu đề, mã số báo cáo..."
         [value]="searchQuery()"
         (input)="onSearchInput($any($event.target).value)"
+        aria-label="Tìm kiếm báo cáo"
       />
     </div>
 
-    <div class="select-group">
-      <div class="select-field">
-        <label for="report-region">Khu vực:</label>
-        <select id="report-region" [value]="selectedRegionId()" (change)="onRegionChange($any($event.target).value)">
-          <option value="">Tất cả khu vực</option>
-          @for (region of regions(); track region.id) {
-            <option [value]="region.id">{{ region.name }}</option>
-          }
-        </select>
-      </div>
+    <label for="report-region">
+      <span>Khu vực:</span>
+      <select id="report-region" [value]="selectedRegionId()" (change)="onRegionChange($any($event.target).value)">
+        <option value="">Tất cả khu vực</option>
+        @for (region of regions(); track region.id) {
+          <option [value]="region.id">{{ region.name }}</option>
+        }
+      </select>
+    </label>
 
-      <div class="select-field">
-        <label for="report-type">Loại:</label>
-        <select id="report-type" [value]="selectedType()" (change)="onTypeChange($any($event.target).value)">
-          <option value="all">Tất cả loại báo cáo</option>
-          @for (type of reportTypes; track type) {
-            <option [value]="type">{{ typeLabels[type] }}</option>
-          }
-        </select>
-      </div>
+    <label for="report-type">
+      <span>Loại:</span>
+      <select id="report-type" [value]="selectedType()" (change)="onTypeChange($any($event.target).value)">
+        <option value="all">Tất cả loại báo cáo</option>
+        @for (type of reportTypes; track type) {
+          <option [value]="type">{{ typeLabels[type] }}</option>
+        }
+      </select>
+    </label>
 
-      <div class="select-field">
-        <label for="report-status">Trạng thái:</label>
-        <select id="report-status" [value]="selectedStatus()" (change)="onStatusChange($any($event.target).value)">
-          <option value="all">Tất cả trạng thái</option>
-          <option value="approved">Đã duyệt</option>
-          <option value="pending">Chờ duyệt</option>
-          <option value="draft">Bản nháp</option>
-        </select>
-      </div>
-    </div>
+    <label for="report-status">
+      <span>Trạng thái:</span>
+      <select id="report-status" [value]="selectedStatus()" (change)="onStatusChange($any($event.target).value)">
+        <option value="all">Tất cả trạng thái</option>
+        <option value="approved">Đã duyệt</option>
+        <option value="pending">Chờ duyệt</option>
+        <option value="draft">Bản nháp</option>
+      </select>
+    </label>
   </section>
 
-  <!-- Table Container Card -->
-  <section class="table-container">
-    <div class="table-header">
-      <div>
-        <h2>Danh mục báo cáo</h2>
-      </div>
-      <div class="table-header-right">
-        <span class="record-badge">{{ totalItems() }} báo cáo</span>
-      </div>
+  <!-- Summary Metric Strip -->
+  <div class="pre-mission-summary-strip" aria-label="Thống kê báo cáo">
+    <div class="summary-item">
+      <span>Tổng báo cáo:</span>
+      <strong>{{ stats().total }}</strong>
     </div>
+    <div class="summary-item">
+      <span>Đã duyệt:</span>
+      <strong class="text-approved">{{ stats().byStatus.approved }}</strong>
+    </div>
+    <div class="summary-item">
+      <span>Chờ duyệt:</span>
+      <strong class="text-pending">{{ stats().byStatus.pending }}</strong>
+    </div>
+    <div class="summary-item">
+      <span>Bản nháp:</span>
+      <strong class="text-draft">{{ stats().byStatus.draft }}</strong>
+    </div>
+    <div class="summary-item">
+      <span>Khuyết tật:</span>
+      <strong class="text-danger">{{ stats().byType.defect }}</strong>
+    </div>
+    <div class="summary-item">
+      <span>Định kỳ:</span>
+      <strong>{{ stats().byType.periodic }}</strong>
+    </div>
+  </div>
 
-    @if (isLoading()) {
-      <div class="loading-state" aria-live="polite">
-        <span nz-icon nzType="loading" class="loading-spinner" aria-hidden="true"></span>
-        <p>Đang tải dữ liệu báo cáo...</p>
-      </div>
-    } @else if (reports().length) {
-      <div class="table-scroll">
-        <table class="report-table">
-          <caption class="sr-only">Danh sách báo cáo</caption>
-          <thead>
+  <!-- Dense Bordered Table Card & Pagination -->
+  <section class="pre-mission-table-card" [attr.aria-busy]="isLoading()">
+    <div class="table-scroll">
+      <table class="report-table">
+        <caption class="sr-only">Danh sách báo cáo</caption>
+        <thead>
+          <tr>
+            <th scope="col" style="width: 44px;" class="text-center">Chọn</th>
+            <th scope="col" style="width: 28%;">Mã &amp; Tiêu đề báo cáo</th>
+            <th scope="col" style="width: 13%;">Phân loại</th>
+            <th scope="col" style="width: 15%;">Khu vực</th>
+            <th scope="col" style="width: 12%;">Ngày lập</th>
+            <th scope="col" style="width: 11%;">Người lập</th>
+            <th scope="col" style="width: 12%;" class="text-center">Trạng thái</th>
+            <th scope="col" style="width: 12%;" class="text-right">Tải xuống</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (isLoading() && !reports().length) {
             <tr>
-              <th scope="col" style="width: 44px; text-align: center;">Chọn</th>
-              <th scope="col" style="width: 28%;">Mã &amp; Tiêu đề báo cáo</th>
-              <th scope="col" style="width: 14%;">Phân loại</th>
-              <th scope="col" style="width: 16%;">Khu vực</th>
-              <th scope="col" style="width: 14%;">Ngày lập</th>
-              <th scope="col" style="width: 14%;">Người lập</th>
-              <th scope="col" style="width: 14%;">Trạng thái</th>
+              <td colspan="8" class="empty-cell">
+                <span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span>
+                Đang tải dữ liệu báo cáo...
+              </td>
             </tr>
-          </thead>
-          <tbody>
+          } @else if (!reports().length) {
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <span nz-icon nzType="inbox" class="empty-icon" aria-hidden="true"></span>
+                <strong>Không tìm thấy báo cáo phù hợp</strong>
+                <p>Vui lòng điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các tiêu chí lọc.</p>
+              </td>
+            </tr>
+          } @else {
             @for (item of reports(); track item.id) {
-              <tr [class.is-selected]="selectedReportId() === item.id" (click)="selectReport(item)" style="cursor: pointer;">
-                <td style="text-align: center;" (click)="$event.stopPropagation(); selectReport(item)">
+              <tr class="report-row" [class.is-selected]="selectedReportId() === item.id" (click)="selectReport(item)">
+                <td class="text-center" (click)="$event.stopPropagation(); selectReport(item)">
                   <input
                     type="radio"
                     name="selectedReportRadio"
                     [checked]="selectedReportId() === item.id"
                     (change)="selectReport(item)"
-                    style="cursor: pointer;"
-                    aria-label="Chọn báo cáo {{ item.title }}"
+                    class="row-radio"
+                    [attr.aria-label]="'Chọn báo cáo ' + item.title"
                   />
                 </td>
                 <td>
                   <div class="report-title-cell">
                     <strong>{{ item.title }}</strong>
                     <div class="report-meta-line">
-                      <span class="code-badge">{{ item.code }}</span>
+                      <span class="evn-code">{{ item.code }}</span>
                       <span class="defect-indicator">{{ item.defectCount }} khuyết tật</span>
                     </div>
                   </div>
@@ -187,10 +197,9 @@
                 <td>
                   <span class="creator-name">{{ item.creator?.fullName || '—' }}</span>
                 </td>
-                <td>
+                <td class="text-center">
                   <div class="status-cell">
-                    <span class="status-badge" [class]="item.status">
-                      <span class="status-dot"></span>
+                    <span class="evn-status" [class]="statusTone(item.status)">
                       {{ item.statusName }}
                     </span>
                     @if (item.hasSnapshot) {
@@ -203,13 +212,41 @@
                     }
                   </div>
                 </td>
+                <td class="text-right">
+                  <div class="btn-group">
+                    <button
+                      type="button"
+                      class="evn-btn secondary small"
+                      [attr.aria-label]="'Tải PDF báo cáo ' + item.code"
+                      (click)="$event.stopPropagation(); downloadReport(item, 'pdf')"
+                      [disabled]="isDownloading() !== null"
+                      title="Tải tệp PDF"
+                    >
+                      <span nz-icon [nzType]="isDownloading() === item.id + '-pdf' ? 'loading' : 'file-pdf'" class="icon-pdf" aria-hidden="true"></span>
+                      <span>PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="evn-btn secondary small"
+                      [attr.aria-label]="'Tải Excel báo cáo ' + item.code"
+                      (click)="$event.stopPropagation(); downloadReport(item, 'excel')"
+                      [disabled]="isDownloading() !== null"
+                      title="Tải tệp Excel"
+                    >
+                      <span nz-icon [nzType]="isDownloading() === item.id + '-excel' ? 'loading' : 'file-excel'" class="icon-excel" aria-hidden="true"></span>
+                      <span>Excel</span>
+                    </button>
+                  </div>
+                </td>
               </tr>
             }
-          </tbody>
-        </table>
-      </div>
+          }
+        </tbody>
+      </table>
+    </div>
 
-      <footer class="reports-pagination-wrap">
+    @if (reports().length) {
+      <footer class="reports-pagination-footer">
         <app-pagination
           [page]="currentPage()"
           [totalPages]="totalPages()"
@@ -218,18 +255,17 @@
           (pageChanged)="goToPage($event)"
         />
       </footer>
-    } @else {
-      <div class="empty-state">
-        <span nz-icon nzType="inbox" class="empty-icon" aria-hidden="true"></span>
-        <h3>Không tìm thấy báo cáo phù hợp</h3>
-        <p>Vui lòng điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các tiêu chí lọc.</p>
-      </div>
     }
   </section>
 
   <!-- Create Report Centered Modal -->
   @if (isCreateModalOpen()) {
-    <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div
+      class="modal-backdrop"
+      tabindex="-1"
+      (click)="$event.target === $event.currentTarget && closeCreateModal()"
+      (keydown.escape)="closeCreateModal()"
+    >
       <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="create-report-title" (click)="$event.stopPropagation()">
         <header class="modal-header">
           <div>
@@ -313,8 +349,8 @@
         </form>
 
         <footer class="modal-footer">
-          <button type="button" class="button secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">Hủy</button>
-          <button type="button" class="button primary" (click)="createReport()" [disabled]="isSubmitting()">
+          <button type="button" class="evn-btn secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">Hủy</button>
+          <button type="button" class="evn-btn primary" (click)="createReport()" [disabled]="isSubmitting()">
             @if (isSubmitting()) {
               <span nz-icon nzType="loading" aria-hidden="true"></span> Đang tạo...
             } @else {

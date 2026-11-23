@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -26,7 +27,7 @@ const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -400,6 +401,34 @@ export class UserManagement {
 
   protected statusLabel(status: UserStatus): string {
     return ({ Active: 'Hoạt động', Inactive: 'Tạm ngưng', Locked: 'Đã khóa' } as const)[status];
+  }
+
+  protected getInitials(name: string): string {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+
+  protected roleTone(role: UserRole | string): string {
+    const key = String(role ?? '').toLowerCase().replace(/[\s_-]/g, '');
+    if (key.includes('admin') || key.includes('manager') || key.includes('supervisor')) return 'info';
+    if (key.includes('technician')) return 'warning';
+    if (key.includes('analyst')) return 'success';
+    return 'neutral';
+  }
+
+  protected statusTone(status: UserStatus): string {
+    switch (status) {
+      case 'Active':
+        return 'success';
+      case 'Inactive':
+        return 'warning';
+      case 'Locked':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
   }
 }
 

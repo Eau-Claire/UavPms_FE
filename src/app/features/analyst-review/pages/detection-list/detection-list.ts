@@ -215,6 +215,20 @@ export class DetectionList {
     this.load();
   }
 
+  protected confidenceTone(score: number): string {
+    if (score >= 90) return 'success';
+    if (score >= 75) return 'info';
+    return 'warning';
+  }
+
+  protected statusTone(item: AnomalyItem): string {
+    if (item.supersededById) return 'neutral';
+    if (item.validationStatus === 'Confirmed') return 'success';
+    if (item.validationStatus === 'Resolved') return 'info';
+    if (item.validationStatus === 'Rejected') return 'danger';
+    return 'warning';
+  }
+
   protected confidenceClass(score: number): string {
     if (score >= 90) return 'conf-high';
     if (score >= 75) return 'conf-med';

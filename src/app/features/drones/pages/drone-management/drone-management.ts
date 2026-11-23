@@ -686,6 +686,36 @@ export class DroneManagement {
     return 'badge-unknown';
   }
 
+  protected operationalStatusTone(status: string): string {
+    switch ((status || '').toUpperCase()) {
+      case 'AVAILABLE':
+        return 'success';
+      case 'INUSE':
+        return 'info';
+      case 'RESERVED':
+      case 'MAINTENANCE':
+        return 'warning';
+      case 'UNAVAILABLE':
+      case 'LOST':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
+  protected technicalHealthTone(health: string): string {
+    switch ((health || '').toUpperCase()) {
+      case 'HEALTHY':
+        return 'success';
+      case 'WARNING':
+        return 'warning';
+      case 'CRITICAL':
+        return 'danger';
+      default:
+        return 'neutral';
+    }
+  }
+
   protected suitabilityBadgeClass(suitability: string): string {
     const s = (suitability || '').toUpperCase();
     if (s === 'SUITABLE') return 'badge-suitable';
