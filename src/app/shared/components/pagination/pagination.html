@@ -1,14 +1,4 @@
 <nav class="pagination-container" aria-label="Phân trang dữ liệu">
-  <div class="pagination-info">
-    @if (totalCount() > 0) {
-      <span>
-        Hiển thị <strong>{{ startIndex() }}</strong> – <strong>{{ endIndex() }}</strong> trên <strong>{{ totalCount() }}</strong> bản ghi
-      </span>
-    } @else {
-      <span>Không có bản ghi</span>
-    }
-  </div>
-
   @if (totalPages() > 1) {
     <div class="pagination-controls">
       <!-- Previous Button -->
@@ -19,7 +9,7 @@
         (click)="prevPage()"
         aria-label="Trang trước"
       >
-        <span nz-icon nzType="left" aria-hidden="true"></span>
+        Trước
       </button>
 
       <!-- Page Numbers -->
@@ -48,7 +38,7 @@
         (click)="nextPage()"
         aria-label="Trang sau"
       >
-        <span nz-icon nzType="right" aria-hidden="true"></span>
+        Sau
       </button>
     </div>
   }

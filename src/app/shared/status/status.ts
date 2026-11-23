@@ -2,70 +2,226 @@ export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 export const statusTone = (status: string): StatusTone => {
   const value = (status || '').toUpperCase().replace(/[\s_-]/g, '');
-  if (['READY', 'HEALTHY', 'AVAILABLE', 'ACCEPTED', 'COMPLETED', 'CONSUMED', 'FEASIBLE', 'PASSED', 'ELIGIBLE', 'ASSIGNED', 'RESOLVED', 'CLOSED', 'CONFIRMED'].includes(value)) return 'success';
-  if (['WARNING', 'POSTPONED', 'RESERVED', 'PENDINGACCEPTANCE', 'INREVIEW', 'UNDERREVIEW', 'PENDINGVERIFICATION', 'ACKNOWLEDGED'].includes(value)) return 'warning';
-  if (['CRITICAL', 'NOTREADY', 'NOT_READY', 'INCOMPLETE', 'FAILED', 'UNAVAILABLE', 'EMERGENCY', 'EXPIRED', 'NOTELIGIBLE', 'NOT_ELIGIBLE', 'SUSPENDED', 'REJECTED'].includes(value)) return 'danger';
-  if (['INPROGRESS', 'IN_PROGRESS', 'PREPARING', 'EVALUATING', 'PENDING', 'DRAFT', 'OPEN', 'QUEUED', 'PROCESSING'].includes(value)) return 'info';
+  if (
+    [
+      'READY',
+      'HEALTHY',
+      'AVAILABLE',
+      'ACCEPTED',
+      'COMPLETED',
+      'CONSUMED',
+      'FEASIBLE',
+      'PASS',
+      'PASSED',
+      'ELIGIBLE',
+      'ASSIGNED',
+      'RESOLVED',
+      'CLOSED',
+      'CONFIRMED',
+    ].includes(value)
+  ) {
+    return 'success';
+  }
+  if (
+    [
+      'WARNING',
+      'POSTPONED',
+      'RESERVED',
+      'PENDINGACCEPTANCE',
+      'INREVIEW',
+      'UNDERREVIEW',
+      'PENDINGVERIFICATION',
+      'ACKNOWLEDGED',
+    ].includes(value)
+  ) {
+    return 'warning';
+  }
+  if (
+    [
+      'CRITICAL',
+      'NOTREADY',
+      'INCOMPLETE',
+      'FAIL',
+      'FAILED',
+      'UNAVAILABLE',
+      'EMERGENCY',
+      'EXPIRED',
+      'NOTELIGIBLE',
+      'SUSPENDED',
+      'REJECTED',
+    ].includes(value)
+  ) {
+    return 'danger';
+  }
+  if (
+    [
+      'INPROGRESS',
+      'PREPARING',
+      'EVALUATING',
+      'PENDING',
+      'DRAFT',
+      'OPEN',
+      'QUEUED',
+      'PROCESSING',
+    ].includes(value)
+  ) {
+    return 'info';
+  }
   return 'neutral';
 };
 
-const DOC_STATUS_MAP: Record<string, string> = {
-  // PreMissionAssessment State Machine (Doc)
-  EVALUATING: 'Evaluating',
-  READY: 'Ready',
-  NOTREADY: 'NotReady',
-  NOT_READY: 'NotReady',
-  INCOMPLETE: 'NotReady',
-  COMPLETED: 'Completed',
-  CONSUMED: 'Completed',
-  CANCELLED: 'Cancelled',
-  CANCELED: 'Cancelled',
-  EXPIRED: 'Expired',
+/**
+ * Từ điển chuẩn hóa trạng thái tiếng Việt thống nhất toàn hệ thống (Single Source of Truth).
+ */
+const VIETNAMESE_STATUS_MAP: Readonly<Record<string, string>> = {
+  // PreMissionAssessment State Machine
+  EVALUATING: 'Đang đánh giá',
+  READY: 'Sẵn sàng',
+  NOTREADY: 'Chưa sẵn sàng',
+  NOT_READY: 'Chưa sẵn sàng',
+  INCOMPLETE: 'Chưa sẵn sàng',
+  COMPLETED: 'Đã tạo nhiệm vụ',
+  CONSUMED: 'Đã tạo nhiệm vụ',
+  CANCELLED: 'Đã hủy',
+  CANCELED: 'Đã hủy',
+  EXPIRED: 'Hết hạn',
 
-  // Mission State Machine (Doc)
-  DRAFT: 'Draft',
-  PENDINGACCEPTANCE: 'PendingAcceptance',
-  PENDING_ACCEPTANCE: 'PendingAcceptance',
-  POSTPONED: 'Postponed',
-  CONFIRMED: 'Confirmed',
-  INPROGRESS: 'InProgress',
-  IN_PROGRESS: 'InProgress',
-  SUSPENDED: 'Suspended',
+  // Mission State Machine
+  DRAFT: 'Bản nháp',
+  PENDINGACCEPTANCE: 'Chờ tiếp nhận',
+  PENDING_ACCEPTANCE: 'Chờ tiếp nhận',
+  POSTPONED: 'Tạm hoãn',
+  CONFIRMED: 'Đã xác nhận',
+  INPROGRESS: 'Đang thực hiện',
+  IN_PROGRESS: 'Đang thực hiện',
+  SUSPENDED: 'Tạm dừng',
 
-  // MaintenanceTicket State Machine (Doc)
-  OPEN: 'Open',
-  ASSIGNED: 'Assigned',
-  PENDINGVERIFICATION: 'PendingVerification',
-  PENDING_VERIFICATION: 'PendingVerification',
-  CLOSED: 'Closed',
-  RESOLVED: 'Resolved',
+  // MaintenanceTicket State Machine
+  OPEN: 'Đang mở',
+  ASSIGNED: 'Đã phân công',
+  PENDINGVERIFICATION: 'Chờ xác minh',
+  PENDING_VERIFICATION: 'Chờ xác minh',
+  CLOSED: 'Đã đóng',
+  RESOLVED: 'Đã xử lý',
 
-  // DetectedAnomaly State Machine (Doc)
-  PENDING: 'Pending',
-  INREVIEW: 'InReview',
-  IN_REVIEW: 'InReview',
-  REJECTED: 'Rejected',
+  // DetectedAnomaly State Machine
+  PENDING: 'Chờ xử lý',
+  INREVIEW: 'Đang thẩm định',
+  IN_REVIEW: 'Đang thẩm định',
+  UNDERREVIEW: 'Đang thẩm định',
+  UNDER_REVIEW: 'Đang thẩm định',
+  REJECTED: 'Từ chối',
 
-  // AIAnalysisRun State Machine (Doc)
-  QUEUED: 'Queued',
-  PROCESSING: 'Processing',
-  FAILED: 'Failed',
+  // AIAnalysisRun State Machine
+  QUEUED: 'Chờ xử lý',
+  PROCESSING: 'Đang xử lý',
+  FAILED: 'Không đạt',
 
-  // EmergencyAlert State Machine (Doc)
-  ACKNOWLEDGED: 'Acknowledged',
+  // EmergencyAlert State Machine
+  ACKNOWLEDGED: 'Đã tiếp nhận',
 
-  // Binary check statuses
-  PASS: 'PASS',
-  PASSED: 'Passed',
-  FAIL: 'FAIL',
+  // Binary readiness & technical checks
+  PASS: 'Đạt',
+  PASSED: 'Đạt',
+  FEASIBLE: 'Đạt',
+  HEALTHY: 'Đạt',
+  ELIGIBLE: 'Đạt',
+  AVAILABLE: 'Sẵn sàng',
+  FAIL: 'Không đạt',
+  NOTELIGIBLE: 'Không đạt',
+  NOT_ELIGIBLE: 'Không đạt',
+  UNAVAILABLE: 'Không sẵn sàng',
 };
 
 export const statusLabel = (status: string): string => {
   if (!status) return '';
   const key = status.trim().toUpperCase().replace(/[\s-]/g, '_');
   const compactKey = key.replace(/_/g, '');
-  if (DOC_STATUS_MAP[key]) return DOC_STATUS_MAP[key];
-  if (DOC_STATUS_MAP[compactKey]) return DOC_STATUS_MAP[compactKey];
+  if (VIETNAMESE_STATUS_MAP[key]) return VIETNAMESE_STATUS_MAP[key];
+  if (VIETNAMESE_STATUS_MAP[compactKey]) return VIETNAMESE_STATUS_MAP[compactKey];
   return status;
 };
 
+/**
+ * Class Tailwind chỉ đổi màu chữ trạng thái (không viền màu, đạt độ tương phản WCAG AA).
+ */
+export const statusColorClass = (status: string): string => {
+  const compact = (status || '').trim().toUpperCase().replace(/[\s_-]/g, '');
+
+  if (
+    [
+      'READY',
+      'PASS',
+      'PASSED',
+      'FEASIBLE',
+      'HEALTHY',
+      'AVAILABLE',
+      'ELIGIBLE',
+      'CONFIRMED',
+      'ACCEPTED',
+      'RESOLVED',
+      'CLOSED',
+    ].includes(compact)
+  ) {
+    return 'text-emerald-600 font-medium';
+  }
+
+  if (
+    [
+      'NOTREADY',
+      'INCOMPLETE',
+      'FAIL',
+      'FAILED',
+      'NOTELIGIBLE',
+      'UNAVAILABLE',
+      'REJECTED',
+      'CRITICAL',
+      'EMERGENCY',
+      'SUSPENDED',
+    ].includes(compact)
+  ) {
+    return 'text-rose-600 font-medium';
+  }
+
+  if (['CANCELLED', 'CANCELED'].includes(compact)) {
+    return 'text-red-500 font-medium';
+  }
+
+  if (
+    [
+      'EXPIRED',
+      'WARNING',
+      'POSTPONED',
+      'RESERVED',
+      'PENDINGACCEPTANCE',
+      'INREVIEW',
+      'UNDERREVIEW',
+      'PENDINGVERIFICATION',
+      'ACKNOWLEDGED',
+    ].includes(compact)
+  ) {
+    return 'text-amber-700 font-medium';
+  }
+
+  if (
+    [
+      'EVALUATING',
+      'INPROGRESS',
+      'PREPARING',
+      'PENDING',
+      'DRAFT',
+      'OPEN',
+      'QUEUED',
+      'PROCESSING',
+      'ASSIGNED',
+    ].includes(compact)
+  ) {
+    return 'text-sky-600 font-medium';
+  }
+
+  if (['COMPLETED', 'CONSUMED'].includes(compact)) {
+    return 'text-slate-600 font-medium';
+  }
+
+  return 'text-slate-600 font-medium';
+};

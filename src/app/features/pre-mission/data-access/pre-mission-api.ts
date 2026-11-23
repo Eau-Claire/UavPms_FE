@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -112,8 +112,8 @@ export class PreMissionApi {
     if (filters.search?.trim()) params = params.set('search', filters.search.trim());
 
     return this.http
-      .get<unknown>(this.url, { params })
-      .pipe(map((response) => normalizePage(unwrapApiData(response), page, pageSize)));
+      .get<unknown>(this.url, { params, observe: 'response' })
+      .pipe(map((response) => normalizePage(response.body, page, pageSize, response.headers)));
   }
 
   get(id: string): Observable<PreMissionAssessment> {
@@ -655,15 +655,138 @@ export const normalizeInspectionResult = (value: unknown, droneId: string): Dron
   };
 };
 
-const normalizePage = (value: unknown, page: number, pageSize: number): AssessmentPage => {
-  const x = objectOf(value);
-  const items = itemsOf(value).map(normalizeAssessment);
-  const totalCount = Number(x['totalCount'] ?? items.length);
+const positiveNumberOf = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+const parseHeaderPagination = (headers?: HttpHeaders): Record<string, unknown> => {
+  if (!headers) return {};
+  const result: Record<string, unknown> = {};
+  const xPagination = headers.get('X-Pagination') ?? headers.get('x-pagination');
+  if (xPagination) {
+    try {
+      Object.assign(result, objectOf(JSON.parse(xPagination)));
+    } catch {
+      // Ignore malformed header JSON
+    }
+  }
+  const xTotal =
+    headers.get('X-Total-Count') ??
+    headers.get('x-total-count') ??
+    headers.get('X-Total-Items') ??
+    headers.get('x-total-items');
+  if (xTotal !== null) result['totalCount'] = xTotal;
+
+  const xTotalPages = headers.get('X-Total-Pages') ?? headers.get('x-total-pages');
+  if (xTotalPages !== null) result['totalPages'] = xTotalPages;
+  return result;
+};
+
+const normalizePage = (
+  rawResponse: unknown,
+  page: number,
+  pageSize: number,
+  headers?: HttpHeaders,
+): AssessmentPage => {
+  const outer = objectOf(rawResponse);
+  const unwrapped = unwrapApiData<unknown>(rawResponse);
+  const x = objectOf(unwrapped);
+  const headerPag = parseHeaderPagination(headers);
+  const pagination = objectOf(
+    x['pagination'] ??
+      x['Pagination'] ??
+      outer['pagination'] ??
+      outer['Pagination'] ??
+      x['meta'] ??
+      outer['meta'],
+  );
+  const items = itemsOf(unwrapped).map(normalizeAssessment);
+
+  const resolvedPageSize =
+    positiveNumberOf(
+      pagination['pageSize'] ??
+        pagination['PageSize'] ??
+        headerPag['pageSize'] ??
+        headerPag['PageSize'] ??
+        x['pageSize'] ??
+        x['PageSize'] ??
+        outer['pageSize'] ??
+        outer['PageSize'],
+    ) || pageSize;
+  const resolvedPage =
+    positiveNumberOf(
+      pagination['page'] ??
+        pagination['Page'] ??
+        pagination['pageIndex'] ??
+        pagination['currentPage'] ??
+        headerPag['page'] ??
+        headerPag['currentPage'] ??
+        x['page'] ??
+        x['Page'] ??
+        outer['page'] ??
+        outer['Page'],
+    ) || page;
+
+  const explicitTotalCount = positiveNumberOf(
+    pagination['totalItems'] ??
+      pagination['TotalItems'] ??
+      pagination['totalCount'] ??
+      pagination['TotalCount'] ??
+      pagination['totalRecords'] ??
+      pagination['TotalRecords'] ??
+      pagination['total'] ??
+      pagination['Total'] ??
+      headerPag['totalCount'] ??
+      headerPag['TotalCount'] ??
+      headerPag['totalItems'] ??
+      headerPag['TotalItems'] ??
+      x['totalCount'] ??
+      x['TotalCount'] ??
+      x['totalItems'] ??
+      x['TotalItems'] ??
+      x['totalRecords'] ??
+      x['TotalRecords'] ??
+      x['total'] ??
+      x['count'] ??
+      outer['totalCount'] ??
+      outer['TotalCount'] ??
+      outer['totalItems'] ??
+      outer['TotalItems'] ??
+      outer['totalRecords'] ??
+      outer['total'],
+  );
+
+  const explicitTotalPages = positiveNumberOf(
+    pagination['totalPages'] ??
+      pagination['TotalPages'] ??
+      headerPag['totalPages'] ??
+      headerPag['TotalPages'] ??
+      x['totalPages'] ??
+      x['TotalPages'] ??
+      outer['totalPages'] ??
+      outer['TotalPages'],
+  );
+
+  // Backend trả mảng JSON thuần không kèm totalCount/totalPages:
+  // nếu trang đầy (`items.length >= resolvedPageSize`), chưa biết tổng chính xác nhưng có thể còn trang kế.
+  const totalKnown =
+    explicitTotalCount !== null || explicitTotalPages !== null || items.length < resolvedPageSize;
+
+  const totalCount =
+    explicitTotalCount ?? (resolvedPage - 1) * resolvedPageSize + items.length;
+
+  const computedTotalPages = totalKnown
+    ? Math.max(1, Math.ceil(totalCount / Math.max(1, resolvedPageSize)))
+    : resolvedPage + 1;
+
   return {
     items,
-    page,
-    pageSize,
+    page: resolvedPage,
+    pageSize: resolvedPageSize,
     totalCount,
-    totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+    totalPages: Math.max(1, explicitTotalPages ?? computedTotalPages),
+    totalKnown,
   };
 };
