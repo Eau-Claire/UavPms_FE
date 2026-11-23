@@ -84,7 +84,7 @@ export class ActiveAlertsPanel {
     if (!alert.isRead) {
       this.markAsRead(alert);
     }
-    void this.router.navigate(['/emergency-alerts'], { queryParams: { id: alert.id } });
+    void this.router.navigate(['/ai-review'], { queryParams: { priority: 'emergency' } });
   }
 
   markAsRead(alert: MonitorAlert, event?: Event): void {

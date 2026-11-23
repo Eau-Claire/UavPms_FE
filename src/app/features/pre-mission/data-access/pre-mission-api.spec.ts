@@ -106,4 +106,49 @@ describe('PreMissionApi', () => {
     expect(new Date(req.request.body.plannedStart).getTime()).toBe(new Date('2099-01-01T08:00').getTime());
     req.flush(assessmentDto());
   });
+
+  it('parses pagination metadata from nested pagination object (totalItems & totalPages)', () => {
+    let result: { totalCount: number; totalPages: number; page: number; pageSize: number } | undefined;
+    api.list({ page: 1, pageSize: 10 }).subscribe((res) => (result = res));
+    const req = http.expectOne((r) => r.url === URL && r.params.get('page') === '1' && r.params.get('pageSize') === '10');
+    req.flush({
+      data: {
+        items: [assessmentDto()],
+        pagination: { page: 1, pageSize: 10, totalItems: 35, totalPages: 4 },
+      },
+    });
+    expect(result).toMatchObject({ totalCount: 35, totalPages: 4, page: 1, pageSize: 10 });
+  });
+
+  it('parses pagination metadata when pagination sits outside data envelope', () => {
+    let result: { totalCount: number; totalPages: number } | undefined;
+    api.list({ page: 2, pageSize: 10 }).subscribe((res) => (result = res));
+    const req = http.expectOne((r) => r.url === URL && r.params.get('page') === '2');
+    req.flush({
+      data: [assessmentDto()],
+      pagination: { page: 2, pageSize: 10, totalItems: 24, totalPages: 3 },
+    });
+    expect(result).toMatchObject({ totalCount: 24, totalPages: 3 });
+  });
+
+  it('enables next-page navigation with totalKnown=false when backend returns a raw full-page array', () => {
+    let result: { totalCount: number; totalPages: number; totalKnown?: boolean; items: readonly unknown[] } | undefined;
+    api.list({ page: 1, pageSize: 10 }).subscribe((res) => (result = res));
+    const req = http.expectOne((r) => r.url === URL && r.params.get('page') === '1');
+    req.flush(Array.from({ length: 10 }, () => assessmentDto()));
+    expect(result?.items.length).toBe(10);
+    expect(result?.totalCount).toBe(10);
+    expect(result?.totalPages).toBe(2);
+    expect(result?.totalKnown).toBe(false);
+  });
+
+  it('reads X-Total-Count response header when body is a raw array', () => {
+    let result: { totalCount: number; totalPages: number; totalKnown?: boolean } | undefined;
+    api.list({ page: 1, pageSize: 10 }).subscribe((res) => (result = res));
+    const req = http.expectOne((r) => r.url === URL && r.params.get('page') === '1');
+    req.flush(Array.from({ length: 10 }, () => assessmentDto()), {
+      headers: { 'X-Total-Count': '42' },
+    });
+    expect(result).toMatchObject({ totalCount: 42, totalPages: 5, totalKnown: true });
+  });
 });

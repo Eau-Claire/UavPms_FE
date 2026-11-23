@@ -190,6 +190,8 @@ export interface AssessmentPage {
   readonly pageSize: number;
   readonly totalCount: number;
   readonly totalPages: number;
+  /** False khi backend trả mảng thuần chưa rõ tổng số bản ghi. */
+  readonly totalKnown?: boolean;
 }
 
 /** Bộ lọc `GET /pre-mission-assessments` (backend chỉ hỗ trợ `status`, `search`, `page`, `pageSize`). */

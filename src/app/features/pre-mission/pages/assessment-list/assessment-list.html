@@ -1,269 +1,342 @@
-<div class="pre-mission-page">
-  <!-- EVN Header Bar -->
-  <header class="pre-mission-head">
+<div class="ops-page assessment-benchmark-page">
+  <!-- Clean Header Bar (No Icons, No KPI Duplication) -->
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>ĐÁNH GIÁ TÍNH KHẢ THI & MỨC SẴN SÀNG (MF01)</strong>
+        <strong>Đánh giá tiền nhiệm vụ</strong>
       </nav>
       <h1>Danh sách đánh giá tiền nhiệm vụ</h1>
-      <p>Đánh giá phạm vi, tính khả thi mặt bằng, nhân sự và UAV trước khi tạo nhiệm vụ bay</p>
+      <p>Thẩm định mặt bằng, nhân sự, thiết bị UAV và kỹ thuật trước khi lập nhiệm vụ bay</p>
     </div>
     @if (canManage()) {
       <div class="head-actions">
-        <a class="evn-btn primary" routerLink="/pre-mission/new">
-          <span nz-icon nzType="plus" aria-hidden="true"></span>Tạo đánh giá mới
-        </a>
+        <a class="app-btn-primary" routerLink="/pre-mission/new">Tạo đánh giá mới</a>
       </div>
     }
   </header>
 
-    <!-- Unified Enterprise KPI Status Bar -->
-    <section class="pre-mission-kpi-bar" aria-label="Tổng quan số liệu đánh giá">
-      <div class="kpi-bar-item">
-        <span class="kpi-bar-label">Tổng số đánh giá</span>
-        <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
-      </div>
-      <div class="kpi-bar-sep" aria-hidden="true"></div>
-      <div class="kpi-bar-item">
-        <span class="kpi-bar-label">Sẵn sàng bay</span>
-        <strong class="kpi-bar-value text-approved">{{ stats()[1].value }}</strong>
-      </div>
-      <div class="kpi-bar-sep" aria-hidden="true"></div>
-      <div class="kpi-bar-item">
-        <span class="kpi-bar-label">Chưa sẵn sàng</span>
-        <strong class="kpi-bar-value text-pending">{{ stats()[2].value }}</strong>
-      </div>
-      <div class="kpi-bar-sep" aria-hidden="true"></div>
-      <div class="kpi-bar-item">
-        <span class="kpi-bar-label">Hết hạn / Hủy</span>
-        <strong class="kpi-bar-value text-danger">{{ stats()[3].value }}</strong>
-      </div>
-    </section>
+  <!-- Compact Flat Filter Toolbar (36px Controls, Single-Row Flow, No Icons) -->
+  <section class="app-filter-bar" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
+    <div class="filter-search">
+      <input
+        type="search"
+        aria-label="Tìm kiếm theo mã hồ sơ, khu vực, mã cột"
+        placeholder="Tìm theo mã, khu vực, cột..."
+        [value]="searchQuery()"
+        (input)="onSearchEvent($event)"
+      />
+    </div>
 
-    <!-- Light Blue Filter Toolbar -->
-    <section class="pre-mission-filters" aria-label="Bộ lọc đánh giá tiền nhiệm vụ">
-      <div class="search-input-wrap">
-        <span nz-icon nzType="search" class="search-icon"></span>
-        <input
-          type="search"
-          placeholder="Tìm theo mã hồ sơ, khu vực, mã cột..."
-          [value]="searchQuery()"
-          (input)="onSearch($any($event.target).value)"
-        />
-      </div>
+    <label class="filter-field">
+      <span class="filter-label">Khu vực</span>
+      <select
+        aria-label="Lọc theo khu vực"
+        [value]="regionFilter()"
+        (change)="onRegionEvent($event)"
+      >
+        <option value="">Tất cả khu vực</option>
+        @for (reg of regions(); track reg.id) {
+          <option [value]="reg.id">{{ reg.name }}</option>
+        }
+      </select>
+    </label>
 
-      <label>
-        <span>Khu vực:</span>
-        <select [value]="regionFilter()" (change)="onRegionChange($any($event.target).value)">
-          <option value="">Tất cả khu vực</option>
-          @for (reg of regions(); track reg.id) {
-            <option [value]="reg.id">{{ reg.name }}</option>
-          }
-        </select>
-      </label>
+    <label class="filter-field">
+      <span class="filter-label">Trạng thái</span>
+      <select
+        aria-label="Lọc theo trạng thái"
+        [value]="statusFilter()"
+        (change)="onStatusEvent($event)"
+      >
+        @for (opt of statuses; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </label>
 
-      <label>
-        <span>Trạng thái:</span>
-        <select [value]="statusFilter()" (change)="onStatusChange($any($event.target).value)">
-          @for (opt of statuses; track opt.value) {
-            <option [value]="opt.value">{{ opt.label }}</option>
-          }
-        </select>
-      </label>
+    <label class="filter-field">
+      <span class="filter-label">Ngày dự kiến</span>
+      <input
+        type="text"
+        inputmode="numeric"
+        maxlength="10"
+        class="filter-date-input"
+        placeholder="dd/MM/yyyy"
+        aria-label="Lọc theo ngày dự kiến (dd/MM/yyyy)"
+        [value]="dateInput()"
+        (input)="onDateEvent($event)"
+      />
+    </label>
 
-      <label>
-        <span>Ngày dự kiến:</span>
-        <input
-          type="date"
-          [value]="dateFilter()"
-          (change)="onDateChange($any($event.target).value)"
-          style="height: 30px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 6px;"
-        />
-      </label>
-
-      <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="load()">
-        <span nz-icon nzType="reload"></span>Làm mới
+    <div class="filter-actions">
+      <button
+        type="button"
+        class="app-btn-secondary"
+        [disabled]="!hasActiveFilters()"
+        (click)="resetFilters()"
+      >
+        Xóa lọc
       </button>
-    </section>
+      <button type="button" class="app-btn-secondary btn-refresh" (click)="refresh()">
+        {{ fetching() ? 'Đang tải...' : 'Làm mới' }}
+      </button>
+    </div>
+  </section>
 
+  <!-- Inline Error Feedback -->
+  @if (error()) {
+    <div class="assessment-error-banner" role="alert">
+      <span class="truncate">{{ error() }}</span>
+      <button type="button" class="app-btn-action" (click)="refresh()">Thử lại</button>
+    </div>
+  }
 
-
-    <!-- Dense EVN Bordered Table Card -->
-    <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 120px;">Mã đánh giá</th>
-              <th style="min-width: 180px; max-width: 250px;">Phạm vi (Khu vực / Cột)</th>
-              <th style="width: 160px;">Khung giờ dự kiến</th>
-              <th style="width: 85px;" class="text-center">Mặt bằng</th>
-              <th style="width: 85px;" class="text-center">Nhân sự</th>
-              <th style="width: 85px;" class="text-center">UAV</th>
-              <th style="width: 85px;" class="text-center">Kỹ thuật</th>
-              <th style="width: 110px;" class="text-center">Trạng thái</th>
-              <th style="width: 125px;">Hiệu lực đến</th>
-              <th style="width: 100px;" class="text-center">Nhiệm vụ</th>
-              <th style="width: 95px;" class="text-center">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            @if (loading()) {
-              @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
-                <tr class="skeleton-row">
-                  <td colspan="11" class="text-center" style="color: #64748b; font-style: italic;">
-                    Đang tải dữ liệu đánh giá...
-                  </td>
-                </tr>
-              }
-            } @else if (!filteredItems().length) {
-              <tr>
-                <td colspan="11" class="text-center" style="padding: 24px; color: #64748b;">
-                  Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
+  <!-- Quiet Chrome Data Table Card (Fixed Min-Height = 10 Rows, Zero Layout Shift) -->
+  <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
+    <div class="app-table-scroll assessment-table-stage">
+      <table class="app-data-table">
+        <colgroup>
+          <col style="width: 10%" />
+          <col style="width: 17.5%" />
+          <col style="width: 11.5%" />
+          <col style="width: 7%" />
+          <col style="width: 7.5%" />
+          <col style="width: 6.5%" />
+          <col style="width: 7.5%" />
+          <col style="width: 10.5%" />
+          <col style="width: 10%" />
+          <col style="width: 6%" />
+          <col style="width: 6%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Mã đánh giá</th>
+            <th>Phạm vi</th>
+            <th>Ngày dự kiến bay</th>
+            <th class="col-center">Mặt bằng</th>
+            <th class="col-center">Nhân sự</th>
+            <th class="col-center">UAV</th>
+            <th class="col-center">Kỹ thuật</th>
+            <th class="col-center">Trạng thái</th>
+            <th>Hiệu lực đến</th>
+            <th class="col-center">Nhiệm vụ</th>
+            <th class="col-center col-sticky-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody [class.is-fetching]="fetching() && !initialLoading()">
+          @if (initialLoading()) {
+            @for (row of skeletonRows; track row) {
+              <tr aria-hidden="true">
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td><span class="app-skeleton-bar w-40"></span></td>
+                <td><span class="app-skeleton-bar w-36"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-12"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-12"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-12"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-12"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-24"></span></td>
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
+                <td class="col-center col-sticky-right">
+                  <span class="app-skeleton-bar w-14"></span>
                 </td>
               </tr>
-            } @else {
-              @for (item of filteredItems(); track item.id) {
-                <tr>
-                  <td>
-                    <a [routerLink]="['/pre-mission', item.id]" class="evn-code">
-                      {{ item.assessmentCode }}
-                    </a>
-                  </td>
-                  <td>
-                    <strong>{{ item.regionName }}</strong>
-                    <span style="color: #64748b;"> · {{ item.towers.length }} cột</span>
-                  </td>
-                  <td>
-                    {{ item.plannedStart | date:'dd/MM HH:mm' }} – {{ item.plannedEnd | date:'dd/MM HH:mm' }}
-                  </td>
-                  <td class="text-center">
-                    <span class="sub-pill {{ isSiteReady(item) ? 'pass' : 'fail' }}" [title]="'Mặt bằng: ' + (isSiteReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isSiteReady(item) ? 'Đạt' : 'Chưa đạt' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="sub-pill {{ isPersonnelReady(item) ? 'pass' : 'fail' }}" [title]="'Nhân sự: ' + (isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isPersonnelReady(item) ? 'Đạt' : 'Chưa đạt' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="sub-pill {{ isUavReady(item) ? 'pass' : 'fail' }}" [title]="'Thiết bị UAV: ' + (isUavReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isUavReady(item) ? 'Đạt' : 'Chưa đạt' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="sub-pill {{ isTechnicalReady(item) ? 'pass' : 'fail' }}" [title]="'Kiểm định KT: ' + (isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt')">
-                      {{ isTechnicalReady(item) ? 'Đạt' : 'Chưa đạt' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    <span class="evn-status {{ statusTone(item.status) }}">
-                      {{ item.status }}
-                    </span>
-                  </td>
-                  <td>
-                    <span style="font-size: 11.5px; color: #334155;">
-                      {{ item.validUntil ? (item.validUntil | date:'dd/MM HH:mm') : '—' }}
-                    </span>
-                  </td>
-                  <td class="text-center">
-                    @if (item.completedMissionId) {
-                      <a
-                        [routerLink]="['/missions', item.completedMissionId]"
-                        class="assessment-btn-mission"
-                        title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
-                      >
-                        <span nz-icon nzType="send" aria-hidden="true"></span>
-                        <span>Nhiệm vụ</span>
-                      </a>
-                    } @else {
-                      <span style="color: #94a3b8; font-size: 12px;">—</span>
-                    }
-                  </td>
-                  <td class="text-center">
-                    <div class="assessment-actions-group" style="justify-content: center;">
-                      <a
-                        [routerLink]="['/pre-mission', item.id]"
-                        class="assessment-btn-open"
-                        title="Xem chi tiết hồ sơ đánh giá"
-                      >
-                        <span nz-icon nzType="eye" aria-hidden="true"></span>
-                        <span>Chi tiết</span>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              }
             }
-          </tbody>
-        </table>
-      </div>
+          } @else if (!filteredItems().length) {
+            <tr>
+              <td colspan="11" class="assessment-empty-cell">
+                Chưa có bản ghi đánh giá tiền nhiệm vụ nào phù hợp điều kiện lọc.
+              </td>
+            </tr>
+          } @else {
+            @for (item of filteredItems(); track item.id) {
+              <tr>
+                <td>
+                  <span class="cell-primary cell-truncate" [title]="item.assessmentCode">
+                    {{ item.assessmentCode }}
+                  </span>
+                </td>
+                <td class="max-w-56">
+                  <span class="cell-primary cell-truncate" [title]="item.regionName">
+                    {{ item.regionName }}
+                  </span>
+                </td>
+                <td class="tabular-nums cell-secondary">
+                  <span
+                    class="cell-truncate"
+                    [title]="item.plannedStart | date: 'dd/MM/yyyy HH:mm'"
+                  >
+                    {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span
+                    [class]="readinessColorClass(isSiteReady(item))"
+                    [title]="'Mặt bằng: ' + readinessLabel(isSiteReady(item))"
+                  >
+                    {{ readinessLabel(isSiteReady(item)) }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span
+                    [class]="readinessColorClass(isPersonnelReady(item))"
+                    [title]="'Nhân sự: ' + readinessLabel(isPersonnelReady(item))"
+                  >
+                    {{ readinessLabel(isPersonnelReady(item)) }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span
+                    [class]="readinessColorClass(isUavReady(item))"
+                    [title]="'Thiết bị UAV: ' + readinessLabel(isUavReady(item))"
+                  >
+                    {{ readinessLabel(isUavReady(item)) }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span
+                    [class]="readinessColorClass(isTechnicalReady(item))"
+                    [title]="'Kiểm định kỹ thuật: ' + readinessLabel(isTechnicalReady(item))"
+                  >
+                    {{ readinessLabel(isTechnicalReady(item)) }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span
+                    [class]="statusColorClass(item.status)"
+                    [title]="statusLabel(item.status)"
+                  >
+                    {{ statusLabel(item.status) }}
+                  </span>
+                </td>
+                <td class="tabular-nums">
+                  @if (item.validUntil) {
+                    <span
+                      [class]="isExpiredTime(item) ? statusColorClass('EXPIRED') : 'cell-secondary'"
+                      [title]="item.validUntil | date: 'dd/MM/yyyy HH:mm'"
+                    >
+                      {{ item.validUntil | date: 'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  } @else {
+                    <span class="cell-muted">—</span>
+                  }
+                </td>
+                <td class="col-center">
+                  @if (item.completedMissionId) {
+                    <a
+                      [routerLink]="['/missions', item.completedMissionId]"
+                      class="app-btn-action"
+                      title="Xem nhiệm vụ bay đã tạo từ đánh giá này"
+                    >
+                      Nhiệm vụ
+                    </a>
+                  } @else {
+                    <span class="cell-muted">—</span>
+                  }
+                </td>
+                <td class="col-center col-sticky-right">
+                  <a
+                    [routerLink]="['/pre-mission', item.id]"
+                    class="app-btn-action"
+                    title="Xem chi tiết hồ sơ đánh giá"
+                  >
+                    Chi tiết
+                  </a>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
 
-      <!-- Table Footer with Pagination -->
-      <footer class="assessment-pagination-wrap">
-        <app-pagination
-          [page]="page()"
-          [totalPages]="totalPages()"
-          [totalCount]="totalCount() || items().length"
-          [pageSize]="pageSize()"
-          (pageChanged)="goToPage($event)"
-        />
-      </footer>
-    </section>
-  
-  <!-- Cancel Assessment Confirmation Modal -->
+    <!-- Table Footer with Pagination -->
+    <footer class="assessment-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="totalPages()"
+        [totalCount]="totalCount()"
+        [pageSize]="pageSize()"
+        [totalKnown]="totalKnown()"
+        [itemCount]="items().length"
+        (pageChanged)="goToPage($event)"
+      />
+    </footer>
+  </section>
+
+  <!-- Cancel Assessment Confirmation Modal (Clean Flat Style, No Icons) -->
   @if (itemToCancel(); as targetItem) {
-    <div class="evn-modal-backdrop" (click)="closeCancelModal()" role="dialog" aria-modal="true" aria-labelledby="cancelListModalTitle">
-      <div class="evn-modal-dialog" (click)="$event.stopPropagation()">
-        <div class="evn-modal-header">
-          <div class="modal-title-group">
-            <span nz-icon nzType="warning" class="modal-icon-danger"></span>
-            <h3 id="cancelListModalTitle">Xác nhận hủy đánh giá tiền nhiệm vụ</h3>
-          </div>
-          <button type="button" class="btn-close-modal" (click)="closeCancelModal()" [disabled]="actionBusyId() === targetItem.id" aria-label="Đóng">✕</button>
+    <div
+      class="assessment-modal-backdrop"
+      tabindex="-1"
+      (click)="closeCancelModal()"
+      (keydown.escape)="closeCancelModal()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancelListModalTitle"
+    >
+      <div
+        class="assessment-modal-dialog"
+        tabindex="-1"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeCancelModal()"
+      >
+        <div class="assessment-modal-header">
+          <h3 id="cancelListModalTitle">Xác nhận hủy đánh giá tiền nhiệm vụ</h3>
+          <button
+            type="button"
+            class="app-btn-action"
+            (click)="closeCancelModal()"
+            [disabled]="actionBusyId() === targetItem.id"
+          >
+            Đóng
+          </button>
         </div>
 
-        <div class="evn-modal-body">
-          <div class="modal-alert-box">
-            Bản đánh giá <strong>{{ targetItem.assessmentCode }}</strong> sẽ chuyển sang trạng thái <strong>CANCELLED</strong>. Thao tác này không thể hoàn tác và hồ sơ sẽ bị hủy bỏ.
-          </div>
-          <div class="modal-desc">
+        <div class="assessment-modal-body">
+          <p class="modal-warning-text">
+            Bản đánh giá <strong>{{ targetItem.assessmentCode }}</strong> sẽ chuyển sang trạng thái
+            <span class="text-red-500 font-medium">Đã hủy</span>. Thao tác này không thể hoàn tác.
+          </p>
+          <div class="modal-meta-row">
             <span>Khu vực: <strong>{{ targetItem.regionName }}</strong></span>
-            <span style="margin: 0 6px; color: #94a3b8;">|</span>
+            <span class="cell-muted">|</span>
             <span>Số lượng: <strong>{{ targetItem.towers.length }} vị trí cột</strong></span>
           </div>
 
-          <div class="form-group-modal">
-            <label for="cancelListReasonInput">Lý do hủy bản đánh giá (tùy chọn):</label>
+          <div class="modal-field">
+            <label for="cancelListReasonInput">Lý do hủy bản đánh giá (tùy chọn)</label>
             <textarea
               id="cancelListReasonInput"
-              placeholder="Ví dụ: Thay đổi kế hoạch bay, điều kiện thời tiết xấu, nhập sai thông số..."
+              placeholder="Ví dụ: Thay đổi kế hoạch bay, điều kiện thời tiết xấu..."
               [value]="cancelReason()"
-              (input)="cancelReason.set($any($event.target).value)"
+              (input)="onCancelReasonEvent($event)"
               rows="2"
             ></textarea>
           </div>
         </div>
 
-        <div class="evn-modal-footer">
-          <button type="button" class="evn-btn secondary" (click)="closeCancelModal()" [disabled]="actionBusyId() === targetItem.id">
-            Giữ lại bản đánh giá
+        <div class="assessment-modal-footer">
+          <button
+            type="button"
+            class="app-btn-secondary"
+            (click)="closeCancelModal()"
+            [disabled]="actionBusyId() === targetItem.id"
+          >
+            Giữ lại
           </button>
           <button
             type="button"
-            class="evn-btn danger"
+            class="app-btn-danger"
             (click)="executeCancel()"
             [disabled]="actionBusyId() === targetItem.id"
           >
-            <span nz-icon [nzType]="actionBusyId() === targetItem.id ? 'loading' : 'delete'"></span>
-            Xác nhận hủy đánh giá
+            {{ actionBusyId() === targetItem.id ? 'Đang xử lý...' : 'Xác nhận hủy' }}
           </button>
         </div>
       </div>
     </div>
   }
-
 </div>

@@ -25,9 +25,9 @@ import { pollResource } from '../../data-access/polled-resource';
   styles: `
     :host { display: block; min-height: 0; }
     .alerts-card { display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03); overflow: hidden; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
-    h2 { margin: 0; color: #0f2952; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-    .count { padding: 1px 8px; border-radius: 999px; background: #b91c1c; color: #fff; font-size: 11px; font-weight: 700; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+    h2 { margin: 0; color: #0f172a; font-size: 14px; font-weight: 600; }
+    .count { font-size: 12px; font-weight: 600; color: #be123c; }
     .error { margin: 8px 12px 0; padding: 6px 10px; border: 1px solid #fecaca; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-size: 12px; }
     app-active-alerts-panel { flex: 1 1 auto; min-height: 0; }
   `,

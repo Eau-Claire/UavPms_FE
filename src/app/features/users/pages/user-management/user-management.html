@@ -1,262 +1,174 @@
-<div class="pre-mission-page user-management-page">
-  <!-- TẦNG 1: HEADER BAR & BREADCRUMB -->
-  <header class="pre-mission-head">
+<div class="ops-page user-management-benchmark">
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard">TỔNG QUAN</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>QUẢN LÝ NGƯỜI DÙNG &amp; PHÂN QUYỀN</strong>
+        <strong>Quản lý người dùng &amp; Phân quyền</strong>
       </nav>
       <h1>{{ isAdmin() ? 'Quản lý người dùng' : 'Phân quyền khu vực' }}</h1>
       <p>
-        {{ isAdmin() ? 'Quản lý tài khoản, vai trò, trạng thái truy cập và phạm vi khu vực của nhân sự hệ thống' : 'Phân
-        quyền khu vực hoạt động cho các thanh tra viên' }}
+        {{ isAdmin() ? 'Quản lý tài khoản, vai trò, trạng thái truy cập và phạm vi khu vực của nhân sự hệ thống' : 'Phân quyền khu vực hoạt động cho các thanh tra viên' }}
       </p>
     </div>
-    <div class="head-actions">
-      <button type="button" class="evn-btn secondary" (click)="load()" [disabled]="loading()" title="Làm mới danh sách">
-        <span nz-icon nzType="reload" [nzSpin]="loading()"></span> Làm mới
-      </button>
-      @if (isAdmin()) {
-      <button type="button" class="evn-btn primary" (click)="openCreate()">
-        <span nz-icon nzType="plus"></span> Thêm người dùng
-      </button>
-      }
-    </div>
+    @if (isAdmin()) {
+      <div class="head-actions">
+        <button type="button" class="app-btn-primary" (click)="openCreate()">Thêm người dùng</button>
+      </div>
+    }
   </header>
 
-  <!-- TẦNG 2: FEEDBACK ALERTS -->
   @if (notice()) {
-  <div class="evn-alert" style="background: #f0fdf4; border-color: #86efac; color: #166534;" role="status">
-    <div style="display: flex; align-items: center; gap: 6px;">
-      <span nz-icon nzType="check-circle"></span>
-      <span>{{ notice() }}</span>
+    <div class="app-error-banner" style="background: #f0fdf4; border-color: #bbf7d0; color: #166534;" role="status">
+      <span class="truncate">{{ notice() }}</span>
+      <button type="button" class="app-btn-action" (click)="notice.set('')">Đóng</button>
     </div>
-    <button type="button" style="color: #166534;" (click)="notice.set('')">Đóng</button>
-  </div>
   }
 
   @if (error()) {
-  <div class="evn-alert" role="alert">
-    <div style="display: flex; align-items: center; gap: 6px;">
-      <span nz-icon nzType="close-circle"></span>
-      <span>{{ error() }}</span>
+    <div class="app-error-banner" role="alert">
+      <span class="truncate">{{ error() }}</span>
+      <button type="button" class="app-btn-action" (click)="load()">Thử lại</button>
     </div>
-    <button type="button" (click)="error.set('')">Đóng</button>
-  </div>
   }
 
-  @if (!isAdmin() && canManageScopes()) {
-  <div class="evn-alert" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;" role="status">
-    <div style="display: flex; align-items: center; gap: 6px;">
-      <span nz-icon nzType="info-circle"></span>
-      <span>Danh sách gồm các thanh tra viên khả dụng. Chỉ Quản trị viên hệ thống mới có quyền tạo mới, chỉnh sửa thông
-        tin hoặc khóa/đình chỉ tài khoản.</span>
-    </div>
-  </div>
-  }
-
-  <!-- TẦNG 3: FILTER TOOLBAR -->
-  <section class="pre-mission-filters" aria-label="Bộ lọc người dùng">
-    <div class="search-input-wrap">
-      <span nz-icon nzType="search" class="search-icon"></span>
-      <input type="search" placeholder="Tìm theo họ tên, email, tên đăng nhập..." [value]="search()"
-        (input)="search.set($any($event.target).value); page.set(1)" />
+  <section class="app-filter-bar" role="search" aria-label="Bộ lọc người dùng">
+    <div class="filter-search">
+      <input
+        type="search"
+        aria-label="Tìm kiếm người dùng"
+        placeholder="Tìm theo họ tên, email, tên đăng nhập..."
+        [value]="search()"
+        (input)="onSearchEvent($event)"
+      />
     </div>
 
-    <label>
-      <span>Vai trò:</span>
-      <select [value]="roleFilter()" (change)="onRoleFilterChange($any($event.target).value)">
+    <label class="filter-field">
+      <span class="filter-label">Vai trò</span>
+      <select aria-label="Lọc theo vai trò" [value]="roleFilter()" (change)="onRoleEvent($event)">
         <option value="">Tất cả vai trò</option>
         @for (role of roles; track role) {
-        <option [value]="role">{{ roleLabel(role) }}</option>
+          <option [value]="role">{{ roleLabel(role) }}</option>
         }
       </select>
     </label>
 
     @if (isAdmin()) {
-    <label>
-      <span>Trạng thái:</span>
-      <select [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
-        <option value="">Tất cả trạng thái</option>
-        @for (status of statuses; track status) {
-        <option [value]="status">{{ statusLabel(status) }}</option>
-        }
-      </select>
-    </label>
+      <label class="filter-field">
+        <span class="filter-label">Trạng thái</span>
+        <select aria-label="Lọc theo trạng thái" [value]="statusFilter()" (change)="onStatusEvent($event)">
+          <option value="">Tất cả trạng thái</option>
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ statusLabel(status) }}</option>
+          }
+        </select>
+      </label>
     }
 
-    <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="load()" title="Tải lại danh sách">
-      <span nz-icon nzType="reload"></span> Làm mới
-    </button>
-
-    @if (search() || roleFilter() || statusFilter()) {
-    <button type="button" class="evn-btn secondary"
-      (click)="search.set(''); roleFilter.set(''); statusFilter.set(''); page.set(1)" title="Xóa tất cả bộ lọc">
-      <span nz-icon nzType="clear"></span> Đặt lại
-    </button>
-    }
+    <div class="filter-actions">
+      <button
+        type="button"
+        class="app-btn-secondary"
+        [disabled]="!hasActiveFilters()"
+        (click)="clearFilters()"
+      >
+        Xóa lọc
+      </button>
+      <button type="button" class="app-btn-secondary" style="min-width: 90px;" (click)="load()">
+        {{ fetching() ? 'Đang tải...' : 'Làm mới' }}
+      </button>
+    </div>
   </section>
 
-  <!-- TẦNG 4: SUMMARY METRIC STRIP -->
-  <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu người dùng">
-    <div class="summary-item">
-      <strong>{{ stats().total }}</strong>
-      <span>Tổng người dùng</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #166534;">{{ stats().active }}</strong>
-      <span>Hoạt động</span>
-    </div>
-    @if (isAdmin()) {
-    <div class="summary-item">
-      <strong style="color: #b45309;">{{ stats().inactive }}</strong>
-      <span>Tạm ngưng</span>
-    </div>
-    <div class="summary-item">
-      <strong style="color: #dc2626;">{{ stats().locked }}</strong>
-      <span>Đã khóa</span>
-    </div>
-    }
-  </section>
-
-  <!-- TẦNG 5: DENSE EVN BORDERED TABLE CARD -->
-  <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
-    <div class="table-scroll">
-      <table>
+  <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
+    <div class="app-table-scroll app-table-stage">
+      <table class="app-data-table">
+        <colgroup>
+          <col style="width: 23%" />
+          <col style="width: 29%" />
+          <col style="width: 13%" />
+          <col style="width: 12%" />
+          <col style="width: 14%" />
+          <col style="width: 9%" />
+        </colgroup>
         <thead>
           <tr>
-            <th style="width: 260px; text-align: left;">Người dùng & Tài khoản</th>
-            <th style="width: 240px; text-align: left;">Liên hệ (Email / SĐT)</th>
-            <th style="width: 130px;" class="text-center">Vai trò</th>
-            <th style="width: 120px;" class="text-center">Trạng thái</th>
-            <th style="width: 140px;">Ngày tạo</th>
-            <th style="width: 170px;" class="text-center">Thao tác</th>
+            <th>Họ tên</th>
+            <th>Email &amp; SĐT</th>
+            <th class="col-center">Vai trò</th>
+            <th class="col-center">Trạng thái</th>
+            <th>Ngày tạo</th>
+            <th class="col-center col-sticky-right">Thao tác</th>
           </tr>
         </thead>
-        <tbody>
-          @if (loading()) {
-          @for (skeleton of [1, 2, 3, 4, 5]; track skeleton) {
-          <tr class="skeleton-row">
-            <td colspan="6" class="text-center" style="color: #64748b; font-style: italic;">
-              Đang tải danh sách người dùng...
-            </td>
-          </tr>
-          }
+        <tbody [class.is-fetching]="fetching() && !initialLoading()">
+          @if (initialLoading()) {
+            @for (row of skeletonRows; track row) {
+              <tr aria-hidden="true">
+                <td><span class="app-skeleton-bar w-36"></span></td>
+                <td><span class="app-skeleton-bar w-44"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
+              </tr>
+            }
           } @else if (!filteredUsers().length) {
-          <tr>
-            <td colspan="6" class="text-center" style="padding: 24px; color: #64748b;">
-              Không tìm thấy người dùng nào phù hợp điều kiện lọc.
-            </td>
-          </tr>
+            <tr>
+              <td colspan="6" class="app-empty-cell">
+                Không tìm thấy người dùng nào phù hợp điều kiện lọc.
+              </td>
+            </tr>
           } @else {
-          @for (user of paginatedUsers(); track user.id) {
-          <tr [class.user-row-locked]="user.status === 'Locked'" [class.user-row-inactive]="user.status === 'Inactive'">
-            <td>
-              <div class="user-cell">
-                <div class="user-avatar" [class.avatar-admin]="user.role === 'Admin'"
-                  [class.avatar-locked]="user.status === 'Locked'">
-                  {{ getInitials(user.fullName || user.email) }}
-                </div>
-                <div class="user-info">
-                  <div class="user-name">{{ user.fullName || 'Chưa đặt tên' }}</div>
-                  <div class="user-username">&#64;{{ user.username || user.email.split('@')[0] }}</div>
-                </div>
-              </div>
-            </td>
-
-            <td>
-              <div class="contact-cell">
-                <div class="user-email"><span nz-icon nzType="mail"></span> {{ user.email }}</div>
-                @if (user.phone) {
-                <div class="user-phone"><span nz-icon nzType="phone"></span> {{ user.phone }}</div>
-                }
-              </div>
-            </td>
-
-            <td class="text-center">
-              <span class="evn-status {{ roleTone(user.role) }}">
-                {{ roleLabel(user.role) }}
-              </span>
-            </td>
-
-            <td class="text-center">
-              <span class="evn-status {{ statusTone(user.status) }}">
-                {{ statusLabel(user.status) }}
-              </span>
-            </td>
-
-            <td>
-              <span style="font-size: 11px; color: #334155;">
-                {{ user.createdAt ? (user.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}
-              </span>
-            </td>
-
-            <td class="text-center">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                @if (canManageScopes()) {
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #1d4f91; border-color: #bfdbfe; background: #eff6ff;"
-                  [attr.aria-label]="'Phạm vi khu vực của ' + (user.fullName || user.email)" title="Phân quyền khu vực"
-                  (click)="openScopes(user)">
-                  <span nz-icon nzType="environment"></span> Khu vực
-                </button>
-                }
-
-                @if (isAdmin()) {
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;"
-                  aria-label="Cập nhật thông tin người dùng" title="Cập nhật thông tin" (click)="openEdit(user)">
-                  <span nz-icon nzType="edit"></span>
-                </button>
-
-                @if (user.status === 'Locked') {
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #166534; border-color: #86efac; background: #f0fdf4;"
-                  title="Mở khóa tài khoản" (click)="changeStatus(user, 'Active')">
-                  <span nz-icon nzType="unlock"></span>
-                </button>
-                } @else if (user.status === 'Inactive') {
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #166534; border-color: #86efac; background: #f0fdf4;"
-                  title="Kích hoạt tài khoản" (click)="changeStatus(user, 'Active')">
-                  <span nz-icon nzType="check-circle"></span>
-                </button>
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #dc2626; border-color: #fca5a5; background: #fef2f2;"
-                  title="Khóa tài khoản" (click)="changeStatus(user, 'Locked')">
-                  <span nz-icon nzType="lock"></span>
-                </button>
-                } @else {
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #b45309; border-color: #fde68a; background: #fffbeb;"
-                  title="Vô hiệu hóa tài khoản" (click)="changeStatus(user, 'Inactive')">
-                  <span nz-icon nzType="pause-circle"></span>
-                </button>
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px; color: #dc2626; border-color: #fca5a5; background: #fef2f2;"
-                  title="Khóa tài khoản" (click)="changeStatus(user, 'Locked')">
-                  <span nz-icon nzType="lock"></span>
-                </button>
-                }
-
-                <button type="button" class="evn-btn secondary"
-                  style="height: 22px; min-height: 22px; padding: 0 6px; font-size: 10px;" aria-label="Đặt lại mật khẩu"
-                  title="Đặt lại mật khẩu" (click)="resetPassword(user)">
-                  <span nz-icon nzType="key"></span>
-                </button>
-                }
-              </div>
-            </td>
-          </tr>
-          }
+            @for (user of paginatedUsers(); track user.id) {
+              <tr>
+                <td>
+                  <span
+                    class="cell-primary cell-truncate"
+                    [title]="(user.fullName || 'Chưa đặt tên') + ' (@' + (user.username || user.email.split('@')[0]) + ')'"
+                  >
+                    {{ user.fullName || 'Chưa đặt tên' }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="cell-secondary cell-truncate"
+                    [title]="user.email + (user.phone ? ' · ' + user.phone : '')"
+                  >
+                    {{ user.email }}@if (user.phone) { <span class="cell-muted"> · {{ user.phone }}</span> }
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span class="cell-secondary">{{ roleLabel(user.role) }}</span>
+                </td>
+                <td class="col-center">
+                  <span [class]="userStatusColorClass(user.status)">
+                    {{ statusLabel(user.status) }}
+                  </span>
+                </td>
+                <td class="tabular-nums cell-secondary">
+                  <span class="cell-truncate">
+                    {{ user.createdAt ? (user.createdAt | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                  </span>
+                </td>
+                <td class="col-center col-sticky-right">
+                  <button
+                    type="button"
+                    class="app-btn-action"
+                    [attr.aria-label]="'Chi tiết người dùng ' + (user.fullName || user.email)"
+                    (click)="openDetail(user)"
+                  >
+                    Chi tiết
+                  </button>
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
     </div>
 
-    <!-- TẦNG 6: TABLE FOOTER & PAGINATION -->
-    <div class="user-pagination-wrap">
+    <footer class="app-pagination-footer">
       <app-pagination
         [page]="page()"
         [totalPages]="totalPages()"
@@ -264,8 +176,110 @@
         [pageSize]="pageSize()"
         (pageChanged)="page.set($event)"
       />
-    </div>
+    </footer>
   </section>
+
+  <!-- User Detail & Actions Card Modal (Quiet Chrome, 0 Icons) -->
+  @if (detailUser(); as du) {
+    <div
+      class="user-detail-backdrop"
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-detail-title"
+      (click)="closeDetail()"
+      (keydown.escape)="closeDetail()"
+    >
+      <div
+        class="user-detail-dialog"
+        tabindex="-1"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeDetail()"
+      >
+        <div class="user-detail-header">
+          <h3 id="user-detail-title">Chi tiết người dùng: {{ du.fullName || du.email }}</h3>
+          <button type="button" class="app-btn-action" (click)="closeDetail()">Đóng</button>
+        </div>
+
+        <div class="user-detail-body">
+          <div class="user-detail-specs">
+            <div class="spec-item">
+              <span class="spec-label">Họ và tên</span>
+              <span class="spec-value">{{ du.fullName || 'Chưa đặt tên' }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Tên đăng nhập</span>
+              <span class="spec-value">&#64;{{ du.username || du.email.split('@')[0] }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Email</span>
+              <span class="spec-value">{{ du.email }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Số điện thoại</span>
+              <span class="spec-value">{{ du.phone || '—' }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Vai trò</span>
+              <span class="spec-value">{{ roleLabel(du.role) }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Trạng thái</span>
+              <span class="spec-value" [class]="userStatusColorClass(du.status)">{{ statusLabel(du.status) }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Ngày tạo</span>
+              <span class="spec-value tabular-nums">{{ du.createdAt ? (du.createdAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="user-detail-footer">
+          <div class="footer-group-left">
+            @if (isAdmin()) {
+              @if (du.status === 'Locked') {
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Active')">
+                  Mở khóa
+                </button>
+              } @else if (du.status === 'Inactive') {
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Active')">
+                  Kích hoạt
+                </button>
+                <button type="button" class="app-btn-danger" (click)="closeDetail(); changeStatus(du, 'Locked')">
+                  Khóa tài khoản
+                </button>
+              } @else {
+                <button type="button" class="app-btn-danger" (click)="closeDetail(); changeStatus(du, 'Locked')">
+                  Khóa tài khoản
+                </button>
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Inactive')">
+                  Tạm ngưng
+                </button>
+              }
+            }
+          </div>
+
+          <div class="footer-group-right">
+            @if (isAdmin()) {
+              <button type="button" class="app-btn-secondary" (click)="closeDetail(); resetPassword(du)">
+                Đặt lại mật khẩu
+              </button>
+            }
+            @if (canManageScopes()) {
+              <button type="button" class="app-btn-secondary" (click)="closeDetail(); openScopes(du)">
+                Phân quyền khu vực
+              </button>
+            }
+            @if (isAdmin()) {
+              <button type="button" class="app-btn-primary" (click)="closeDetail(); openEdit(du)">
+                Chỉnh sửa
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 
   <!-- User Create / Edit Centered Dialog Modal -->
   @if (modalOpen()) {
@@ -283,22 +297,40 @@
         <button type="button" class="modal-close" aria-label="Đóng cửa sổ" (click)="closeModal()">×</button>
       </header>
 
-      <form [formGroup]="form" (ngSubmit)="save()" class="modal-body">
+      <form [formGroup]="form" (ngSubmit)="save()" class="modal-body" novalidate>
+        @if (formError()) {
+          <div class="app-error-banner" role="alert" style="margin-bottom: 12px;">
+            <span>{{ formError() }}</span>
+          </div>
+        }
         <div class="form-grid">
           <label class="form-field full-width">
             <span class="field-label">Họ và tên <span class="required">*</span></span>
             <input type="text" formControlName="fullName" placeholder="VD: Nguyễn Văn A" />
+            @if (form.controls.fullName.touched && (form.controls.fullName.invalid || form.controls.fullName.value.trim().length < 2)) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Vui lòng nhập họ và tên (tối thiểu 2 ký tự).</small>
+            }
           </label>
 
           <label class="form-field">
             <span class="field-label">Địa chỉ Email <span class="required">*</span></span>
             <input type="email" formControlName="email" placeholder="VD: user@uavpms.vn" [readonly]="editing() !== null"
               [class.readonly-input]="editing() !== null" />
+            @if (!editing() && form.controls.email.touched && form.controls.email.hasError('required')) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Vui lòng nhập địa chỉ email.</small>
+            } @else if (!editing() && form.controls.email.touched && form.controls.email.hasError('email')) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Địa chỉ email không đúng định dạng.</small>
+            } @else if (!editing() && isDuplicateEmail()) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Email này đã tồn tại trong hệ thống.</small>
+            }
           </label>
 
           <label class="form-field">
             <span class="field-label">Số điện thoại</span>
             <input type="tel" formControlName="phone" placeholder="VD: 0912345678" />
+            @if (form.controls.phone.touched && isPhoneInvalid()) {
+              <small class="text-rose-600" style="font-size: 12px; margin-top: 2px;">Số điện thoại cần 9–11 chữ số (bắt đầu bằng 0 hoặc +84).</small>
+            }
           </label>
 
           <label class="form-field">
@@ -323,21 +355,18 @@
           <div class="form-field full-width generated-password-field">
             <span class="field-label">Mật khẩu khởi tạo ngẫu nhiên (An toàn & Đạt chuẩn)</span>
             <div class="generated-pwd-box">
-              <span nz-icon nzType="lock" class="pwd-icon"></span>
               <code class="pwd-code">{{ generatedPassword() }}</code>
               <div class="pwd-actions">
-                <button type="button" class="button secondary small" (click)="regeneratePassword()"
+                <button type="button" class="app-btn-secondary" (click)="regeneratePassword()"
                   title="Đổi mật khẩu ngẫu nhiên khác">
-                  <span nz-icon nzType="sync"></span> Tạo lại
+                  Tạo lại
                 </button>
-                <button type="button" class="button secondary small" (click)="copyPassword()" title="Sao chép mật khẩu">
-                  <span nz-icon [nzType]="copied() ? 'check' : 'copy'"></span> {{ copied() ? 'Đã sao chép' : 'Sao chép'
-                  }}
+                <button type="button" class="app-btn-secondary" (click)="copyPassword()" title="Sao chép mật khẩu">
+                  {{ copied() ? 'Đã sao chép' : 'Sao chép' }}
                 </button>
               </div>
             </div>
             <small class="pwd-field-hint">
-              <span nz-icon nzType="check-circle" style="color: #16a34a;"></span>
               Tài khoản được cấu hình tự động xác thực email để tránh lỗi đăng nhập.
             </small>
           </div>
@@ -348,13 +377,13 @@
         <div class="modal-secondary-tools">
           <span class="tools-title">Tác vụ khác:</span>
           <div class="tools-btn-group">
-            <button type="button" class="button secondary small" (click)="resetPassword(user)" title="Đặt lại mật khẩu">
-              <span nz-icon nzType="key" aria-hidden="true"></span> Đặt lại mật khẩu
+            <button type="button" class="app-btn-secondary" (click)="resetPassword(user)" title="Đặt lại mật khẩu">
+              Đặt lại mật khẩu
             </button>
             @if (canManageScopes()) {
-            <button type="button" class="button secondary small" (click)="openScopes(user); closeModal()"
+            <button type="button" class="app-btn-secondary" (click)="openScopes(user); closeModal()"
               title="Phân quyền khu vực">
-              <span nz-icon nzType="environment" aria-hidden="true"></span> Phân quyền khu vực
+              Phân quyền khu vực
             </button>
             }
           </div>
@@ -362,8 +391,8 @@
         }
 
         <footer class="modal-footer">
-          <button type="button" class="evn-btn secondary" (click)="closeModal()">Hủy bỏ</button>
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || form.invalid">
+          <button type="button" class="app-btn-secondary" (click)="closeModal()">Hủy bỏ</button>
+          <button type="submit" class="app-btn-primary" [disabled]="busy()">
             {{ busy() ? 'Đang lưu...' : (editing() ? 'Lưu thay đổi' : 'Tạo người dùng') }}
           </button>
         </footer>

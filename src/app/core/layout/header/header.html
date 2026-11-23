@@ -45,7 +45,7 @@
                 aria-label="Bộ lọc thông báo"
                 (click)="notificationFiltersOpen.update((value) => !value)"
               >
-                <span nz-icon nzType="filter"></span>
+                Lọc
               </button>
               <button
                 type="button"
@@ -54,7 +54,7 @@
                 aria-label="Làm mới thông báo"
                 (click)="resetNotifications()"
               >
-                <span nz-icon nzType="reload"></span>
+                Làm mới
               </button>
               @if (notifications.unreadCount() > 0) {
                 <button
@@ -63,7 +63,6 @@
                   title="Đánh dấu tất cả thông báo là đã đọc"
                   (click)="markAllAsRead()"
                 >
-                  <span nz-icon nzType="check"></span>
                   Đã đọc
                 </button>
               }
@@ -113,7 +112,7 @@
             <article class="notification-detail">
               <div class="notification-detail-top">
                 <button type="button" class="notification-back" (click)="notifications.clearSelection()">
-                  <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
+                  Quay lại danh sách
                 </button>
                 <time class="notification-detail-time">{{ formatDate(selected.createdAt) }}</time>
               </div>
@@ -121,21 +120,13 @@
               <div class="notification-detail-heading">
                 <span class="notification-type">{{ selected.type || 'Chung' }}</span>
                 @if (selected.referenceType) {
-                  <span class="notification-detail-dot">•</span>
+                  <span class="notification-detail-dot">·</span>
                   <span class="notification-ref">{{ referenceTypeLabel(selected.referenceType) }}</span>
                 }
               </div>
 
               <h3>{{ cleanTitle(selected.title) }}</h3>
 
-              @if (parseSummary(selected.body); as summary) {
-                <div class="metrics-row detail-metrics">
-                  <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
-                  <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
-                  <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
-                  <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
-                </div>
-              }
               <p class="notification-detail-body">{{ selected.body || 'Không có nội dung thông báo.' }}</p>
 
               @if (selected.referenceType || selected.referenceId) {
@@ -148,19 +139,18 @@
               <div class="notification-detail-actions">
                 @if (selectedLink(); as link) {
                   <a class="notification-go-mission-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" (click)="closeNotifications()">
-                    <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
+                    {{ link.label }}
                   </a>
                 }
                 @if (!selected.isRead) {
                   <button type="button" class="notif-btn-secondary" (click)="notifications.markRead(selected.id)">
-                    <span nz-icon nzType="check"></span> Đánh dấu đã đọc
+                    Đánh dấu đã đọc
                   </button>
                 }
               </div>
             </article>
           } @else if (notifications.loading()) {
             <div class="notification-empty">
-              <span nz-icon nzType="loading" [nzSpin]="true"></span>
               <span>Đang tải thông báo...</span>
             </div>
           } @else if (groupedNotifications().length) {
@@ -182,7 +172,6 @@
                     <div class="card-main">
                       <div class="card-header">
                         <div class="card-title-group">
-                          <span nz-icon [nzType]="typeIcon(item.type, item.referenceType)" class="notif-type-icon"></span>
                           <span class="notif-title" [class.unread]="!item.isRead">{{ cleanTitle(item.title) }}</span>
                         </div>
                         <div class="card-meta">
@@ -193,14 +182,7 @@
                         </div>
                       </div>
 
-                      @if (parseSummary(item.body); as summary) {
-                        <div class="metrics-row">
-                          <span class="metric-item">Nhiệm vụ: <strong>{{ summary.missions }}</strong></span>
-                          <span class="metric-item">Kiểm tra: <strong>{{ summary.inspections }}</strong></span>
-                          <span class="metric-item">Cảnh báo: <strong>{{ summary.alerts }}</strong></span>
-                          <span class="metric-item">Sự cố: <strong>{{ summary.defects }}</strong></span>
-                        </div>
-                      } @else if (item.body) {
+                      @if (item.body) {
                         <p class="notif-desc">{{ item.body }}</p>
                       }
                     </div>
@@ -219,50 +201,6 @@
         </section>
       }
     </div>
-    @if (showFacilitySelector()) {
-      <div class="app-facility-wrap">
-        <button
-          type="button"
-          class="app-facility-btn"
-          aria-label="Chọn đơn vị cơ sở"
-          [attr.aria-expanded]="facilityMenuOpen()"
-          (click)="toggleFacilityMenu()"
-        >
-          <svg class="facility-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-            <path d="M12 3L2 9V21H22V9L12 3ZM19 19H16V13H14V19H10V13H8V19H5V10.19L12 5.99L19 10.19V19Z"/>
-          </svg>
-          <span class="facility-btn-text">{{ facilityStore.currentFacilityName() }}</span>
-          <span nz-icon nzType="down" class="facility-caret" [class.rotated]="facilityMenuOpen()" aria-hidden="true"></span>
-        </button>
-
-        @if (facilityMenuOpen()) {
-          <div class="facility-dropdown-menu" role="menu">
-            <div class="facility-dropdown-header">
-              <span>Cơ sở / Đơn vị thành viên</span>
-              <small class="facility-count">({{ facilityStore.facilities().length }})</small>
-            </div>
-            <div class="facility-dropdown-list">
-              @for (fac of facilityStore.facilities(); track fac.id) {
-                <button
-                  type="button"
-                  class="facility-option"
-                  [class.selected]="fac.id === facilityStore.selectedFacility().id"
-                  (click)="chooseFacility(fac)"
-                  role="menuitem"
-                >
-                  <span nz-icon nzType="bank" class="facility-option-icon"></span>
-                  <span class="facility-option-name">{{ fac.name }}</span>
-                  @if (fac.id === facilityStore.selectedFacility().id) {
-                    <span nz-icon nzType="check" class="facility-check"></span>
-                  }
-                </button>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    }
-
     <div class="app-profile-wrap">
       <button
         type="button"
@@ -273,7 +211,6 @@
       >
         <span class="user-avatar-badge">{{ userInitial() }}</span>
         <span class="app-user-display-name">{{ userDisplayName() }}</span>
-        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
       </button>
       @if (menuOpen()) {
         <div class="app-profile-menu" role="menu">
@@ -284,23 +221,21 @@
             </div>
           </div>
           <div class="profile-menu-divider"></div>
+          <button type="button" class="profile-menu-item" routerLink="/account/settings" (click)="menuOpen.set(false)" role="menuitem">
+            <span>Cài đặt tài khoản</span>
+          </button>
           @if (canViewAuditLogs()) {
             <button type="button" class="profile-menu-item" routerLink="/system/audit-logs" (click)="menuOpen.set(false)" role="menuitem">
-              <span nz-icon nzType="history"></span>
               <span>Nhật ký hệ thống</span>
             </button>
+          }
+          @if (canViewSystemSettings()) {
             <button type="button" class="profile-menu-item" routerLink="/system/settings" (click)="menuOpen.set(false)" role="menuitem">
-              <span nz-icon nzType="setting"></span>
               <span>Cấu hình hệ thống</span>
             </button>
           }
-          <button type="button" class="profile-menu-item" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
-            <span nz-icon nzType="lock"></span>
-            <span>Đổi mật khẩu</span>
-          </button>
           <div class="profile-menu-divider"></div>
           <button type="button" class="profile-menu-item logout" (click)="logout()" role="menuitem">
-            <span nz-icon nzType="logout"></span>
             <span>Đăng xuất</span>
           </button>
         </div>

@@ -24,11 +24,11 @@
   </label>
   <label>
     <span>Từ ngày</span>
-    <input type="date" formControlName="fromDate" />
+    <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/MM/yyyy" formControlName="fromDate" (input)="onDateInput('fromDate', $event)" />
   </label>
   <label>
     <span>Đến ngày</span>
-    <input type="date" formControlName="toDate" />
+    <input type="text" inputmode="numeric" maxlength="10" placeholder="dd/MM/yyyy" formControlName="toDate" (input)="onDateInput('toDate', $event)" />
   </label>
   <p id="inspection-mission-hint" class="hint">
     Chọn nhiệm vụ từ danh sách gợi ý (hoặc dán ID nhiệm vụ) để lọc toàn bộ lịch sử. Nội dung khác chỉ lọc theo tên nhiệm vụ trên trang đang xem.

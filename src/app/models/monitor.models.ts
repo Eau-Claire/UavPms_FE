@@ -40,6 +40,8 @@ export interface InspectionRecord {
   readonly missionId: string;
   readonly missionName: string;
   readonly imageUrl?: string;
+  /** Lightweight thumbnail URL if provided separately by backend (avoids decoding 4K full-res in list). */
+  readonly thumbnailUrl?: string;
   readonly isDefect: boolean;
   readonly defectType?: string;
   readonly detectedAt: string;

@@ -1,11 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 
 export type PageItem = number | '...';
 
 @Component({
   selector: 'app-pagination',
-  imports: [NzIconModule],
   templateUrl: './pagination.html',
   styleUrl: './pagination.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -15,14 +13,26 @@ export class Pagination {
   readonly totalPages = input.required<number>();
   readonly totalCount = input<number>(0);
   readonly pageSize = input<number>(10);
+  readonly totalKnown = input<boolean>(true);
+  readonly itemCount = input<number | null>(null);
   readonly pageChanged = output<number>();
 
+  protected readonly hasRecords = computed(() => {
+    const count = this.itemCount();
+    return this.totalCount() > 0 || (count !== null && count > 0);
+  });
+
   protected readonly startIndex = computed(() => {
-    if (this.totalCount() === 0) return 0;
+    if (!this.hasRecords()) return 0;
     return (this.page() - 1) * this.pageSize() + 1;
   });
 
   protected readonly endIndex = computed(() => {
+    if (!this.hasRecords()) return 0;
+    const count = this.itemCount();
+    if (!this.totalKnown() && count !== null) {
+      return (this.page() - 1) * this.pageSize() + count;
+    }
     return Math.min(this.page() * this.pageSize(), this.totalCount());
   });
 

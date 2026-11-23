@@ -22,17 +22,17 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import {
   BetaflightSerialService,
-  SIMULATED_FC_PROFILES,
 } from '../../../../core/services/betaflight-serial.service';
 import { FlightControllerResolveResult } from '../../../../models/flight-controller.models';
 import {
@@ -45,7 +45,7 @@ import {
   UavCandidate,
   UavTechnicalEligibility,
 } from '../../../../models/pre-mission.models';
-import { statusLabel, statusTone } from '../../../../shared/status/status';
+import { priorityColorClass, priorityLabel, statusColorClass, statusLabel, statusTone } from '../../../../shared/status/status';
 import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { FlightControllerApi } from '../../data-access/flight-controller-api';
 import {
@@ -73,12 +73,9 @@ export interface ParsedPersonnelFindings {
   readonly rawText?: string;
 }
 
-/** Backend yêu cầu ít nhất 1 Inspector, 1 Analyst, 1 Technician đủ điều kiện để trụ cột Nhân sự đạt. */
-const REQUIRED_PER_ROLE = 1;
-
 @Component({
   selector: 'app-assessment-workspace',
-  imports: [RouterLink, DatePipe, DecimalPipe, NzIconModule],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   templateUrl: './assessment-workspace.html',
   styleUrl: './assessment-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,6 +89,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   private readonly realtime = inject(NotificationsRealtime);
   private readonly fcSerial = inject(BetaflightSerialService);
   private readonly fcApi = inject(FlightControllerApi);
+  private readonly toast = inject(ToastService);
   private realtimeSub: Subscription | null = null;
 
   /** Tọa độ thực của các cột thuộc khu vực (từ `GET /towers?regionId=`) để vẽ phạm vi lên bản đồ. */
@@ -112,6 +110,75 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly canInspectDrone = computed(() => this.canManage() || this.isTechnician());
 
   protected readonly item = signal<PreMissionAssessment | null>(null);
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly priorityLabel = priorityLabel;
+  protected readonly priorityColorClass = priorityColorClass;
+
+  protected roleVietnamese(role?: string | null): string {
+    const r = (role || '').trim().toUpperCase();
+    if (r.includes('INSPECT') || r.includes('PILOT')) return 'Phi công';
+    if (r.includes('ANALYST')) return 'Chuyên viên phân tích';
+    if (r.includes('TECH') || r.includes('MAINT')) return 'Kỹ thuật viên';
+    return role || '—';
+  }
+
+  protected formatCandidateName(name?: string | null): string {
+    const raw = (name || '').trim();
+    if (!raw) return '—';
+    // Shorten raw GUID fallback from backend for readability (full value stays in title tooltip)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+      return `ID ${raw.slice(0, 8).toUpperCase()}`;
+    }
+    return raw;
+  }
+
+  protected severityVietnamese(sev?: string | null): string {
+    const s = (sev || '').trim().toLowerCase();
+    if (s === 'high' || s === 'critical') return 'Cao';
+    if (s === 'medium' || s === 'warning') return 'Trung bình';
+    if (s === 'low' || s === 'info') return 'Thấp';
+    return sev || '—';
+  }
+
+  protected severityColorClass(sev?: string | null): string {
+    const s = (sev || '').trim().toLowerCase();
+    if (s === 'high' || s === 'critical') return 'text-rose-600 font-medium';
+    if (s === 'medium' || s === 'warning') return 'text-amber-700 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected technicalColorClass(elig?: UavTechnicalEligibility): string {
+    if (elig === 'ELIGIBLE') return 'text-emerald-600 font-medium';
+    if (elig === 'CRITICAL') return 'text-rose-600 font-medium';
+    if (elig === 'REQUIRES_INSPECTION' || elig === 'DEGRADED') return 'text-amber-700 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected suitabilityColorClass(suit?: string | null): string {
+    if (suit === 'SUITABLE') return 'text-emerald-600 font-medium';
+    if (suit === 'SUITABLE_WITH_SPLIT') return 'text-amber-700 font-medium';
+    if (suit === 'UNSUITABLE') return 'text-rose-600 font-medium';
+    return 'text-slate-600 font-medium';
+  }
+
+  protected findingsSummaryList(f: ParsedPersonnelFindings, role: string): readonly { text: string; ok: boolean }[] {
+    if (!f.isJson) {
+      return [{ text: f.rawText || 'Đạt tiêu chuẩn sẵn sàng vận hành', ok: true }];
+    }
+    const items: { text: string; ok: boolean }[] = [];
+    if (f.hasInspectorRole || role === 'INSPECTOR') {
+      items.push({ text: 'Chứng chỉ bay UAV', ok: true });
+    } else if (role === 'TECHNICIAN' || f.role === 'Technician' || f.role === 'MaintenanceTechnician') {
+      items.push({ text: 'KTV bảo trì UAV', ok: true });
+    } else if (role === 'ANALYST' || f.role === 'Analyst') {
+      items.push({ text: 'CV phân tích AI', ok: true });
+    }
+    if (!f.hasValidRole) items.push({ text: 'Thiếu chuẩn vai trò', ok: false });
+    items.push({ text: f.inScope ? 'Đúng địa bàn' : 'Khác địa bàn', ok: f.inScope });
+    items.push({ text: f.isActive ? 'Hồ sơ hợp lệ' : 'Chưa kích hoạt', ok: f.isActive });
+    if (f.hasBookingConflict) items.push({ text: 'Trùng lịch bay', ok: false });
+    return items;
+  }
   protected readonly error = signal('');
   protected readonly actionMessage = signal('');
   protected readonly isStaleConflict = signal(false);
@@ -121,7 +188,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   // Bộ lọc ứng viên nhân sự
   protected readonly personnelSearch = signal('');
   protected readonly selectedRoleFilter = signal<'ALL' | 'INSPECTOR' | 'ANALYST' | 'TECHNICIAN'>('ALL');
-  protected readonly onlyAvailableFilter = signal<boolean>(true);
+  protected readonly onlyAvailableFilter = signal<boolean>(false);
 
   // Kiểm định kỹ thuật drone
   protected readonly selectedDroneId = signal<string>('');
@@ -131,10 +198,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   // Flight Controller (Betaflight MSP)
   protected readonly fcMetadata = this.fcSerial.activeMetadata;
   protected readonly fcConnectionState = this.fcSerial.connectionState;
-  protected readonly fcIsSimulated = this.fcSerial.isSimulated;
   protected readonly fcError = this.fcSerial.errorMessage;
-  protected readonly simulatedProfiles = SIMULATED_FC_PROFILES;
-  protected readonly selectedSimProfile = signal<string>('f405-speedybee');
   protected readonly customFcUidInput = signal<string>('');
   protected readonly showCustomUidInput = signal<boolean>(false);
   protected readonly resolvingFc = signal<boolean>(false);
@@ -144,14 +208,14 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   protected readonly pairingSuccess = signal<string>('');
   protected readonly pairTargetDroneId = signal<string>('');
 
-  // Mock BIST Telemetry (Giả lập kiểm định viễn trắc lưu về Backend)
-  protected readonly showMockModal = signal<boolean>(false);
-  protected readonly mockSubmitting = signal<boolean>(false);
-  protected readonly mockPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
-  protected readonly mockBatteryLevel = signal<number>(96);
-  protected readonly mockGpsSats = signal<number>(28);
-  protected readonly mockRfQuality = signal<number>(98);
-  protected readonly mockNotes = signal<string>('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
+  // Technical inspection checklist modal state
+  protected readonly showChecklistModal = signal<boolean>(false);
+  protected readonly checklistSubmitting = signal<boolean>(false);
+  protected readonly inspectionPreset = signal<'healthy' | 'warning' | 'critical'>('healthy');
+  protected readonly checklistBatteryLevel = signal<number>(96);
+  protected readonly checklistGpsSats = signal<number>(28);
+  protected readonly checklistRfQuality = signal<number>(98);
+  protected readonly checklistNotes = signal<string>('Biên bản kiểm định kỹ thuật thiết bị UAV trước nhiệm vụ');
 
   // Khí tượng (tham khảo, không thay đổi kết quả đánh giá của backend)
   protected readonly realtimeWeather = signal<RealtimeWeatherSnapshot | null>(null);
@@ -225,7 +289,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
         if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
         if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
-      } catch {}
+      } catch {
+        // Ignore malformed findings JSON
+      }
     }
     return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
   });
@@ -338,27 +404,47 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       list = list.filter((p) => p.role === roleFilter);
     }
     const q = this.personnelSearch().trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.rawRole.toLowerCase().includes(q) || p.findings.toLowerCase().includes(q),
-    );
+    if (q) {
+      list = list.filter(
+        (p) => p.name.toLowerCase().includes(q) || p.rawRole.toLowerCase().includes(q) || p.findings.toLowerCase().includes(q),
+      );
+    }
+
+    // Mặc định đẩy người đủ điều kiện & sẵn sàng lên đầu danh sách
+    return [...list].sort((a, b) => {
+      const aEligible = a.isEligible ? 1 : 0;
+      const bEligible = b.isEligible ? 1 : 0;
+      if (aEligible !== bEligible) return bEligible - aEligible;
+
+      const aAvail = a.availabilityStatus === 'Available' ? 1 : 0;
+      const bAvail = b.availabilityStatus === 'Available' ? 1 : 0;
+      if (aAvail !== bAvail) return bAvail - aAvail;
+
+      const aEligStatus = (a.eligibilityStatus || '').toUpperCase() === 'ELIGIBLE' ? 1 : 0;
+      const bEligStatus = (b.eligibilityStatus || '').toUpperCase() === 'ELIGIBLE' ? 1 : 0;
+      if (aEligStatus !== bEligStatus) return bEligStatus - aEligStatus;
+
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    });
   });
 
-  /** Cột trong phạm vi hồ sơ kèm tọa độ (nếu có trong danh mục cột của khu vực). */
+  /** Cột trong phạm vi hồ sơ kèm tọa độ (nếu có trong danh mục cột của khu vực), sắp đúng thứ tự tuyến bay. */
   protected readonly scopeTowers = computed(() => {
     const a = this.item();
     if (!a) return [];
     const byId = new Map(this.regionTowers().map((t) => [t.id, t]));
-    return a.towers.map((t) => {
-      const info = byId.get(t.towerId);
-      return {
-        towerId: t.towerId,
-        sequence: t.sequence,
-        towerCode: t.towerCode || info?.towerCode || t.towerId,
-        latitude: info?.latitude ?? null,
-        longitude: info?.longitude ?? null,
-      };
-    });
+    return [...a.towers]
+      .sort((x, y) => (x.sequence ?? 0) - (y.sequence ?? 0))
+      .map((t) => {
+        const info = byId.get(t.towerId);
+        return {
+          towerId: t.towerId,
+          sequence: t.sequence,
+          towerCode: t.towerCode || info?.towerCode || t.towerId,
+          latitude: info?.latitude ?? null,
+          longitude: info?.longitude ?? null,
+        };
+      });
   });
 
   protected readonly statusTone = statusTone;
@@ -430,6 +516,22 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.initRealtimeSubscription();
 
     effect(() => {
+      const msg = this.actionMessage();
+      if (msg) {
+        this.toast.success(msg);
+        untracked(() => this.actionMessage.set(''));
+      }
+    });
+
+    effect(() => {
+      const err = this.error();
+      if (err && this.item()) {
+        this.toast.error(err);
+        untracked(() => this.error.set(''));
+      }
+    });
+
+    effect(() => {
       const a = this.item();
       const tab = this.activeTab();
       const scopeEl = this.scopeMapContainer();
@@ -453,7 +555,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     if (a?.id) this.realtime.leaveAssessment(a.id);
     this.realtimeSub?.unsubscribe();
     this.cleanupMap();
-    this.fcSerial.disconnect().catch(() => {});
+    this.fcSerial.disconnect().catch(() => undefined);
   }
 
   private initRealtimeSubscription(): void {
@@ -706,21 +808,6 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected async connectSimulatedFc(profileId?: string): Promise<void> {
-    this.pairingError.set('');
-    this.pairingSuccess.set('');
-    this.resolvedFcData.set(null);
-    try {
-      const target =
-        profileId ||
-        (this.showCustomUidInput() && this.customFcUidInput().trim() ? this.customFcUidInput().trim() : this.selectedSimProfile());
-      const meta = await this.fcSerial.connectSimulated(target);
-      this.resolveFc(meta.uid);
-    } catch {
-      // Lỗi đã được ghi vào signal của BetaflightSerialService.
-    }
-  }
-
   protected async disconnectFc(): Promise<void> {
     await this.fcSerial.disconnect();
     this.resolvedFcData.set(null);
@@ -813,50 +900,37 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     // item that has none, so the technician records the checklist first; the modal submits it with the FC UID.
     this.error.set('');
     this.checklistManual.set(true);
-    this.showMockModal.set(true);
+    this.showChecklistModal.set(true);
   }
 
   protected onSelectDrone(droneId: string): void {
     this.selectedDroneId.set(droneId);
     this.inspectionResult.set(null);
     this.loadLatestInspection(droneId);
-    const drone = this.item()?.uavCandidates.find((d) => d.id === droneId);
-    if (drone?.code) {
-      const match = this.simulatedProfiles.find((p) => p.id.toLowerCase() === drone.code.toLowerCase());
-      if (match) {
-        this.selectedSimProfile.set(match.id);
-      }
-    }
   }
 
-  protected openMockModal(preset: 'healthy' | 'warning' | 'critical' = 'healthy'): void {
-    this.applyMockPreset(preset);
-    this.checklistManual.set(false);
-    this.showMockModal.set(true);
+  protected closeChecklistModal(): void {
+    if (this.checklistSubmitting()) return;
+    this.showChecklistModal.set(false);
   }
 
-  protected closeMockModal(): void {
-    if (this.mockSubmitting()) return;
-    this.showMockModal.set(false);
-  }
-
-  protected applyMockPreset(preset: 'healthy' | 'warning' | 'critical'): void {
-    this.mockPreset.set(preset);
+  protected applyInspectionPreset(preset: 'healthy' | 'warning' | 'critical'): void {
+    this.inspectionPreset.set(preset);
     if (preset === 'healthy') {
-      this.mockBatteryLevel.set(96);
-      this.mockGpsSats.set(28);
-      this.mockRfQuality.set(98);
-      this.mockNotes.set('Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01 (Mô phỏng thực tế)');
+      this.checklistBatteryLevel.set(96);
+      this.checklistGpsSats.set(28);
+      this.checklistRfQuality.set(98);
+      this.checklistNotes.set('Biên bản kiểm định kỹ thuật thiết bị UAV trước nhiệm vụ');
     } else if (preset === 'warning') {
-      this.mockBatteryLevel.set(68);
-      this.mockGpsSats.set(14);
-      this.mockRfQuality.set(82);
-      this.mockNotes.set('Cảnh báo mức pin 68% cận ngưỡng và tín hiệu vệ tinh mức trung bình');
+      this.checklistBatteryLevel.set(68);
+      this.checklistGpsSats.set(14);
+      this.checklistRfQuality.set(82);
+      this.checklistNotes.set('Cảnh báo mức pin 68% cận ngưỡng và tín hiệu vệ tinh mức trung bình');
     } else {
-      this.mockBatteryLevel.set(28);
-      this.mockGpsSats.set(4);
-      this.mockRfQuality.set(45);
-      this.mockNotes.set('Cảnh báo lỗi cảm biến IMU, mất liên kết RTK và pin dưới ngưỡng an toàn');
+      this.checklistBatteryLevel.set(28);
+      this.checklistGpsSats.set(4);
+      this.checklistRfQuality.set(45);
+      this.checklistNotes.set('Cảnh báo lỗi cảm biến IMU, mất liên kết RTK và pin dưới ngưỡng an toàn');
     }
   }
 
@@ -948,9 +1022,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
    * Submits the checklist from the modal (or a BIST preset) as a technical inspection. The payload always has
    * readings for every critical item; the `droneId` in the body is the inspected UAV.
    */
-  protected submitMockBistTelemetry(preset?: 'healthy' | 'warning' | 'critical'): void {
+  protected submitInspectionChecklist(preset?: 'healthy' | 'warning' | 'critical'): void {
     if (preset) {
-      this.applyMockPreset(preset);
+      this.applyInspectionPreset(preset);
       this.checklistManual.set(false);
     }
 
@@ -971,17 +1045,16 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
 
     const fcMatches = this.isFcConnected() && this.isFcMatchingAssessmentDrone();
     const metrics = buildInspectionChecklist({
-      preset: this.mockPreset(),
-      batteryLevel: this.mockBatteryLevel(),
-      gpsSatellites: this.mockGpsSats(),
-      rfLinkQuality: this.mockRfQuality(),
+      preset: this.inspectionPreset(),
+      batteryLevel: this.checklistBatteryLevel(),
+      gpsSatellites: this.checklistGpsSats(),
+      rfLinkQuality: this.checklistRfQuality(),
       flightControllerConnected: fcMatches,
     });
-    const manual = this.checklistManual();
     const notes =
-      this.mockNotes().trim() || (manual ? 'Kiểm định kỹ thuật trước nhiệm vụ' : 'Biên bản kiểm định viễn trắc BIST đạt chuẩn MF01');
+      this.checklistNotes().trim() || 'Kiểm định kỹ thuật trước nhiệm vụ';
 
-    this.mockSubmitting.set(true);
+    this.checklistSubmitting.set(true);
     this.inspecting.set(true);
     this.actionMessage.set('');
     this.error.set('');
@@ -998,9 +1071,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.inspectionResult.set(res);
-          this.mockSubmitting.set(false);
+          this.checklistSubmitting.set(false);
           this.inspecting.set(false);
-          this.showMockModal.set(false);
+          this.showChecklistModal.set(false);
           this.applyInspectionResultToAssessment(res);
           const code = drone?.code || droneId;
           const passed = res.eligibility === 'ELIGIBLE' && (res.status || '').toLowerCase() === 'passed';
@@ -1039,7 +1112,7 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
           });
         },
         error: (err: unknown) => {
-          this.mockSubmitting.set(false);
+          this.checklistSubmitting.set(false);
           this.inspecting.set(false);
           this.error.set(describeHttpError(err, 'Không thể lưu biên bản kiểm định kỹ thuật. Vui lòng thử lại.'));
         },
@@ -1054,30 +1127,41 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       this.currentTileLayer = null;
     }
 
-    let tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-    let subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
-    let maxZoom = 20;
-    let attribution = '© Google Maps | UAV-PMS GIS';
-    if (type === 'google-hybrid') {
+    let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let subdomains = ['a', 'b', 'c'];
+    let maxZoom = 19;
+    let attribution = '© OpenStreetMap contributors | UAV-PMS GIS';
+    if (type === 'google-streets') {
+      tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
+    } else if (type === 'google-hybrid') {
       tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+      subdomains = ['mt0', 'mt1', 'mt2', 'mt3'];
+      maxZoom = 20;
+      attribution = '© Google Maps | UAV-PMS GIS';
     } else if (type === 'google-terrain') {
       tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
       subdomains = [];
       maxZoom = 19;
       attribution = '© Esri Topographic | UAV-PMS GIS';
-    } else if (type === 'carto') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      subdomains = ['a', 'b', 'c', 'd'];
-      maxZoom = 20;
-      attribution = '© OpenStreetMap contributors, © CARTO';
     }
 
     const tileLayer = L.tileLayer(tileUrl, { maxZoom, subdomains, attribution, keepBuffer: 6 });
     let hasFallenBack = false;
     tileLayer.on('tileerror', () => {
-      if (!hasFallenBack) {
+      if (!hasFallenBack && type !== 'carto') {
         hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
+        if (this.map && this.currentTileLayer) {
+          this.map.removeLayer(this.currentTileLayer);
+        }
+        this.currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
+          attribution: '© OpenStreetMap contributors | UAV-PMS GIS',
+          keepBuffer: 6,
+        }).addTo(this.map!);
       }
     });
     this.currentTileLayer = tileLayer;
@@ -1113,26 +1197,68 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     this.markersLayer.clearLayers();
     this.polylineLayer.clearLayers();
 
+    const orderedTowers = this.scopeTowers().filter((t) => t.latitude != null && t.longitude != null);
     const latLngs: [number, number][] = [];
-    for (const t of this.scopeTowers()) {
-      if (t.latitude == null || t.longitude == null) continue;
-      latLngs.push([t.latitude, t.longitude]);
-      const marker = L.circleMarker([t.latitude, t.longitude], {
-        radius: 7,
-        fillColor: '#38bdf8',
-        color: '#0284c7',
-        weight: 2,
-        fillOpacity: 1,
+
+    orderedTowers.forEach((t, idx) => {
+      const lat = t.latitude as number;
+      const lng = t.longitude as number;
+      latLngs.push([lat, lng]);
+
+      const stepNumber = idx + 1;
+      const isStart = idx === 0;
+      const isEnd = orderedTowers.length > 1 && idx === orderedTowers.length - 1;
+      const pinClass = isStart ? 'ws-map-tower-pin is-start' : isEnd ? 'ws-map-tower-pin is-end' : 'ws-map-tower-pin';
+
+      const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'ws-map-pin-wrapper',
+          html: `<div class="${pinClass}">${stepNumber}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
       });
-      marker.bindTooltip(`${t.sequence}. ${t.towerCode}`, { direction: 'top', className: 'evn-map-tooltip', offset: [0, -6] });
+
+      const roleTag = isStart ? ' (Bắt đầu)' : isEnd ? ' (Kết thúc)' : '';
+      marker.bindTooltip(`${stepNumber}. ${t.towerCode}${roleTag}`, {
+        permanent: true,
+        direction: 'right',
+        className: 'ws-map-tower-label',
+        offset: [12, 0],
+      });
       this.markersLayer.addLayer(marker);
-    }
+    });
 
     if (latLngs.length > 1) {
-      this.polylineLayer.addLayer(L.polyline(latLngs, { color: '#0052cc', weight: 3, dashArray: '6, 6' }));
+      this.polylineLayer.addLayer(L.polyline(latLngs, { color: '#1d4f91', weight: 3, dashArray: '7, 6', opacity: 0.9 }));
+
+      // Mũi tên chỉ hướng bay tại trung điểm mỗi chặng từ cột i -> cột i+1
+      for (let i = 0; i < latLngs.length - 1; i++) {
+        const [lat1, lng1] = latLngs[i];
+        const [lat2, lng2] = latLngs[i + 1];
+        const midLat = (lat1 + lat2) / 2;
+        const midLng = (lng1 + lng2) / 2;
+
+        // Góc hướng bay theo hệ tọa độ màn hình (X: Đông+, Y: Nam+)
+        const p1 = this.map.project([lat1, lng1], 16);
+        const p2 = this.map.project([lat2, lng2], 16);
+        const angleDeg = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
+
+        const arrowMarker = L.marker([midLat, midLng], {
+          interactive: false,
+          icon: L.divIcon({
+            className: 'ws-map-dir-wrapper',
+            html: `<div class="ws-map-dir-arrow" style="transform: rotate(${angleDeg.toFixed(1)}deg)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3.5L13.5 8L2 12.5L4.8 8L2 3.5Z" fill="#1d4f91" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/></svg></div>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          }),
+        });
+        this.polylineLayer.addLayer(arrowMarker);
+      }
     }
+
     if (latLngs.length) {
-      this.map.fitBounds(L.latLngBounds(latLngs), { padding: [35, 35], maxZoom: 16 });
+      this.map.fitBounds(L.latLngBounds(latLngs), { padding: [45, 70], maxZoom: 16 });
     }
   }
 

@@ -1,449 +1,316 @@
-<div class="pre-mission-page">
-  <header class="pre-mission-head">
+<div class="ops-page assessment-create-page">
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/pre-mission">TIỀN NHIỆM VỤ</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>TẠO ĐÁNH GIÁ MỚI (MF01)</strong>
+        <a routerLink="/pre-mission">Đánh giá tiền nhiệm vụ</a>
+        <span class="separator" aria-hidden="true">/</span>
+        <strong>Tạo đánh giá mới</strong>
       </nav>
       <h1>Khởi tạo đánh giá tiền nhiệm vụ</h1>
-      <p>Chọn khu vực, các cột điện cần kiểm tra, sắp xếp thứ tự tuyến bay và khung giờ dự kiến để hệ thống đánh giá mặt bằng, nhân sự và drone.</p>
+      <p>Chọn khu vực, danh sách cột điện, thứ tự tuyến bay và khung giờ dự kiến để hệ thống đánh giá mặt bằng, nhân sự và UAV.</p>
     </div>
     <div class="head-actions">
-      <a class="evn-btn secondary" routerLink="/pre-mission">
-        <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Quay lại danh sách
-      </a>
+      <a class="app-btn-secondary" routerLink="/pre-mission">Quay lại danh sách</a>
     </div>
   </header>
 
   @if (error()) {
-    <div class="evn-alert" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" (click)="error.set('')" aria-label="Đóng thông báo lỗi">Đóng</button>
+    <div class="app-error-banner" role="alert">
+      <span class="truncate">{{ error() }}</span>
+      <button type="button" class="app-btn-action" (click)="error.set('')" aria-label="Đóng thông báo lỗi">Đóng</button>
     </div>
   }
 
-  <form [formGroup]="form" (ngSubmit)="submit()" class="assessment-form-layout">
-    <div class="assessment-workspace-grid">
-      <div class="form-column">
-        <!-- 1. Khu vực và khung giờ -->
-        <section class="evn-panel" aria-labelledby="scope-title">
-          <div class="panel-header">
-            <h2 id="scope-title">1. Khu vực và khung giờ bay dự kiến</h2>
-            <span class="panel-badge">Bắt buộc</span>
-          </div>
-          <div class="panel-body">
-            <div class="form-grid">
-              <div class="form-group full-width">
-                <label for="regionId">Khu vực quản lý <span class="required">*</span></label>
-                <select
-                  id="regionId"
-                  [value]="form.controls.regionId.value"
-                  (change)="onRegionSelect($event)"
-                  [class.has-error]="form.controls.regionId.touched && form.controls.regionId.invalid"
-                >
-                  <option value="">-- Chọn khu vực --</option>
-                  @for (reg of regions(); track reg.id) {
-                    <option [value]="reg.id">{{ reg.name }}</option>
-                  }
-                </select>
-                @if (form.controls.regionId.touched && form.controls.regionId.invalid) {
-                  <span class="error-msg">Vui lòng chọn khu vực.</span>
-                }
-              </div>
-
-              <div class="form-group">
-                <label for="plannedStart">Bắt đầu dự kiến <span class="required">*</span></label>
-                <input id="plannedStart" type="datetime-local" formControlName="plannedStart" />
-              </div>
-              <div class="form-group">
-                <label for="plannedEnd">Kết thúc dự kiến <span class="required">*</span></label>
-                <input id="plannedEnd" type="datetime-local" formControlName="plannedEnd" />
-              </div>
-              @if (form.hasError('endBeforeStart')) {
-                <span class="error-msg full-width" role="alert">Thời điểm kết thúc phải sau thời điểm bắt đầu.</span>
+  <form [formGroup]="form" (ngSubmit)="submit()" class="assessment-workspace-grid">
+    <!-- Cột trái: 1 thẻ biểu mẫu liền mạch chia 3 phần bằng đường kẻ mảnh -->
+    <section class="qc-card unified-form-card" aria-label="Thông số đánh giá tiền nhiệm vụ">
+      <!-- Phần 1: Khu vực & Khung giờ -->
+      <div class="form-section">
+        <div class="section-head">
+          <h2 id="scope-title">1. Khu vực và khung giờ bay dự kiến</h2>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label for="regionId">Khu vực quản lý <span class="required">*</span></label>
+            <select
+              id="regionId"
+              [value]="form.controls.regionId.value"
+              (change)="onRegionSelect($event)"
+              [class.has-error]="form.controls.regionId.touched && form.controls.regionId.invalid"
+            >
+              <option value="">-- Chọn khu vực --</option>
+              @for (reg of regions(); track reg.id) {
+                <option [value]="reg.id">{{ reg.name }}</option>
               }
-              @if (form.hasError('startInPast')) {
-                <span class="error-msg full-width" role="alert">Thời điểm bắt đầu không được ở trong quá khứ.</span>
-              }
-            </div>
-          </div>
-        </section>
-
-        <!-- 2. Chọn cột điện -->
-        <section class="evn-panel" aria-labelledby="towers-title">
-          <div class="panel-header">
-            <h2 id="towers-title">2. Cột điện cần kiểm tra ({{ selectedTowerIds().length }}/{{ towers().length }})</h2>
-            <div class="tower-actions">
-              <button
-                type="button"
-                class="evn-btn secondary mini"
-                (click)="selectAllFiltered()"
-                [disabled]="!filteredTowers().length"
-              >
-                Chọn tất cả đang lọc
-              </button>
-              <button
-                type="button"
-                class="evn-btn secondary mini"
-                (click)="clearSelection()"
-                [disabled]="!selectedTowerIds().length"
-              >
-                Bỏ chọn
-              </button>
-            </div>
-          </div>
-          <div class="panel-body">
-            @if (!form.controls.regionId.value) {
-              <p class="muted">Chọn khu vực để tải danh sách cột điện.</p>
-            } @else if (loadingTowers()) {
-              <p class="muted" role="status">Đang tải danh sách cột điện...</p>
-            } @else {
-              <div class="form-group">
-                <label for="towerSearch">Tìm cột theo mã hoặc địa chỉ</label>
-                <input
-                  id="towerSearch"
-                  type="search"
-                  [value]="towerSearch()"
-                  (input)="onTowerSearch($event)"
-                  placeholder="Nhập mã cột hoặc vị trí..."
-                  autocomplete="off"
-                />
-              </div>
-              <ul class="tower-pick-list" aria-label="Danh sách cột điện">
-                @for (t of filteredTowers(); track t.id) {
-                  <li>
-                    <label class="tower-pick-item" [class.selected]="isTowerSelected(t.id)">
-                      <input type="checkbox" [checked]="isTowerSelected(t.id)" (change)="toggleTower(t.id)" />
-                      @if (getTowerSequence(t.id); as seq) {
-                        <span class="tower-seq-badge">#{{ seq }}</span>
-                      }
-                      <span class="tower-code">{{ t.towerCode }}</span>
-                      @if (t.poleType) {
-                        <span class="tower-meta">{{ t.poleType }}</span>
-                      }
-                      @if (t.address) {
-                        <span class="tower-meta">{{ t.address }}</span>
-                      }
-                    </label>
-                  </li>
-                } @empty {
-                  <li class="muted">Không có cột điện phù hợp.</li>
-                }
-              </ul>
+            </select>
+            @if (form.controls.regionId.touched && form.controls.regionId.invalid) {
+              <span class="error-msg">Vui lòng chọn khu vực.</span>
             }
           </div>
-        </section>
 
-        <!-- 3. Cấu hình định mức nhân sự & Giới hạn thiết bị bay -->
-        <section class="evn-panel box-quotas" aria-labelledby="quotas-title">
-          <div class="panel-header">
-            <div class="quota-header-title">
-              <span nz-icon nzType="control" aria-hidden="true"></span>
-              <h2 id="quotas-title" style="font-size: 11.5px; font-weight: 700; color: #174f83; margin: 0; text-transform: uppercase;">
-                3. Định mức nhân sự & Giới hạn thiết bị bay (MF01 &rarr; MF02)
-              </h2>
-            </div>
-            <span class="panel-badge optional" style="background: #eff6ff; color: #0284c7; border-color: #bfdbfe;">Thiết lập định mức</span>
+          <div class="form-group">
+            <label for="plannedStart">Bắt đầu dự kiến <span class="required">*</span></label>
+            <input id="plannedStart" type="datetime-local" [attr.lang]="'en-GB'" formControlName="plannedStart" />
           </div>
-          <div class="panel-body">
-            <p class="quota-guide-text">
-              Quy định số lượng nhân sự tối thiểu cho từng vai trò và <strong>giới hạn số lượng UAV tối đa</strong> mà người quản lý có thể huy động cho mỗi chuyến bay ở bước tạo nhiệm vụ (MF02).
-            </p>
-            <div class="quota-grid">
-              <!-- Inspector -->
-              <div class="quota-item">
-                <div class="quota-label-wrapper">
-                  <label for="requiredInspectors" class="quota-role-title">
-                    <span class="role-dot dot-inspector" aria-hidden="true"></span> INSPECTOR
-                  </label>
-                  <span class="quota-role-hint">Điều khiển UAV, quan sát trực quan</span>
-                </div>
-                <div class="quota-input-wrapper">
-                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredInspectors', 1)" aria-label="Giảm Inspector">-</button>
-                  <input
-                    id="requiredInspectors"
-                    type="number"
-                    min="1"
-                    max="10"
-                    class="quota-input"
-                    formControlName="requiredInspectors"
-                    (keydown)="blockInvalidNumberKeys($event)"
-                    (input)="onQuotaInput('requiredInspectors', 1, 10)"
-                  />
-                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredInspectors', 10)" aria-label="Tăng Inspector">+</button>
-                  <span class="unit-suffix">người</span>
-                </div>
-                @if (form.controls.requiredInspectors.invalid && (form.controls.requiredInspectors.touched || form.controls.requiredInspectors.dirty)) {
-                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
-                }
-              </div>
-
-              <!-- Analyst -->
-              <div class="quota-item">
-                <div class="quota-label-wrapper">
-                  <label for="requiredAnalysts" class="quota-role-title">
-                    <span class="role-dot dot-analyst" aria-hidden="true"></span> ANALYST
-                  </label>
-                  <span class="quota-role-hint">Phân tích hình ảnh, AI khiếm khuyết</span>
-                </div>
-                <div class="quota-input-wrapper">
-                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredAnalysts', 1)" aria-label="Giảm Analyst">-</button>
-                  <input
-                    id="requiredAnalysts"
-                    type="number"
-                    min="1"
-                    max="10"
-                    class="quota-input"
-                    formControlName="requiredAnalysts"
-                    (keydown)="blockInvalidNumberKeys($event)"
-                    (input)="onQuotaInput('requiredAnalysts', 1, 10)"
-                  />
-                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredAnalysts', 10)" aria-label="Tăng Analyst">+</button>
-                  <span class="unit-suffix">người</span>
-                </div>
-                @if (form.controls.requiredAnalysts.invalid && (form.controls.requiredAnalysts.touched || form.controls.requiredAnalysts.dirty)) {
-                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
-                }
-              </div>
-
-              <!-- Technician -->
-              <div class="quota-item">
-                <div class="quota-label-wrapper">
-                  <label for="requiredTechnicians" class="quota-role-title">
-                    <span class="role-dot dot-technician" aria-hidden="true"></span> TECHNICIAN
-                  </label>
-                  <span class="quota-role-hint">Kiểm tra BIST, pin, cảm biến</span>
-                </div>
-                <div class="quota-input-wrapper">
-                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredTechnicians', 1)" aria-label="Giảm Technician">-</button>
-                  <input
-                    id="requiredTechnicians"
-                    type="number"
-                    min="1"
-                    max="10"
-                    class="quota-input"
-                    formControlName="requiredTechnicians"
-                    (keydown)="blockInvalidNumberKeys($event)"
-                    (input)="onQuotaInput('requiredTechnicians', 1, 10)"
-                  />
-                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredTechnicians', 10)" aria-label="Tăng Technician">+</button>
-                  <span class="unit-suffix">người</span>
-                </div>
-                @if (form.controls.requiredTechnicians.invalid && (form.controls.requiredTechnicians.touched || form.controls.requiredTechnicians.dirty)) {
-                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 10 người.</span>
-                }
-              </div>
-
-              <!-- Max Drones Limit -->
-              <div class="quota-item quota-drone-item">
-                <div class="quota-label-wrapper">
-                  <label for="maxDronesLimit" class="quota-role-title">
-                    <span class="role-dot dot-drone" aria-hidden="true"></span> Giới hạn UAV tối đa
-                  </label>
-                  <span class="quota-role-hint">Số drone tối đa chọn tại MF02</span>
-                </div>
-                <div class="quota-input-wrapper">
-                  <button type="button" class="quota-stepper-btn" (click)="decrementQuota('maxDronesLimit', 1)" aria-label="Giảm giới hạn UAV">-</button>
-                  <input
-                    id="maxDronesLimit"
-                    type="number"
-                    min="1"
-                    max="5"
-                    class="quota-input"
-                    formControlName="maxDronesLimit"
-                    (keydown)="blockInvalidNumberKeys($event)"
-                    (input)="onQuotaInput('maxDronesLimit', 1, 5)"
-                  />
-                  <button type="button" class="quota-stepper-btn" (click)="incrementQuota('maxDronesLimit', 5)" aria-label="Tăng giới hạn UAV">+</button>
-                  <span class="unit-suffix">UAV</span>
-                </div>
-                @if (form.controls.maxDronesLimit.invalid && (form.controls.maxDronesLimit.touched || form.controls.maxDronesLimit.dirty)) {
-                  <span class="error-msg" style="margin-top: 4px; display: block;">Từ 1 đến 5 UAV.</span>
-                }
-              </div>
-            </div>
-
-            <div class="quota-summary-bar">
-              <span nz-icon nzType="info-circle" aria-hidden="true"></span>
-              <span>
-                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ cleanInspectors() }} INSPECTOR, {{ cleanAnalysts() }} ANALYST, {{ cleanTechnicians() }} TECHNICIAN) · Giới hạn: <strong>tối đa {{ cleanMaxDrones() }} UAV/chuyến bay</strong>
-              </span>
-            </div>
+          <div class="form-group">
+            <label for="plannedEnd">Kết thúc dự kiến <span class="required">*</span></label>
+            <input id="plannedEnd" type="datetime-local" [attr.lang]="'en-GB'" formControlName="plannedEnd" />
           </div>
-        </section>
-
-        <div class="form-actions-bar">
-          <a class="evn-btn secondary" routerLink="/pre-mission">Hủy</a>
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || !selectedTowerIds().length || form.invalid">
-            <span nz-icon [nzType]="busy() ? 'loading' : 'check-circle'" aria-hidden="true"></span>
-            {{ busy() ? 'Đang tạo hồ sơ...' : 'Tạo hồ sơ đánh giá' }}
-          </button>
+          @if (form.hasError('endBeforeStart')) {
+            <span class="error-msg full-width" role="alert">Thời điểm kết thúc phải sau thời điểm bắt đầu.</span>
+          }
+          @if (form.hasError('startInPast')) {
+            <span class="error-msg full-width" role="alert">Thời điểm bắt đầu không được ở trong quá khứ.</span>
+          }
         </div>
       </div>
 
-      <div class="preview-column">
-        <!-- Bản đồ phạm vi -->
-        <section class="evn-panel box-map" aria-labelledby="map-title">
-          <div class="panel-header">
-            <div class="map-header-title">
-              <span nz-icon nzType="global" aria-hidden="true"></span>
-              <h2 id="map-title">Bản đồ phạm vi</h2>
-            </div>
-            <div class="map-header-actions">
-              <div class="map-type-group" role="group" aria-label="Kiểu bản đồ nền">
-                <button
-                  type="button"
-                  class="map-type-btn"
-                  [class.active]="currentMapType() === 'google-streets'"
-                  (click)="setMapType('google-streets')"
-                >
-                  Bản đồ
-                </button>
-                <button
-                  type="button"
-                  class="map-type-btn"
-                  [class.active]="currentMapType() === 'google-hybrid'"
-                  (click)="setMapType('google-hybrid')"
-                >
-                  Vệ tinh
-                </button>
-                <button
-                  type="button"
-                  class="map-type-btn"
-                  [class.active]="currentMapType() === 'carto'"
-                  (click)="setMapType('carto')"
-                >
-                  Carto
-                </button>
-              </div>
-              <button
-                type="button"
-                class="map-action-btn"
-                (click)="refreshMap()"
-                title="Căn chỉnh lại khung nhìn bản đồ"
-              >
-                <span nz-icon nzType="reload" aria-hidden="true"></span>
-                Căn chỉnh
-              </button>
-            </div>
+      <!-- Phần 2: Chọn cột điện -->
+      <div class="form-section">
+        <div class="section-head">
+          <h2 id="towers-title">2. Cột điện cần kiểm tra ({{ selectedTowerIds().length }}/{{ towers().length }})</h2>
+          <div class="section-actions">
+            <button
+              type="button"
+              class="app-btn-secondary btn-sm"
+              (click)="selectAllFiltered()"
+              [disabled]="!filteredTowers().length"
+            >
+              Chọn tất cả
+            </button>
+            <button
+              type="button"
+              class="app-btn-secondary btn-sm"
+              (click)="clearSelection()"
+              [disabled]="!selectedTowerIds().length"
+            >
+              Bỏ chọn
+            </button>
           </div>
-          <div class="map-panel-body">
-            <div
-              #createMapContainer
-              id="createScopeMapContainer"
-              class="map-viewport"
-              role="img"
-              aria-label="Bản đồ các cột điện của khu vực đã chọn"
-            ></div>
+        </div>
 
-            @if (!form.controls.regionId.value) {
-              <div class="map-floating-pill">
-                <span nz-icon nzType="info-circle" style="color: #0284c7;"></span>
-                <span>Chọn khu vực ở mục 1 để xem các vị trí cột</span>
-              </div>
-            } @else if (loadingTowers()) {
-              <div class="map-floating-pill">
-                <span nz-icon nzType="loading" style="color: #003f99;"></span>
-                <span>Đang tải danh sách cột điện khu vực...</span>
-              </div>
-            }
-
-            <div class="map-legend-bar">
-              <span class="legend-item"><span class="legend-pin-sample" aria-hidden="true">1</span> Cột đã chọn (thứ tự)</span>
-              <span class="legend-item"><span class="legend-dot unselected-dot" aria-hidden="true"></span> Cột chưa chọn</span>
-              <span class="legend-item"><span class="legend-line-sample" aria-hidden="true"></span> Tuyến bay dự kiến</span>
-            </div>
+        @if (!form.controls.regionId.value) {
+          <p class="muted">Chọn khu vực ở mục 1 để tải danh sách cột điện.</p>
+        } @else if (loadingTowers()) {
+          <p class="muted" role="status">Đang tải danh sách cột điện...</p>
+        } @else {
+          <div class="form-group">
+            <input
+              id="towerSearch"
+              type="search"
+              aria-label="Tìm cột theo mã hoặc địa chỉ"
+              [value]="towerSearch()"
+              (input)="onTowerSearch($event)"
+              placeholder="Tìm cột theo mã hoặc địa chỉ..."
+              autocomplete="off"
+            />
           </div>
-        </section>
-
-        <!-- 3. Thứ tự kiểm tra tuyến cột -->
-        <section class="evn-panel box-sequence" aria-labelledby="sequence-title">
-          <div class="panel-header">
-            <div class="header-title-group">
-              <h2 id="sequence-title">
-                <span nz-icon nzType="ordered-list" aria-hidden="true"></span>
-                Thứ tự kiểm tra tuyến cột ({{ selectedTowerIds().length }})
-              </h2>
-              <span class="panel-subinfo">Kéo thả hoặc dùng nút mũi tên để điều chỉnh thứ tự bay kiểm tra</span>
-            </div>
-            @if (selectedTowerIds().length > 1) {
-              <button
-                type="button"
-                class="evn-btn secondary mini"
-                (click)="reverseSequence()"
-                title="Đảo chiều bay kiểm tra"
-              >
-                <span nz-icon nzType="swap" aria-hidden="true"></span> Đảo chiều
-              </button>
+          <ul class="tower-pick-list" aria-label="Danh sách cột điện">
+            @for (t of filteredTowers(); track t.id) {
+              <li>
+                <label class="tower-pick-item" [class.selected]="isTowerSelected(t.id)">
+                  <input type="checkbox" [checked]="isTowerSelected(t.id)" (change)="toggleTower(t.id)" />
+                  @if (getTowerSequence(t.id); as seq) {
+                    <span class="tower-seq-badge tabular-nums">#{{ seq }}</span>
+                  }
+                  <span class="tower-code">{{ t.towerCode }}</span>
+                  @if (t.poleType) {
+                    <span class="tower-meta">{{ t.poleType }}</span>
+                  }
+                  @if (t.address) {
+                    <span class="tower-meta">{{ t.address }}</span>
+                  }
+                </label>
+              </li>
+            } @empty {
+              <li class="muted">Không có cột điện phù hợp.</li>
             }
-          </div>
-          <div class="panel-body">
-            @if (selectedTowers().length) {
-              <div class="sequence-list" role="list" aria-label="Danh sách thứ tự kiểm tra">
-                @for (t of selectedTowers(); track t.id; let i = $index) {
-                  <div
-                    class="sequence-item"
-                    role="listitem"
-                    draggable="true"
-                    (dragstart)="onDragStart(i, $event)"
-                    (dragover)="onDragOver($event)"
-                    (drop)="onDrop(i, $event)"
-                    [class.is-dragging]="draggedIndex() === i"
-                  >
-                    <span class="drag-handle" title="Kéo để đổi vị trí" aria-hidden="true">
-                      <span nz-icon nzType="holder"></span>
-                    </span>
-                    <span class="seq-badge">#{{ i + 1 }}</span>
-                    <div class="tower-info">
-                      <span class="tower-name">{{ t.towerCode }}</span>
-                      @if (t.poleType || t.address) {
-                        <span class="tower-details">{{ t.poleType || 'Cột' }}{{ t.address ? ' · ' + t.address : '' }}</span>
-                      }
-                    </div>
-                    <div class="sequence-actions">
-                      <button
-                        type="button"
-                        class="order-btn"
-                        (click)="moveTower(i, 'up')"
-                        [disabled]="i === 0"
-                        title="Chuyển lên trước"
-                        aria-label="Chuyển cột lên trước"
-                      >
-                        <span nz-icon nzType="arrow-up" aria-hidden="true"></span>
-                      </button>
-                      <button
-                        type="button"
-                        class="order-btn"
-                        (click)="moveTower(i, 'down')"
-                        [disabled]="i === selectedTowerIds().length - 1"
-                        title="Chuyển xuống sau"
-                        aria-label="Chuyển cột xuống sau"
-                      >
-                        <span nz-icon nzType="arrow-down" aria-hidden="true"></span>
-                      </button>
-                      <button
-                        type="button"
-                        class="order-btn remove"
-                        (click)="removeSelectedTower(t.id)"
-                        title="Bỏ chọn cột này"
-                        aria-label="Bỏ chọn cột"
-                      >
-                        <span nz-icon nzType="close" aria-hidden="true"></span>
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-            } @else {
-              <div class="empty-sequence-msg">
-                <span nz-icon nzType="ordered-list" aria-hidden="true"></span>
-                <span>Chưa có cột điện nào được chọn. Hãy chọn các cột ở mục 2 hoặc click trực tiếp trên bản đồ để lập thứ tự bay kiểm tra.</span>
-              </div>
-            }
-          </div>
-        </section>
+          </ul>
+        }
       </div>
-    </div>
+
+      <!-- Phần 3: Định mức nhân sự & Giới hạn UAV (2x2 gọn gàng, 100% tiếng Việt) -->
+      <div class="form-section">
+        <div class="section-head">
+          <h2 id="quotas-title">3. Định mức nhân sự &amp; Giới hạn thiết bị bay</h2>
+        </div>
+        <div class="quota-grid">
+          <div class="quota-row">
+            <div class="quota-info">
+              <label for="requiredInspectors" class="quota-role-title">Phi công</label>
+              <span class="quota-role-hint">Điều khiển UAV, quan sát hiện trường</span>
+            </div>
+            <div class="quota-stepper">
+              <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredInspectors', 1)" aria-label="Giảm số phi công">-</button>
+              <input
+                id="requiredInspectors"
+                type="number"
+                min="1"
+                max="10"
+                class="quota-input tabular-nums"
+                formControlName="requiredInspectors"
+                (keydown)="blockInvalidNumberKeys($event)"
+                (input)="onQuotaInput('requiredInspectors', 1, 10)"
+              />
+              <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredInspectors', 10)" aria-label="Tăng số phi công">+</button>
+              <span class="unit-suffix">người</span>
+            </div>
+          </div>
+
+          <div class="quota-row">
+            <div class="quota-info">
+              <label for="requiredAnalysts" class="quota-role-title">Chuyên viên phân tích</label>
+              <span class="quota-role-hint">Phân tích hình ảnh, thẩm định AI</span>
+            </div>
+            <div class="quota-stepper">
+              <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredAnalysts', 1)" aria-label="Giảm số chuyên viên phân tích">-</button>
+              <input
+                id="requiredAnalysts"
+                type="number"
+                min="1"
+                max="10"
+                class="quota-input tabular-nums"
+                formControlName="requiredAnalysts"
+                (keydown)="blockInvalidNumberKeys($event)"
+                (input)="onQuotaInput('requiredAnalysts', 1, 10)"
+              />
+              <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredAnalysts', 10)" aria-label="Tăng số chuyên viên phân tích">+</button>
+              <span class="unit-suffix">người</span>
+            </div>
+          </div>
+
+          <div class="quota-row">
+            <div class="quota-info">
+              <label for="requiredTechnicians" class="quota-role-title">Kỹ thuật viên</label>
+              <span class="quota-role-hint">Kiểm tra thiết bị, pin, cảm biến</span>
+            </div>
+            <div class="quota-stepper">
+              <button type="button" class="quota-stepper-btn" (click)="decrementQuota('requiredTechnicians', 1)" aria-label="Giảm số kỹ thuật viên">-</button>
+              <input
+                id="requiredTechnicians"
+                type="number"
+                min="1"
+                max="10"
+                class="quota-input tabular-nums"
+                formControlName="requiredTechnicians"
+                (keydown)="blockInvalidNumberKeys($event)"
+                (input)="onQuotaInput('requiredTechnicians', 1, 10)"
+              />
+              <button type="button" class="quota-stepper-btn" (click)="incrementQuota('requiredTechnicians', 10)" aria-label="Tăng số kỹ thuật viên">+</button>
+              <span class="unit-suffix">người</span>
+            </div>
+          </div>
+
+          <div class="quota-row">
+            <div class="quota-info">
+              <label for="maxDronesLimit" class="quota-role-title">Giới hạn UAV tối đa</label>
+              <span class="quota-role-hint">Số thiết bị bay tối đa mỗi chuyến</span>
+            </div>
+            <div class="quota-stepper">
+              <button type="button" class="quota-stepper-btn" (click)="decrementQuota('maxDronesLimit', 1)" aria-label="Giảm giới hạn UAV">-</button>
+              <input
+                id="maxDronesLimit"
+                type="number"
+                min="1"
+                max="5"
+                class="quota-input tabular-nums"
+                formControlName="maxDronesLimit"
+                (keydown)="blockInvalidNumberKeys($event)"
+                (input)="onQuotaInput('maxDronesLimit', 1, 5)"
+              />
+              <button type="button" class="quota-stepper-btn" (click)="incrementQuota('maxDronesLimit', 5)" aria-label="Tăng giới hạn UAV">+</button>
+              <span class="unit-suffix">UAV</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer hành động liền khối -->
+      <footer class="card-footer-actions">
+        <a class="app-btn-secondary" routerLink="/pre-mission">Hủy</a>
+        <button type="submit" class="app-btn-primary" [disabled]="busy() || !selectedTowerIds().length || form.invalid">
+          {{ busy() ? 'Đang tạo hồ sơ...' : 'Tạo hồ sơ đánh giá' }}
+        </button>
+      </footer>
+    </section>
+
+    <!-- Cột phải: 1 thẻ Bản đồ + Thứ tự tuyến bay liền mạch -->
+    <aside class="qc-card map-route-card" aria-label="Bản đồ phạm vi và thứ tự tuyến bay">
+      <div class="section-head map-head">
+        <h2 id="map-title">Bản đồ phạm vi</h2>
+        <div class="map-header-actions">
+          <div class="map-type-group" role="group" aria-label="Kiểu bản đồ nền">
+            <button type="button" class="map-type-btn" [class.active]="currentMapType() === 'google-streets'" (click)="setMapType('google-streets')">Bản đồ</button>
+            <button type="button" class="map-type-btn" [class.active]="currentMapType() === 'google-hybrid'" (click)="setMapType('google-hybrid')">Vệ tinh</button>
+            <button type="button" class="map-type-btn" [class.active]="currentMapType() === 'carto'" (click)="setMapType('carto')">Chuẩn</button>
+          </div>
+          <button type="button" class="app-btn-secondary btn-sm" (click)="refreshMap()">Căn chỉnh</button>
+        </div>
+      </div>
+
+      <div class="map-stage">
+        <div
+          #createMapContainer
+          id="createScopeMapContainer"
+          class="map-viewport"
+          role="img"
+          aria-label="Bản đồ các cột điện của khu vực đã chọn"
+        ></div>
+
+        @if (!form.controls.regionId.value) {
+          <div class="map-floating-pill">Chọn khu vực để hiển thị vị trí cột điện</div>
+        } @else if (loadingTowers()) {
+          <div class="map-floating-pill">Đang tải danh sách cột điện...</div>
+        }
+      </div>
+
+      <div class="map-legend-bar">
+        <span class="legend-item"><span class="legend-pin-sample" aria-hidden="true">1</span> Cột đã chọn</span>
+        <span class="legend-item"><span class="legend-dot unselected-dot" aria-hidden="true"></span> Cột chưa chọn</span>
+        <span class="legend-item"><span class="legend-line-sample" aria-hidden="true"></span> Tuyến bay dự kiến</span>
+      </div>
+
+      <div class="route-section">
+        <div class="section-head">
+          <h2 id="sequence-title">Thứ tự tuyến bay ({{ selectedTowerIds().length }})</h2>
+          @if (selectedTowerIds().length > 1) {
+            <button type="button" class="app-btn-secondary btn-sm" (click)="reverseSequence()">Đảo chiều</button>
+          }
+        </div>
+
+        @if (selectedTowers().length) {
+          <div class="sequence-list" role="list" aria-label="Danh sách thứ tự kiểm tra">
+            @for (t of selectedTowers(); track t.id; let i = $index) {
+              <div
+                class="sequence-item"
+                role="listitem"
+                draggable="true"
+                (dragstart)="onDragStart(i, $event)"
+                (dragover)="onDragOver($event)"
+                (drop)="onDrop(i, $event)"
+                [class.is-dragging]="draggedIndex() === i"
+              >
+                <span class="seq-badge tabular-nums">#{{ i + 1 }}</span>
+                <div class="tower-info">
+                  <span class="tower-name">{{ t.towerCode }}</span>
+                  @if (t.poleType || t.address) {
+                    <span class="tower-details">{{ t.poleType || 'Cột' }}{{ t.address ? ' · ' + t.address : '' }}</span>
+                  }
+                </div>
+                <div class="sequence-actions">
+                  <button type="button" class="app-btn-action" (click)="moveTower(i, 'up')" [disabled]="i === 0">Lên</button>
+                  <button type="button" class="app-btn-action" (click)="moveTower(i, 'down')" [disabled]="i === selectedTowerIds().length - 1">Xuống</button>
+                  <button type="button" class="app-btn-action text-rose-600" (click)="removeSelectedTower(t.id)">Bỏ</button>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-sequence-msg">Chưa có cột điện nào được chọn. Chọn cột ở danh sách hoặc nhấp trực tiếp trên bản đồ.</p>
+        }
+      </div>
+    </aside>
   </form>
 </div>

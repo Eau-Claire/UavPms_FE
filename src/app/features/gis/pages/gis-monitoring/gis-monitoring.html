@@ -1,138 +1,125 @@
-<div class="gis-monitoring-page">
-  <!-- Page Heading - Synchronized with /dashboard -->
-  <section class="page-heading">
-    <div class="heading-left">
+<div class="ops-page gis-monitoring-page">
+  <!-- Header Bar & Breadcrumb (Quiet Chrome, 0 Icons) -->
+  <header class="page-header">
+    <div>
       <nav class="page-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>GIÁM SÁT GIS LƯỚI ĐIỆN</strong>
+        <strong>Bản đồ GIS lưới điện</strong>
       </nav>
       <h1>Bản đồ GIS lưới điện</h1>
-      <p class="review-subtitle">Vị trí cột điện theo khu vực, bất thường đang mở và cảnh báo khẩn cấp.</p>
+      <p>Vị trí cột điện theo khu vực, bất thường đang mở và cảnh báo khẩn cấp</p>
     </div>
-  </section>
+  </header>
 
   <div class="gis-page-wrapper">
     <!-- Top Floating HUD Bar -->
     <header class="gis-top-hud">
+      <!-- Map Type Switcher Tabs (Bản đồ / Vệ tinh / Địa hình) -->
+      <div class="gis-map-type-switcher" role="group" aria-label="Chuyển chế độ bản đồ">
+        <button
+          type="button"
+          class="map-type-btn"
+          [class.active]="currentMapType() === 'google-streets'"
+          (click)="setMapType('google-streets')"
+        >
+          Bản đồ
+        </button>
+        <button
+          type="button"
+          class="map-type-btn"
+          [class.active]="currentMapType() === 'google-hybrid'"
+          (click)="setMapType('google-hybrid')"
+        >
+          Vệ tinh
+        </button>
+        <button
+          type="button"
+          class="map-type-btn"
+          [class.active]="currentMapType() === 'google-terrain'"
+          (click)="setMapType('google-terrain')"
+        >
+          Địa hình
+        </button>
+      </div>
 
-    <!-- Map Type Switcher Tabs (Bản đồ vs Vệ tinh vs Địa hình) -->
-    <div class="gis-map-type-switcher" aria-label="Chuyển chế độ bản đồ">
-      <button
-        type="button"
-        class="map-type-btn"
-        [class.active]="currentMapType() === 'google-streets'"
-        (click)="setMapType('google-streets')"
-      >
-        <span>Bản đồ</span>
-      </button>
-      <button
-        type="button"
-        class="map-type-btn"
-        [class.active]="currentMapType() === 'google-hybrid'"
-        (click)="setMapType('google-hybrid')"
-      >
-        <span>Vệ tinh</span>
-      </button>
-      <button
-        type="button"
-        class="map-type-btn"
-        [class.active]="currentMapType() === 'google-terrain'"
-        (click)="setMapType('google-terrain')"
-      >
-        <span>Địa hình</span>
-      </button>
-    </div>
-
-    <!-- Quick Map Search Bar in pre-mission format -->
-    <div class="gis-hud-search" role="search" aria-label="Tìm kiếm nhanh trên bản đồ">
-      <div class="search-input-wrap">
-        <span nz-icon nzType="search" class="search-icon"></span>
+      <!-- Quick Map Search Bar (0 Icons) -->
+      <div class="gis-hud-search" role="search" aria-label="Tìm kiếm nhanh trên bản đồ">
         <input
           type="search"
+          aria-label="Tìm mã cột hoặc loại bất thường"
           placeholder="Tìm mã cột, loại bất thường..."
           [ngModel]="searchCode()"
           (ngModelChange)="searchCode.set($event); applyFilters()"
         />
       </div>
-    </div>
 
-    <!-- Quick Metrics Counter -->
-    <div class="gis-metrics-bar">
-      <div class="metric-item metric-towers" title="Số lượng cột điện trong vùng quan sát">
-        <span>Cột điện:</span>
-        <strong>{{ totalTowersCount() }}</strong>
+      <!-- Quick Metrics Counter -->
+      <div class="gis-metrics-bar">
+        <div class="metric-item" title="Số lượng cột điện trong vùng quan sát">
+          <span>Cột điện</span>
+          <strong class="tabular-nums">{{ totalTowersCount() }}</strong>
+        </div>
+        <div class="metric-item" title="Số lượng khuyết tật AI phát hiện">
+          <span>Sự cố</span>
+          <strong class="tabular-nums">{{ activeDefectsCount() }}</strong>
+        </div>
+        <div class="metric-item" title="Cảnh báo nguy hiểm đang kích hoạt">
+          <span>Cảnh báo</span>
+          <strong class="tabular-nums" [class.metric-danger]="activeAlertsCount() > 0">{{ activeAlertsCount() }}</strong>
+        </div>
       </div>
-      <div class="metric-item metric-defects" title="Số lượng khuyết tật AI phát hiện">
-        <span>Sự cố:</span>
-        <strong>{{ activeDefectsCount() }}</strong>
-      </div>
-      <div class="metric-item metric-alerts" title="Cảnh báo nguy hiểm đang kích hoạt">
-        <span>Cảnh báo:</span>
-        <strong>{{ activeAlertsCount() }}</strong>
-      </div>
-    </div>
-  </header>
+    </header>
 
-  <!-- Right Floating Toolbar -->
-  <aside class="gis-floating-toolbar" aria-label="Công cụ bản đồ">
-    <button
-      type="button"
-      class="tool-btn"
-      [class.active]="showAssetsPanel()"
-      title="Danh sách tài sản lưới điện (Cột điện)"
-      aria-label="Danh sách tài sản lưới điện"
-      (click)="toggleAssetsPanel()"
-    >
-      <span nz-icon nzType="cluster"></span>
-    </button>
-    <button
-      type="button"
-      class="tool-btn"
-      [class.active]="showFilterPanel()"
-      title="Bộ lọc & Phân lớp dữ liệu"
-      aria-label="Bộ lọc & Phân lớp dữ liệu"
-      (click)="toggleFilterPanel()"
-    >
-      <span nz-icon nzType="filter"></span>
-    </button>
-    <button
-      type="button"
-      class="tool-btn"
-      [class.active]="showLegendPanel()"
-      title="Chú giải ký hiệu bản đồ"
-      aria-label="Chú giải ký hiệu bản đồ"
-      (click)="toggleLegendPanel()"
-    >
-      <span nz-icon nzType="info-circle"></span>
-    </button>
-    <button
-      type="button"
-      class="tool-btn"
-      title="Căn bản đồ theo các cột điện"
-      aria-label="Căn bản đồ theo các cột điện"
-      (click)="fitMapBounds()"
-    >
-      <span nz-icon nzType="environment"></span>
-    </button>
+    <!-- Right Floating Toolbar (Compact Text Controls, 0 Icons) -->
+    <aside class="gis-floating-toolbar" aria-label="Công cụ bản đồ">
+      <button
+        type="button"
+        class="tool-btn"
+        [class.active]="showAssetsPanel()"
+        title="Danh sách tài sản lưới điện (Cột điện)"
+        (click)="toggleAssetsPanel()"
+      >
+        Cột điện
+      </button>
+      <button
+        type="button"
+        class="tool-btn"
+        [class.active]="showFilterPanel()"
+        title="Bộ lọc & Phân lớp dữ liệu"
+        (click)="toggleFilterPanel()"
+      >
+        Bộ lọc
+      </button>
+      <button
+        type="button"
+        class="tool-btn"
+        [class.active]="showLegendPanel()"
+        title="Chú giải ký hiệu bản đồ"
+        (click)="toggleLegendPanel()"
+      >
+        Chú giải
+      </button>
+      <button
+        type="button"
+        class="tool-btn"
+        title="Căn bản đồ theo các cột điện"
+        (click)="fitMapBounds()"
+      >
+        Căn giữa
+      </button>
+    </aside>
 
-  </aside>
+    <!-- Assets Floating Panel (Danh sách tài sản lưới điện) -->
+    @if (showAssetsPanel()) {
+      <section class="gis-filter-panel gis-assets-panel" aria-label="Danh sách tài sản cột điện">
+        <div class="panel-header">
+          <h3>Tài sản lưới điện ({{ filteredAssets().length }})</h3>
+          <button type="button" class="app-btn-action" (click)="showAssetsPanel.set(false)">Đóng</button>
+        </div>
 
-  <!-- Assets Floating Panel (Danh sách tài sản lưới điện) -->
-  @if (showAssetsPanel()) {
-    <section class="gis-filter-panel gis-assets-panel" aria-label="Danh sách tài sản cột điện">
-      <div class="panel-header">
-        <h3>
-          <span nz-icon nzType="cluster"></span>
-          Tài sản lưới điện ({{ filteredAssets().length }} cột)
-        </h3>
-        <button type="button" class="btn-close-panel" (click)="showAssetsPanel.set(false)">✕</button>
-      </div>
-
-      <div class="filter-group">
-        <label for="asset-search-input">Tìm kiếm tài sản:</label>
-        <div class="search-input-wrap">
-          <span nz-icon nzType="search" class="search-icon"></span>
+        <div class="filter-group">
+          <label for="asset-search-input">Tìm kiếm tài sản</label>
           <input
             id="asset-search-input"
             type="search"
@@ -141,66 +128,60 @@
             (ngModelChange)="assetSearchQuery.set($event)"
           />
         </div>
-      </div>
 
-      <div class="assets-scroll-list" role="list">
-        @for (tower of filteredAssets(); track tower.id) {
-          <div class="asset-list-card" (click)="focusTowerAsset(tower)">
-            <div class="asset-card-head">
-              <span class="asset-code">{{ tower.towerCode }}</span>
-              @if (openAnomaliesForTower(tower.id); as anomalyCount) {
-                <span class="anomaly-tag-badge">{{ anomalyCount }} sự cố</span>
+        <div class="assets-scroll-list" role="list">
+          @for (tower of filteredAssets(); track tower.id) {
+            <div class="asset-list-card" role="listitem">
+              <div class="asset-card-head">
+                <span class="asset-code">{{ tower.towerCode }}</span>
+                @if (openAnomaliesForTower(tower.id); as anomalyCount) {
+                  <span class="anomaly-count-text">{{ anomalyCount }} sự cố</span>
+                }
+              </div>
+              <div class="asset-meta-line">{{ regionName(tower.regionId) || 'Khu vực chưa định danh' }} · {{ tower.poleType || 'Cột điện' }}</div>
+              @if (tower.address) {
+                <div class="asset-address-line" [title]="tower.address">{{ tower.address }}</div>
               }
+              <div class="asset-card-actions">
+                <button type="button" class="app-btn-action" (click)="focusTowerAsset(tower)">
+                  Xem vị trí
+                </button>
+                <a [routerLink]="['/towers', tower.id]" [queryParams]="{ from: 'gis' }" class="app-btn-action">
+                  Chi tiết
+                </a>
+              </div>
             </div>
-            <div class="asset-meta-line">{{ regionName(tower.regionId) || 'Khu vực chưa định danh' }} · {{ tower.poleType || 'Cột điện' }}</div>
-            @if (tower.address) {
-              <div class="asset-address-line" [title]="tower.address">{{ tower.address }}</div>
-            }
-            <div class="asset-card-actions">
-              <button type="button" class="btn-focus-asset">
-                <span nz-icon nzType="aim"></span> Xem vị trí
-              </button>
-              <a [routerLink]="['/towers', tower.id]" [queryParams]="{ from: 'gis' }" class="btn-link-detail" (click)="$event.stopPropagation()">
-                <span nz-icon nzType="eye"></span> Chi tiết
-              </a>
-            </div>
-          </div>
-        } @empty {
-          <div class="empty-assets">Không tìm thấy cột điện nào phù hợp.</div>
-        }
-      </div>
-    </section>
-  }
-
-  <!-- Filter Floating Panel -->
-  @if (showFilterPanel()) {
-    <section class="gis-filter-panel" aria-label="Bảng điều khiển bộ lọc">
-      <div class="panel-header">
-        <h3>
-          <span nz-icon nzType="filter"></span>
-          Bộ lọc & Lớp hiển thị
-        </h3>
-        <button type="button" class="btn-close-panel" (click)="showFilterPanel.set(false)">✕</button>
-      </div>
-
-      <div class="filter-group">
-        <label for="region-select">Khu vực:</label>
-        <select
-          id="region-select"
-          [ngModel]="regionFilter()"
-          (ngModelChange)="changeRegion($event)"
-        >
-          <option value="">Tất cả khu vực trong phạm vi</option>
-          @for (region of regions(); track region.id) {
-            <option [value]="region.id">{{ region.name }}</option>
+          } @empty {
+            <div class="empty-assets">Không tìm thấy cột điện nào phù hợp.</div>
           }
-        </select>
-      </div>
+        </div>
+      </section>
+    }
 
-      <div class="filter-group">
-        <label for="search-asset-input">Tìm bất thường theo mã cột / loại:</label>
-        <div class="search-input-wrap">
-          <span nz-icon nzType="search" class="search-icon"></span>
+    <!-- Filter Floating Panel -->
+    @if (showFilterPanel()) {
+      <section class="gis-filter-panel" aria-label="Bảng điều khiển bộ lọc">
+        <div class="panel-header">
+          <h3>Bộ lọc &amp; Lớp hiển thị</h3>
+          <button type="button" class="app-btn-action" (click)="showFilterPanel.set(false)">Đóng</button>
+        </div>
+
+        <div class="filter-group">
+          <label for="region-select">Khu vực</label>
+          <select
+            id="region-select"
+            [ngModel]="regionFilter()"
+            (ngModelChange)="changeRegion($event)"
+          >
+            <option value="">Tất cả khu vực trong phạm vi</option>
+            @for (region of regions(); track region.id) {
+              <option [value]="region.id">{{ region.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="search-asset-input">Tìm bất thường theo mã cột / loại</label>
           <input
             id="search-asset-input"
             type="search"
@@ -209,321 +190,257 @@
             (ngModelChange)="searchCode.set($event); applyFilters()"
           />
         </div>
-      </div>
 
-      <div class="filter-group">
-        <label for="severity-select">Mức độ nghiêm trọng:</label>
-        <select
-          id="severity-select"
-          [ngModel]="severityFilter()"
-          (ngModelChange)="severityFilter.set($event); applyFilters()"
-        >
-          <option value="">Tất cả mức độ</option>
-          <option value="5">Cấp 5 - Nguy cấp</option>
-          <option value="4">Từ cấp 4 trở lên</option>
-          <option value="3">Từ cấp 3 trở lên</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label for="status-select">Trạng thái thẩm định:</label>
-        <select
-          id="status-select"
-          [ngModel]="statusFilter()"
-          (ngModelChange)="statusFilter.set($event); applyFilters()"
-        >
-          <option value="">Sự cố đang mở (Chờ duyệt & Đã xác nhận)</option>
-          <option value="Pending">Chờ thẩm định</option>
-          <option value="Confirmed">Đã xác nhận</option>
-          <option value="Resolved">Đã khắc phục (Resolved)</option>
-          <option value="Rejected">Báo động giả / Đã từ chối (Rejected)</option>
-          <option value="all">Tất cả trạng thái (Bao gồm đã đóng)</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <p>Bật / Tắt các lớp (Layers):</p>
-        <div class="layer-checkbox-list">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              [checked]="showTowersLayer()"
-              (change)="toggleLayer('towers')"
-            />
-            <svg class="layer-outline-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 2l6.5 19H5.5L12 2z"/>
-              <path d="M7.5 14h9"/>
-              <path d="M9.5 9h5"/>
-            </svg>
-            <span>Cột điện</span>
-          </label>
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              [checked]="showDefectsLayer()"
-              (change)="toggleLayer('defects')"
-            />
-            <span nz-icon nzType="exclamation-circle" class="layer-outline-icon" aria-hidden="true"></span>
-            <span>Điểm khuyết tật AI phát hiện</span>
-          </label>
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              [checked]="showAlertsLayer()"
-              (change)="toggleLayer('alerts')"
-            />
-            <span nz-icon nzType="bell" class="layer-outline-icon" aria-hidden="true"></span>
-            <span>Cảnh báo khẩn cấp</span>
-          </label>
+        <div class="filter-group">
+          <label for="severity-select">Mức độ nghiêm trọng</label>
+          <select
+            id="severity-select"
+            [ngModel]="severityFilter()"
+            (ngModelChange)="severityFilter.set($event); applyFilters()"
+          >
+            <option value="">Tất cả mức độ</option>
+            <option value="5">Cấp 5 - Nguy cấp</option>
+            <option value="4">Từ cấp 4 trở lên</option>
+            <option value="3">Từ cấp 3 trở lên</option>
+          </select>
         </div>
-      </div>
-    </section>
-  }
 
-  <!-- Marker Legend Floating Panel -->
-  @if (showLegendPanel()) {
-    <div class="gis-legend-panel">
-      <div class="panel-header">
-        <h4>Chú giải bản đồ</h4>
-        <button type="button" class="btn-close-panel" aria-label="Đóng chú giải" (click)="showLegendPanel.set(false)">✕</button>
-      </div>
-      <div class="legend-items">
-        <div class="legend-item">
-          <span class="legend-symbol sym-tower"></span>
-          <span>Cột điện bình thường</span>
+        <div class="filter-group">
+          <label for="status-select">Trạng thái thẩm định</label>
+          <select
+            id="status-select"
+            [ngModel]="statusFilter()"
+            (ngModelChange)="statusFilter.set($event); applyFilters()"
+          >
+            <option value="">Sự cố đang mở (Chờ duyệt &amp; Đã xác nhận)</option>
+            <option value="Pending">Chờ thẩm định</option>
+            <option value="Confirmed">Đã xác nhận</option>
+            <option value="Resolved">Đã khắc phục</option>
+            <option value="Rejected">Báo động giả / Đã từ chối</option>
+            <option value="all">Tất cả trạng thái (Bao gồm đã đóng)</option>
+          </select>
         </div>
-        <div class="legend-item">
-          <span class="legend-symbol sym-anomaly"></span>
-          <span>Cột điện có bất thường (Vàng)</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-symbol sym-alert"></span>
-          <span>Cột điện có cảnh báo khẩn cấp (Đỏ)</span>
-        </div>
-      </div>
-    </div>
-  }
 
-  <!-- Leaflet Map Container Target -->
-  <div
-    #mapContainer
-    class="gis-map-canvas"
-    [class.drawing-active]="drawMode() !== 'none'"
-    id="leaflet-map-target"
-  ></div>
-
-  <!-- Detail Drawer for Clicked Entity -->
-  @if (selectedEntity(); as selected) {
-    <aside class="gis-detail-drawer" aria-label="Chi tiết đối tượng được chọn">
-      <div class="drawer-head">
-        <div class="drawer-title">
-          <span class="badge-tag">
-            @switch (selected.type) {
-              @case ('tower') { Cột điện }
-              @case ('anomaly') { Bất thường AI phát hiện }
-              @case ('alert') { Cảnh báo khẩn cấp }
-            }
-          </span>
-          <h3>
-            @switch (selected.type) {
-              @case ('tower') { {{ selected.data.towerCode }} }
-              @case ('anomaly') { {{ selected.data.category }} }
-              @case ('alert') { {{ selected.data.title }} }
-            }
-          </h3>
-        </div>
-        <button type="button" class="btn-close-drawer" (click)="closeDrawer()">✕</button>
-      </div>
-
-      <div class="drawer-body">
-        @if (selected.type === 'tower') {
-          <div class="info-grid">
-            <div class="info-row">
-              <span>Mã cột:</span>
-              <strong>{{ selected.data.towerCode }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Khu vực:</span>
-              <strong>{{ regionName(selected.data.regionId) || 'Chưa có dữ liệu' }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Loại cột:</span>
-              <strong>{{ selected.data.poleType || 'Chưa có dữ liệu' }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Địa chỉ:</span>
-              <strong>{{ selected.data.address || 'Chưa có dữ liệu' }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Tọa độ GPS:</span>
-              <strong style="font-family: monospace;">{{ selected.data.latitude.toFixed(5) }}, {{ selected.data.longitude.toFixed(5) }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Bất thường đang mở:</span>
-              <strong [style.color]="openAnomaliesForTower(selected.data.id, selected.data.towerCode) > 0 ? '#dc2626' : 'inherit'">{{ openAnomaliesForTower(selected.data.id, selected.data.towerCode) }}</strong>
-            </div>
+        <div class="filter-group">
+          <p>Bật / Tắt lớp hiển thị</p>
+          <div class="layer-checkbox-list">
+            <label class="checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="showTowersLayer()"
+                (change)="toggleLayer('towers')"
+              />
+              <span>Cột điện</span>
+            </label>
+            <label class="checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="showDefectsLayer()"
+                (change)="toggleLayer('defects')"
+              />
+              <span>Điểm khuyết tật AI phát hiện</span>
+            </label>
+            <label class="checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="showAlertsLayer()"
+                (change)="toggleLayer('alerts')"
+              />
+              <span>Cảnh báo khẩn cấp</span>
+            </label>
           </div>
+        </div>
+      </section>
+    }
 
-          @let towerAlerts = alertsForTower(selected.data.id, selected.data.towerCode);
-          @if (towerAlerts.length > 0) {
-            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
-              <span style="font-size: 11px; font-weight: 700; color: #dc2626; text-transform: uppercase;">Cảnh báo khẩn cấp ({{ towerAlerts.length }}):</span>
-              @for (alert of towerAlerts; track alert.id) {
-                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                  <div style="min-width: 0;">
-                    <div style="font-weight: 700; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ alert.title }}</div>
-                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Ưu tiên: {{ alert.priority }} · {{ alert.triggeredAt | date:'dd/MM/yyyy HH:mm' }}</div>
-                  </div>
-                  @if (alert.anomalyId && canReviewAnomalies()) {
-                    <button
-                      type="button"
-                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; background: #dc2626; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
-                      (click)="navigateToReview(alert.anomalyId)"
-                    >
-                      Xử lý
-                    </button>
-                  }
-                </div>
+    <!-- Marker Legend Floating Panel (Preserves Map Symbol Legend Dots) -->
+    @if (showLegendPanel()) {
+      <div class="gis-legend-panel">
+        <div class="panel-header">
+          <h4>Chú giải bản đồ</h4>
+          <button type="button" class="app-btn-action" aria-label="Đóng chú giải" (click)="showLegendPanel.set(false)">Đóng</button>
+        </div>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-symbol sym-tower"></span>
+            <span>Cột điện bình thường</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol sym-anomaly"></span>
+            <span>Cột điện có bất thường (Vàng)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol sym-alert"></span>
+            <span>Cột điện có cảnh báo khẩn cấp (Đỏ)</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Leaflet Map Container Target (All Map Marker Icons Preserved) -->
+    <div
+      #mapContainer
+      class="gis-map-canvas"
+      [class.drawing-active]="drawMode() !== 'none'"
+      id="leaflet-map-target"
+    ></div>
+
+    <!-- Detail Drawer for Clicked Entity (Quiet Chrome, 0 Icons) -->
+    @if (selectedEntity(); as selected) {
+      <aside class="gis-detail-drawer" aria-label="Chi tiết đối tượng được chọn">
+        <div class="drawer-head">
+          <div class="drawer-title">
+            <span class="badge-tag">
+              @switch (selected.type) {
+                @case ('tower') { Cột điện }
+                @case ('anomaly') { Bất thường AI phát hiện }
+                @case ('alert') { Cảnh báo khẩn cấp }
               }
-            </div>
-          }
-
-          @let towerAnomalies = anomaliesForTower(selected.data.id, selected.data.towerCode);
-          @if (towerAnomalies.length > 0) {
-            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
-              <span style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase;">Sự cố / Bất thường phát hiện ({{ towerAnomalies.length }}):</span>
-              @for (anom of towerAnomalies; track anom.id) {
-                <div [style.background]="anom.severity >= 4.5 ? '#fef2f2' : '#fefce8'" [style.borderColor]="anom.severity >= 4.5 ? '#fecaca' : '#fef08a'" style="border-width: 1px; border-style: solid; border-radius: 6px; padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                  <div style="min-width: 0;">
-                    <div [style.color]="anom.severity >= 4.5 ? '#991b1b' : '#854d0e'" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ anom.category }}</div>
-                    <div [style.color]="anom.severity >= 4.5 ? '#7f1d1d' : '#713f12'" style="font-size: 10.5px; margin-top: 2px;">Cấp {{ severityLabel(anom.severity) }}/5 · {{ anomalyStatusLabel(effectiveAnomalyStatus(anom)) }}</div>
-                  </div>
-                  @if (canReviewAnomalies()) {
-                    <button
-                      type="button"
-                      [style.background]="needsAiReview(anom) ? (anom.severity >= 4.5 ? '#dc2626' : '#ca8a04') : '#475569'"
-                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
-                      (click)="navigateToReview(anom.anomalyId, anom)"
-                    >
-                      {{ needsAiReview(anom) ? 'Thẩm định' : 'Chi tiết' }}
-                    </button>
-                  }
-                </div>
+            </span>
+            <h3>
+              @switch (selected.type) {
+                @case ('tower') { {{ selected.data.towerCode }} }
+                @case ('anomaly') { {{ selected.data.category }} }
+                @case ('alert') { {{ selected.data.title }} }
               }
-            </div>
-          }
-        } @else if (selected.type === 'anomaly') {
-          @if (selected.data.imageUrl) {
-            <div class="drawer-media-preview">
-              <img [src]="selected.data.imageUrl" [alt]="selected.data.category" />
-            </div>
-          }
+            </h3>
+          </div>
+          <button type="button" class="app-btn-action" (click)="closeDrawer()">Đóng</button>
+        </div>
 
-          <div class="info-grid">
-            <div class="info-row">
-              <span>Loại bất thường:</span>
-              <strong>{{ selected.data.category }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Cột điện:</span>
-              <strong>{{ selected.data.towerCode || 'Chưa gắn cột' }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Mức độ nghiêm trọng:</span>
-              <strong style="color: #b91c1c;">Cấp {{ severityLabel(selected.data.severity) }}/5</strong>
-            </div>
-            <div class="info-row">
-              <span>Độ tin cậy AI:</span>
-              <strong style="color: #0369a1;">{{ confidencePercent(selected.data.confidenceScore) }}%</strong>
-            </div>
-            <div class="info-row">
-              <span>Trạng thái:</span>
-              <strong [style.color]="isAnomalyClosed(selected.data) ? '#16a34a' : '#b91c1c'">{{ anomalyStatusLabel(effectiveAnomalyStatus(selected.data)) }}</strong>
-            </div>
-            @if (selected.data.detectedAt) {
+        <div class="drawer-body">
+          @if (selected.type === 'tower') {
+            <div class="info-grid">
               <div class="info-row">
-                <span>Phát hiện lúc:</span>
-                <strong>{{ selected.data.detectedAt | date:'dd/MM/yyyy HH:mm' }}</strong>
+                <span>Mã cột</span>
+                <strong>{{ selected.data.towerCode }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Khu vực</span>
+                <strong>{{ regionName(selected.data.regionId) || 'Chưa có dữ liệu' }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Loại cột</span>
+                <strong>{{ selected.data.poleType || 'Chưa có dữ liệu' }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Địa chỉ</span>
+                <strong>{{ selected.data.address || 'Chưa có dữ liệu' }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Tọa độ GPS</span>
+                <strong class="tabular-nums">{{ selected.data.latitude.toFixed(5) }}, {{ selected.data.longitude.toFixed(5) }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Bất thường đang mở</span>
+                <strong class="tabular-nums" [class.text-danger]="openAnomaliesForTower(selected.data.id, selected.data.towerCode) > 0">
+                  {{ openAnomaliesForTower(selected.data.id, selected.data.towerCode) }}
+                </strong>
+              </div>
+              @let towerAlertsCount = alertsForTower(selected.data.id, selected.data.towerCode).length;
+              @if (towerAlertsCount > 0) {
+                <div class="info-row">
+                  <span>Cảnh báo khẩn cấp</span>
+                  <strong class="tabular-nums text-danger">{{ towerAlertsCount }}</strong>
+                </div>
+              }
+            </div>
+          } @else if (selected.type === 'anomaly') {
+            @if (selected.data.imageUrl) {
+              <div class="drawer-media-preview">
+                <img [src]="selected.data.imageUrl" [alt]="selected.data.category" loading="lazy" />
               </div>
             }
-          </div>
-        } @else if (selected.type === 'alert') {
-          <div class="info-grid">
-            <div class="info-row">
-              <span>Mức độ:</span>
-              <strong style="color: #b91c1c;">Cảnh báo khẩn cấp (Critical)</strong>
-            </div>
-            <div class="info-row">
-              <span>Ưu tiên xử lý:</span>
-              <strong style="color: #b91c1c;">{{ selected.data.priority }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Vị trí sự cố:</span>
-              <strong>{{ selected.data.towerCode || 'Chưa có dữ liệu' }}</strong>
-            </div>
-            <div class="info-row">
-              <span>Thời điểm kích hoạt:</span>
-              <strong>{{ selected.data.triggeredAt | date:'dd/MM/yyyy HH:mm:ss' }}</strong>
-            </div>
-          </div>
-        }
-      </div>
 
-      <div class="drawer-footer">
-        @if (selected.type === 'anomaly' && canReviewAnomalies()) {
-          @if (needsAiReview(selected.data)) {
-            <button
-              type="button"
-              class="btn-primary"
-              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
-            >
-              <span nz-icon nzType="audit" aria-hidden="true"></span>
-              Xem &amp; Thẩm định AI
-            </button>
-          } @else {
-            <button
-              type="button"
-              class="btn-primary"
-              style="background: #475569;"
-              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
-            >
-              <span nz-icon nzType="file-text" aria-hidden="true"></span>
-              Xem chi tiết sự cố
-            </button>
+            <div class="info-grid">
+              <div class="info-row">
+                <span>Loại bất thường</span>
+                <strong>{{ selected.data.category }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Cột điện</span>
+                <strong>{{ selected.data.towerCode || 'Chưa gắn cột' }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Mức độ nghiêm trọng</span>
+                <strong class="text-danger">Cấp {{ severityLabel(selected.data.severity) }}/5</strong>
+              </div>
+              <div class="info-row">
+                <span>Độ tin cậy AI</span>
+                <strong class="tabular-nums">{{ confidencePercent(selected.data.confidenceScore) }}%</strong>
+              </div>
+              <div class="info-row">
+                <span>Trạng thái</span>
+                <strong [class.text-success]="isAnomalyClosed(selected.data)" [class.text-danger]="!isAnomalyClosed(selected.data)">
+                  {{ anomalyStatusLabel(effectiveAnomalyStatus(selected.data)) }}
+                </strong>
+              </div>
+              @if (selected.data.detectedAt) {
+                <div class="info-row">
+                  <span>Phát hiện lúc</span>
+                  <strong class="tabular-nums">{{ selected.data.detectedAt | date:'dd/MM/yyyy HH:mm' }}</strong>
+                </div>
+              }
+            </div>
+          } @else if (selected.type === 'alert') {
+            <div class="info-grid">
+              <div class="info-row">
+                <span>Mức độ</span>
+                <strong class="text-danger">Cảnh báo khẩn cấp</strong>
+              </div>
+              <div class="info-row">
+                <span>Ưu tiên xử lý</span>
+                <strong class="text-danger">{{ selected.data.priority }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Vị trí sự cố</span>
+                <strong>{{ selected.data.towerCode || 'Chưa có dữ liệu' }}</strong>
+              </div>
+              <div class="info-row">
+                <span>Thời điểm kích hoạt</span>
+                <strong class="tabular-nums">{{ selected.data.triggeredAt | date:'dd/MM/yyyy HH:mm:ss' }}</strong>
+              </div>
+            </div>
           }
-        } @else if (selected.type === 'anomaly' && selected.data.towerId) {
-          <a
-            [routerLink]="['/towers', selected.data.towerId]"
-            [queryParams]="{ from: 'gis' }"
-            class="btn-primary"
-          >
-            <span nz-icon nzType="history" aria-hidden="true"></span>
-            Lịch sử cột điện
-          </a>
-        } @else if (selected.type === 'tower') {
-          <a
-            [routerLink]="['/towers', selected.data.id]"
-            [queryParams]="{ from: 'gis' }"
-            class="btn-primary"
-          >
-            <span nz-icon nzType="history" aria-hidden="true"></span>
-            Lịch sử cột điện
-          </a>
-        } @else if (selected.type === 'alert' && selected.data.towerId) {
-          <a
-            [routerLink]="['/towers', selected.data.towerId]"
-            [queryParams]="{ from: 'gis' }"
-            class="btn-primary"
-          >
-            <span nz-icon nzType="history" aria-hidden="true"></span>
-            Lịch sử cột điện
-          </a>
-        }
-        <button type="button" class="btn-outline" (click)="closeDrawer()">Đóng</button>
-      </div>
-    </aside>
-  }
-</div>
-</div>
+        </div>
 
-
+        <div class="drawer-footer">
+          @if (selected.type === 'anomaly' && canReviewAnomalies()) {
+            <button
+              type="button"
+              class="app-btn-primary"
+              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
+            >
+              {{ needsAiReview(selected.data) ? 'Xem & Thẩm định AI' : 'Xem chi tiết sự cố' }}
+            </button>
+          } @else if (selected.type === 'anomaly' && selected.data.towerId) {
+            <a
+              [routerLink]="['/towers', selected.data.towerId]"
+              [queryParams]="{ from: 'gis' }"
+              class="app-btn-primary"
+            >
+              Lịch sử cột điện
+            </a>
+          } @else if (selected.type === 'tower') {
+            <a
+              [routerLink]="['/towers', selected.data.id]"
+              [queryParams]="{ from: 'gis' }"
+              class="app-btn-primary"
+            >
+              Lịch sử cột điện
+            </a>
+          } @else if (selected.type === 'alert' && selected.data.towerId) {
+            <a
+              [routerLink]="['/towers', selected.data.towerId]"
+              [queryParams]="{ from: 'gis' }"
+              class="app-btn-primary"
+            >
+              Lịch sử cột điện
+            </a>
+          }
+          <button type="button" class="app-btn-secondary" (click)="closeDrawer()">Đóng</button>
+        </div>
+      </aside>
+    }
+  </div>
+</div>

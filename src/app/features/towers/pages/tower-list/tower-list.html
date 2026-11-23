@@ -1,116 +1,191 @@
-<header class="page-heading">
-  <div class="heading-left">
-    <nav class="page-breadcrumb" aria-label="Đường dẫn">
-      <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
-      <span class="separator">/</span>
-      <strong>CỘT ĐIỆN</strong>
-    </nav>
-    <h1>Quản lý cột điện</h1>
-    <p class="review-subtitle">Danh mục cột điện theo khu vực, tọa độ và lịch sử kiểm tra.</p>
-  </div>
-  @if (canManage()) {
-    <div class="tower-actions">
-      <label class="button secondary tower-import" [class.is-busy]="importing()" title="Tệp Excel (.xlsx). Cột: mã khu vực, mã cột, vĩ độ, kinh độ, loại cột, địa chỉ.">
-        <span nz-icon nzType="file-excel" aria-hidden="true"></span>
-        <span>{{ importing() ? 'Đang nhập...' : 'Nhập Excel' }}</span>
-        <input type="file" class="sr-only" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" [disabled]="importing()" (change)="importFile($event)" />
-      </label>
-      <button type="button" class="button primary" (click)="openCreate()">
-        <span nz-icon nzType="plus" aria-hidden="true"></span><span>Thêm cột điện</span>
+<div class="ops-page tower-list-benchmark">
+  <header class="page-header">
+    <div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
+        <span class="separator">/</span>
+        <strong>Cột điện</strong>
+      </nav>
+      <h1>Quản lý cột điện</h1>
+      <p>Danh mục cột điện theo khu vực, tọa độ và lịch sử kiểm tra</p>
+    </div>
+    @if (canManage()) {
+      <div class="head-actions">
+        <label
+          class="app-btn-secondary"
+          title="Tệp Excel (.xlsx). Cột: mã khu vực, mã cột, vĩ độ, kinh độ, loại cột, địa chỉ."
+        >
+          <span>{{ importing() ? 'Đang nhập...' : 'Nhập Excel' }}</span>
+          <input
+            type="file"
+            class="sr-only"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            [disabled]="importing()"
+            (change)="importFile($event)"
+          />
+        </label>
+        <button type="button" class="app-btn-primary" (click)="openCreate()">Thêm cột điện</button>
+      </div>
+    }
+  </header>
+
+  <section class="app-filter-bar" role="search" aria-label="Lọc cột điện">
+    <div class="filter-search">
+      <input
+        id="tower-search"
+        type="search"
+        aria-label="Tìm kiếm cột điện"
+        placeholder="Tìm theo mã cột, địa chỉ..."
+        autocomplete="off"
+        [value]="search()"
+        (input)="onSearchEvent($event)"
+      />
+    </div>
+
+    <label class="filter-field" for="tower-region-filter">
+      <span class="filter-label">Khu vực</span>
+      <select id="tower-region-filter" [value]="regionId()" (change)="onRegionEvent($event)">
+        <option value="">Tất cả khu vực</option>
+        @for (region of regions(); track region.id) {
+          <option [value]="region.id">{{ region.name }}</option>
+        }
+      </select>
+    </label>
+
+    <div class="filter-actions">
+      <button
+        type="button"
+        class="app-btn-secondary"
+        [disabled]="!hasActiveFilters()"
+        (click)="resetFilters()"
+      >
+        Xóa lọc
+      </button>
+      <button type="button" class="app-btn-secondary btn-refresh" (click)="refresh()">
+        {{ fetching() ? 'Đang tải...' : 'Làm mới' }}
       </button>
     </div>
+  </section>
+
+  @if (loadError()) {
+    <div class="app-error-banner" role="alert">
+      <span class="truncate">{{ loadError() }}</span>
+      <button type="button" class="app-btn-action" (click)="refresh()">Thử lại</button>
+    </div>
   }
-</header>
 
-<form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc cột điện" (ngSubmit)="goToPage(1)">
-  <div class="search-input-wrap">
-    <span nz-icon nzType="search" class="search-icon"></span>
-    <input id="tower-search" type="search" formControlName="search" placeholder="Tìm theo mã cột, địa chỉ..." autocomplete="off" />
-  </div>
-  <div class="tower-filter">
-    <label for="tower-region-filter"><span>Khu vực:</span></label>
-    <select id="tower-region-filter" formControlName="regionId">
-      <option value="">Tất cả khu vực</option>
-      @for (region of regions(); track region.id) {
-        <option [value]="region.id">{{ region.name }}</option>
-      }
-    </select>
-  </div>
-  <div class="tower-actions">
-    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()" title="Tải lại dữ liệu">
-      <span nz-icon [nzType]="loading() ? 'loading' : 'reload'" aria-hidden="true"></span>
-      <span>Làm mới</span>
-    </button>
-  </div>
-</form>
-
-<section class="tower-card" aria-labelledby="tower-table-caption">
-  @if (loading() && !result().items.length) {
-    <app-data-state kind="loading" title="Đang tải danh sách cột điện" />
-  } @else if (loadError()) {
-    <app-data-state kind="error" [message]="loadError()" (retry)="load()" />
-  } @else if (!result().items.length) {
-    <app-data-state kind="empty" title="Không có cột điện" message="Không tìm thấy cột điện phù hợp với bộ lọc." />
-  } @else {
-    <div class="tower-table-wrap" [attr.aria-busy]="loading()">
-      <table class="tower-table">
-        <caption id="tower-table-caption" class="sr-only">Danh sách cột điện</caption>
+  <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
+    <div class="app-table-scroll app-table-stage">
+      <table class="app-data-table">
+        <colgroup>
+          <col style="width: 14%" />
+          <col style="width: 20%" />
+          <col style="width: 14%" />
+          <col style="width: 26%" />
+          <col style="width: 18%" />
+          <col style="width: 8%" />
+        </colgroup>
         <thead>
           <tr>
-            <th scope="col" class="th-code">Mã cột</th>
-            <th scope="col" class="th-region">Khu vực</th>
-            <th scope="col" class="th-type">Loại cột</th>
-            <th scope="col" class="th-address">Địa chỉ</th>
-            <th scope="col" class="th-coords">Tọa độ</th>
-            <th scope="col" class="th-actions">Thao tác</th>
+            <th>Mã cột</th>
+            <th>Khu vực</th>
+            <th>Loại cột</th>
+            <th>Địa chỉ</th>
+            <th>Tọa độ</th>
+            <th class="col-center col-sticky-right">Thao tác</th>
           </tr>
         </thead>
-        <tbody>
-          @for (tower of result().items; track tower.id) {
+        <tbody [class.is-fetching]="fetching() && !initialLoading()">
+          @if (initialLoading()) {
+            @for (row of skeletonRows; track row) {
+              <tr aria-hidden="true">
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td><span class="app-skeleton-bar w-36"></span></td>
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td><span class="app-skeleton-bar w-48"></span></td>
+                <td><span class="app-skeleton-bar w-32"></span></td>
+                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
+              </tr>
+            }
+          } @else if (!result().items.length) {
             <tr>
-              <td class="td-code"><a class="tower-code-link" [routerLink]="['/towers', tower.id]">{{ tower.towerCode }}</a></td>
-              <td class="td-region" [title]="regionName(tower)">{{ displayRegion(tower) }}</td>
-              <td class="td-type" [title]="tower.poleType || ''">{{ displayPoleType(tower.poleType) }}</td>
-              <td class="tower-muted td-address" [title]="tower.address || ''">{{ displayAddress(tower.address) }}</td>
-              <td class="tower-mono td-coords">{{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}</td>
-              <td class="td-actions">
-                <div class="tower-row-actions">
-                  <a class="button secondary small" [routerLink]="['/towers', tower.id]" [attr.aria-label]="'Chi tiết cột ' + tower.towerCode">
+              <td colspan="6" class="app-empty-cell">Không tìm thấy cột điện nào phù hợp với bộ lọc.</td>
+            </tr>
+          } @else {
+            @for (tower of result().items; track tower.id) {
+              <tr>
+                <td>
+                  <span class="cell-primary cell-truncate" [title]="tower.towerCode">
+                    {{ tower.towerCode }}
+                  </span>
+                </td>
+                <td>
+                  <span class="cell-secondary cell-truncate" [title]="regionName(tower)">
+                    {{ displayRegion(tower) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="cell-secondary cell-truncate" [title]="tower.poleType || ''">
+                    {{ displayPoleType(tower.poleType) }}
+                  </span>
+                </td>
+                <td>
+                  <span class="cell-secondary cell-truncate" [title]="tower.address || ''">
+                    {{ displayAddress(tower.address) }}
+                  </span>
+                </td>
+                <td class="tabular-nums cell-secondary">
+                  <span class="cell-truncate">
+                    {{ tower.latitude | number: '1.5-6' }}, {{ tower.longitude | number: '1.5-6' }}
+                  </span>
+                </td>
+                <td class="col-center col-sticky-right">
+                  <a
+                    class="app-btn-action"
+                    [routerLink]="['/towers', tower.id]"
+                    [attr.aria-label]="'Chi tiết cột ' + tower.towerCode"
+                  >
                     Chi tiết
                   </a>
-                </div>
-              </td>
-            </tr>
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
     </div>
-    <div class="tower-footer">
-      <app-pagination [page]="result().pagination.page" [totalPages]="result().pagination.totalPages" [totalCount]="result().pagination.totalItems" (pageChanged)="goToPage($event)" />
-    </div>
+    <footer class="app-pagination-footer">
+      <app-pagination
+        [page]="result().pagination.page"
+        [totalPages]="result().pagination.totalPages"
+        [totalCount]="result().pagination.totalItems"
+        [pageSize]="pageSize()"
+        (pageChanged)="goToPage($event)"
+      />
+    </footer>
+  </section>
+
+  @if (formOpen()) {
+    <app-tower-form-dialog
+      [tower]="editing()"
+      [regions]="regions()"
+      [busy]="saving()"
+      [errorMessage]="formError()"
+      (submitted)="save($event)"
+      (requestDelete)="closeForm(); askDelete($event)"
+      (closed)="closeForm()"
+    />
   }
-</section>
 
-@if (formOpen()) {
-  <app-tower-form-dialog
-    [tower]="editing()"
-    [regions]="regions()"
-    [busy]="saving()"
-    [errorMessage]="formError()"
-    (submitted)="save($event)"
-    (requestDelete)="closeForm(); askDelete($event)"
-    (closed)="closeForm()"
-  />
-}
-
-@if (deleting(); as tower) {
-  <app-tower-confirm-dialog
-    title="Xóa cột điện"
-    [message]="'Xóa cột ' + tower.towerCode + '? Thao tác này không thể hoàn tác.'"
-    confirmLabel="Xóa"
-    [busy]="deleteBusy()"
-    [errorMessage]="deleteError()"
-    (confirmed)="confirmDelete()"
-    (closed)="deleting.set(null)"
-  />
-}
+  @if (deleting(); as tower) {
+    <app-tower-confirm-dialog
+      title="Xóa cột điện"
+      [message]="'Xóa cột ' + tower.towerCode + '? Thao tác này không thể hoàn tác.'"
+      confirmLabel="Xóa"
+      [busy]="deleteBusy()"
+      [errorMessage]="deleteError()"
+      (confirmed)="confirmDelete()"
+      (closed)="deleting.set(null)"
+    />
+  }
+</div>

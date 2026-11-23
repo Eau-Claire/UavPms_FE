@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpEvent, HttpEventType, HttpResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,9 +14,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { unwrapApiData } from '../../../../models/api.models';
 import {
   AiAnalysisApi,
@@ -37,95 +37,11 @@ import {
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { ActiveEmergencyAlert } from '../../../emergency-alerts/models/emergency-alert.models';
 
-export interface SampleDefectPreset {
-  readonly key: 'insulator-crack' | 'bolt-missing' | 'corridor-tree' | 'insulator-dirty';
-  readonly label: string;
-  readonly badge: string;
-  readonly badgeClass: string;
-  readonly imagePath: string;
-  readonly title: string;
-  readonly categoryCode: string;
-  readonly confidence: number;
-  readonly description: string;
-  readonly severityWeight: number;
-  readonly isEmergency: boolean;
-  readonly tower: string;
-  readonly gps: string;
-  readonly boundingBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
-}
-
-export const SAMPLE_DEFECT_PRESETS: readonly SampleDefectPreset[] = [
-  {
-    key: 'insulator-crack',
-    label: 'Bát sứ nứt vỡ',
-    badge: 'Khẩn cấp',
-    badgeClass: 'danger',
-    imagePath: '/images/defect-insulator-crack.png',
-    title: 'Bát cách điện vỡ',
-    categoryCode: 'BROKEN_INSULATOR',
-    confidence: 88,
-    description: 'Nứt vỡ đĩa cách điện chuỗi đỡ 220kV, nguy cơ phóng điện vầng quang cao khi thời tiết ẩm ướt.',
-    severityWeight: 5,
-    isEmergency: true,
-    tower: 'HCM-TB-T02',
-    gps: '10.80650, 106.71750',
-    boundingBox: { x: 26, y: 22, width: 48, height: 52 },
-  },
-  {
-    key: 'bolt-missing',
-    label: 'Mất bu-lông xà',
-    badge: 'Cấp 3/5',
-    badgeClass: 'warning',
-    imagePath: '/images/defect-bolt-missing.png',
-    title: 'Mất bu-lông liên kết',
-    categoryCode: 'MISSING_BOLT',
-    confidence: 91,
-    description: 'Thiếu bu-lông liên kết thanh giằng chữ V xà đỡ cáp phía hạ lưu cột điện.',
-    severityWeight: 3,
-    isEmergency: false,
-    tower: 'HCM-AP-T01',
-    gps: '10.80150, 106.74550',
-    boundingBox: { x: 30, y: 25, width: 40, height: 45 },
-  },
-  {
-    key: 'corridor-tree',
-    label: 'Cây vi phạm hành lang',
-    badge: 'Cấp 4/5',
-    badgeClass: 'warning',
-    imagePath: '/images/defect-corridor-tree.png',
-    title: 'Cây vi phạm hành lang',
-    categoryCode: 'VEGETATION_ENCROACHMENT',
-    confidence: 84,
-    description: 'Cây xanh tán cao phát triển xâm phạm khoảng cách an toàn pha - đất dưới 4.5m.',
-    severityWeight: 4,
-    isEmergency: false,
-    tower: 'HCM-TB-T01',
-    gps: '10.80410, 106.71890',
-    boundingBox: { x: 20, y: 35, width: 55, height: 50 },
-  },
-  {
-    key: 'insulator-dirty',
-    label: 'Sứ bám bẩn',
-    badge: 'Theo dõi',
-    badgeClass: 'info',
-    imagePath: '/images/defect-insulator-dirty.png',
-    title: 'Bát sứ bám bẩn',
-    categoryCode: 'DIRTY_INSULATOR',
-    confidence: 76,
-    description: 'Bề mặt đĩa sứ cách điện nhiễm bẩn công nghiệp, có vết phóng điện cục bộ nhẹ.',
-    severityWeight: 2,
-    isEmergency: false,
-    tower: 'HCM-TB-T03',
-    gps: '10.80820, 106.71610',
-    boundingBox: { x: 24, y: 20, width: 52, height: 55 },
-  },
-];
-
 export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowStage };
 
 @Component({
   selector: 'app-standalone-upload',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink],
   templateUrl: './standalone-upload.html',
   styleUrl: './standalone-upload.scss',
   encapsulation: ViewEncapsulation.None,
@@ -177,7 +93,6 @@ export class StandaloneUpload {
   protected readonly uploadError = signal<string | null>(null);
   protected readonly processingStep = signal<number>(1);
   protected readonly processingMessage = signal<string>('Đang tải tệp lên máy chủ...');
-  protected readonly samplePresets = SAMPLE_DEFECT_PRESETS;
 
   private pollingTimer: ReturnType<typeof setTimeout> | null = null;
   private pollCount = 0;
@@ -446,8 +361,8 @@ export class StandaloneUpload {
             }
           }
         },
-        error: () => {
-          this.uploadError.set('Không thể kết nối dịch vụ xử lý dữ liệu. Vui lòng thử lại sau.');
+        error: (err: unknown) => {
+          this.uploadError.set(describeHttpError(err, 'Không thể kết nối dịch vụ xử lý dữ liệu AI. Vui lòng thử lại sau.'));
           this.store.setWorkflowStage('ready');
         },
       });
@@ -489,7 +404,15 @@ export class StandaloneUpload {
               this.handlePollingTimeout(serverId, analysisType, notes, filesCount, isVideo, userMediaUrl);
             }
           },
-          error: () => {
+          error: (err: unknown) => {
+            if (err instanceof HttpErrorResponse && err.status === 403) {
+              this.uploading.set(false);
+              this.uploadError.set(
+                'Lỗi phân quyền máy chủ (HTTP 403 Forbidden): Vai trò tài khoản hiện tại chưa được cấp quyền truy cập API phân tích AI (GET /api/v1/ai-analysis/{id}). Vui lòng báo backend bổ sung vai trò Admin/SystemAdmin.',
+              );
+              this.store.setWorkflowStage('ready');
+              return;
+            }
             if (this.pollCount < maxPolls) {
               this.pollingTimer = setTimeout(runPoll, pollInterval);
             } else {
@@ -679,123 +602,6 @@ export class StandaloneUpload {
 
   lowerConfidenceThreshold(targetValue = 30): void {
     this.store.setConfidenceThreshold(targetValue);
-  }
-
-  async loadPresetSample(sampleKey: 'insulator-crack' | 'bolt-missing' | 'corridor-tree' | 'insulator-dirty'): Promise<void> {
-    const preset = this.samplePresets.find((p) => p.key === sampleKey);
-    if (!preset) return;
-
-    try {
-      let file: File;
-      try {
-        const response = await fetch(preset.imagePath);
-        const blob = await response.blob();
-        file = new File([blob], `${preset.key}.png`, { type: 'image/png' });
-      } catch {
-        file = new File(['sample content'], `${preset.key}.png`, { type: 'image/png' });
-      }
-
-      const previewUrl = preset.imagePath;
-      const mediaId = `sample-${Date.now()}`;
-
-      const media: StandaloneMediaPreview = {
-        id: mediaId,
-        file,
-        name: `${preset.label}.png`,
-        sizeFormatted: '480 KB',
-        previewUrl,
-        thumbnailUrl: previewUrl,
-        resolution: '1920 x 1080',
-        fps: '-',
-        duration: '-',
-        durationSeconds: 0,
-        kind: 'image',
-        status: 'Đã phân tích',
-        progress: 100,
-      };
-
-      this.store.clearFiles();
-      this.store.setWorkflowMode('image');
-      this.store.setFiles([media]);
-      this.store.selectMedia(mediaId);
-
-      let cropUrl = previewUrl;
-      try {
-        cropUrl = await extractCropDataUrl(previewUrl, preset.boundingBox);
-      } catch {
-        // Fallback
-      }
-
-      const det: AiDetection = {
-        id: `det-sample-${preset.key}`,
-        title: preset.title,
-        confidence: preset.confidence,
-        categoryCode: preset.categoryCode,
-        description: preset.description,
-        mediaType: 'image',
-        timestampSeconds: null,
-        timestampLabel: 'Ảnh mẫu chuẩn',
-        frameIndex: 1,
-        gps: preset.gps,
-        tower: preset.tower,
-        missionName: 'Kiểm thử mẫu QA',
-        imageUrl: previewUrl,
-        sourceUrl: previewUrl,
-        cropImageUrl: cropUrl,
-        boundingBox: preset.boundingBox,
-        severityWeight: preset.severityWeight,
-        isEmergency: preset.isEmergency,
-        status: 'Pending',
-        detectedAt: new Date().toISOString(),
-      };
-
-      const sessionResult: AnalysisSessionResult = {
-        id: `sample-${preset.key}-${Date.now().toString().slice(-6)}`,
-        status: 'Completed',
-        analysisType: 'DefectDetection',
-        notes: `Ảnh mẫu kiểm thử khuyết tật: ${preset.title}`,
-        createdAt: new Date().toISOString(),
-        filesCount: 1,
-        detections: [det],
-      };
-
-      this.store.setUploadResult(sessionResult);
-      this.store.setWorkflowStage('inspected');
-      this.store.setDetections([det]);
-
-      if (preset.isEmergency) {
-        const emergencyAlert: ActiveEmergencyAlert = {
-          id: `alert-sample-${preset.key}`,
-          anomalyId: det.id,
-          categoryName: preset.title,
-          alertType: preset.categoryCode,
-          priority: 'Critical',
-          towerCode: preset.tower,
-          towerId: 't-sample-01',
-          status: 'Open',
-          deliveryLatencySeconds: 1,
-          triggeredAt: new Date().toISOString(),
-          location: {
-            latitude: 10.8065,
-            longitude: 106.7175,
-            towerCode: preset.tower,
-          },
-          evidence: {
-            confidenceScore: preset.confidence,
-            mediaUrl: previewUrl,
-            boundingBox: {
-              ...preset.boundingBox,
-              isNormalized: true,
-            },
-          },
-        };
-        this.store.setLastTriggeredEmergencyAlert(emergencyAlert);
-      } else {
-        this.store.setLastTriggeredEmergencyAlert(null);
-      }
-    } catch {
-      // ignore
-    }
   }
 
   onCategoryFilterChange(event: Event): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { statusLabel, statusTone } from './status';
+import { statusColorClass, statusLabel, statusTone } from './status';
 
 describe('Status Utility', () => {
   describe('statusTone', () => {
@@ -27,36 +27,49 @@ describe('Status Utility', () => {
   });
 
   describe('statusLabel', () => {
-    it('normalizes uppercase or separated doc statuses into PascalCase without translating to Vietnamese', () => {
-      expect(statusLabel('DRAFT')).toBe('Draft');
-      expect(statusLabel('EVALUATING')).toBe('Evaluating');
-      expect(statusLabel('READY')).toBe('Ready');
-      expect(statusLabel('NOT_READY')).toBe('NotReady');
-      expect(statusLabel('EXPIRED')).toBe('Expired');
-      expect(statusLabel('COMPLETED')).toBe('Completed');
-      expect(statusLabel('CANCELLED')).toBe('Cancelled');
+    it('translates official Pre-Mission Assessment statuses to standardized Vietnamese', () => {
+      expect(statusLabel('DRAFT')).toBe('Bản nháp');
+      expect(statusLabel('EVALUATING')).toBe('Đang đánh giá');
+      expect(statusLabel('READY')).toBe('Sẵn sàng');
+      expect(statusLabel('NOT_READY')).toBe('Chưa sẵn sàng');
+      expect(statusLabel('EXPIRED')).toBe('Hết hạn');
+      expect(statusLabel('COMPLETED')).toBe('Đã tạo nhiệm vụ');
+      expect(statusLabel('CANCELLED')).toBe('Đã hủy');
     });
 
-    it('maps legacy assessment status aliases', () => {
-      expect(statusLabel('CONSUMED')).toBe('Completed');
-      expect(statusLabel('INCOMPLETE')).toBe('NotReady');
-      expect(statusLabel('NOTREADY')).toBe('NotReady');
+    it('maps legacy assessment status aliases to standardized Vietnamese', () => {
+      expect(statusLabel('CONSUMED')).toBe('Đã tạo nhiệm vụ');
+      expect(statusLabel('INCOMPLETE')).toBe('Chưa sẵn sàng');
+      expect(statusLabel('NOTREADY')).toBe('Chưa sẵn sàng');
     });
 
-    it('keeps readiness check statuses in uppercase or PascalCase', () => {
-      expect(statusLabel('PASS')).toBe('PASS');
-      expect(statusLabel('PASSED')).toBe('Passed');
-      expect(statusLabel('FAIL')).toBe('FAIL');
-      expect(statusLabel('FAILED')).toBe('Failed');
-      expect(statusLabel('PENDING')).toBe('Pending');
+    it('translates readiness check statuses consistently', () => {
+      expect(statusLabel('PASS')).toBe('Đạt');
+      expect(statusLabel('PASSED')).toBe('Đạt');
+      expect(statusLabel('FAIL')).toBe('Không đạt');
+      expect(statusLabel('FAILED')).toBe('Không đạt');
+      expect(statusLabel('PENDING')).toBe('Chờ xử lý');
     });
 
-    it('returns custom or Vietnamese status text unchanged', () => {
+    it('returns unknown custom status text unchanged', () => {
       expect(statusLabel('CUSTOM_STATE')).toBe('CUSTOM_STATE');
     });
 
     it('handles empty input gracefully', () => {
       expect(statusLabel('')).toBe('');
+    });
+  });
+
+  describe('statusColorClass', () => {
+    it('returns borderless Tailwind text color classes for each status group', () => {
+      expect(statusColorClass('READY')).toBe('text-emerald-600 font-medium');
+      expect(statusColorClass('PASS')).toBe('text-emerald-600 font-medium');
+      expect(statusColorClass('NOT_READY')).toBe('text-rose-600 font-medium');
+      expect(statusColorClass('FAIL')).toBe('text-rose-600 font-medium');
+      expect(statusColorClass('EVALUATING')).toBe('text-sky-600 font-medium');
+      expect(statusColorClass('COMPLETED')).toBe('text-slate-600 font-medium');
+      expect(statusColorClass('EXPIRED')).toBe('text-amber-700 font-medium');
+      expect(statusColorClass('CANCELLED')).toBe('text-red-500 font-medium');
     });
   });
 });

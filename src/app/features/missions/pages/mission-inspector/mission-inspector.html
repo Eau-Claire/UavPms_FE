@@ -1,4 +1,4 @@
-<div class="mission-inspector-page">
+<div class="ops-page mission-inspector-page">
   @if (loading()) {
     <div class="inspector-skeleton" aria-busy="true" aria-label="Đang tải dữ liệu...">
       <div class="skeleton-header"></div>
@@ -7,39 +7,31 @@
     </div>
   } @else if (error()) {
     <div class="inspector-error-card" role="alert">
-      <span nz-icon nzType="close-circle" nzTheme="fill" aria-hidden="true"></span>
       <span>{{ error() }}</span>
       <a routerLink="/missions">Quay lại danh sách nhiệm vụ</a>
     </div>
   } @else if (mission(); as mission) {
-    <!-- TOP HEADER -->
-    <header class="inspector-header">
-      <div class="header-left">
-        <nav class="breadcrumb-row" aria-label="Điều hướng">
-          <a routerLink="/missions" class="btn-breadcrumb">
-            <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Danh sách nhiệm vụ
-          </a>
-          <span class="breadcrumb-separator" aria-hidden="true">/</span>
-          <span class="breadcrumb-current">
-            @if (myAssignment()) {
-              PHIẾU TIẾP NHẬN: {{ currentRoleTitle() }}
-            } @else {
-              TÓM TẮT NHIỆM VỤ
-            }
-          </span>
+    <!-- TOP HEADER (Quiet Chrome, 0 Icons outside Map) -->
+    <header class="page-header">
+      <div>
+        <nav class="page-breadcrumb" aria-label="Điều hướng">
+          <a routerLink="/dashboard">Tổng quan</a>
+          <span class="separator">/</span>
+          <a routerLink="/missions">Nhiệm vụ bay</a>
+          <span class="separator">/</span>
+          <strong>{{ myAssignment() ? 'Tiếp nhận: ' + currentRoleTitle() : 'Tiếp nhận nhiệm vụ' }}</strong>
         </nav>
         <div class="title-row">
-          <h1>Nhiệm vụ: {{ mission.missionCode }}</h1>
-          <span class="inspector-status-badge {{ statusClass(mission.status) }}">
-            {{ statusLabel(mission.status) }}
-          </span>
-          <span class="priority-tag {{ (mission.priority || 'normal').toLowerCase() }}">Ưu tiên: {{ priorityText() }}</span>
+          <h1>{{ mission.missionCode }}</h1>
+          <span [class]="statusColorClass(mission.status)">{{ statusLabel(mission.status) }}</span>
+          <span class="inspector-sep" aria-hidden="true">·</span>
+          <span [class]="priorityColorClass(mission.priority)">Ưu tiên: {{ priorityText() }}</span>
         </div>
-        <p class="mission-desc">{{ mission.title || mission.description }}</p>
+        <p>{{ mission.title || mission.description }}</p>
       </div>
-      <div class="header-right">
-        <a class="btn-manager-view" [routerLink]="['/missions', mission.id]">
-          <span nz-icon nzType="dashboard" aria-hidden="true"></span> Mở bảng điều khiển nhiệm vụ
+      <div class="head-actions">
+        <a class="app-btn-secondary" [routerLink]="['/missions', mission.id]">
+          Mở bảng điều khiển nhiệm vụ
         </a>
       </div>
     </header>
@@ -47,26 +39,21 @@
     <!-- ACTION FEEDBACK TOAST -->
     @if (actionMessage()) {
       <div class="action-feedback-toast" role="status">
-        <span nz-icon nzType="info-circle" nzTheme="fill" aria-hidden="true"></span>
         <span>{{ actionMessage() }}</span>
         <button type="button" class="btn-toast-close" aria-label="Đóng thông báo" (click)="actionMessage.set('')">&times;</button>
       </div>
     }
 
-    <!-- ACCEPTANCE BANNER (depends on the user's assignment and the mission state) -->
+    <!-- ACCEPTANCE BANNER -->
     @switch (state()) {
       @case ('awaiting') {
         <section class="acceptance-hero-banner pending" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon">
-              <span nz-icon nzType="clock-circle" nzTheme="outline" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <div class="hero-title-row">
                 <h2 id="acceptance-title">Yêu cầu tiếp nhận vai trò: {{ currentRoleTitle() }}</h2>
                 @if (confirmationDeadlineDate(); as deadline) {
-                  <span class="deadline-tag" [class.overdue]="isDeadlineOverdue()">
-                    <span nz-icon nzType="field-time" aria-hidden="true"></span>
+                  <span class="deadline-tag tabular-nums" [class.overdue]="isDeadlineOverdue()">
                     Hạn chót: {{ deadlineRemainingText() }} (trước {{ deadline | date:'HH:mm dd/MM/yyyy' }})
                   </span>
                 }
@@ -92,17 +79,17 @@
           <div class="hero-actions">
             <button
               type="button"
-              class="btn-accept-mission"
+              class="app-btn-primary"
               [disabled]="actionBusy()"
               (click)="confirmMission()">
-              <span nz-icon nzType="check-circle" nzTheme="fill" aria-hidden="true"></span> Xác nhận tiếp nhận
+              Xác nhận tiếp nhận
             </button>
             <button
               type="button"
-              class="btn-postpone-mission"
+              class="app-btn-secondary"
               [disabled]="actionBusy()"
               (click)="openPostponeModal()">
-              <span nz-icon nzType="clock-circle" aria-hidden="true"></span> Báo bận / Yêu cầu hoãn
+              Báo bận / Yêu cầu hoãn
             </button>
           </div>
         </section>
@@ -110,9 +97,6 @@
       @case ('accepted') {
         <section class="acceptance-hero-banner confirmed" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon confirmed">
-              <span nz-icon nzType="check-circle" nzTheme="fill" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Bạn đã tiếp nhận vai trò {{ currentRoleTitle() }}</h2>
               <p>
@@ -126,18 +110,24 @@
               </p>
             </div>
           </div>
-          <div class="hero-status-pill">
-            <span nz-icon nzType="safety-certificate" nzTheme="fill" aria-hidden="true"></span>
-            {{ isReadyToFly() ? 'Sẵn sàng thực hiện' : 'Chờ hoàn tất đội' }}
+          <div class="hero-actions">
+            @if (isReadyToFly()) {
+              <button
+                type="button"
+                class="app-btn-primary"
+                [disabled]="actionBusy()"
+                (click)="checkInAtSite()">
+                Check-in tại điểm bay
+              </button>
+            } @else {
+              <span class="text-amber-700 font-medium">Chờ hoàn tất đội</span>
+            }
           </div>
         </section>
       }
       @case ('postponed') {
         <section class="acceptance-hero-banner postponed" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon postponed">
-              <span nz-icon nzType="exclamation-circle" nzTheme="fill" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Yêu cầu hoãn đang chờ Quản lý xử lý</h2>
               @if (myAssignment()?.responseReason || mission.postponeReason; as reason) {
@@ -151,9 +141,6 @@
       @case ('suspended') {
         <section class="acceptance-hero-banner suspended" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon suspended">
-              <span nz-icon nzType="pause-circle" nzTheme="fill" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Lệnh tạm đình chỉ đang có hiệu lực</h2>
               @if (mission.suspendedReason) {
@@ -168,33 +155,25 @@
       @case ('closed') {
         <section class="acceptance-hero-banner readonly" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon">
-              <span nz-icon nzType="info-circle" nzTheme="outline" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Nhiệm vụ {{ statusLabel(mission.status).toLowerCase() }}</h2>
               @if (mission.status === 'Postponed') {
                 <p>Nhiệm vụ đang tạm hoãn, chờ Quản lý điều chỉnh lịch hoặc thay người. Bạn chưa thể nhận việc lúc này.</p>
               } @else {
-                <p>Giai đoạn tiếp nhận đã kết thúc. Theo dõi tiến độ và kết quả trên bảng điều khiển nhiệm vụ.</p>
+                <p>Giai đoạn tiếp nhận đã kết thúc. Theo dõi tiến độ và kết quả trên bảng điều khiển nhiệm vụ ở nút góc trên.</p>
               }
             </div>
           </div>
-          <a class="btn-open-dashboard" [routerLink]="['/missions', mission.id]">Mở bảng điều khiển nhiệm vụ</a>
         </section>
       }
       @default {
         <section class="acceptance-hero-banner readonly" aria-labelledby="acceptance-title">
           <div class="hero-content">
-            <div class="hero-icon">
-              <span nz-icon nzType="eye" nzTheme="outline" aria-hidden="true"></span>
-            </div>
             <div class="hero-details">
               <h2 id="acceptance-title">Bạn không được phân công trong nhiệm vụ này</h2>
-              <p>Trang này chỉ hiển thị thông tin tóm tắt. Xem chi tiết, kết quả và hoạt động trên bảng điều khiển nhiệm vụ.</p>
+              <p>Trang này chỉ hiển thị thông tin tóm tắt. Xem chi tiết, kết quả và hoạt động qua nút Mở bảng điều khiển nhiệm vụ ở trên.</p>
             </div>
           </div>
-          <a class="btn-open-dashboard" [routerLink]="['/missions', mission.id]">Mở bảng điều khiển nhiệm vụ</a>
         </section>
       }
     }
@@ -204,7 +183,6 @@
       <!-- COLUMN 1: MISSION SUMMARY -->
       <aside class="panel-tech-specs" aria-labelledby="specs-title">
         <div class="panel-card-head">
-          <span nz-icon nzType="setting" aria-hidden="true"></span>
           <h2 id="specs-title">Thông tin nhiệm vụ</h2>
         </div>
         <dl class="specs-list">
@@ -232,7 +210,7 @@
           </div>
           <div class="spec-row">
             <dt>Kế hoạch bay</dt>
-            <dd>
+            <dd class="tabular-nums">
               {{ mission.plannedStart ? (mission.plannedStart | date:'HH:mm dd/MM/yyyy') : 'Chưa định giờ' }}
             </dd>
           </div>
@@ -243,10 +221,10 @@
             <div class="checklist-section">
               <h3>Kiểm tra trước khi cất cánh</h3>
               <ul class="checklist-items">
-                <li><span nz-icon nzType="check" aria-hidden="true"></span> Pin UAV và pin trạm điều khiển đã sạc đầy.</li>
-                <li><span nz-icon nzType="check" aria-hidden="true"></span> Cảm biến tránh va chạm hoạt động bình thường.</li>
-                <li><span nz-icon nzType="check" aria-hidden="true"></span> La bàn và GNSS đã hiệu chuẩn.</li>
-                <li><span nz-icon nzType="check" aria-hidden="true"></span> Giữ khoảng cách an toàn với đường dây mang điện theo quy định.</li>
+                <li>Pin UAV và pin trạm điều khiển đã sạc đầy.</li>
+                <li>Cảm biến tránh va chạm hoạt động bình thường.</li>
+                <li>La bàn và GNSS đã hiệu chuẩn.</li>
+                <li>Giữ khoảng cách an toàn với đường dây mang điện theo quy định.</li>
               </ul>
             </div>
           }
@@ -271,10 +249,9 @@
       <main class="panel-flight-map">
         <header class="map-header">
           <div class="map-header-left">
-            <span nz-icon nzType="compass" aria-hidden="true"></span>
             <div>
               <h3>Bản đồ hành trình bay</h3>
-              <small>{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí có tọa độ</small>
+              <small class="tabular-nums">{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí có tọa độ</small>
             </div>
           </div>
           <div class="map-layer-switch" role="group" aria-label="Lớp bản đồ">
@@ -301,7 +278,6 @@
       <!-- COLUMN 3: TOWERS -->
       <aside class="panel-waypoints" aria-labelledby="towers-title">
         <div class="panel-card-head">
-          <span nz-icon nzType="unordered-list" aria-hidden="true"></span>
           <h2 id="towers-title">Danh sách cột điện ({{ mission.targets.length }})</h2>
         </div>
 
@@ -313,15 +289,14 @@
               [class.active]="selectedTargetId() === target.towerId"
               [attr.aria-pressed]="selectedTargetId() === target.towerId"
               (click)="selectTarget(target.towerId)">
-              <span class="waypoint-badge">{{ target.sequence || ($index + 1) }}</span>
+              <span class="waypoint-badge tabular-nums">{{ target.sequence || ($index + 1) }}</span>
               <div class="waypoint-info">
                 <strong>{{ target.towerCode }}</strong>
                 <span>{{ towerStatusLabel(target.inspectionStatus) }}</span>
                 @if (target.latitude && target.longitude) {
-                  <small class="gps-text">GPS: {{ target.latitude.toFixed(4) }}, {{ target.longitude.toFixed(4) }}</small>
+                  <small class="gps-text tabular-nums">GPS: {{ target.latitude.toFixed(4) }}, {{ target.longitude.toFixed(4) }}</small>
                 }
               </div>
-              <span class="waypoint-chevron" nz-icon nzType="right" aria-hidden="true"></span>
             </button>
           } @empty {
             <div class="empty-waypoints">Chưa có vị trí cột điện trong nhiệm vụ này.</div>
@@ -335,7 +310,7 @@
               <div><span>Mã cột:</span><strong>{{ current.towerCode }}</strong></div>
               <div><span>Trạng thái:</span><strong>{{ towerStatusLabel(current.inspectionStatus) }}</strong></div>
               @if (current.latitude && current.longitude) {
-                <div><span>Tọa độ:</span><strong>{{ current.latitude.toFixed(5) }}, {{ current.longitude.toFixed(5) }}</strong></div>
+                <div><span>Tọa độ:</span><strong class="tabular-nums">{{ current.latitude.toFixed(5) }}, {{ current.longitude.toFixed(5) }}</strong></div>
               }
             </div>
           </div>
@@ -369,10 +344,10 @@
             </textarea>
           </div>
           <footer class="modal-footer">
-            <button type="button" class="btn-cancel" (click)="closePostponeModal()">Đóng</button>
+            <button type="button" class="app-btn-secondary" (click)="closePostponeModal()">Đóng</button>
             <button
               type="button"
-              class="btn-submit-postpone"
+              class="app-btn-danger"
               [disabled]="!postponeReason().trim() || actionBusy()"
               (click)="submitPostpone()">
               Gửi yêu cầu hoãn

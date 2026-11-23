@@ -21,6 +21,9 @@ export class NotificationsStore {
   private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
   private realtimeStarted = false;
+  private lastConnectedUserId: string | null = null;
+  private lastConnectedAt = 0;
+  private loadingInFlight = false;
 
   readonly loading = signal(false);
   readonly detailLoading = signal(false);
@@ -35,11 +38,16 @@ export class NotificationsStore {
   readonly userNotifications = computed(() => {
     const list = this.notificationsState();
     const seenIds = new Set<string>();
+    const seenFingerprints = new Set<string>();
     const deduped: AppNotification[] = [];
 
     for (const item of list) {
-      if (seenIds.has(item.id)) continue;
-      seenIds.add(item.id);
+      if (item.id && seenIds.has(item.id)) continue;
+      const minuteBucket = item.createdAt ? item.createdAt.slice(0, 16) : '';
+      const fingerprint = `${(item.title ?? '').trim().toLowerCase()}|${(item.body ?? '').trim().toLowerCase()}|${minuteBucket}`;
+      if (seenFingerprints.has(fingerprint)) continue;
+      if (item.id) seenIds.add(item.id);
+      seenFingerprints.add(fingerprint);
       deduped.push(item);
     }
     return deduped;
@@ -88,25 +96,38 @@ export class NotificationsStore {
   }
 
   connect(userId?: string): void {
+    const now = Date.now();
+    if (this.realtimeStarted && this.lastConnectedUserId === (userId ?? null) && now - this.lastConnectedAt < 2000) {
+      return;
+    }
     this.realtimeStarted = true;
+    this.lastConnectedUserId = userId ?? null;
+    this.lastConnectedAt = now;
     this.load(userId, false);
     this.realtime.connect();
   }
 
   disconnect(): void {
     this.realtimeStarted = false;
+    this.lastConnectedUserId = null;
+    this.lastConnectedAt = 0;
     this.realtime.disconnect();
     this.realtimeStatus.set('disconnected');
   }
 
   load(userId?: string, showLoading = true): void {
+    if (this.loadingInFlight) return;
+    this.loadingInFlight = true;
     if (showLoading) this.loading.set(true);
     this.error.set('');
     this.api
       .getHistory(userId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => { if (showLoading) this.loading.set(false); }),
+        finalize(() => {
+          this.loadingInFlight = false;
+          if (showLoading) this.loading.set(false);
+        }),
       )
       .subscribe({
         next: (items) => {

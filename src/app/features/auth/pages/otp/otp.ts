@@ -8,12 +8,11 @@ import { Auth } from '../../../../core/auth/auth';
 import { TrustedDeviceService } from '../../../../core/auth/trusted-device.service';
 import { NgOptimizedImage } from '@angular/common';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
 
 @Component({
   selector: 'app-otp',
-  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzIconModule, NzInputModule],
+  imports: [ReactiveFormsModule, RouterLink, NgOptimizedImage, NzButtonModule, NzInputModule],
   templateUrl: './otp.html',
   styleUrl: './otp.scss',
   encapsulation: ViewEncapsulation.None,

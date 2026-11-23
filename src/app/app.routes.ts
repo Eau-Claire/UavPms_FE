@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth-guard';
 import { guestGuard } from './core/auth/guest-guard';
 import { roleGuard } from './core/auth/role-guard';
@@ -15,14 +16,18 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', loadComponent: () => import('./features/monitor/pages/dashboard/dashboard').then((m) => m.Dashboard), title: 'Tổng quan giám sát | UAV-PMS' },
       { path: 'inspections', loadComponent: () => import('./features/monitor/pages/inspection-history/inspection-history').then((m) => m.InspectionHistory), title: 'Lịch sử kiểm tra | UAV-PMS' },
-      { path: 'change-password', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Đổi mật khẩu | UAV-PMS' },
+      { path: 'account/settings', loadComponent: () => import('./features/auth/pages/change-password/change-password').then((m) => m.ChangePassword), title: 'Cài đặt tài khoản | UAV-PMS' },
+      { path: 'change-password', redirectTo: 'account/settings', pathMatch: 'full' },
       { path: 'towers', loadComponent: () => import('./features/towers/pages/tower-list/tower-list').then((m) => m.TowerList), title: 'Quản lý cột điện | UAV-PMS' },
       { path: 'towers/:id', loadComponent: () => import('./features/towers/pages/tower-detail/tower-detail').then((m) => m.TowerDetail), title: 'Chi tiết cột điện | UAV-PMS' },
       { path: 'assets', pathMatch: 'full', redirectTo: 'towers' },
       { path: 'assets/:id', redirectTo: 'towers/:id' },
       { path: 'ai-analysis/upload', canActivate: [roleGuard(ROUTE_ROLES.aiAnalysis)], loadComponent: () => import('./features/ai-analysis/pages/standalone-upload/standalone-upload').then((m) => m.StandaloneUpload), title: 'Phân tích AI | UAV-PMS' },
       { path: 'ai-analysis', redirectTo: 'ai-analysis/upload' },
-      { path: 'emergency-alerts', canActivate: [roleGuard(ROUTE_ROLES.emergencyAlerts)], loadComponent: () => import('./features/emergency-alerts/pages/emergency-alerts-review/emergency-alerts-review').then((m) => m.EmergencyAlertsReview), title: 'Cảnh Báo Khẩn Cấp Edge AI | UAV-PMS' },
+      {
+        path: 'emergency-alerts',
+        redirectTo: () => inject(Router).createUrlTree(['/ai-review'], { queryParams: { priority: 'emergency' } }),
+      },
       { path: 'alerts', redirectTo: 'emergency-alerts' },
       { path: 'ai-review', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-list/detection-list').then((m) => m.DetectionList), title: 'Duyệt sự cố AI | UAV-PMS' },
       { path: 'ai-review/:id', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
@@ -44,7 +49,7 @@ export const routes: Routes = [
       { path: 'audit-logs', redirectTo: 'system/audit-logs' },
       {
         path: 'system/settings',
-        canActivate: [roleGuard(ROUTE_ROLES.administration)],
+        canActivate: [roleGuard(ROUTE_ROLES.systemSettings)],
         loadComponent: () => import('./features/system-settings/pages/system-settings/system-settings').then((m) => m.SystemSettingsPage),
         title: 'Cấu hình hệ thống | UAV-PMS',
       },

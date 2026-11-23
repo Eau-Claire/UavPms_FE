@@ -10,6 +10,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   viewChild,
   ViewEncapsulation,
 } from '@angular/core';
@@ -17,8 +18,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
-import { Observable, catchError, concatMap, finalize, from, of, tap } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
+import { Observable, catchError, concatMap, finalize, from, of, switchMap, tap } from 'rxjs';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { priorityColorClass, statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
 import {
   InspectionObjective,
   Mission,
@@ -28,7 +30,6 @@ import {
   MissionPriority,
   PRIORITY_DEFECT_CATEGORIES,
   UpdateMissionPriorityRequest,
-  missionStatusLabel,
   normalizeMissionStatus,
 } from '../../../../models/missions.models';
 import { UserRecord } from '../../../../models/users.models';
@@ -41,7 +42,7 @@ import { NotificationsStore } from '../../../notifications/data-access/notificat
 import { MissionsApi } from '../../data-access/missions-api';
 import { UsersApi } from '../../../users/data-access/users-api';
 import { Auth } from '../../../../core/auth/auth';
-import { isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
+import { isAdminRole, isAnalystRole, isInspectorRole, isManagerRole, isTechnicianRole, roleFamily, roleLabel } from '../../../../core/auth/roles';
 import {
   MissionTab,
   activitySenderKind,
@@ -172,7 +173,7 @@ export interface MissionMaintenanceTask {
 
 @Component({
   selector: 'app-mission-detail',
-  imports: [DatePipe, RouterLink, NzIconModule, FormsModule],
+  imports: [DatePipe, RouterLink, FormsModule],
   templateUrl: './mission-detail.html',
   styleUrl: './mission-detail.scss',
   encapsulation: ViewEncapsulation.None,
@@ -186,6 +187,7 @@ export class MissionDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
 
   // --- Role rules (mirror MissionController's [Authorize] attributes) ---
   private readonly userRole = computed(() => this.auth.user()?.role);
@@ -215,6 +217,13 @@ export class MissionDetail {
   /** The signed-in user's assignment on this mission, if any. */
   protected readonly myAssignment = computed(() => findMyAssignment(this.mission(), this.auth.user()?.id));
   /** Start/complete flight: managers, or an Inspector who is on this mission's team. */
+  /** Any assigned team member (Inspector, Analyst, Technician) or Manager/Admin can check in at site. */
+  protected readonly canCheckIn = computed(() => {
+    if (this.isManager()) return true;
+    const userId = this.auth.user()?.id;
+    return Boolean(userId && (this.myAssignment() || this.mission()?.assignedToUserId === userId));
+  });
+
   protected readonly canOperateFlight = computed(() => {
     if (this.isManager()) return true;
     if (!this.isFlightCrew()) return false;
@@ -332,6 +341,10 @@ export class MissionDetail {
   }
 
   protected roleText(assignmentRole: string): string {
+    const raw = (assignmentRoleLabel(assignmentRole) || assignmentRole || '').trim().toUpperCase();
+    if (raw.includes('INSPECT') || raw.includes('PILOT')) return 'Phi công';
+    if (raw.includes('ANALYST')) return 'Phân tích';
+    if (raw.includes('TECH') || raw.includes('MAINT')) return 'Kỹ thuật';
     return assignmentRoleLabel(assignmentRole);
   }
 
@@ -699,6 +712,18 @@ export class MissionDetail {
         }
       });
 
+    effect(() => {
+      const msg = this.actionMessage();
+      if (!msg) return;
+      const lower = msg.toLowerCase();
+      if (lower.startsWith('không thể') || lower.startsWith('lỗi') || lower.includes('không có quyền') || lower.includes('không thể nhận việc') || lower.includes('không thể báo hoãn')) {
+        this.toast.error(msg);
+      } else {
+        this.toast.success(msg);
+      }
+      untracked(() => this.actionMessage.set(''));
+    });
+
     const timer = setInterval(() => this.currentTime.set(Date.now()), 30000);
     const pollTimer = setInterval(() => {
       const m = this.mission();
@@ -978,9 +1003,6 @@ export class MissionDetail {
     this.uploadMessage.set('');
     this.selectedDetection.set(null);
     const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, this.mediaQueue());
-    }
 
     previews.forEach((media) => {
       if (media.kind === 'image') {
@@ -993,9 +1015,6 @@ export class MissionDetail {
               this.mediaQueue.update((items) =>
                 items.map((it) => (it.id === media.id ? { ...it, url: dataUrl, thumbnailUrl: dataUrl } : it))
               );
-              if (missionId) {
-                this.saveMockMediaQueue(missionId, this.mediaQueue());
-              }
             }
           };
           reader.readAsDataURL(media.file);
@@ -1024,10 +1043,6 @@ export class MissionDetail {
     this.activeMediaId.set('');
     this.uploadProgress.set(0);
     this.uploadMessage.set('');
-    const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, []);
-    }
   }
 
   protected removeMedia(id: string, event?: Event): void {
@@ -1041,10 +1056,6 @@ export class MissionDetail {
     if (!nextQueue.length) {
       this.uploadProgress.set(0);
       this.uploadMessage.set('');
-    }
-    const missionId = this.mission()?.id;
-    if (missionId) {
-      this.saveMockMediaQueue(missionId, nextQueue);
     }
   }
 
@@ -1259,9 +1270,8 @@ export class MissionDetail {
           this.detections.update((items) => items.map((item) => (item.id === updated.id ? updated : item)));
           this.applyReviewSuccess(selected, backendStatus, missionId);
         },
-        error: () => {
-          // Fallback for mock detection IDs / offline API
-          this.applyReviewSuccess(selected, backendStatus, missionId);
+        error: (err: unknown) => {
+          this.resultMessage.set(this.errorMessage(err, 'Không thể thẩm định kết quả phát hiện khuyết tật.'));
         },
       });
   }
@@ -1671,6 +1681,36 @@ export class MissionDetail {
       });
   }
 
+  protected confirmDraftAndNotify(): void {
+    const currentMission = this.mission();
+    if (!currentMission) return;
+    this.actionBusy.set(true);
+
+    this.api
+      .update(currentMission.id, { status: 'PendingAcceptance' })
+      .pipe(
+        catchError(() => of(null)),
+        switchMap(() => this.api.sendReminder(currentMission.id)),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.actionBusy.set(false)),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.mission.set(updated);
+          this.actionMessage.set('Đã xác nhận bản nháp và gửi yêu cầu tiếp nhận tới đội ngũ.');
+          this.realtime.broadcastMissionEvent({
+            missionId: updated.id,
+            type: 'DISPATCHED',
+            status: updated.status,
+            actorRole: 'MANAGER',
+            actorName: updated.managerUsername || 'Quản lý vận hành',
+            timestamp: new Date().toISOString(),
+          });
+        },
+        error: (err: unknown) => this.actionMessage.set(this.errorMessage(err, 'Không thể xác nhận và gửi tiếp nhận nhiệm vụ.')),
+      });
+  }
+
   protected sendReminder(): void {
     const currentMission = this.mission();
     if (!currentMission) return;
@@ -1879,8 +1919,11 @@ export class MissionDetail {
       });
   }
 
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly priorityColorClass = priorityColorClass;
+
   protected statusLabel(status: string): string {
-    return missionStatusLabel(status);
+    return globalStatusLabel(status);
   }
 
   protected statusClass(status: string): string {
@@ -1917,11 +1960,11 @@ export class MissionDetail {
 
   protected detectionStatusLabel(status: string): string {
     const s = String(status || '').trim().toLowerCase().replace(/[\s_-]/g, '');
-    if (s === 'confirmed' || s === 'approved' || s === 'accepted') return 'Confirmed';
-    if (s === 'rejected' || s === 'dismissed') return 'Rejected';
-    if (s === 'resolved' || s === 'closed') return 'Resolved';
-    if (s === 'inreview' || s === 'underreview') return 'InReview';
-    return 'Pending';
+    if (s === 'confirmed' || s === 'approved' || s === 'accepted') return 'Đã xác nhận';
+    if (s === 'rejected' || s === 'dismissed') return 'Đã từ chối';
+    if (s === 'resolved' || s === 'closed') return 'Đã khắc phục';
+    if (s === 'inreview' || s === 'underreview') return 'Đang thẩm định';
+    return 'Chờ duyệt';
   }
 
   protected displayValue(value: string): string {
@@ -1972,6 +2015,13 @@ export class MissionDetail {
   }
 
   private loadDetections(missionId: string): void {
+    if (isAdminRole(this.userRole())) {
+      this.detectionsLoading.set(false);
+      this.detections.set([]);
+      this.selectedDetection.set(null);
+      this.loadMediaQueue(missionId);
+      return;
+    }
     this.detectionsLoading.set(true);
     this.api
       .getMissionDetections(missionId)
@@ -2632,10 +2682,7 @@ export class MissionDetail {
   }
 
   private loadMediaQueue(missionId: string): void {
-    const saved = this.loadSavedMockMediaQueue(missionId);
-    if (saved.length > 0) {
-      this.mediaQueue.set(saved);
-      this.activeMediaId.set(saved[0]?.id ?? '');
+    if (this.mediaQueue().length > 0) {
       if (this.detections().length > 0) {
         this.isAiProcessingComplete.set(true);
         this.aiPipelineStep.set(4);
@@ -2646,127 +2693,40 @@ export class MissionDetail {
       return;
     }
 
-    // Auto-restore uploaded files if detections exist for this mission or mission completed
     const detections = this.detections();
-    const mission = this.mission();
-    const isCompletedOrHasDetections =
-      detections.length > 0 ||
-      mission?.status === 'Completed' ||
-      mission?.status === 'UnderReview' ||
-      mission?.status === 'InFlight';
-
-    if (isCompletedOrHasDetections) {
-      const synthesized: MissionMediaPreview[] = [
-        {
-          id: `media-${missionId}-1`,
-          file: new File([''], 'SCREENSHOT 2026-10-14 163033.PNG', { type: 'image/png' }),
-          url: '/images/defect-insulator-dirty.png',
-          thumbnailUrl: '/images/defect-insulator-dirty.png',
-          kind: 'image',
-          name: 'SCREENSHOT 2026-10-14 163033.PNG',
-          size: '23.1 KB',
-          resolution: '916 x 265',
-          fps: '-',
-          duration: '-',
-          durationSeconds: 0,
-          status: 'Đã phân tích khuyết tật (Hoàn tất)',
-          progress: 100,
-        },
-        {
-          id: `media-${missionId}-2`,
-          file: new File([''], 'SCREENSHOT 2026-10-14 163607.PNG', { type: 'image/png' }),
-          url: '/images/defect-insulator-crack.png',
-          thumbnailUrl: '/images/defect-insulator-crack.png',
-          kind: 'image',
-          name: 'SCREENSHOT 2026-10-14 163607.PNG',
-          size: '26.8 KB',
-          resolution: '254 x 178',
-          fps: '-',
-          duration: '-',
-          durationSeconds: 0,
-          status: 'Đã phân tích khuyết tật (Hoàn tất)',
-          progress: 100,
-        },
-        {
-          id: `media-${missionId}-3`,
-          file: new File([''], 'SCREENSHOT 2026-10-14 163726.PNG', { type: 'image/png' }),
-          url: '/images/defect-corridor-tree.png',
-          thumbnailUrl: '/images/defect-corridor-tree.png',
-          kind: 'image',
-          name: 'SCREENSHOT 2026-10-14 163726.PNG',
-          size: '18.0 KB',
-          resolution: '162 x 234',
-          fps: '-',
-          duration: '-',
-          durationSeconds: 0,
-          status: 'Đã phân tích khuyết tật (Hoàn tất)',
-          progress: 100,
-        },
-      ];
-      this.mediaQueue.set(synthesized);
-      this.activeMediaId.set(synthesized[0]?.id ?? '');
-      this.saveMockMediaQueue(missionId, synthesized);
-      this.isAiProcessingComplete.set(true);
-      this.aiPipelineStep.set(4);
-      this.aiPipelineStatusText.set(
-        `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${detections.length} khuyết tật và lập báo cáo rủi ro thành công.`
-      );
+    if (detections.length > 0) {
+      const seenUrls = new Set<string>();
+      const previews: MissionMediaPreview[] = [];
+      for (const d of detections) {
+        const rawUrl = d.imageUrl || d.sourceUrl || d.cropImageUrl || '';
+        if (rawUrl && !seenUrls.has(rawUrl)) {
+          seenUrls.add(rawUrl);
+          previews.push({
+            id: d.id,
+            file: new File([''], `${d.title}.png`, { type: 'image/png' }),
+            url: rawUrl,
+            thumbnailUrl: rawUrl,
+            kind: 'image',
+            name: `${d.title} [${d.tower}]`,
+            size: '—',
+            resolution: '1920 x 1080',
+            fps: '-',
+            duration: '-',
+            durationSeconds: 0,
+            status: 'Đã phân tích khuyết tật (Hoàn tất)',
+            progress: 100,
+          });
+        }
+      }
+      if (previews.length > 0) {
+        this.mediaQueue.set(previews);
+        this.activeMediaId.set(previews[0]?.id ?? '');
+        this.isAiProcessingComplete.set(true);
+        this.aiPipelineStep.set(4);
+        this.aiPipelineStatusText.set(
+          `✅ Hoàn tất xử lý AI: Đã trích xuất khung hình, phát hiện ${detections.length} khuyết tật và lập báo cáo rủi ro thành công.`
+        );
+      }
     }
   }
-
-  private loadSavedMockMediaQueue(missionId: string): MissionMediaPreview[] {
-    try {
-      const raw = localStorage.getItem(`uavpms.mock_media_queue_${missionId}`);
-      if (!raw) return [];
-      const list = JSON.parse(raw) as Partial<MissionMediaPreview>[];
-      return list.map((item, idx) => {
-        const fallbackImg =
-          idx === 0
-            ? '/images/defect-insulator-dirty.png'
-            : idx === 1
-            ? '/images/defect-insulator-crack.png'
-            : '/images/defect-corridor-tree.png';
-        const url = !item.url || item.url.startsWith('blob:') ? fallbackImg : item.url;
-        return {
-          id: item.id || `media-${missionId}-${idx}`,
-          file: new File([''], item.name || 'uav-media.png', { type: item.kind === 'video' ? 'video/mp4' : 'image/png' }),
-          url,
-          thumbnailUrl: url,
-          kind: (item.kind === 'video' ? 'video' : 'image') as MediaKind,
-          name: item.name || `uav-media-${idx + 1}.png`,
-          size: item.size || '25 KB',
-          resolution: item.resolution || '1920 x 1080',
-          fps: item.fps || '-',
-          duration: item.duration || '-',
-          durationSeconds: item.durationSeconds || 0,
-          status: item.status || 'Đã phân tích khuyết tật (Hoàn tất)',
-          progress: item.progress ?? 100,
-        };
-      });
-    } catch {
-      return [];
-    }
-  }
-
-  private saveMockMediaQueue(missionId: string, items: readonly MissionMediaPreview[]): void {
-    try {
-      const serializable = items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        url: item.url.startsWith('blob:') ? '' : item.url,
-        kind: item.kind,
-        size: item.size,
-        resolution: item.resolution,
-        fps: item.fps,
-        duration: item.duration,
-        durationSeconds: item.durationSeconds,
-        status: item.status,
-        progress: item.progress,
-      }));
-      localStorage.setItem(`uavpms.mock_media_queue_${missionId}`, JSON.stringify(serializable));
-    } catch {
-      // ignore
-    }
-  }
-
 }

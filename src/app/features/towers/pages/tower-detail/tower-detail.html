@@ -1,54 +1,56 @@
-<header class="page-heading">
-  <div class="heading-left">
-    <nav class="page-breadcrumb" aria-label="Đường dẫn">
-      <a routerLink="/dashboard">TỔNG QUAN</a>
-      <span class="separator">/</span>
+<div class="ops-page tower-detail-page">
+  <!-- Header Bar & Breadcrumb (Quiet Chrome, 0 Icons) -->
+  <header class="page-header">
+    <div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
+        <span class="separator">/</span>
+        @if (from() === 'gis') {
+          <a routerLink="/gis">Bản đồ GIS</a>
+        } @else {
+          <a routerLink="/towers">Cột điện</a>
+        }
+        <span class="separator">/</span>
+        <strong>{{ tower()?.towerCode || 'Chi tiết' }}</strong>
+      </nav>
+      <h1>{{ tower() ? 'Cột ' + tower()!.towerCode : 'Chi tiết cột điện' }}</h1>
+      <p>Bất thường do AI phát hiện và lịch sử bảo trì của cột điện</p>
+    </div>
+    <div class="head-actions">
       @if (from() === 'gis') {
-        <a routerLink="/gis">BẢN ĐỒ GIS</a>
+        <a class="app-btn-secondary" routerLink="/gis">Quay lại Bản đồ GIS</a>
+        <a class="app-btn-secondary" routerLink="/towers">Danh sách cột</a>
       } @else {
-        <a routerLink="/towers">CỘT ĐIỆN</a>
+        <a class="app-btn-secondary" routerLink="/gis">Bản đồ GIS</a>
+        <a class="app-btn-secondary" routerLink="/towers">Danh sách cột</a>
       }
-      <span class="separator">/</span>
-      <strong>{{ tower()?.towerCode || 'CHI TIẾT' }}</strong>
-    </nav>
-    <h1>{{ tower() ? 'Cột ' + tower()!.towerCode : 'Chi tiết cột điện' }}</h1>
-    <p class="review-subtitle">Bất thường do AI phát hiện và lịch sử bảo trì của cột điện.</p>
-  </div>
-  <div class="tower-actions">
-    @if (from() === 'gis') {
-      <a class="button secondary" routerLink="/gis">
-        <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Quay lại Bản đồ GIS</span>
-      </a>
-      <a class="button secondary" routerLink="/towers">
-        <span>Danh sách cột</span>
-      </a>
-    } @else {
-      <a class="button secondary" routerLink="/gis" title="Xem vị trí trên bản đồ GIS">
-        <span nz-icon nzType="environment" aria-hidden="true"></span><span>Bản đồ GIS</span>
-      </a>
-      <a class="button secondary" routerLink="/towers">
-        <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Danh sách cột</span>
-      </a>
+    </div>
+  </header>
+
+  @if (!history() && loading()) {
+    <section class="app-table-card tower-state-box">
+      <app-data-state kind="loading" title="Đang tải lịch sử cột điện" />
+    </section>
+  } @else if (!history() && notFound()) {
+    <section class="app-table-card tower-state-box">
+      <app-data-state kind="empty" title="Không tìm thấy cột điện" message="Cột điện không tồn tại hoặc đã bị xóa." />
+    </section>
+  } @else if (!history() && error()) {
+    <section class="app-table-card tower-state-box">
+      <app-data-state kind="error" [message]="error()" (retry)="load()" />
+    </section>
+  } @else if (history(); as data) {
+    @if (error()) {
+      <div class="app-error-banner" role="alert">
+        <span class="truncate">{{ error() }}</span>
+        <button type="button" class="app-btn-action" (click)="load()">Thử lại</button>
+      </div>
     }
-  </div>
-</header>
 
-@if (!history() && loading()) {
-  <section class="tower-card"><app-data-state kind="loading" title="Đang tải lịch sử cột điện" /></section>
-} @else if (!history() && notFound()) {
-  <section class="tower-card"><app-data-state kind="empty" title="Không tìm thấy cột điện" message="Cột điện không tồn tại hoặc đã bị xóa." /></section>
-} @else if (!history() && error()) {
-  <section class="tower-card"><app-data-state kind="error" [message]="error()" (retry)="load()" /></section>
-} @else if (history(); as data) {
-  @if (error()) {
-    <div class="tower-banner tower-banner-error" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">Thử lại</button></div>
-  }
-
-  <!-- Streamlined Overview Card: Compact Tower Info & KPI Stats in One Row -->
-  <section class="tower-card tower-overview-bar" aria-labelledby="tower-info-title">
-    <h2 id="tower-info-title" class="sr-only">Thông tin cột điện</h2>
-    <div class="tower-overview-content">
-      <div class="tower-meta-list">
+    <!-- Quiet Chrome Overview Card: Tower Metadata Only (No KPI Strip) -->
+    <section class="tower-overview-card" aria-labelledby="tower-info-title">
+      <h2 id="tower-info-title" class="sr-only">Thông tin cột điện</h2>
+      <div class="tower-meta-grid">
         <div class="meta-item">
           <span class="meta-label">Mã cột</span>
           <strong class="meta-val">{{ data.tower.towerCode }}</strong>
@@ -63,7 +65,7 @@
         </div>
         <div class="meta-item">
           <span class="meta-label">Tọa độ</span>
-          <span class="meta-val tower-mono">{{ data.tower.latitude | number: '1.5-6' }}, {{ data.tower.longitude | number: '1.5-6' }}</span>
+          <span class="meta-val tabular-nums">{{ data.tower.latitude | number: '1.5-6' }}, {{ data.tower.longitude | number: '1.5-6' }}</span>
         </div>
         <div class="meta-item meta-address" [title]="data.tower.address || ''">
           <span class="meta-label">Địa chỉ</span>
@@ -71,232 +73,292 @@
         </div>
         <div class="meta-item">
           <span class="meta-label">Lần kiểm tra gần nhất</span>
-          <span class="meta-val">{{ data.stats.lastInspectedAt ? (data.stats.lastInspectedAt | date: 'dd/MM/yyyy HH:mm') : 'Chưa kiểm tra' }}</span>
+          <span class="meta-val tabular-nums">{{ data.stats.lastInspectedAt ? (data.stats.lastInspectedAt | date: 'dd/MM/yyyy HH:mm') : 'Chưa kiểm tra' }}</span>
         </div>
       </div>
+    </section>
 
-      <div class="tower-stats-strip" aria-label="Thống kê của cột (không phụ thuộc bộ lọc)">
-        <div class="stat-chip tone-danger">
-          <div class="stat-head">
-            <span class="stat-label">Bất thường đang mở</span>
-            <strong class="stat-count">{{ stats()?.openAnomalies ?? data.stats.openAnomalies }}</strong>
-          </div>
-          <small class="stat-sub">Chờ duyệt + đã xác nhận</small>
-        </div>
-        <div class="stat-chip tone-warning">
-          <div class="stat-head">
-            <span class="stat-label">Chờ duyệt</span>
-            <strong class="stat-count">{{ stats()?.pendingAnomalies ?? data.stats.pendingAnomalies }}</strong>
-          </div>
-          <small class="stat-sub">Trên tổng {{ stats()?.totalAnomalies ?? data.stats.totalAnomalies }} bất thường</small>
-        </div>
-        <div class="stat-chip tone-info">
-          <div class="stat-head">
-            <span class="stat-label">Phiếu đang xử lý</span>
-            <strong class="stat-count">{{ data.stats.activeTickets }}</strong>
-          </div>
-          <small class="stat-sub">{{ data.stats.openTickets }} mới mở · {{ data.stats.inProgressTickets }} đang làm</small>
-        </div>
-        <div class="stat-chip tone-neutral">
-          <div class="stat-head">
-            <span class="stat-label">Tổng phiếu bảo trì</span>
-            <strong class="stat-count">{{ data.stats.totalTickets }}</strong>
-          </div>
-          <small class="stat-sub">Toàn bộ lịch sử</small>
-        </div>
-      </div>
-    </div>
-  </section>
+    <!-- Tabs -->
+    <nav class="tower-detail-tabs" role="tablist" aria-label="Lịch sử cột điện">
+      <button
+        #anomaliesTab
+        id="tower-tab-anomalies"
+        type="button"
+        role="tab"
+        aria-controls="tower-panel-anomalies"
+        [attr.aria-selected]="activeTab() === 'anomalies'"
+        [attr.tabindex]="activeTab() === 'anomalies' ? 0 : -1"
+        [class.active]="activeTab() === 'anomalies'"
+        (click)="selectTab('anomalies')"
+        (keydown)="onTabKeydown($event, anomaliesTab, maintenanceTab)"
+      >
+        <span>Bất thường</span>
+        <span class="tab-count tabular-nums">{{ anomalyTotalCount() }}</span>
+      </button>
+      <button
+        #maintenanceTab
+        id="tower-tab-maintenance"
+        type="button"
+        role="tab"
+        aria-controls="tower-panel-maintenance"
+        [attr.aria-selected]="activeTab() === 'maintenance'"
+        [attr.tabindex]="activeTab() === 'maintenance' ? 0 : -1"
+        [class.active]="activeTab() === 'maintenance'"
+        (click)="selectTab('maintenance')"
+        (keydown)="onTabKeydown($event, anomaliesTab, maintenanceTab)"
+      >
+        <span>Lịch sử bảo trì</span>
+        <span class="tab-count tabular-nums">{{ data.maintenancePagination.totalItems }}</span>
+      </button>
+    </nav>
 
-  <!-- Data Section: Tabs + Filter Toolbar, Scrollable Table Below -->
-  <section class="tower-card tower-detail-table-card">
-    <div class="tower-card-header">
-      <div class="tower-tabs" role="tablist" aria-label="Lịch sử cột điện">
-        <button #anomaliesTab id="tower-tab-anomalies" type="button" role="tab" aria-controls="tower-panel-anomalies"
-          [attr.aria-selected]="activeTab() === 'anomalies'" [attr.tabindex]="activeTab() === 'anomalies' ? 0 : -1"
-          [class.active]="activeTab() === 'anomalies'" (click)="selectTab('anomalies')" (keydown)="onTabKeydown($event, anomaliesTab, maintenanceTab)">
-          Bất thường <span class="tower-tab-count">{{ anomalyTotalCount() }}</span>
-        </button>
-        <button #maintenanceTab id="tower-tab-maintenance" type="button" role="tab" aria-controls="tower-panel-maintenance"
-          [attr.aria-selected]="activeTab() === 'maintenance'" [attr.tabindex]="activeTab() === 'maintenance' ? 0 : -1"
-          [class.active]="activeTab() === 'maintenance'" (click)="selectTab('maintenance')" (keydown)="onTabKeydown($event, anomaliesTab, maintenanceTab)">
-          Lịch sử bảo trì <span class="tower-tab-count">{{ data.maintenancePagination.totalItems }}</span>
-        </button>
-      </div>
-    </div>
-
-    <form class="tower-filter-strip" [formGroup]="filters" aria-label="Lọc lịch sử" (ngSubmit)="applyFilters()">
-      <div class="search-input-wrap">
-        <span nz-icon nzType="search" class="search-icon"></span>
+    <!-- Compact Flat Filter Bar (dd/MM/yyyy, 0 Icons) -->
+    <form class="app-filter-bar" [formGroup]="filters" aria-label="Lọc lịch sử" (ngSubmit)="applyFilters()">
+      <div class="filter-search">
         <input
           id="history-search"
           type="search"
-          placeholder="Tìm theo sự cố, nội dung..."
+          aria-label="Tìm theo sự cố, nội dung"
+          placeholder="Tìm theo sự cố, mã phiếu, nội dung..."
           [value]="historySearch()"
-          (input)="historySearch.set($any($event.target).value)"
+          (input)="onSearchEvent($event)"
         />
       </div>
 
-      <div class="filter-group" [class.is-hidden]="activeTab() !== 'anomalies'">
-        <label for="history-status" class="filter-lbl">Trạng thái:</label>
-        <select id="history-status" formControlName="validationStatus" title="Trạng thái bất thường">
-          <option value="">Tất cả trạng thái</option>
-          @for (status of statuses; track status) {
-            <option [value]="status">{{ anomalyStatusLabel(status) }}</option>
-          }
-        </select>
-      </div>
-      <div class="filter-group filter-date">
-        <label for="history-from" class="date-label">Từ ngày:</label>
-        <input id="history-from" type="date" formControlName="from" [attr.aria-invalid]="dateRangeInvalid()" title="Từ ngày" />
-      </div>
-      <div class="filter-group filter-date">
-        <label for="history-to" class="date-label">Đến ngày:</label>
-        <input id="history-to" type="date" formControlName="to" [attr.aria-invalid]="dateRangeInvalid()" [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null" title="Đến ngày" />
-      </div>
+      @if (activeTab() === 'anomalies') {
+        <label class="filter-field">
+          <span class="filter-label">Trạng thái</span>
+          <select id="history-status" formControlName="validationStatus" aria-label="Trạng thái bất thường">
+            <option value="">Tất cả trạng thái</option>
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ anomalyStatusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="filter-field">
+        <span class="filter-label">Từ ngày</span>
+        <input
+          id="history-from"
+          type="text"
+          inputmode="numeric"
+          maxlength="10"
+          class="tower-date-input"
+          placeholder="dd/MM/yyyy"
+          [value]="fromDateInput()"
+          (input)="onFromDateEvent($event)"
+          [attr.aria-invalid]="dateRangeInvalid()"
+        />
+      </label>
+
+      <label class="filter-field">
+        <span class="filter-label">Đến ngày</span>
+        <input
+          id="history-to"
+          type="text"
+          inputmode="numeric"
+          maxlength="10"
+          class="tower-date-input"
+          placeholder="dd/MM/yyyy"
+          [value]="toDateInput()"
+          (input)="onToDateEvent($event)"
+          [attr.aria-invalid]="dateRangeInvalid()"
+          [attr.aria-describedby]="dateRangeInvalid() ? 'history-range-error' : null"
+        />
+      </label>
+
       <div class="filter-actions">
-        <button type="button" class="button secondary btn-compact" (click)="resetFilters()" title="Tải lại dữ liệu">
-          <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
+        <button type="button" class="app-btn-secondary" [disabled]="!hasActiveFilters()" (click)="resetFilters()">
+          Xóa lọc
+        </button>
+        <button type="button" class="app-btn-secondary" style="min-width: 90px;" (click)="load()">
+          {{ loading() ? 'Đang tải...' : 'Làm mới' }}
         </button>
       </div>
     </form>
 
     @if (dateRangeInvalid()) {
-      <p id="history-range-error" class="tower-range-error" role="alert">"Đến ngày" không được trước "Từ ngày".</p>
+      <div id="history-range-error" class="app-error-banner" role="alert">
+        <span>"Đến ngày" không được trước "Từ ngày".</span>
+      </div>
     }
 
+    <!-- Tab Panels -->
     @if (activeTab() === 'anomalies') {
-      <div id="tower-panel-anomalies" role="tabpanel" aria-labelledby="tower-tab-anomalies" [attr.aria-busy]="loading()">
-        @if (!filteredAnomalies().length) {
-          <app-data-state kind="empty" title="Không có bất thường" message="Không có bất thường phù hợp với bộ lọc." />
-        } @else {
-          <div class="tower-table-wrap">
-            <table class="tower-table table-anomalies">
-              <caption class="sr-only">Bất thường của cột {{ data.tower.towerCode }}</caption>
-              <thead>
+      <section id="tower-panel-anomalies" class="app-table-card" role="tabpanel" aria-labelledby="tower-tab-anomalies" [attr.aria-busy]="loading()">
+        <div class="app-table-scroll app-table-stage">
+          <table class="app-data-table">
+            <caption class="sr-only">Bất thường của cột {{ data.tower.towerCode }}</caption>
+            <colgroup>
+              <col style="width: 9%" />
+              <col style="width: 30%" />
+              <col style="width: 11%" />
+              <col style="width: 14%" />
+              <col style="width: 13%" />
+              <col style="width: 14%" />
+              <col style="width: 9%" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" class="col-center">Ảnh</th>
+                <th scope="col">Loại bất thường</th>
+                <th scope="col" class="col-center">Độ tin cậy</th>
+                <th scope="col" class="col-center">Trạng thái</th>
+                <th scope="col">Nguồn</th>
+                <th scope="col">Phát hiện lúc</th>
+                <th scope="col" class="col-center col-sticky-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody [class.is-fetching]="loading()">
+              @if (!filteredAnomalies().length) {
                 <tr>
-                  <th scope="col" class="th-thumb">Ảnh</th>
-                  <th scope="col" class="th-category">Loại bất thường</th>
-                  <th scope="col" class="th-confidence">Độ tin cậy</th>
-                  <th scope="col" class="th-status">Trạng thái</th>
-                  <th scope="col" class="th-source">Nguồn</th>
-                  <th scope="col" class="th-time">Phát hiện lúc</th>
-                  <th scope="col" class="th-actions">Thao tác</th>
+                  <td colspan="7" class="app-empty-cell">
+                    Không có bất thường phù hợp với bộ lọc.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
+              } @else {
                 @for (anomaly of pagedAnomalies(); track anomaly.id) {
                   <tr>
-                    <td class="td-thumb">
+                    <td class="col-center">
                       @if (anomaly.cropUrl || anomaly.imageUrl; as src) {
-                        <img class="tower-thumb" [src]="src" [alt]="'Ảnh ' + (anomaly.categoryName || 'bất thường')" loading="lazy" width="56" height="42" />
+                        <img
+                          class="tower-thumb"
+                          [src]="src"
+                          [alt]="'Ảnh ' + (anomaly.categoryName || 'bất thường')"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="low"
+                          width="56"
+                          height="36"
+                        />
                       } @else {
-                        <span class="tower-muted">—</span>
+                        <span class="cell-muted">—</span>
                       }
                     </td>
-                    <td class="td-category">
-                      <strong>{{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}</strong>
+                    <td>
+                      <span class="cell-primary cell-truncate" [title]="anomaly.categoryName || anomaly.categoryCode || 'Không xác định'">
+                        {{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}
+                      </span>
                     </td>
-                    <td class="td-confidence">{{ (anomaly.confidenceScore <= 1 ? anomaly.confidenceScore * 100 : anomaly.confidenceScore) | number: '1.0-1' }}%</td>
-                    <td class="td-status"><span class="tower-pill tone-{{ anomalyStatusTone(anomaly.validationStatus) }}">{{ anomalyStatusLabel(anomaly.validationStatus) }}</span></td>
-                    <td class="td-source tower-muted">{{ formatAiSource(anomaly.aiSource) }}</td>
-                    <td class="td-time">{{ anomaly.detectedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-                    <td class="td-actions">
-                      <div class="tower-row-actions">
-                        @if (canReview() && (anomaly.validationStatus === 'Pending' || anomaly.validationStatus === 'InReview')) {
-                          <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Thẩm định kết quả phát hiện">
-                            Thẩm định
-                          </a>
-                        } @else if (anomaly.missionId && anomaly.missionId !== '00000000-0000-0000-0000-000000000000') {
-                          <a class="button secondary small" [routerLink]="['/missions', anomaly.missionId]" title="Xem nhiệm vụ bay">
-                            Chi tiết
-                          </a>
-                        } @else {
-                          <a class="button secondary small" [routerLink]="['/ai-review', anomaly.id]" title="Xem chi tiết bất thường">
-                            Chi tiết
-                          </a>
-                        }
-                      </div>
+                    <td class="col-center tabular-nums cell-secondary">
+                      {{ (anomaly.confidenceScore <= 1 ? anomaly.confidenceScore * 100 : anomaly.confidenceScore) | number: '1.0-1' }}%
+                    </td>
+                    <td class="col-center">
+                      <span [class]="statusColorClass(anomaly.validationStatus)">
+                        {{ anomalyStatusLabel(anomaly.validationStatus) }}
+                      </span>
+                    </td>
+                    <td class="cell-secondary">{{ formatAiSource(anomaly.aiSource) }}</td>
+                    <td class="tabular-nums cell-secondary">{{ anomaly.detectedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td class="col-center col-sticky-right">
+                      @if (canReview() && (anomaly.validationStatus === 'Pending' || anomaly.validationStatus === 'InReview')) {
+                        <a class="app-btn-action" [routerLink]="['/ai-review', anomaly.id]">Thẩm định</a>
+                      } @else if (anomaly.missionId && anomaly.missionId !== '00000000-0000-0000-0000-000000000000') {
+                        <a class="app-btn-action" [routerLink]="['/missions', anomaly.missionId]">Chi tiết</a>
+                      } @else {
+                        <a class="app-btn-action" [routerLink]="['/ai-review', anomaly.id]">Chi tiết</a>
+                      }
                     </td>
                   </tr>
                 }
-              </tbody>
-            </table>
-          </div>
-          <div class="tower-footer">
-            <app-pagination [page]="anomalyPage()" [totalPages]="anomalyTotalPages()" [totalCount]="anomalyTotalCount()" (pageChanged)="goToAnomalyPage($event)" />
-          </div>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (anomalyTotalCount() > 0) {
+          <footer class="app-pagination-footer">
+            <app-pagination
+              [page]="anomalyPage()"
+              [totalPages]="anomalyTotalPages()"
+              [totalCount]="anomalyTotalCount()"
+              [pageSize]="pageSize()"
+              (pageChanged)="goToAnomalyPage($event)"
+            />
+          </footer>
         }
-      </div>
+      </section>
     } @else {
-      <div id="tower-panel-maintenance" role="tabpanel" aria-labelledby="tower-tab-maintenance" [attr.aria-busy]="loading()">
-        @if (!filteredMaintenance().length) {
-          <app-data-state kind="empty" title="Chưa có phiếu bảo trì" message="Không có phiếu bảo trì trong khoảng thời gian đã chọn." />
-        } @else {
-          <div class="tower-table-wrap">
-            <table class="tower-table table-maintenance">
-              <caption class="sr-only">Lịch sử bảo trì của cột {{ data.tower.towerCode }}</caption>
-              <thead>
+      <section id="tower-panel-maintenance" class="app-table-card" role="tabpanel" aria-labelledby="tower-tab-maintenance" [attr.aria-busy]="loading()">
+        <div class="app-table-scroll app-table-stage">
+          <table class="app-data-table">
+            <caption class="sr-only">Lịch sử bảo trì của cột {{ data.tower.towerCode }}</caption>
+            <colgroup>
+              <col style="width: 14%" />
+              <col style="width: 28%" />
+              <col style="width: 10%" />
+              <col style="width: 11%" />
+              <col style="width: 9%" />
+              <col style="width: 9%" />
+              <col style="width: 9%" />
+              <col style="width: 10%" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Mã phiếu</th>
+                <th scope="col">Mô tả</th>
+                <th scope="col" class="col-center">Ưu tiên</th>
+                <th scope="col" class="col-center">Trạng thái</th>
+                <th scope="col">Tạo lúc</th>
+                <th scope="col">Hạn xử lý</th>
+                <th scope="col">Hoàn thành</th>
+                <th scope="col">Vật tư / Minh chứng</th>
+              </tr>
+            </thead>
+            <tbody [class.is-fetching]="loading()">
+              @if (!filteredMaintenance().length) {
                 <tr>
-                  <th scope="col" class="th-ticket-code">Mã phiếu</th>
-                  <th scope="col" class="th-ticket-desc">Mô tả</th>
-                  <th scope="col" class="th-ticket-priority">Ưu tiên</th>
-                  <th scope="col" class="th-ticket-status">Trạng thái</th>
-                  <th scope="col" class="th-ticket-created">Tạo lúc</th>
-                  <th scope="col" class="th-ticket-due">Hạn xử lý</th>
-                  <th scope="col" class="th-ticket-resolved">Hoàn thành</th>
-                  <th scope="col" class="th-ticket-materials">Vật tư / Minh chứng</th>
+                  <td colspan="8" class="app-empty-cell">
+                    Không có phiếu bảo trì trong khoảng thời gian đã chọn.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
+              } @else {
                 @for (ticket of filteredMaintenance(); track ticket.id) {
                   <tr>
-                    <td class="td-ticket-code tower-mono">
+                    <td>
                       @if (canOpenTicket()) {
-                        <a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Mở phiếu bảo trì ' + ticket.ticketCode">{{ ticket.ticketCode }}</a>
+                        <a class="cell-primary cell-truncate" [routerLink]="['/maintenance', ticket.id]" [title]="ticket.ticketCode">{{ ticket.ticketCode }}</a>
                       } @else {
-                        {{ ticket.ticketCode }}
+                        <span class="cell-primary cell-truncate" [title]="ticket.ticketCode">{{ ticket.ticketCode }}</span>
                       }
                     </td>
-                    <td class="td-ticket-desc tower-description" [title]="ticket.description || ''">{{ ticket.description || '—' }}</td>
-                    <td class="td-ticket-priority"><span class="tower-pill tone-{{ ticketPriorityTone(ticket.priority) }}">{{ ticketPriorityLabel(ticket.priority) }}</span></td>
-                    <td class="td-ticket-status"><span class="tower-pill tone-{{ ticketStatusTone(ticket.status) }}">{{ ticketStatusLabel(ticket.status) }}</span></td>
-                    <td class="td-ticket-created">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
-                    <td class="td-ticket-due">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</td>
-                    <td class="td-ticket-resolved">{{ ticket.resolvedAt ? (ticket.resolvedAt | date: 'dd/MM/yyyy') : '—' }}</td>
-                    <td class="td-ticket-materials">
+                    <td>
+                      <span class="cell-secondary cell-truncate" [title]="ticket.description || ''">{{ ticket.description || '—' }}</span>
+                    </td>
+                    <td class="col-center">
+                      <span [class]="priorityColorClass(ticket.priority)">{{ ticketPriorityLabel(ticket.priority) }}</span>
+                    </td>
+                    <td class="col-center">
+                      <span [class]="statusColorClass(ticket.status)">{{ ticketStatusLabel(ticket.status) }}</span>
+                    </td>
+                    <td class="tabular-nums cell-secondary">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
+                    <td class="tabular-nums cell-secondary">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</td>
+                    <td class="tabular-nums cell-secondary">{{ ticket.resolvedAt ? (ticket.resolvedAt | date: 'dd/MM/yyyy') : '—' }}</td>
+                    <td class="cell-secondary">
                       @if (ticket.materials.length || ticket.proofs.length) {
-                        <details class="tower-ticket-details">
-                          <summary>{{ ticket.materials.length }} vật tư · {{ ticket.proofs.length }} minh chứng</summary>
-                          @if (ticket.materials.length) {
-                            <ul>
-                              @for (material of ticket.materials; track material.id) {
-                                <li>{{ material.componentName || material.componentCode }}: {{ material.quantityUsed }} {{ material.unit }}</li>
-                              }
-                            </ul>
-                          }
-                          @if (ticket.proofs.length) {
-                            <ul>
-                              @for (proof of ticket.proofs; track proof.id) {
-                                <li><a [href]="proof.fileUrl" target="_blank" rel="noopener">{{ proof.proofType || 'Minh chứng' }}</a> · {{ proof.uploadedAt | date: 'dd/MM/yyyy' }}</li>
-                              }
-                            </ul>
-                          }
-                        </details>
+                        <span class="tabular-nums">{{ ticket.materials.length }} vật tư · {{ ticket.proofs.length }} minh chứng</span>
                       } @else {
-                        <span class="tower-muted">—</span>
+                        <span class="cell-muted">—</span>
                       }
                     </td>
                   </tr>
                 }
-              </tbody>
-            </table>
-          </div>
-          <div class="tower-footer">
-            <app-pagination [page]="data.maintenancePagination.page" [totalPages]="data.maintenancePagination.totalPages" [totalCount]="data.maintenancePagination.totalItems" (pageChanged)="goToMaintenancePage($event)" />
-          </div>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (data.maintenancePagination.totalItems > 0) {
+          <footer class="app-pagination-footer">
+            <app-pagination
+              [page]="data.maintenancePagination.page"
+              [totalPages]="data.maintenancePagination.totalPages"
+              [totalCount]="data.maintenancePagination.totalItems"
+              [pageSize]="pageSize()"
+              (pageChanged)="goToMaintenancePage($event)"
+            />
+          </footer>
         }
-      </div>
+      </section>
     }
-  </section>
-}
+  }
+</div>

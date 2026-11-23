@@ -1,30 +1,25 @@
-<div class="pre-mission-page mission-dispatch-page">
-  <header class="pre-mission-head">
+<div class="ops-page mission-dispatch-page">
+  <header class="page-header">
     <div>
-      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/missions">NHIỆM VỤ BAY</a>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>{{ editingMissionId() ? 'CHỈNH SỬA THÔNG TIN NHIỆM VỤ (BẢN NHÁP)' : 'TẠO NHIỆM VỤ (BẢN NHÁP)' }}</strong>
+        <a routerLink="/missions">Nhiệm vụ bay</a>
+        <span class="separator" aria-hidden="true">/</span>
+        <strong>{{ editingMissionId() ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ' }}</strong>
       </nav>
       <h1>{{ editingMissionId() ? 'Chỉnh sửa thông tin nhiệm vụ bản nháp' : 'Tạo nhiệm vụ từ hồ sơ đánh giá tiền khả thi' }}</h1>
       <p>
-        {{ editingMissionId() ? 'Cập nhật tiêu đề, mô tả, mức ưu tiên và chỉ thị quản lý cho nhiệm vụ đang ở trạng thái bản nháp.' : 'Nhiệm vụ được tạo ở trạng thái bản nháp (Draft) từ hồ sơ đánh giá READY. Phạm vi cột, khung giờ bay và nguồn lực được kế thừa từ hồ sơ.' }}
+        {{ editingMissionId() ? 'Cập nhật tiêu đề, mô tả, mức ưu tiên và chỉ thị quản lý cho nhiệm vụ đang ở trạng thái bản nháp.' : 'Nhiệm vụ được tạo ở trạng thái bản nháp từ hồ sơ đánh giá Sẵn sàng. Phạm vi cột, khung giờ bay và nguồn lực được kế thừa từ hồ sơ.' }}
       </p>
     </div>
     <div class="head-actions">
       @if (editingMissionId(); as mid) {
-        <a class="evn-btn secondary" [routerLink]="['/missions', mid]">
-          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Quay lại chi tiết nhiệm vụ
-        </a>
+        <a class="app-btn-secondary" [routerLink]="['/missions', mid]">Quay lại chi tiết</a>
+      } @else if (assessment(); as a) {
+        <a class="app-btn-secondary" [routerLink]="['/pre-mission', a.id]">Về hồ sơ đánh giá</a>
       }
-      @if (assessment(); as a) {
-        <a class="evn-btn secondary" [routerLink]="['/pre-mission', a.id]">
-          <span nz-icon nzType="arrow-left" aria-hidden="true"></span> Về hồ sơ đánh giá
-        </a>
-      }
-      <a class="evn-btn secondary" routerLink="/missions">
-        <span nz-icon nzType="unordered-list" aria-hidden="true"></span> Danh sách nhiệm vụ
-      </a>
+      <a class="app-btn-secondary" routerLink="/missions">Danh sách nhiệm vụ</a>
     </div>
   </header>
 
@@ -35,95 +30,99 @@
     </div>
   }
 
-  <!-- 1. Chọn hồ sơ đánh giá -->
-  <section class="evn-panel" aria-labelledby="assessment-panel-title">
-    <div class="panel-header">
-      <div class="header-title-group">
-        <h2 id="assessment-panel-title">1. Hồ sơ đánh giá tiền khả thi</h2>
-        <span class="panel-subinfo">Chọn hồ sơ READY còn hiệu lực hoặc mở từ không gian đánh giá</span>
-      </div>
-      @if (assessment(); as a) {
-        <span class="evn-status" [class.pass]="isAssessmentUsable()" [class.fail]="!isAssessmentUsable()">{{ a.status }}</span>
-      }
-    </div>
-    <div class="panel-body form-body-stack">
-      <div class="form-field-row">
-        <label class="field-label" for="assessment-select">Hồ sơ đánh giá <span class="req">*</span></label>
-        <select
-          id="assessment-select"
-          class="evn-select"
-          [value]="assessment()?.id ?? ''"
-          [disabled]="loadingAssessment() || busy()"
-          (change)="onAssessmentSelect($event)"
-        >
-          <option value="">{{ loadingList() ? 'Đang tải danh sách hồ sơ...' : '-- Chọn hồ sơ READY --' }}</option>
-          @if (assessment(); as a) {
-            @if (!readyAssessmentIds().has(a.id)) {
-              <option [value]="a.id">{{ a.assessmentCode }} · {{ a.regionName }} ({{ a.status }})</option>
-            }
-          }
-          @for (item of readyAssessments(); track item.id) {
-            <option [value]="item.id">
-              {{ item.assessmentCode }} · {{ item.regionName }} · {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }} ({{ item.towers.length }} cột)
-            </option>
-          }
-        </select>
-        @if (!loadingList() && !readyAssessments().length && !assessment()) {
-          <span class="field-hint">
-            Chưa có hồ sơ READY nào. <a routerLink="/pre-mission/new">Lập hồ sơ đánh giá mới</a> và đánh giá đạt trước khi tạo nhiệm vụ.
-          </span>
+  <!-- 1. Chọn hồ sơ đánh giá (chỉ hiển thị khi tạo nhiệm vụ mới; khi sửa bản nháp không bắt chọn lại hồ sơ READY) -->
+  @if (!editingMissionId()) {
+    <section class="evn-panel" aria-labelledby="assessment-panel-title">
+      <div class="panel-header">
+        <div class="header-title-group">
+          <h2 id="assessment-panel-title">1. Hồ sơ đánh giá tiền khả thi</h2>
+          <span class="panel-subinfo">Chọn hồ sơ Sẵn sàng còn hiệu lực hoặc mở từ không gian đánh giá</span>
+        </div>
+        @if (assessment(); as a) {
+          <span [class]="statusColorClass(a.status)">{{ statusLabel(a.status) }}</span>
         }
       </div>
-
-      @if (loadingAssessment()) {
-        <p class="muted" role="status">Đang tải hồ sơ đánh giá...</p>
-      } @else if (assessment(); as a) {
-        <dl class="detail-props-grid">
-          <div class="prop-item">
-            <dt class="prop-label">Mã hồ sơ</dt>
-            <dd class="prop-value"><a class="evn-code" [routerLink]="['/pre-mission', a.id]">{{ a.assessmentCode }}</a></dd>
-          </div>
-          <div class="prop-item">
-            <dt class="prop-label">Khu vực</dt>
-            <dd class="prop-value">{{ a.regionName }}</dd>
-          </div>
-          <div class="prop-item">
-            <dt class="prop-label">Khung giờ bay</dt>
-            <dd class="prop-value">{{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date: 'dd/MM/yyyy HH:mm' }}</dd>
-          </div>
-          <div class="prop-item">
-            <dt class="prop-label">Hiệu lực đến</dt>
-            <dd class="prop-value">{{ a.validUntil ? (a.validUntil | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
-          </div>
-          <div class="prop-item">
-            <dt class="prop-label">Số cột kiểm tra</dt>
-            <dd class="prop-value">{{ a.towers.length }} cột</dd>
-          </div>
-          <div class="prop-item">
-            <dt class="prop-label">Sức khỏe kỹ thuật</dt>
-            <dd class="prop-value">{{ a.overallTechnicalHealth }}</dd>
-          </div>
-        </dl>
-
-        @if (a.towers.length) {
-          <div class="tower-chips" aria-label="Danh sách cột trong phạm vi">
-            @for (t of a.towers; track t.id) {
-              <span class="tower-chip">{{ t.sequence }}. {{ t.towerCode || t.towerId }}</span>
+      <div class="panel-body form-body-stack">
+        <div class="form-field-row">
+          <label class="field-label" for="assessment-select">Hồ sơ đánh giá <span class="req">*</span></label>
+          <select
+            id="assessment-select"
+            class="evn-select"
+            [value]="assessment()?.id ?? ''"
+            [disabled]="loadingAssessment() || busy()"
+            (change)="onAssessmentSelect($event)"
+          >
+            <option value="">{{ loadingList() ? 'Đang tải danh sách hồ sơ...' : '-- Chọn hồ sơ Sẵn sàng --' }}</option>
+            @if (assessment(); as a) {
+              @if (!readyAssessmentIds().has(a.id)) {
+                <option [value]="a.id">{{ a.assessmentCode }} · {{ a.regionName }} ({{ statusLabel(a.status) }})</option>
+              }
             }
-          </div>
-        }
-      }
-    </div>
-  </section>
+            @for (item of readyAssessments(); track item.id) {
+              <option [value]="item.id">
+                {{ item.assessmentCode }} · {{ item.regionName }} · {{ item.plannedStart | date: 'dd/MM/yyyy HH:mm' }} ({{ item.towers.length }} cột)
+              </option>
+            }
+          </select>
+          @if (!loadingList() && !readyAssessments().length && !assessment()) {
+            <span class="field-hint">
+              Chưa có hồ sơ Sẵn sàng nào. <a routerLink="/pre-mission/new">Lập hồ sơ đánh giá mới</a> và đánh giá đạt trước khi tạo nhiệm vụ.
+            </span>
+          }
+        </div>
 
-  @if (assessment()) {
+        @if (loadingAssessment()) {
+          <p class="muted" role="status">Đang tải hồ sơ đánh giá...</p>
+        } @else if (assessment(); as a) {
+          <dl class="detail-props-grid">
+            <div class="prop-item">
+              <dt class="prop-label">Mã hồ sơ</dt>
+              <dd class="prop-value"><a class="evn-code" [routerLink]="['/pre-mission', a.id]">{{ a.assessmentCode }}</a></dd>
+            </div>
+            <div class="prop-item">
+              <dt class="prop-label">Khu vực</dt>
+              <dd class="prop-value">{{ a.regionName }}</dd>
+            </div>
+            <div class="prop-item">
+              <dt class="prop-label">Khung giờ bay</dt>
+              <dd class="prop-value tabular-nums">{{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }} – {{ a.plannedEnd | date: 'dd/MM/yyyy HH:mm' }}</dd>
+            </div>
+            <div class="prop-item">
+              <dt class="prop-label">Hiệu lực đến</dt>
+              <dd class="prop-value tabular-nums">{{ a.validUntil ? (a.validUntil | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd>
+            </div>
+            <div class="prop-item">
+              <dt class="prop-label">Số cột kiểm tra</dt>
+              <dd class="prop-value tabular-nums">{{ a.towers.length }} cột</dd>
+            </div>
+            <div class="prop-item">
+              <dt class="prop-label">Sức khỏe kỹ thuật</dt>
+              <dd class="prop-value">
+                <span [class]="statusColorClass(a.overallTechnicalHealth)">{{ statusLabel(a.overallTechnicalHealth) }}</span>
+              </dd>
+            </div>
+          </dl>
+
+          @if (a.towers.length) {
+            <div class="tower-chips" aria-label="Danh sách cột trong phạm vi">
+              @for (t of a.towers; track t.id) {
+                <span class="tower-chip">{{ t.sequence }}. {{ t.towerCode || t.towerId }}</span>
+              }
+            </div>
+          }
+        }
+      </div>
+    </section>
+  }
+
+  @if (editingMissionId() || assessment()) {
     <form [formGroup]="form" (ngSubmit)="submit()" class="dispatch-form-grid">
-      <!-- 2. Thông tin nhiệm vụ -->
+      <!-- Thông tin nhiệm vụ -->
       <section class="evn-panel" aria-labelledby="mission-info-title">
         <div class="panel-header">
           <div class="header-title-group">
-            <h2 id="mission-info-title">2. Thông tin nhiệm vụ</h2>
-            <span class="panel-subinfo">Tên, mức ưu tiên và mục tiêu kiểm tra</span>
+            <h2 id="mission-info-title">{{ editingMissionId() ? 'Thông tin nhiệm vụ bản nháp' : '2. Thông tin nhiệm vụ' }}</h2>
+            <span class="panel-subinfo">Tên, mức ưu tiên, mục tiêu kiểm tra và chỉ thị quản lý</span>
           </div>
         </div>
         <div class="panel-body form-body-stack">
@@ -167,28 +166,26 @@
             </select>
           </div>
 
-          <label class="checkbox-line">
-            <input type="checkbox" formControlName="isImmediate" />
-            Thực hiện ngay (bỏ qua thời gian chờ thành viên xác nhận)
-          </label>
-
-          <div class="form-field-row">
-            <label class="field-label" for="confirmation-deadline">Hạn chót thành viên xác nhận</label>
-            <input
-              id="confirmation-deadline"
-              type="datetime-local"
-              class="evn-input"
-              formControlName="confirmationDeadline"
-              [max]="deadlineMax()"
-              aria-describedby="confirmation-deadline-hint"
-            />
-            <span id="confirmation-deadline-hint" class="field-hint">
-              Mặc định 24 giờ kể từ lúc tạo, không muộn hơn giờ bay dự kiến
-              @if (assessment(); as a) {
-                ({{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }})
-              }. Để trống để hệ thống tự đặt.
-            </span>
-          </div>
+          @if (!editingMissionId()) {
+            <div class="form-field-row">
+              <label class="field-label" for="confirmation-deadline">Hạn chót thành viên xác nhận</label>
+              <input
+                id="confirmation-deadline"
+                type="datetime-local"
+                [attr.lang]="'en-GB'"
+                class="evn-input"
+                formControlName="confirmationDeadline"
+                [max]="deadlineMax()"
+                aria-describedby="confirmation-deadline-hint"
+              />
+              <span id="confirmation-deadline-hint" class="field-hint">
+                Mặc định 24 giờ kể từ lúc tạo, không muộn hơn giờ bay dự kiến
+                @if (assessment(); as a) {
+                  ({{ a.plannedStart | date: 'dd/MM/yyyy HH:mm' }})
+                }. Để trống để hệ thống tự đặt.
+              </span>
+            </div>
+          }
 
           <div class="form-field-row">
             <label class="field-label" for="manager-instructions">Chỉ thị của quản lý</label>
@@ -210,8 +207,36 @@
         </div>
       </section>
 
-      <!-- 3. Nguồn lực từ hồ sơ -->
-      <section class="evn-panel" aria-labelledby="resource-title">
+      <!-- 3. Nguồn lực từ hồ sơ (tạo mới) hoặc Bản đồ phạm vi tuyến bay (chỉnh sửa bản nháp) -->
+      @if (editingMissionId()) {
+        <section class="evn-panel edit-map-panel" aria-labelledby="edit-map-title">
+          <div class="panel-header">
+            <div class="header-title-group">
+              <h2 id="edit-map-title">Bản đồ phạm vi tuyến bay</h2>
+              <span class="panel-subinfo">
+                @if (editingMission(); as m) {
+                  {{ m.missionCode }} · {{ m.targets.length }} vị trí cột điện
+                } @else {
+                  Đang tải sơ đồ tuyến bay...
+                }
+              </span>
+            </div>
+          </div>
+          <div class="panel-body form-body-stack">
+            <div #editMapContainer class="edit-mission-map" role="img" aria-label="Bản đồ các vị trí cột trong nhiệm vụ bản nháp"></div>
+            @if (editingMission(); as m) {
+              @if (m.targets.length) {
+                <div class="tower-chips" aria-label="Thứ tự tuyến cột kiểm tra">
+                  @for (t of m.targets; track t.towerId; let i = $index) {
+                    <span class="tower-chip">{{ t.sequence || (i + 1) }}. {{ t.towerCode }}</span>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </section>
+      } @else {
+        <section class="evn-panel" aria-labelledby="resource-title">
         <div class="panel-header">
           <div class="header-title-group">
             <h2 id="resource-title">3. Nhân sự và drone</h2>
@@ -219,12 +244,11 @@
           </div>
           <button
             type="button"
-            class="evn-btn secondary"
+            class="app-btn-secondary"
             (click)="refreshReadiness()"
             [disabled]="refreshingReadiness() || busy()"
           >
-            <span nz-icon [nzType]="refreshingReadiness() ? 'loading' : 'sync'" aria-hidden="true"></span>
-            Đánh giá lại nguồn lực
+            {{ refreshingReadiness() ? 'Đang đánh giá...' : 'Đánh giá lại nguồn lực' }}
           </button>
         </div>
         <div class="panel-body form-body-stack">
@@ -240,8 +264,8 @@
                   <input type="checkbox" [checked]="isPersonnelSelected(p.id)" (change)="togglePersonnel(p.id)" />
                   <span class="candidate-name">{{ p.name }}</span>
                 </label>
-                <span class="evn-status info">{{ roleLabel(p.role) }}</span>
-                <span class="candidate-meta">{{ p.availabilityStatus }}</span>
+                <span class="text-sky-600 font-medium">{{ roleLabel(p.role) }}</span>
+                <span class="candidate-meta" [class]="statusColorClass(p.availabilityStatus)">{{ statusLabel(p.availabilityStatus) }}</span>
                 @if (isPersonnelSelected(p.id)) {
                   <label class="candidate-check required-toggle">
                     <input type="checkbox" [checked]="isPersonnelRequired(p.id)" (change)="toggleRequired(p.id)" />
@@ -286,8 +310,8 @@
                   <span class="candidate-name">{{ d.code }}</span>
                   <span class="candidate-meta">{{ d.model }}</span>
                 </label>
-                <span class="evn-status" [class.pass]="d.technicalHealth === 'Healthy'" [class.warning]="d.technicalHealth === 'Warning'">
-                  {{ d.technicalHealth }}
+                <span [class]="statusColorClass(d.technicalHealth)">
+                  {{ statusLabel(d.technicalHealth) }}
                 </span>
                 <span class="candidate-meta">Pin {{ d.batteryLevel }}%</span>
                 @if (d.suitability === 'SUITABLE_WITH_SPLIT') {
@@ -305,6 +329,7 @@
           </fieldset>
         </div>
       </section>
+      }
 
       <footer class="workspace-footer">
         <p class="footer-left">
@@ -312,13 +337,12 @@
         </p>
         <div class="footer-right">
           @if (editingMissionId(); as mid) {
-            <a class="evn-btn secondary" [routerLink]="['/missions', mid]">Hủy bỏ</a>
+            <a class="app-btn-secondary" [routerLink]="['/missions', mid]">Hủy bỏ</a>
           } @else {
-            <a class="evn-btn secondary" routerLink="/missions">Hủy</a>
+            <a class="app-btn-secondary" routerLink="/missions">Hủy</a>
           }
-          <button type="submit" class="evn-btn primary" [disabled]="busy() || (!editingMissionId() && !isAssessmentUsable())">
-            <span nz-icon [nzType]="busy() ? 'loading' : 'check'" aria-hidden="true"></span>
-            {{ busy() ? 'Đang lưu...' : (editingMissionId() ? 'Lưu thay đổi nhiệm vụ (Bản nháp)' : 'Lưu bản nháp nhiệm vụ') }}
+          <button type="submit" class="app-btn-primary" [disabled]="busy() || (!editingMissionId() && !isAssessmentUsable())">
+            {{ busy() ? 'Đang lưu...' : (editingMissionId() ? 'Lưu thay đổi nhiệm vụ' : 'Lưu bản nháp nhiệm vụ') }}
           </button>
         </div>
       </footer>

@@ -12,7 +12,6 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { DroneManagementApi } from '../../data-access/drone-management-api';
@@ -33,11 +32,13 @@ import { BetaflightSerialService } from '../../../../core/services/betaflight-se
 import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
+import { statusLabel as sharedStatusLabel } from '../../../../shared/status/status';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
 
 @Component({
   selector: 'app-drone-management',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, DecimalPipe, Pagination],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, Pagination],
   templateUrl: './drone-management.html',
   styleUrl: './drone-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -66,7 +67,10 @@ export class DroneManagement {
   protected readonly operationalStatuses = UAV_OPERATIONAL_STATUSES;
   protected readonly technicalHealths = UAV_TECHNICAL_HEALTHS;
   protected readonly drones = signal<readonly UavRecord[]>([]);
-  protected readonly loading = signal(true);
+  protected readonly initialLoading = signal(true);
+  protected readonly fetching = signal(false);
+  protected readonly loading = computed(() => this.initialLoading() || this.fetching());
+  protected readonly skeletonRows = Array.from({ length: 10 }, (_, i) => i + 1);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly successMessage = signal('');
@@ -75,6 +79,9 @@ export class DroneManagement {
   protected readonly search = signal('');
   protected readonly statusFilter = signal<UavOperationalStatus | ''>('');
   protected readonly healthFilter = signal<UavTechnicalHealth | ''>('');
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.statusFilter() || this.healthFilter()),
+  );
 
   // Pagination
   protected readonly page = signal(1);
@@ -113,11 +120,12 @@ export class DroneManagement {
     };
   });
 
-  // Filtered List
+  // Filtered List (case/separator insensitive so backend casing like HEALTHY / IN_USE always matches)
   protected readonly filteredDrones = computed(() => {
     const term = this.search().trim().toLowerCase();
-    const st = this.statusFilter();
-    const hl = this.healthFilter();
+    const norm = (val?: string | null) => (val || '').trim().toUpperCase().replace(/[\s_-]/g, '');
+    const st = norm(this.statusFilter());
+    const hl = norm(this.healthFilter());
 
     return this.drones().filter((drone) => {
       const matchTerm =
@@ -125,8 +133,8 @@ export class DroneManagement {
         `${drone.code} ${drone.name} ${drone.model} ${drone.serialNumber || ''} ${drone.activeFlightController?.flightControllerUid || ''}`
           .toLowerCase()
           .includes(term);
-      const matchStatus = !st || drone.operationalStatus === st;
-      const matchHealth = !hl || drone.technicalHealth === hl;
+      const matchStatus = !st || norm(drone.operationalStatus) === st;
+      const matchHealth = !hl || norm(drone.technicalHealth) === hl;
       return matchTerm && matchStatus && matchHealth;
     });
   });
@@ -232,25 +240,6 @@ export class DroneManagement {
     }
   }
 
-  protected async simulateFcConnect(): Promise<void> {
-    try {
-      this.fcBusy.set(true);
-      this.fcError.set('');
-      const meta = await this.fcSerial.connectSimulated();
-      this.fcForm.patchValue({
-        flightControllerUid: meta.uid,
-        boardIdentifier: meta.boardIdentifier || 'Betaflight STM32F405',
-        firmwareName: meta.firmwareName || 'Betaflight',
-        firmwareVersion: meta.firmwareVersion || '4.5.1',
-      });
-      this.showNotification(`Đã mô phỏng kết nối FC UID: ${meta.uid}`);
-    } catch (err: unknown) {
-      this.fcError.set('Lỗi mô phỏng kết nối.');
-    } finally {
-      this.fcBusy.set(false);
-    }
-  }
-
   protected saveFcBinding(): void {
     const drone = this.targetDroneForFc();
     if (!drone) return;
@@ -316,19 +305,50 @@ export class DroneManagement {
   }
 
   protected loadDrones(): void {
-    this.loading.set(true);
+    this.fetching.set(true);
     this.error.set('');
     this.api
       .getDrones()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.initialLoading.set(false);
+          this.fetching.set(false);
+        }),
       )
       .subscribe({
         next: (items) => this.drones.set(items),
         error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể tải danh sách phương tiện UAV.')),
       });
   }
+
+  protected onSearchEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.search.set(target?.value ?? '');
+    this.page.set(1);
+  }
+
+  protected onStatusEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.statusFilter.set((target?.value ?? '') as UavOperationalStatus | '');
+    this.page.set(1);
+  }
+
+  protected onHealthEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.healthFilter.set((target?.value ?? '') as UavTechnicalHealth | '');
+    this.page.set(1);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.statusFilter.set('');
+    this.healthFilter.set('');
+    this.page.set(1);
+  }
+
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly globalStatusLabel = globalStatusLabel;
 
   // --- CRUD Actions ---
   protected openCreate(): void {
@@ -649,23 +669,11 @@ export class DroneManagement {
 
   // --- Helpers ---
   protected statusLabel(status: string): string {
-    const s = (status || '').toUpperCase();
-    if (s === 'AVAILABLE') return 'Khả dụng';
-    if (s === 'INUSE') return 'Đang làm nhiệm vụ';
-    if (s === 'RESERVED') return 'Đã giữ chỗ';
-    if (s === 'MAINTENANCE') return 'Bảo dưỡng';
-    if (s === 'UNAVAILABLE') return 'Tạm ngưng';
-    if (s === 'LOST') return 'Mất thiết bị';
-    return status || 'Chưa rõ';
+    return status ? sharedStatusLabel(status) : 'Chưa rõ';
   }
 
   protected healthLabel(health: string): string {
-    const h = (health || '').toUpperCase();
-    if (h === 'HEALTHY') return 'Đạt an toàn';
-    if (h === 'WARNING') return 'Cảnh báo';
-    if (h === 'CRITICAL') return 'Lỗi - không bay';
-    if (h === 'UNKNOWN') return 'Chưa kiểm tra';
-    return health || 'Chưa kiểm tra';
+    return health ? sharedStatusLabel(health) : 'Chưa kiểm định';
   }
 
   protected statusBadgeClass(status: string): string {

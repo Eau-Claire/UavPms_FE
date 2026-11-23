@@ -12,7 +12,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
@@ -20,6 +19,7 @@ import { NotificationsStore } from '../../../notifications/data-access/notificat
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { roleFamily } from '../../../../core/auth/roles';
+import { statusColorClass, statusLabel } from '../../../../shared/status/status';
 import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
   AnalysisRunInfo,
@@ -50,7 +50,7 @@ const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'adm
 
 @Component({
   selector: 'app-detection-review',
-  imports: [DatePipe, RouterLink, FormsModule, NzIconModule],
+  imports: [DatePipe, RouterLink, FormsModule],
   templateUrl: './detection-review.html',
   styleUrl: './detection-review.scss',
   encapsulation: ViewEncapsulation.None,
@@ -135,9 +135,14 @@ export class DetectionReview {
   );
 
   protected readonly boundingBoxStyle = computed<ComputedBoxStyle | null>(() => {
-    const box = this.detection()?.boundingBox;
-    if (!box) return null;
-    return this.calculateBoxStyle(box, this.imgNaturalWidth(), this.imgNaturalHeight());
+    const item = this.detection();
+    if (!item) return null;
+    const natW = this.imgNaturalWidth();
+    const natH = this.imgNaturalHeight();
+    if (!item.boundingBox) {
+      return natW > 0 && natW <= 320 ? { left: '8%', top: '8%', width: '84%', height: '84%' } : null;
+    }
+    return this.calculateBoxStyle(item.boundingBox, natW, natH);
   });
 
   constructor() {
@@ -256,6 +261,15 @@ export class DetectionReview {
     img.src = '/images/defect-preview-frame.png';
   }
 
+  protected onWheelZoom(event: WheelEvent): void {
+    event.preventDefault();
+    if (event.deltaY < 0) {
+      this.zoomIn();
+    } else if (event.deltaY > 0) {
+      this.zoomOut();
+    }
+  }
+
   protected zoomIn(): void {
     this.zoomLevel.update((z) => Math.min(2.5, +(z + 0.25).toFixed(2)));
   }
@@ -344,6 +358,15 @@ export class DetectionReview {
           const code = apiErrorCode(err);
           const rawMsg = err instanceof HttpErrorResponse && err.error?.message ? String(err.error.message) : '';
 
+          if (code === 'TOWER_REQUIRED' || rawMsg.includes('TOWER_REQUIRED') || rawMsg.toLowerCase().includes('tower')) {
+            this.towerRequired.set(true);
+            const msg = 'Máy chủ hiện tại yêu cầu gán cột điện cho sự cố này trước khi xác nhận. Vui lòng chọn cột điện ở danh sách bên dưới.';
+            this.feedbackType.set('error');
+            this.feedbackMessage.set(msg);
+            this.toast.error(msg);
+            return;
+          }
+
           if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Confirmed'")) {
             const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
             const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
@@ -365,7 +388,6 @@ export class DetectionReview {
             return;
           }
 
-          if (code === 'TOWER_REQUIRED') this.towerRequired.set(true);
           const msg = anomalyErrorMessage(err, 'Không thể phê duyệt sự cố.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
@@ -501,11 +523,19 @@ export class DetectionReview {
   }
 
   private calculateBoxStyle(box: AnomalyBoundingBox, naturalW: number, naturalH: number): ComputedBoxStyle | null {
-    if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) {
-      return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+    const fitsNormalized =
+      box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0 && box.x + box.width <= 100.5 && box.y + box.height <= 100.5;
+    if ((box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100)) && fitsNormalized) {
+      if (!(naturalW > 0 && naturalW <= 320 && box.x + box.width > naturalW * 0.95)) {
+        return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+      }
     }
 
     if (naturalW > 0 && naturalH > 0) {
+      // Pre-cropped patch whose bounding box belongs to the original parent frame
+      if (box.x + box.width > naturalW * 1.02 || box.y + box.height > naturalH * 1.02) {
+        return { left: '8%', top: '8%', width: '84%', height: '84%' };
+      }
       return {
         left: `${Math.max(0, Math.min(95, (box.x / naturalW) * 100))}%`,
         top: `${Math.max(0, Math.min(95, (box.y / naturalH) * 100))}%`,
@@ -516,20 +546,23 @@ export class DetectionReview {
     return null;
   }
 
+  protected readonly statusColorClass = statusColorClass;
+
   protected statusClass(item: AnomalyItem): string {
-    if (item.supersededById) return 'status-rejected';
-    if (item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved') return 'status-confirmed';
-    if (item.validationStatus === 'Rejected') return 'status-rejected';
-    return 'status-pending';
+    if (item.supersededById) return 'text-slate-500 font-medium';
+    return statusColorClass(item.validationStatus || 'Pending');
+  }
+
+  protected isEmergencyItem(item: AnomalyItem): boolean {
+    if (item.isEmergency) return true;
+    const sev = item.severity;
+    if (sev === null || sev === undefined) return false;
+    return sev > 1 ? sev >= 4 : sev >= 0.85;
   }
 
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Superseded';
-    if (item.validationStatus === 'Confirmed') return 'Confirmed';
-    if (item.validationStatus === 'Resolved') return 'Resolved';
-    if (item.validationStatus === 'Rejected') return 'Rejected';
-    if (item.validationStatus === 'InReview') return 'InReview';
-    return 'Pending';
+    if (item.supersededById) return statusLabel('Superseded');
+    return statusLabel(item.validationStatus || 'Pending');
   }
 
   protected confidenceClass(score: number): string {

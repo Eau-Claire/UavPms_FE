@@ -1,15 +1,18 @@
-<header class="page-heading">
-  <div class="heading-left">
-    <nav class="page-breadcrumb" aria-label="Breadcrumb">
-      <a routerLink="/maintenance">PHIẾU BẢO TRÌ</a><span>/</span><strong>{{ ticket()?.ticketCode || 'CHI TIẾT' }}</strong>
+<div class="ops-page maintenance-detail-page">
+<header class="page-header">
+  <div>
+    <nav class="page-breadcrumb" aria-label="Đường dẫn">
+      <a routerLink="/dashboard">Tổng quan</a>
+      <span class="separator">/</span>
+      <a routerLink="/maintenance">Phiếu bảo trì</a>
+      <span class="separator">/</span>
+      <strong>{{ ticket()?.ticketCode || 'Chi tiết' }}</strong>
     </nav>
     <h1>{{ ticket() ? 'Phiếu ' + ticket()!.ticketCode : 'Chi tiết phiếu bảo trì' }}</h1>
-    <p class="review-subtitle">Sửa chữa khuyết tật đã xác nhận, minh chứng sau sửa chữa và nghiệm thu.</p>
+    <p>Sửa chữa khuyết tật đã xác nhận, minh chứng sau sửa chữa và nghiệm thu.</p>
   </div>
-  <div class="tower-actions">
-    <a class="button secondary" routerLink="/maintenance">
-      <span nz-icon nzType="arrow-left" aria-hidden="true"></span><span>Danh sách phiếu</span>
-    </a>
+  <div class="head-actions">
+    <a class="app-btn-secondary" routerLink="/maintenance">Danh sách phiếu</a>
   </div>
 </header>
 
@@ -26,12 +29,13 @@
         <div class="md-card-head">
           <h2 id="md-info-title">Thông tin phiếu</h2>
           <div class="md-pills">
-            <span class="tower-pill tone-{{ statusTone(data.status) }}">{{ statusLabel(data.status) }}</span>
-            <span class="tower-pill tone-{{ priorityTone(data.priority) }}">Ưu tiên: {{ priorityLabel(data.priority) }}</span>
+            <span [class]="statusColorClass(data.status)">{{ statusLabel(data.status) }}</span>
+            <span class="md-sep" aria-hidden="true">·</span>
+            <span [class]="priorityColorClass(data.priority)">Ưu tiên: {{ priorityLabel(data.priority) }}</span>
           </div>
         </div>
         <dl class="md-meta">
-          <div><dt>Mã phiếu</dt><dd class="tower-mono">{{ data.ticketCode }}</dd></div>
+          <div><dt>Mã phiếu</dt><dd class="tabular-nums">{{ data.ticketCode }}</dd></div>
           <div>
             <dt>Cột điện</dt>
             <dd>
@@ -72,14 +76,16 @@
           @if (data.resolvedAt) {
             <div><dt>Đóng lúc</dt><dd>{{ data.resolvedAt | date: 'dd/MM/yyyy HH:mm' }}</dd></div>
           }
-          <div class="md-meta-wide"><dt>Mô tả</dt><dd class="md-description">{{ data.description || '—' }}</dd></div>
+          @if (cleanNote(data.description); as desc) {
+            <div class="md-meta-wide"><dt>Mô tả</dt><dd class="md-description">{{ desc }}</dd></div>
+          }
         </dl>
       </section>
 
       <section class="tower-card md-card" aria-labelledby="md-defect-title">
         <div class="md-card-head">
           <h2 id="md-defect-title">Khuyết tật cần sửa chữa</h2>
-          @if (data.anomaly?.isEmergencyClass) { <span class="tower-pill tone-danger">Loại khẩn cấp</span> }
+          @if (data.anomaly?.isEmergencyClass) { <span class="text-rose-600 font-medium">Khẩn cấp</span> }
         </div>
         @if (data.anomaly; as anomaly) {
           <div class="md-defect">
@@ -93,8 +99,8 @@
               <div><dt>Loại khuyết tật</dt><dd>{{ anomaly.categoryName || anomaly.categoryCode || 'Không xác định' }}</dd></div>
               <div><dt>Độ tin cậy AI</dt><dd>{{ anomaly.confidenceScore | number: '1.0-1' }}%</dd></div>
               <div><dt>Xác nhận lúc</dt><dd>{{ anomaly.validatedAt ? (anomaly.validatedAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</dd></div>
-              @if (anomaly.analystNotes) {
-                <div class="md-meta-wide"><dt>Ghi chú của chuyên viên phân tích</dt><dd class="md-description">{{ anomaly.analystNotes }}</dd></div>
+              @if (cleanNote(anomaly.analystNotes); as note) {
+                <div class="md-meta-wide"><dt>Ghi chú của chuyên viên phân tích</dt><dd class="md-description">{{ note }}</dd></div>
               }
             </dl>
           </div>
@@ -130,44 +136,6 @@
           <div class="md-subform"><app-proof-upload [ticketId]="data.id" (uploaded)="onProofUploaded($event)" /></div>
         }
       </section>
-
-      <section class="tower-card md-card" aria-labelledby="md-materials-title">
-        <div class="md-card-head">
-          <h2 id="md-materials-title">Vật tư đã sử dụng <span class="md-count">{{ data.materials.length }}</span></h2>
-        </div>
-        @if (data.materials.length) {
-          <div class="tower-table-wrap">
-            <table class="tower-table md-materials">
-              <caption class="sr-only">Vật tư đã sử dụng cho phiếu {{ data.ticketCode }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Vật tư</th>
-                  <th scope="col" class="th-md-code">Mã</th>
-                  <th scope="col" class="th-md-qty">Số lượng</th>
-                  <th scope="col">Ghi chú hiện trường</th>
-                  <th scope="col" class="th-md-time">Ghi nhận lúc</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (material of data.materials; track material.id || $index) {
-                  <tr>
-                    <td><strong>{{ material.componentName }}</strong></td>
-                    <td class="tower-mono">{{ material.componentCode || '—' }}</td>
-                    <td>{{ material.quantityUsed }} {{ material.unit }}</td>
-                    <td class="tower-muted">{{ material.fieldObservations || '—' }}</td>
-                    <td>{{ material.loggedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p class="md-empty">Chưa ghi nhận vật tư.</p>
-        }
-        @if (canAddEvidence()) {
-          <div class="md-subform"><app-material-form [ticketId]="data.id" (logged)="onMaterialLogged($event)" /></div>
-        }
-      </section>
     </div>
 
     <aside class="md-side" aria-label="Tiến độ và thao tác">
@@ -200,24 +168,24 @@
         @if (canStart() || canSubmit() || canClose()) {
           <div class="md-buttons">
             @if (canStart()) {
-              <button type="button" class="button primary" [disabled]="!data.technicianId" [attr.aria-describedby]="!data.technicianId ? 'md-start-hint' : null" (click)="ask('start')">
-                <span nz-icon nzType="tool" aria-hidden="true"></span><span>Bắt đầu sửa chữa</span>
+              <button type="button" class="app-btn-primary" [disabled]="!data.technicianId" [attr.aria-describedby]="!data.technicianId ? 'md-start-hint' : null" (click)="ask('start')">
+                Bắt đầu sửa chữa
               </button>
               @if (!data.technicianId) {
                 <span id="md-start-hint" class="md-hint">Cần giao kỹ thuật viên trước khi bắt đầu sửa chữa.</span>
               }
             }
             @if (canSubmit()) {
-              <button type="button" class="button primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-submit-hint' : null" (click)="ask('submit')">
-                <span nz-icon nzType="check-circle" aria-hidden="true"></span><span>Gửi nghiệm thu</span>
+              <button type="button" class="app-btn-primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-submit-hint' : null" (click)="ask('submit')">
+                Gửi nghiệm thu
               </button>
               @if (!hasProof()) {
                 <span id="md-submit-hint" class="md-hint">Cần tải lên ít nhất một ảnh minh chứng trước khi gửi nghiệm thu.</span>
               }
             }
             @if (canClose()) {
-              <button type="button" class="button primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-close-hint' : null" (click)="ask('close')">
-                <span nz-icon nzType="safety-certificate" aria-hidden="true"></span><span>Nghiệm thu & đóng phiếu</span>
+              <button type="button" class="app-btn-primary" [disabled]="!hasProof()" [attr.aria-describedby]="!hasProof() ? 'md-close-hint' : null" (click)="ask('close')">
+                Nghiệm thu &amp; đóng phiếu
               </button>
               @if (!hasProof()) {
                 <span id="md-close-hint" class="md-hint">Phiếu chưa có ảnh minh chứng nên chưa thể nghiệm thu.</span>
@@ -242,3 +210,4 @@
     />
   }
 }
+</div>

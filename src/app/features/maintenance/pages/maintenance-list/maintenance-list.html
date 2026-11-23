@@ -1,118 +1,195 @@
-<header class="page-heading">
-  <div class="heading-left">
-    <nav class="page-breadcrumb" aria-label="Đường dẫn">
-      <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
-      <span class="separator">/</span>
-      <strong>PHIẾU BẢO TRÌ</strong>
-    </nav>
-    <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
-    <p class="review-subtitle">
-      @if (isManager()) {
-        Phiếu sửa chữa sinh ra từ khuyết tật đã xác nhận: giao kỹ thuật viên, theo dõi tiến độ và nghiệm thu.
-      } @else {
-        Các phiếu sửa chữa được giao cho bạn.
-      }
-    </p>
-  </div>
-</header>
+<div class="ops-page maintenance-list-benchmark">
+  <header class="page-header">
+    <div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
+        <span class="separator">/</span>
+        <strong>Phiếu bảo trì</strong>
+      </nav>
+      <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
+      <p>
+        @if (isManager()) {
+          Phiếu sửa chữa sinh ra từ khuyết tật đã xác nhận: giao kỹ thuật viên, theo dõi tiến độ và nghiệm thu
+        } @else {
+          Các phiếu sửa chữa được giao cho bạn
+        }
+      </p>
+    </div>
+  </header>
 
-<form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
-  <div class="tower-filter">
-    <label for="maintenance-status">Trạng thái</label>
-    <select id="maintenance-status" formControlName="status">
-      <option value="">Tất cả trạng thái</option>
-      @for (status of statuses; track status) {
-        <option [value]="status">{{ statusLabel(status) }}</option>
-      }
-    </select>
-  </div>
-  <div class="tower-filter">
-    <label for="maintenance-priority">Mức ưu tiên</label>
-    <select id="maintenance-priority" formControlName="priority">
-      <option value="">Tất cả mức</option>
-      @for (priority of priorities; track priority) {
-        <option [value]="priority">{{ priorityLabel(priority) }}</option>
-      }
-    </select>
-  </div>
-  <div class="tower-filter">
-    <label for="maintenance-sort">Sắp xếp</label>
-    <select id="maintenance-sort" [value]="sortBy()" (change)="setSortBy($any($event.target).value)">
-      <option value="priority_desc">Ưu tiên cao → thấp</option>
-      <option value="priority_asc">Ưu tiên thấp → cao</option>
-      <option value="date_desc">Thời gian gần nhất → xa nhất</option>
-      <option value="date_asc">Thời gian xa nhất → gần nhất</option>
-    </select>
-  </div>
-</form>
+  <section class="app-filter-bar" role="search" aria-label="Lọc phiếu bảo trì">
+    <label class="filter-field" for="maintenance-status">
+      <span class="filter-label">Trạng thái</span>
+      <select id="maintenance-status" [value]="statusFilter()" (change)="onStatusEvent($event)">
+        <option value="">Tất cả trạng thái</option>
+        @for (status of statuses; track status) {
+          <option [value]="status">{{ statusLabel(status) }}</option>
+        }
+      </select>
+    </label>
 
-<section class="tower-card" aria-labelledby="maintenance-table-caption">
-  @if (loading() && !rows().length) {
-    <app-data-state kind="loading" title="Đang tải phiếu bảo trì" />
-  } @else if (loadError()) {
-    <app-data-state kind="error" [message]="loadError()" (retry)="load()" />
-  } @else if (!rows().length) {
-    <app-data-state
-      kind="empty"
-      title="Không có phiếu bảo trì"
-      [message]="hasFilters() ? 'Không có phiếu phù hợp với bộ lọc.' : isManager() ? 'Chưa có phiếu bảo trì nào.' : 'Bạn chưa được giao phiếu bảo trì nào.'"
-    />
-  } @else {
-    <div class="tower-table-wrap" [attr.aria-busy]="loading()">
-      <table class="tower-table maintenance-table">
-        <caption id="maintenance-table-caption" class="sr-only">{{ isManager() ? 'Danh sách phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</caption>
+    <label class="filter-field" for="maintenance-priority">
+      <span class="filter-label">Mức ưu tiên</span>
+      <select id="maintenance-priority" [value]="priorityFilter()" (change)="onPriorityEvent($event)">
+        <option value="">Tất cả mức</option>
+        @for (priority of priorities; track priority) {
+          <option [value]="priority">{{ priorityLabel(priority) }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="filter-field" for="maintenance-sort">
+      <span class="filter-label">Sắp xếp</span>
+      <select id="maintenance-sort" [value]="sortBy()" (change)="onSortEvent($event)">
+        <option value="priority_desc">Ưu tiên cao → thấp</option>
+        <option value="priority_asc">Ưu tiên thấp → cao</option>
+        <option value="date_desc">Thời gian mới nhất</option>
+        <option value="date_asc">Thời gian cũ nhất</option>
+      </select>
+    </label>
+
+    <div class="filter-actions">
+      <button
+        type="button"
+        class="app-btn-secondary"
+        [disabled]="!hasFilters()"
+        (click)="resetFilters()"
+      >
+        Xóa lọc
+      </button>
+      <button type="button" class="app-btn-secondary btn-refresh" (click)="refresh()">
+        {{ fetching() ? 'Đang tải...' : 'Làm mới' }}
+      </button>
+    </div>
+  </section>
+
+  @if (loadError()) {
+    <div class="app-error-banner" role="alert">
+      <span class="truncate">{{ loadError() }}</span>
+      <button type="button" class="app-btn-action" (click)="refresh()">Thử lại</button>
+    </div>
+  }
+
+  <section class="app-table-card" [attr.aria-busy]="initialLoading() || fetching()">
+    <div class="app-table-scroll app-table-stage">
+      <table class="app-data-table">
+        <colgroup>
+          <col style="width: 11%" />
+          <col style="width: 24%" />
+          <col style="width: 9%" />
+          <col style="width: 12%" />
+          <col style="width: 14%" />
+          <col style="width: 11%" />
+          <col style="width: 11%" />
+          <col style="width: 8%" />
+        </colgroup>
         <thead>
           <tr>
-            <th scope="col" class="th-m-code">Mã phiếu</th>
-            <th scope="col" class="th-m-desc">Sự cố</th>
-            <th scope="col" class="th-m-priority">Ưu tiên</th>
-            <th scope="col" class="th-m-status">Trạng thái</th>
-            <th scope="col" class="th-m-tech">Kỹ thuật viên</th>
-            <th scope="col" class="th-m-date">Hạn xử lý</th>
-            <th scope="col" class="th-m-date">Ngày tạo</th>
-            <th scope="col" class="th-m-actions"><span class="sr-only">Thao tác</span></th>
+            <th>Mã phiếu</th>
+            <th>Sự cố</th>
+            <th class="col-center">Ưu tiên</th>
+            <th class="col-center">Trạng thái</th>
+            <th>Kỹ thuật viên</th>
+            <th>Hạn xử lý</th>
+            <th>Ngày tạo</th>
+            <th class="col-center col-sticky-right">Thao tác</th>
           </tr>
         </thead>
-        <tbody>
-          @for (ticket of rows(); track ticket.id) {
+        <tbody [class.is-fetching]="fetching() && !initialLoading()">
+          @if (initialLoading()) {
+            @for (row of skeletonRows; track row) {
+              <tr aria-hidden="true">
+                <td><span class="app-skeleton-bar w-24"></span></td>
+                <td><span class="app-skeleton-bar w-48"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
+                <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
+                <td><span class="app-skeleton-bar w-28"></span></td>
+                <td><span class="app-skeleton-bar w-20"></span></td>
+                <td><span class="app-skeleton-bar w-20"></span></td>
+                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
+              </tr>
+            }
+          } @else if (!rows().length) {
             <tr>
-              <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
-              <td class="td-m-desc" [title]="ticket.description">
-                <div class="maintenance-desc-wrap">
-                  <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
-                  @if (ticket.tower) { <span class="maintenance-tower-tag">Cột {{ ticket.tower.towerCode }}</span> }
-                </div>
-              </td>
-              <td class="td-m-priority"><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
-              <td class="td-m-status"><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
-              <td class="td-m-tech">
-                @if (ticket.technicianId) {
-                  <span class="tech-name-text" [title]="technicianName(ticket)">{{ technicianName(ticket) }}</span>
-                } @else {
-                  <span class="maintenance-unassigned">Chưa giao</span>
-                }
-              </td>
-              <td class="td-m-date">
-                <div class="maintenance-date-wrap" [class.maintenance-overdue]="isOverdue(ticket)">
-                  <span class="maintenance-date-val">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</span>
-                  @if (isOverdue(ticket)) { <span class="maintenance-overdue-tag">Quá hạn</span> }
-                </div>
-              </td>
-              <td class="td-m-date"><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
-              <td class="td-m-actions">
-                <a class="button secondary small" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Chi tiết phiếu ' + ticket.ticketCode">
-                  Chi tiết
-                </a>
+              <td colspan="8" class="app-empty-cell">
+                {{ hasFilters() ? 'Không có phiếu phù hợp với bộ lọc.' : isManager() ? 'Chưa có phiếu bảo trì nào.' : 'Bạn chưa được giao phiếu bảo trì nào.' }}
               </td>
             </tr>
+          } @else {
+            @for (ticket of rows(); track ticket.id) {
+              <tr>
+                <td>
+                  <span class="cell-primary cell-truncate" [title]="ticket.ticketCode || 'Phiếu'">
+                    {{ ticket.ticketCode || 'Phiếu' }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="cell-primary cell-truncate"
+                    [title]="(ticket.description || '—') + (ticket.tower ? ' · Cột ' + ticket.tower.towerCode : '')"
+                  >
+                    {{ ticket.description || '—' }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span [class]="priorityColorClass(ticket.priority)">
+                    {{ priorityLabel(ticket.priority) }}
+                  </span>
+                </td>
+                <td class="col-center">
+                  <span [class]="statusColorClass(ticket.status)">
+                    {{ statusLabel(ticket.status) }}
+                  </span>
+                </td>
+                <td>
+                  @if (ticket.technicianId) {
+                    <span class="cell-secondary cell-truncate" [title]="technicianName(ticket)">
+                      {{ technicianName(ticket) }}
+                    </span>
+                  } @else {
+                    <span class="cell-muted">Chưa giao</span>
+                  }
+                </td>
+                <td class="tabular-nums">
+                  @if (ticket.dueDate) {
+                    <span
+                      [class]="isOverdue(ticket) ? 'text-rose-600 font-medium' : 'cell-secondary'"
+                      [title]="(ticket.dueDate | date: 'dd/MM/yyyy') + (isOverdue(ticket) ? ' (Quá hạn)' : '')"
+                    >
+                      {{ ticket.dueDate | date: 'dd/MM/yyyy' }}
+                    </span>
+                  } @else {
+                    <span class="cell-muted">—</span>
+                  }
+                </td>
+                <td class="tabular-nums cell-secondary">
+                  <span>{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span>
+                </td>
+                <td class="col-center col-sticky-right">
+                  <a
+                    class="app-btn-action"
+                    [routerLink]="['/maintenance', ticket.id]"
+                    [attr.aria-label]="'Chi tiết phiếu ' + ticket.ticketCode"
+                  >
+                    Chi tiết
+                  </a>
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
     </div>
     @if (isManager()) {
-      <div class="tower-footer">
-        <app-pagination [page]="pageIndex() + 1" [totalPages]="totalPages()" [totalCount]="page().totalCount" (pageChanged)="goToPage($event - 1)" />
-      </div>
+      <footer class="app-pagination-footer">
+        <app-pagination
+          [page]="pageIndex() + 1"
+          [totalPages]="totalPages()"
+          [totalCount]="page().totalCount"
+          [pageSize]="pageSize()"
+          (pageChanged)="goToPage($event - 1)"
+        />
+      </footer>
     }
-  }
-</section>
+  </section>
+</div>

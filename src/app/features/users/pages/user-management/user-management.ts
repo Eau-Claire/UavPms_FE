@@ -12,13 +12,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
 import { FacilityStore } from '../../../../core/facility/facility-store';
+import { roleLabelVietnamese } from '../../../../shared/status/status';
+import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
 import { UsersApi } from '../../data-access/users-api';
 
@@ -27,7 +28,7 @@ const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, UserScopeDialog, Pagination],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -43,15 +44,22 @@ export class UserManagement {
   private readonly facilityStore = inject(FacilityStore, { optional: true });
 
   protected readonly users = signal<readonly UserRecord[]>([]);
-  protected readonly loading = signal(true);
+  protected readonly initialLoading = signal(true);
+  protected readonly fetching = signal(false);
+  protected readonly loading = computed(() => this.initialLoading() || this.fetching());
+  protected readonly skeletonRows = Array.from({ length: 10 }, (_, i) => i + 1);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly notice = signal('');
   protected readonly search = signal('');
   protected readonly roleFilter = signal<UserRole | ''>('');
   protected readonly statusFilter = signal<UserStatus | ''>('');
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.roleFilter() || this.statusFilter()),
+  );
   protected readonly modalOpen = signal(false);
   protected readonly editing = signal<UserRecord | null>(null);
+  protected readonly detailUser = signal<UserRecord | null>(null);
   protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);
   protected readonly scopeUser = signal<UserRecord | null>(null);
 
@@ -63,6 +71,7 @@ export class UserManagement {
 
   protected readonly generatedPassword = signal('');
   protected readonly copied = signal(false);
+  protected readonly formError = signal('');
 
   /** GET/POST/PATCH /users are SystemAdmin-only in IdentityService. */
   readonly isAdmin = computed(() => ADMIN_ROLES.includes((this.auth.user()?.role ?? '').toLowerCase()));
@@ -147,13 +156,16 @@ export class UserManagement {
 
   /** Admins see every user; Managers only get the active Inspectors from /users/assignable (the full list is admin-only). */
   protected load(): void {
-    this.loading.set(true);
+    this.fetching.set(true);
     this.error.set('');
     const request$ = this.isAdmin() ? this.api.getAll() : this.api.getAssignable();
     request$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.initialLoading.set(false);
+          this.fetching.set(false);
+        }),
       )
       .subscribe({
         next: (users) => this.users.set(users),
@@ -162,6 +174,27 @@ export class UserManagement {
           this.toast.error('Không thể tải danh sách người dùng.');
         },
       });
+  }
+
+  protected onSearchEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.onSearchChange(target?.value ?? '');
+  }
+
+  protected onRoleEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.onRoleFilterChange((target?.value ?? '') as UserRole | '');
+  }
+
+  protected onStatusEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    this.onStatusFilterChange((target?.value ?? '') as UserStatus | '');
+  }
+
+  protected userStatusColorClass(status: UserStatus): string {
+    if (status === 'Active') return 'text-emerald-600 font-medium';
+    if (status === 'Inactive') return 'text-amber-700 font-medium';
+    return 'text-rose-600 font-medium';
   }
 
   protected clearFilters(): void {
@@ -186,8 +219,17 @@ export class UserManagement {
     this.page.set(1);
   }
 
+  protected openDetail(user: UserRecord): void {
+    this.detailUser.set(user);
+  }
+
+  protected closeDetail(): void {
+    this.detailUser.set(null);
+  }
+
   protected openCreate(): void {
     this.editing.set(null);
+    this.formError.set('');
     this.form.reset({ fullName: '', email: '', phone: '', role: 'Inspector', status: 'Active' });
     this.regeneratePassword();
     this.modalOpen.set(true);
@@ -195,6 +237,7 @@ export class UserManagement {
 
   protected openEdit(user: UserRecord): void {
     this.editing.set(user);
+    this.formError.set('');
     this.form.reset({
       fullName: user.fullName,
       email: user.email,
@@ -203,6 +246,19 @@ export class UserManagement {
       status: user.status,
     });
     this.modalOpen.set(true);
+  }
+
+  protected isDuplicateEmail(): boolean {
+    if (this.editing()) return false;
+    const email = this.form.controls.email.value.trim().toLowerCase();
+    if (!email) return false;
+    return this.users().some((u) => u.email.trim().toLowerCase() === email);
+  }
+
+  protected isPhoneInvalid(): boolean {
+    const phone = this.form.controls.phone.value.trim();
+    if (!phone) return false;
+    return !/^(0|\+84)[0-9]{8,10}$/.test(phone.replace(/\s+/g, ''));
   }
 
   protected closeModal(): void {
@@ -220,18 +276,35 @@ export class UserManagement {
   }
 
   private create(): void {
-    if (this.form.invalid) {
+    this.formError.set('');
+    const raw = this.form.getRawValue();
+    const fullName = raw.fullName.trim();
+    const email = raw.email.trim();
+    const phone = raw.phone.trim();
+
+    if (this.form.invalid || fullName.length < 2 || this.isDuplicateEmail() || this.isPhoneInvalid()) {
       this.form.markAllAsTouched();
+      if (!fullName || fullName.length < 2) {
+        this.formError.set('Vui lòng nhập họ và tên hợp lệ (tối thiểu 2 ký tự).');
+      } else if (!email || this.form.controls.email.invalid) {
+        this.formError.set('Vui lòng nhập địa chỉ email đúng định dạng (ví dụ: ten@donvi.vn).');
+      } else if (this.isDuplicateEmail()) {
+        this.formError.set(`Email "${email}" đã tồn tại trong hệ thống. Vui lòng dùng địa chỉ email khác.`);
+      } else if (this.isPhoneInvalid()) {
+        this.formError.set('Số điện thoại không hợp lệ (cần 9–11 chữ số, bắt đầu bằng 0 hoặc +84).');
+      } else {
+        this.formError.set('Vui lòng kiểm tra lại các trường thông tin bắt buộc.');
+      }
       return;
     }
+
     this.busy.set(true);
-    const raw = this.form.getRawValue();
     const temporaryPassword = this.generatedPassword() || this.generateSecurePassword();
     this.api
       .create({
-        fullName: raw.fullName,
-        email: raw.email,
-        phone: raw.phone,
+        fullName,
+        email,
+        phone,
         role: raw.role,
         password: temporaryPassword,
       })
@@ -249,7 +322,11 @@ export class UserManagement {
           });
           this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu khởi tạo: ${temporaryPassword}`);
         },
-        error: () => this.toast.error('Không thể tạo người dùng mới.'),
+        error: (err: unknown) => {
+          const msg = describeHttpError(err, 'Không thể tạo người dùng mới. Vui lòng kiểm tra email có bị trùng hoặc dữ liệu chưa hợp lệ.');
+          this.formError.set(msg);
+          this.toast.error(msg);
+        },
       });
   }
 
@@ -376,27 +453,7 @@ export class UserManagement {
   }
 
   protected roleLabel(role: UserRole | string): string {
-    const raw = String(role ?? '').trim();
-    const key = raw.toLowerCase().replace(/[\s_-]/g, '');
-    switch (key) {
-      case 'admin':
-      case 'systemadmin':
-      case 'administrator':
-        return 'SystemAdmin';
-      case 'manager':
-      case 'supervisor':
-        return 'Manager';
-      case 'inspector':
-      case 'pilot':
-        return 'Inspector';
-      case 'technician':
-      case 'maintenancetechnician':
-        return 'Technician';
-      case 'analyst':
-        return 'Analyst';
-      default:
-        return raw;
-    }
+    return roleLabelVietnamese(role);
   }
 
   protected statusLabel(status: UserStatus): string {

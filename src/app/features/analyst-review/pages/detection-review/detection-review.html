@@ -1,48 +1,40 @@
-<div class="review-page">
-  <div class="review-page-head">
-    <div class="head-info">
-      <nav class="review-breadcrumb" aria-label="Đường dẫn">
-        <a routerLink="/ai-review" class="breadcrumb-link">DUYỆT KẾT QUẢ PHÁT HIỆN</a>
+<div class="ops-page review-page">
+  <header class="page-header">
+    <div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard">Tổng quan</a>
         <span class="separator">/</span>
-        <strong>CHI TIẾT SỰ CỐ #{{ detectionId() }}</strong>
+        <a routerLink="/ai-review">Duyệt khuyết tật</a>
+        <span class="separator">/</span>
+        <strong class="tabular-nums">Chi tiết phát hiện</strong>
       </nav>
-      <h1 class="page-title">Thẩm định kết quả phát hiện khuyết tật</h1>
-      <p class="review-subtitle">
-        Kiểm tra hình ảnh độ phân giải cao, vị trí khoanh vùng và ra quyết định thẩm định kỹ thuật
-      </p>
+      <h1>Thẩm định kết quả phát hiện khuyết tật</h1>
+      <p>Kiểm tra hình ảnh độ phân giải cao, vị trí khoanh vùng và ra quyết định thẩm định kỹ thuật.</p>
     </div>
-  </div>
-
-  @if (loading()) {
-    <div style="background: #ffffff; padding: 60px; text-align: center; border-radius: 6px; border: 1px solid #cbd8e5;">
-      <span nz-icon nzType="loading" style="font-size: 36px; color: #10387d;"></span>
-      <p style="margin-top: 12px; color: #64748b; font-size: 13px;">Đang tải hình ảnh và dữ liệu kiểm tra...</p>
-    </div>
-  } @else if (detection(); as item) {
-    <!-- Nút quay lại danh sách nằm bên trái, ngay phía trên khung hình -->
-    <div class="review-back-action-bar">
-      <button type="button" class="action-btn-back" (click)="goBack()">
-        <span nz-icon nzType="arrow-left" aria-hidden="true"></span>
-        <span>Quay lại danh sách</span>
-      </button>
-
+    <div class="head-actions">
       @if (queueIndex() !== -1 && queueIds().length > 0) {
-        <span class="queue-counter-tag">
-          Đang xem phát hiện {{ queueIndex() + 1 }} / {{ queueIds().length }}
+        <span class="queue-counter-tag tabular-nums">
+          Phát hiện {{ queueIndex() + 1 }} / {{ queueIds().length }}
         </span>
       }
+      <button type="button" class="app-btn-secondary" (click)="goBack()">Quay lại danh sách</button>
     </div>
+  </header>
 
+  @if (loading()) {
+    <div class="review-loading-card">
+      <p>Đang tải hình ảnh và dữ liệu kiểm tra...</p>
+    </div>
+  } @else if (detection(); as item) {
     <div class="review-detail-layout">
       <!-- CỘT TRÁI: KHUNG HÌNH ẢNH LỚN VÀ RỘNG RÃI -->
       <section class="inspection-viewport-card" aria-label="Khung hiển thị hình ảnh kiểm tra">
         <div class="viewport-toolbar">
           <div class="toolbar-title">
-            <span nz-icon nzType="picture"></span>
             <span>Ảnh kiểm tra hiện trường</span>
-            <span class="image-dimen-tag">
+            <span class="image-dimen-tag tabular-nums">
               @if (imgNaturalWidth() > 0) {
-                ({{ imgNaturalWidth() }} × {{ imgNaturalHeight() }}px)
+                ({{ imgNaturalWidth() }} × {{ imgNaturalHeight() }} px)
               }
             </span>
           </div>
@@ -54,40 +46,23 @@
               [title]="showBoundingBox() ? 'Ẩn khung đánh dấu' : 'Hiện khung đánh dấu'"
               (click)="toggleBoundingBox()"
             >
-              <span nz-icon nzType="border"></span>
+              Khung lỗi
             </button>
-            <button
-              type="button"
-              title="Phóng to ảnh"
-              (click)="zoomIn()"
-            >
-              <span nz-icon nzType="plus"></span>
-            </button>
-            <button
-              type="button"
-              title="Thu nhỏ ảnh"
-              (click)="zoomOut()"
-            >
-              <span nz-icon nzType="minus"></span>
-            </button>
-            <button
-              type="button"
-              title="Đặt lại tỉ lệ (100%)"
-              (click)="resetZoom()"
-            >
-              <span style="font-size: 11px; font-weight: 700;">{{ (zoomLevel() * 100).toFixed(0) }}%</span>
+            <button type="button" title="Phóng to ảnh" (click)="zoomIn()">+</button>
+            <button type="button" title="Thu nhỏ ảnh" (click)="zoomOut()">−</button>
+            <button type="button" title="Đặt lại tỉ lệ (100%)" (click)="resetZoom()">
+              {{ (zoomLevel() * 100).toFixed(0) }}%
             </button>
           </div>
         </div>
 
-        <div class="viewport-stage">
-          <div
-            class="image-canvas-wrapper"
-            [style.transform]="'scale(' + zoomLevel() + ')'"
-          >
+        <div class="viewport-stage" (wheel)="onWheelZoom($event)">
+          <div class="image-canvas-wrapper" [style.transform]="'scale(' + zoomLevel() + ')'">
             @if (item.mediaUrl) {
               <img
                 [src]="item.mediaUrl"
+                loading="lazy"
+                decoding="async"
                 [alt]="item.categoryName"
                 (load)="onImageLoaded($event)"
                 (error)="onImageError($event)"
@@ -106,9 +81,7 @@
                 [attr.aria-label]="item.categoryName + ' bounding box'"
               >
                 <div class="bbox-tag">
-                  <span nz-icon nzType="tag"></span>
-                  <span>{{ item.categoryName }}</span>
-                  <span style="opacity: 0.9; font-weight: 700;">({{ item.confidenceScore }}%)</span>
+                  <span>{{ item.categoryName }} ({{ item.confidenceScore }}%)</span>
                 </div>
               </div>
             }
@@ -117,7 +90,7 @@
 
         <div class="viewport-footer">
           <span>Khung đánh dấu được đồng bộ tỉ lệ theo ảnh gốc</span>
-          <span>Phím tắt: Cuộn chuột hoặc dùng thanh công cụ để phóng to / thu nhỏ</span>
+          <span>Cuộn chuột hoặc dùng thanh công cụ để phóng to / thu nhỏ</span>
         </div>
       </section>
 
@@ -128,16 +101,13 @@
             <div class="info-section-title">Thông tin phát hiện kỹ thuật</div>
             <h2 class="defect-title">{{ item.categoryName }}</h2>
 
-            <div class="defect-badges">
-              <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
-                Độ tin cậy: {{ item.confidenceScore }}%
-              </span>
-              <span class="status-pill {{ statusClass(item) }}">
-                <span class="status-dot"></span>
-                Kết quả thẩm định: {{ statusText(item) }}
-              </span>
-              @if (item.isEmergency || (item.severity ?? 0) >= 4) {
-                <span class="emergency-pill">Khẩn cấp</span>
+            <div class="defect-meta-inline">
+              <span class="tabular-nums text-slate-700 font-medium">Độ tin cậy: {{ item.confidenceScore }}%</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span [class]="statusClass(item)">{{ statusText(item) }}</span>
+              @if (isEmergencyItem(item)) {
+                <span class="meta-sep" aria-hidden="true">·</span>
+                <span class="text-rose-600 font-semibold">Khẩn cấp</span>
               }
             </div>
           </div>
@@ -145,7 +115,7 @@
           <div class="detail-property-list">
             <div class="prop-item">
               <span class="prop-label">Mã sự cố:</span>
-              <span class="prop-value" style="font-family: monospace;">#{{ item.id }}</span>
+              <span class="prop-value tabular-nums">#{{ item.id }}</span>
             </div>
             <div class="prop-item">
               <span class="prop-label">Cột điện:</span>
@@ -160,29 +130,13 @@
               <span class="prop-value">{{ item.missionName || item.missionCode || 'Không gắn nhiệm vụ' }}</span>
             </div>
             <div class="prop-item">
-              <span class="prop-label">Nguồn xử lý:</span>
-              <span class="prop-value" style="font-family: monospace; font-size: 11.5px; background: #ffffff; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px;">
-                {{ item.aiSource || 'Không rõ' }}
-                @if (analysisRun()?.modelVersion) { v{{ analysisRun()?.modelVersion }} }
-              </span>
-            </div>
-            <div class="prop-item">
-              <span class="prop-label">Nơi chạy:</span>
-              @if (executionLocation(); as location) {
-                <span class="prop-value">{{ executionLabels[location] }}</span>
-              } @else {
-                <span class="prop-value">Chưa xác định</span>
-              }
-            </div>
-            <div class="prop-item">
               <span class="prop-label">Thời điểm ghi nhận:</span>
-              <span class="prop-value">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
+              <span class="prop-value tabular-nums">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
           </div>
 
           @if (item.supersededById) {
             <div class="role-notice-banner" role="note">
-              <span nz-icon nzType="swap" aria-hidden="true"></span>
               <span>
                 Kết quả Edge này đã được kết quả Cloud thay thế nên không cần thẩm định.
                 <a [routerLink]="['/ai-review', item.supersededById]">Mở kết quả thay thế</a>
@@ -192,7 +146,6 @@
 
           @if (supersededItems().length) {
             <div class="role-notice-banner" role="note">
-              <span nz-icon nzType="cloud" aria-hidden="true"></span>
               <span>
                 Kết quả Cloud này thay thế {{ supersededItems().length }} kết quả Edge:
                 @for (old of supersededItems(); track old.id) {
@@ -202,7 +155,7 @@
             </div>
           }
 
-          @if (item.analystNotes) {
+          @if (item.analystNotes && !item.analystNotes.startsWith('AI evaluation:')) {
             <div class="existing-notes-box">
               <div class="notes-header-label">Ghi chú thẩm định:</div>
               <div class="notes-body-text">{{ item.analystNotes }}</div>
@@ -214,11 +167,9 @@
         @if (canReview() && !item.supersededById && (isReviewable() || isReReviewing())) {
           <section class="review-actions-panel" aria-label="Thao tác phê duyệt">
             <div class="decision-header-row">
-              <span class="info-section-title">Quyết định của Chuyên viên thẩm định</span>
+              <span class="info-section-title">Quyết định của chuyên viên thẩm định</span>
               @if (isReReviewing()) {
-                <span style="font-size: 11px; color: #2563eb; font-weight: 600; background: #eff6ff; padding: 2px 8px; border-radius: 4px;">
-                  Đang thẩm định lại
-                </span>
+                <span class="text-sky-600 font-medium" style="font-size: 12px;">Đang thẩm định lại</span>
               }
             </div>
 
@@ -234,40 +185,36 @@
             ></textarea>
 
             <div class="action-btn-group">
-              <!-- NÚT 1: TỪ CHỐI (Màu đỏ mận EVN thanh lịch) -->
               <button
                 type="button"
-                class="btn-reject"
+                class="app-btn-danger"
                 [disabled]="actionBusy()"
                 (click)="openRejectModal()"
                 title="Bác bỏ kết quả phát hiện AI này"
               >
-                <span nz-icon nzType="close-circle"></span>
-                <span>Từ chối</span>
+                Từ chối
               </button>
 
-              <!-- NÚT 2: XÁC NHẬN (Màu xanh navy EVN thanh lịch) -->
               <button
                 type="button"
-                class="btn-approve"
+                class="app-btn-primary"
                 [disabled]="actionBusy()"
                 (click)="openConfirmModal()"
                 title="Xác nhận phát hiện này thành khuyết tật chính thức"
               >
-                <span nz-icon nzType="check-circle" [nzSpin]="actionBusy()"></span>
-                <span>Xác nhận</span>
+                {{ actionBusy() ? 'Đang xử lý...' : 'Xác nhận' }}
               </button>
             </div>
 
             @if (item.isEmergency) {
               <button
                 type="button"
-                class="btn-emergency-trigger"
+                class="app-btn-secondary"
+                style="width: 100%;"
                 [disabled]="actionBusy()"
                 (click)="triggerEmergencyAlert()"
               >
-                <span nz-icon nzType="alert" aria-hidden="true"></span>
-                <span>Kích hoạt cảnh báo khẩn cấp</span>
+                Kích hoạt cảnh báo khẩn cấp
               </button>
             }
           </section>
@@ -275,42 +222,29 @@
           <section class="review-actions-panel" aria-label="Trạng thái thẩm định">
             <div class="reviewed-status-box">
               <p class="reviewed-status-text">
-                Sự cố này đã được thẩm định với trạng thái:
-                <strong>{{ item.validationStatus }}</strong>
+                Sự cố này đã được thẩm định: <strong [class]="statusClass(item)">{{ statusText(item) }}</strong>
               </p>
-              <div style="margin-top: 10px;">
-                <button
-                  type="button"
-                  class="btn-approve"
-                  style="height: 32px; font-size: 12px; padding: 0 14px; background: #2563eb; border-color: #1d4ed8; color: #fff;"
-                  (click)="isReReviewing.set(true)"
-                >
-                  <span nz-icon nzType="edit"></span>
-                  <span>Thẩm định lại</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                class="app-btn-primary"
+                (click)="isReReviewing.set(true)"
+              >
+                Thẩm định lại
+              </button>
             </div>
           </section>
         } @else if (!canReview()) {
           <div class="role-notice-banner">
-            <span nz-icon nzType="info-circle"></span>
-            <span>Chỉ tài khoản <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền thẩm định kết quả phát hiện.</span>
+            <span>Chỉ tài khoản <strong>Chuyên viên phân tích</strong>, <strong>Quản lý vận hành</strong> hoặc <strong>Quản trị hệ thống</strong> mới có quyền thẩm định.</span>
           </div>
         }
       </aside>
     </div>
   } @else {
-    <div class="empty-state-card" style="background: #ffffff; padding: 48px; text-align: center; border-radius: 8px; border: 1px solid #e2e8f0; margin-top: 16px;">
-      <span nz-icon nzType="info-circle" style="font-size: 48px; color: #94a3b8; margin-bottom: 16px;"></span>
-      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Không tìm thấy dữ liệu phát hiện khuyết tật</h3>
-      <p style="color: #64748b; max-width: 480px; margin: 0 auto 20px; font-size: 14px;">
-        {{ error() || 'Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.' }}
-      </p>
-      <div style="display: flex; justify-content: center; gap: 12px;">
-        <button type="button" class="button primary" (click)="goBack()">
-          <span nz-icon nzType="arrow-left"></span> Quay lại danh sách
-        </button>
-      </div>
+    <div class="empty-state-card">
+      <h3>Không tìm thấy dữ liệu phát hiện khuyết tật</h3>
+      <p>{{ error() || 'Mục khuyết tật này không tồn tại hoặc đã được xử lý trong một phiên làm việc khác.' }}</p>
+      <button type="button" class="app-btn-primary" (click)="goBack()">Quay lại danh sách</button>
     </div>
   }
 </div>
@@ -319,24 +253,19 @@
   <div class="confirm-modal-backdrop" (click)="closeConfirmModal()">
     <div class="confirm-modal-card" (click)="$event.stopPropagation()">
       <div class="modal-head">
-        <h3>
-          <span nz-icon nzType="check-circle"></span>
-          Xác nhận kết quả phát hiện khuyết tật
-        </h3>
-        <button type="button" class="btn-close" aria-label="Đóng" (click)="closeConfirmModal()">✕</button>
+        <h3>Xác nhận kết quả phát hiện khuyết tật</h3>
+        <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeConfirmModal()">Đóng</button>
       </div>
 
       <div class="modal-body">
         <div class="confirm-info-banner">
-          <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1e3a8a;">
-            Bạn có chắc chắn muốn xác nhận kết quả phát hiện này?
-          </p>
-          <div style="margin-top: 8px; font-size: 13px; color: #334155; line-height: 1.6;">
-            <div>• Khuyết tật: <strong>{{ detection()?.categoryName || 'Bất thường kỹ thuật' }}</strong></div>
-            <div>• Cột điện: <strong>{{ detection()?.towerCode || 'Chưa gán cột' }}</strong></div>
-            <div>• Nhiệm vụ bay: <strong>{{ detection()?.missionName || detection()?.missionCode || 'Chưa xác định' }}</strong></div>
-          </div>
-          <p style="margin: 8px 0 0; font-size: 12px; color: #64748b;">
+          <p>Bạn có chắc chắn muốn xác nhận kết quả phát hiện này?</p>
+          <ul>
+            <li>Khuyết tật: <strong>{{ detection()?.categoryName || 'Bất thường kỹ thuật' }}</strong></li>
+            <li>Cột điện: <strong>{{ detection()?.towerCode || 'Chưa gán cột' }}</strong></li>
+            <li>Nhiệm vụ bay: <strong>{{ detection()?.missionName || detection()?.missionCode || 'Chưa xác định' }}</strong></li>
+          </ul>
+          <p class="confirm-sub">
             Sau khi xác nhận, sự cố sẽ được ghi nhận vào hồ sơ kỹ thuật chính thức và đưa vào hàng đợi lập phiếu bảo trì.
           </p>
         </div>
@@ -353,24 +282,9 @@
       </div>
 
       <div class="modal-foot">
-        <button
-          type="button"
-          class="btn-cancel"
-          [disabled]="actionBusy()"
-          (click)="closeConfirmModal()"
-        >
-          Hủy bỏ
-        </button>
-        <button
-          type="button"
-          class="btn-confirm-approve"
-          [disabled]="actionBusy()"
-          (click)="approveDetection()"
-        >
-          @if (actionBusy()) {
-            <span nz-icon nzType="loading"></span>
-          }
-          Xác nhận khuyết tật
+        <button type="button" class="app-btn-secondary" [disabled]="actionBusy()" (click)="closeConfirmModal()">Hủy bỏ</button>
+        <button type="button" class="app-btn-primary" [disabled]="actionBusy()" (click)="approveDetection()">
+          {{ actionBusy() ? 'Đang xác nhận...' : 'Xác nhận khuyết tật' }}
         </button>
       </div>
     </div>
@@ -381,17 +295,12 @@
   <div class="reject-modal-backdrop" (click)="closeRejectModal()">
     <div class="reject-modal-card" (click)="$event.stopPropagation()">
       <div class="modal-head">
-        <h3>
-          <span nz-icon nzType="close-circle"></span>
-          Từ chối kết quả phát hiện
-        </h3>
-        <button type="button" class="btn-close" aria-label="Đóng" (click)="closeRejectModal()">✕</button>
+        <h3>Từ chối kết quả phát hiện</h3>
+        <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeRejectModal()">Đóng</button>
       </div>
 
       <div class="modal-body">
-        <p style="margin: 0; font-size: 13px; color: #64748b;">
-          Vui lòng chọn lý do từ chối phát hiện này:
-        </p>
+        <p class="modal-sub">Vui lòng chọn lý do từ chối phát hiện này:</p>
 
         <div>
           <label for="reject-reason-select">Lý do chính (*):</label>
@@ -418,24 +327,9 @@
       </div>
 
       <div class="modal-foot">
-        <button
-          type="button"
-          class="btn-cancel"
-          [disabled]="actionBusy()"
-          (click)="closeRejectModal()"
-        >
-          Hủy bỏ
-        </button>
-        <button
-          type="button"
-          class="btn-confirm-reject"
-          [disabled]="actionBusy()"
-          (click)="confirmReject()"
-        >
-          @if (actionBusy()) {
-            <span nz-icon nzType="loading"></span>
-          }
-          Xác nhận từ chối
+        <button type="button" class="app-btn-secondary" [disabled]="actionBusy()" (click)="closeRejectModal()">Hủy bỏ</button>
+        <button type="button" class="app-btn-danger" [disabled]="actionBusy()" (click)="confirmReject()">
+          {{ actionBusy() ? 'Đang từ chối...' : 'Xác nhận từ chối' }}
         </button>
       </div>
     </div>

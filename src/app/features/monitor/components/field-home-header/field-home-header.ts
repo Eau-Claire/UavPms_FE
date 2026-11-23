@@ -10,7 +10,11 @@ import { roleLabel } from '../../../../core/auth/roles';
   template: `
     <header class="field-heading">
       <div class="heading-left">
-        <div class="page-breadcrumb"><span>TỔNG QUAN</span><span aria-hidden="true">/</span><strong>VIỆC CỦA TÔI</strong></div>
+        <nav class="page-breadcrumb" aria-label="Đường dẫn">
+          <span>Tổng quan</span>
+          <span class="separator">/</span>
+          <strong>Việc của tôi</strong>
+        </nav>
         <h1>Xin chào, {{ displayName() }}</h1>
         <p class="subtitle">
           <span class="role-chip">{{ role() }}</span>
@@ -33,11 +37,11 @@ import { roleLabel } from '../../../../core/auth/roles';
     :host { display: block; }
     .field-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .heading-left { display: flex; flex-direction: column; min-width: 0; }
-    .page-breadcrumb { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; color: #64748b; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-    .page-breadcrumb strong { color: #10387d; }
-    h1 { margin: 0 0 4px; color: #0f2952; font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
-    .subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: #475569; font-size: 12px; line-height: 1.35; }
-    .role-chip { padding: 2px 8px; border: 1px solid #bfdbfe; border-radius: 999px; background: #eff6ff; color: #10387d; font-size: 11px; font-weight: 700; }
+    .page-breadcrumb { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; color: #64748b; font-size: 12px; font-weight: 500; }
+    .page-breadcrumb strong { color: #0f172a; font-weight: 600; }
+    h1 { margin: 0 0 4px; color: #0f172a; font-size: 20px; font-weight: 700; line-height: 1.25; }
+    .subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: #64748b; font-size: 13px; line-height: 1.4; }
+    .role-chip { color: #1d4f91; font-size: 12.5px; font-weight: 600; }
     .heading-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .updated { color: #475569; font-size: 11.5px; }
     .refresh-btn { height: 30px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #10387d; font-size: 12px; font-weight: 600; cursor: pointer; }

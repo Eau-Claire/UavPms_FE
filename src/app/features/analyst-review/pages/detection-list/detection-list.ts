@@ -9,12 +9,11 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
-import { debounceTime, distinctUntilChanged, finalize, Subject } from 'rxjs';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { debounceTime, distinctUntilChanged, finalize, Subject, Subscription } from 'rxjs';
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
-import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
+import { statusColorClass, statusLabel } from '../../../../shared/status/status';
 import {
   AnomalyApi,
   anomalyErrorMessage,
@@ -24,9 +23,11 @@ import {
   groupSuperseded,
 } from '../../data-access/anomaly-api';
 
+type ReviewStatusFilter = 'Pending' | 'Confirmed' | 'Rejected';
+
 @Component({
   selector: 'app-detection-list',
-  imports: [DatePipe, RouterLink, NzIconModule, Pagination],
+  imports: [DatePipe, RouterLink, Pagination],
   templateUrl: './detection-list.html',
   styleUrl: './detection-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -35,21 +36,27 @@ import {
 export class DetectionList {
   private readonly api = inject(AnomalyApi);
   private readonly alertsApi = inject(EmergencyAlertsApi);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly toast = inject(ToastService);
   private readonly searchSubject = new Subject<string>();
+  private activeSub: Subscription | null = null;
 
-  protected readonly loading = signal(true);
+  protected readonly initialLoading = signal(true);
+  protected readonly fetching = signal(false);
+  protected readonly loading = computed(() => this.initialLoading() || this.fetching());
   protected readonly error = signal('');
   protected readonly page = signal(1);
   protected readonly pageSize = signal(15);
   protected readonly search = signal('');
+  protected readonly priorityFilter = signal<'' | 'emergency' | 'normal'>('');
   protected readonly viewMode = signal<'grid' | 'table'>('grid');
   protected readonly showSuperseded = signal(false);
-  protected readonly statusFilter = signal<'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'>('Pending');
+  protected readonly statusFilter = signal<ReviewStatusFilter>('Pending');
   protected readonly pendingCount = signal(0);
   protected readonly executionLabels = EXECUTION_LOCATION_LABELS;
+  protected readonly skeletonRows = Array.from({ length: 10 }, (_, i) => i + 1);
+  protected readonly skeletonCards = Array.from({ length: 6 }, (_, i) => i + 1);
 
   protected readonly response = signal<AnomalyPage>({
     items: [],
@@ -64,26 +71,34 @@ export class DetectionList {
   protected readonly hiddenSupersededCount = computed(() => this.grouping().hiddenCount);
 
   protected readonly displayedItems = computed<readonly AnomalyItem[]>(() => {
-    return this.showSuperseded() ? this.response().items : this.grouping().visible;
+    const base = this.grouping().visible;
+    const priority = this.priorityFilter();
+    const filtered =
+      priority === 'emergency'
+        ? base.filter((item) => this.isEmergencyItem(item))
+        : priority === 'normal'
+          ? base.filter((item) => !this.isEmergencyItem(item))
+          : [...base];
+
+    // Default sort: Khẩn cấp > Bình thường, then newest (createdAt desc)
+    return filtered.sort((a, b) => {
+      const aEm = this.isEmergencyItem(a) ? 1 : 0;
+      const bEm = this.isEmergencyItem(b) ? 1 : 0;
+      if (aEm !== bEm) return bEm - aEm;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   });
 
-  protected readonly emptyStateIcon = computed(() => {
-    if (this.statusFilter() === 'Confirmed') return 'file-done';
-    if (this.statusFilter() === 'Rejected') return 'stop';
-    if (this.statusFilter() === 'Reviewed') return 'audit';
-    return 'check-circle';
-  });
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(this.search().trim() || this.priorityFilter()),
+  );
 
   protected readonly emptyStateTitle = computed(() => {
     switch (this.statusFilter()) {
-      case 'Reviewed':
-        return 'Chưa có phát hiện nào đã được thẩm định';
       case 'Confirmed':
         return 'Chưa có phát hiện nào được chấp nhận';
       case 'Rejected':
         return 'Không có phát hiện nào bị từ chối';
-      case 'ALL':
-        return 'Không tìm thấy kết quả phát hiện nào';
       case 'Pending':
       default:
         return 'Không có phát hiện nào cần thẩm định';
@@ -92,49 +107,51 @@ export class DetectionList {
 
   protected readonly emptyStateDescription = computed(() => {
     switch (this.statusFilter()) {
-      case 'Reviewed':
-        return 'Tất cả các kết quả đã thẩm định (chấp nhận hoặc từ chối) sẽ hiển thị tại đây.';
       case 'Confirmed':
         return 'Các kết quả phát hiện khuyết tật sau khi được chấp nhận sẽ hiển thị tại đây.';
       case 'Rejected':
-        return 'Các kết quả phát hiện bị từ chối hoặc báo động sai sẽ hiển thị tại đây.';
-      case 'ALL':
-        return 'Không có dữ liệu phù hợp với điều kiện tìm kiếm hiện tại.';
+        return 'Các kết quả phát hiện bị từ chối hoặc báo động giả sẽ hiển thị tại đây.';
       case 'Pending':
       default:
         return 'Tất cả các kết quả phát hiện khuyết tật đã được xử lý hoàn tất hoặc không có dữ liệu phù hợp.';
     }
   });
 
-  protected readonly pageNumbers = computed(() =>
-    Array.from({ length: this.response().totalPages }, (_, index) => index + 1),
-  );
-
-  protected readonly criticalCount = computed(() =>
-    this.grouping().visible.filter((item) => item.isEmergency || (item.severity ?? 0) >= 4).length,
-  );
-
-  protected readonly highConfidenceCount = computed(() =>
-    this.grouping().visible.filter((item) => item.confidenceScore >= 90).length,
-  );
-
-  protected readonly missingTowerCount = computed(() =>
-    this.grouping().visible.filter((item) => !item.towerId).length,
-  );
+  protected cardBoxStyle(item: AnomalyItem): { left: string; top: string; width: string; height: string } | null {
+    const box = item.boundingBox;
+    if (!box) return { left: '10%', top: '10%', width: '80%', height: '80%' };
+    if (box.isNormalized || (box.x <= 100 && box.y <= 100 && box.width <= 100 && box.height <= 100 && box.x + box.width <= 100.5 && box.y + box.height <= 100.5)) {
+      return { left: `${box.x}%`, top: `${box.y}%`, width: `${box.width}%`, height: `${box.height}%` };
+    }
+    return { left: '10%', top: '10%', width: '80%', height: '80%' };
+  }
 
   constructor() {
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const p = (params.get('priority') ?? '').trim().toLowerCase();
+        if (p === 'emergency' || p === 'normal') {
+          this.priorityFilter.set(p);
+        }
+      });
+
     this.searchSubject
-      .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((query) => {
         this.search.set(query);
         this.page.set(1);
         this.load();
       });
 
+    this.destroyRef.onDestroy(() => {
+      this.activeSub?.unsubscribe();
+    });
+
     this.load();
   }
 
-  protected setStatusFilter(nextFilter: 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'): void {
+  protected setStatusFilter(nextFilter: ReviewStatusFilter): void {
     if (this.statusFilter() === nextFilter) return;
     this.statusFilter.set(nextFilter);
     this.page.set(1);
@@ -142,12 +159,13 @@ export class DetectionList {
   }
 
   protected load(): void {
-    this.loading.set(true);
+    this.activeSub?.unsubscribe();
+    this.fetching.set(true);
     this.error.set('');
 
     const filter = this.statusFilter();
-    if (filter === 'Pending' || filter === 'ALL') {
-      this.alertsApi
+    if (filter === 'Pending') {
+      this.activeSub = this.alertsApi
         .fetchActiveAlerts()
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
@@ -159,25 +177,27 @@ export class DetectionList {
     }
   }
 
-  private fetchList(filter: 'ALL' | 'Pending' | 'Reviewed' | 'Confirmed' | 'Rejected'): void {
-    let req$;
+  private fetchList(filter: ReviewStatusFilter): void {
+    const params = {
+      pageIndex: this.page(),
+      pageSize: this.pageSize(),
+      search: this.search(),
+    };
 
-    if (filter === 'Pending') {
-      req$ = this.api.listPending({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
-    } else if (filter === 'Reviewed') {
-      req$ = this.api.listReviewed('ALL_REVIEWED', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
-    } else if (filter === 'Confirmed') {
-      req$ = this.api.listReviewed('Confirmed', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
-    } else if (filter === 'Rejected') {
-      req$ = this.api.listReviewed('Rejected', { pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
-    } else {
-      req$ = this.api.listAll({ pageIndex: this.page(), pageSize: this.pageSize(), search: this.search() });
-    }
+    const req$ =
+      filter === 'Pending'
+        ? this.api.listPending(params)
+        : filter === 'Confirmed'
+          ? this.api.listReviewed('Confirmed', params)
+          : this.api.listReviewed('Rejected', params);
 
-    req$
+    this.activeSub = req$
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          this.initialLoading.set(false);
+          this.fetching.set(false);
+        }),
       )
       .subscribe({
         next: (res) => {
@@ -199,6 +219,19 @@ export class DetectionList {
     this.showSuperseded.set((event.target as HTMLInputElement).checked);
   }
 
+  protected onPriorityChange(event: Event): void {
+    const val = ((event.target as HTMLSelectElement | null)?.value ?? '') as '' | 'emergency' | 'normal';
+    this.priorityFilter.set(val);
+  }
+
+  protected resetFilters(): void {
+    this.search.set('');
+    this.priorityFilter.set('');
+    this.showSuperseded.set(false);
+    this.page.set(1);
+    this.load();
+  }
+
   protected supersededCountFor(item: AnomalyItem): number {
     return this.grouping().supersededByReplacement.get(item.id)?.length ?? 0;
   }
@@ -215,48 +248,51 @@ export class DetectionList {
     this.load();
   }
 
-  protected confidenceTone(score: number): string {
-    if (score >= 90) return 'success';
-    if (score >= 75) return 'info';
-    return 'warning';
-  }
-
-  protected statusTone(item: AnomalyItem): string {
-    if (item.supersededById) return 'neutral';
-    if (item.validationStatus === 'Confirmed') return 'success';
-    if (item.validationStatus === 'Resolved') return 'info';
-    if (item.validationStatus === 'Rejected') return 'danger';
-    return 'warning';
-  }
-
-  protected confidenceClass(score: number): string {
-    if (score >= 90) return 'conf-high';
-    if (score >= 75) return 'conf-med';
-    return 'conf-low';
-  }
-
-  protected statusClass(item: AnomalyItem): string {
-    if (item.supersededById) return 'status-rejected';
-    if (item.validationStatus === 'Confirmed' || item.validationStatus === 'Resolved') return 'status-confirmed';
-    if (item.validationStatus === 'Rejected') return 'status-rejected';
-    return 'status-pending';
-  }
-
   protected statusText(item: AnomalyItem): string {
-    if (item.supersededById) return 'Superseded';
-    if (item.validationStatus === 'Confirmed') return 'Confirmed';
-    if (item.validationStatus === 'Resolved') return 'Resolved';
-    if (item.validationStatus === 'Rejected') return 'Rejected';
-    if (item.validationStatus === 'InReview') return 'InReview';
-    return 'Pending';
+    if (item.supersededById) return 'Đã thay thế';
+    switch (item.validationStatus) {
+      case 'Confirmed':
+        return 'Đã xác nhận';
+      case 'Resolved':
+        return 'Đã khắc phục';
+      case 'Rejected':
+        return 'Đã từ chối';
+      case 'InReview':
+        return 'Đang thẩm định';
+      case 'Pending':
+      default:
+        return statusLabel(item.validationStatus || 'Pending');
+    }
+  }
+
+  protected itemStatusColorClass(item: AnomalyItem): string {
+    if (item.supersededById) return statusColorClass('CANCELLED');
+    return statusColorClass(item.validationStatus || 'PENDING');
+  }
+
+  protected confidenceColorClass(score: number): string {
+    if (score >= 90) return 'text-emerald-700 font-semibold';
+    if (score >= 75) return 'text-blue-700 font-semibold';
+    return 'text-amber-700 font-semibold';
   }
 
   protected isEmergencyItem(item: AnomalyItem): boolean {
-    return Boolean(item.isEmergency || (item.severity ?? 0) >= 4);
+    if (item.isEmergency) return true;
+    const sev = item.severity;
+    if (sev === null || sev === undefined) return false;
+    return sev > 1 ? sev >= 4 : sev >= 0.85;
+  }
+
+  protected isItemFinalized(item: AnomalyItem): boolean {
+    return (
+      item.validationStatus === 'Confirmed' ||
+      item.validationStatus === 'Rejected' ||
+      item.validationStatus === 'Resolved'
+    );
   }
 
   protected handleImageError(event: Event): void {
     const img = event.target as HTMLImageElement;
-    img.src = '/images/defect-preview-frame.png';
+    img.style.display = 'none';
   }
 }

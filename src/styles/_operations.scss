@@ -14,6 +14,13 @@
   border-bottom: none;
   margin-bottom: 20px;
 
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
   h1 {
     margin: 2px 0 4px;
     font-size: 20px;
@@ -187,4 +194,409 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* =====================================================================
+   GLOBAL DESIGN SYSTEM FOUNDATION (Quiet Chrome / Anti-Slop Benchmark)
+   Shared across all management tables: Pre-Mission, Missions, Drones...
+   ===================================================================== */
+
+/* Standardized Buttons (No Icons, 4px Grid Rhythm, WCAG AA Contrast) */
+.app-btn-primary,
+.app-btn-secondary,
+.app-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #1d4f91;
+    outline-offset: 2px;
+  }
+}
+
+.app-btn-primary {
+  background-color: #1d4f91;
+  border-color: #1d4f91;
+  color: #ffffff;
+
+  &:hover:not(:disabled) {
+    background-color: #163f75;
+    border-color: #163f75;
+    color: #ffffff;
+  }
+}
+
+.app-btn-secondary {
+  background-color: #ffffff;
+  border-color: rgba(203, 213, 225, 0.9);
+  color: #334155;
+
+  &:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+}
+
+.app-btn-danger {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+
+  &:hover:not(:disabled) {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+    color: #ffffff;
+  }
+}
+
+/* Inline Row Action Link (No Box Border, Clean Text Action) */
+.app-btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #1d4f91;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    color: #123b73;
+    background-color: rgba(29, 79, 145, 0.06);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #1d4f91;
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+/* Compact Flat Filter Toolbar (36px Controls, Single-Row Flow) */
+.app-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+
+  .filter-search {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .filter-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    white-space: nowrap;
+  }
+
+  input[type='search'],
+  input[type='text'],
+  input[type='date'],
+  select {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 400;
+    color: #0f172a;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &::placeholder {
+      color: #94a3b8;
+    }
+
+    &:hover {
+      border-color: #cbd5e1;
+    }
+
+    &:focus {
+      border-color: #1d4f91;
+      box-shadow: 0 0 0 2px rgba(29, 79, 145, 0.12);
+    }
+  }
+
+  .filter-search input {
+    width: 100%;
+  }
+
+  .filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
+/* Quiet Chrome Data Table Container & Table */
+.app-table-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.app-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-data-table {
+  width: 100%;
+  min-width: 1180px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-spacing: 0;
+
+  thead th {
+    background-color: rgba(248, 250, 252, 0.9);
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    padding: 11px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  tbody tr {
+    height: 46px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.15s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: rgba(248, 250, 252, 0.7);
+
+      td.col-sticky-right {
+        background-color: #f8fafc;
+      }
+    }
+  }
+
+  tbody td {
+    padding: 10px 10px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #334155;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .cell-primary {
+    color: #0f172a;
+    font-weight: 500;
+  }
+
+  .cell-secondary {
+    color: #475569;
+    font-weight: 400;
+  }
+
+  .cell-muted {
+    color: #94a3b8;
+    font-weight: 400;
+  }
+
+  .cell-truncate {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .col-center {
+    text-align: center;
+  }
+
+  .col-right {
+    text-align: right;
+  }
+
+  th.col-sticky-right {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background-color: #f8fafc;
+    box-shadow: -6px 0 10px -8px rgba(15, 23, 42, 0.12);
+  }
+
+  td.col-sticky-right {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background-color: #ffffff;
+    box-shadow: -6px 0 10px -8px rgba(15, 23, 42, 0.12);
+    transition: background-color 0.15s ease;
+  }
+}
+
+/* CLS-Zero Table Stage (Fixed 10-Row Min-Height + Keep-Previous-Data Opacity) */
+.app-table-stage {
+  min-height: 500px;
+
+  tbody {
+    transition: opacity 0.15s ease;
+
+    &.is-fetching {
+      opacity: 0.6;
+    }
+  }
+}
+
+.app-pagination-footer {
+  padding: 8px 16px 12px;
+  border-top: 1px solid #f1f5f9;
+  background-color: #ffffff;
+}
+
+.app-empty-cell {
+  text-align: center;
+  padding: 36px 16px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.app-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+/* Segmented Scope Tabs (e.g. Nhiệm vụ của tôi / Tất cả nhiệm vụ) */
+.app-scope-tabs {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  background-color: #f1f5f9;
+  border-radius: 4px;
+  height: 36px;
+  box-sizing: border-box;
+
+  .app-scope-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover:not(.active) {
+      color: #0f172a;
+    }
+
+    &.active {
+      background-color: #ffffff;
+      color: #1d4f91;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+  }
+}
+
+/* CLS-Zero Table Skeleton Bar */
+.app-skeleton-bar {
+  display: inline-block;
+  height: 14px;
+  border-radius: 4px;
+  background-color: #e2e8f0;
+  animation: app-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes app-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+input[type='date'],
+input[type='datetime-local'] {
+  font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+input[type='date']::-webkit-datetime-edit,
+input[type='datetime-local']::-webkit-datetime-edit {
+  padding: 0;
+  letter-spacing: 0;
+}
+
+input[type='date']::-webkit-datetime-edit-text,
+input[type='datetime-local']::-webkit-datetime-edit-text {
+  padding: 0 2px;
 }

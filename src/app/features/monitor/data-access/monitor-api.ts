@@ -159,7 +159,17 @@ const normalizeInspection = (value: unknown, index: number): InspectionRecord =>
   const d = normalizeDefect(value, index);
   const s = record(value);
   const defectType = stringValue(s['defectType']);
-  return { id: d.id, missionId: d.missionId ?? '', missionName: d.missionName, imageUrl: d.imageUrl, isDefect: Boolean(s['isDefect']), defectType: defectType || undefined, detectedAt: d.detectedAt };
+  const thumbnailUrl = stringValue(s['thumbnailUrl'] ?? s['cropUrl']) || undefined;
+  return {
+    id: d.id,
+    missionId: d.missionId ?? '',
+    missionName: d.missionName,
+    imageUrl: d.imageUrl,
+    thumbnailUrl: thumbnailUrl && thumbnailUrl !== d.imageUrl ? thumbnailUrl : undefined,
+    isDefect: Boolean(s['isDefect']),
+    defectType: defectType || undefined,
+    detectedAt: d.detectedAt,
+  };
 };
 
 /** `DefectStatisticsDto { totalDefects, byType: [{ type, count }] }`. */
