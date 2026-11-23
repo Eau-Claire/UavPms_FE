@@ -10,9 +10,6 @@
   gap: 10px;
 }
 
-/* =============================================================
-   Row highlights & Specific Cells
-   ============================================================= */
 tbody tr.row-unassigned {
   background: #fffdf5;
   box-shadow: inset 3px 0 0 #f59e0b;
@@ -22,14 +19,23 @@ tbody tr.row-unassigned {
   }
 }
 
+.td-m-desc {
+  overflow: hidden;
+  max-width: 340px;
+}
+
 .desc-cell {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 
   strong {
     color: #0f2952;
     font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .maintenance-sub {
@@ -38,8 +44,16 @@ tbody tr.row-unassigned {
   }
 }
 
+.td-m-tech {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .maintenance-tech-name {
   display: block;
+  max-width: 160px;
   font-size: 12px;
   color: #1e293b;
   font-weight: 500;

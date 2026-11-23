@@ -9,6 +9,7 @@ import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
+import { passwordComplexityValidator } from '../../../../shared/utils/password-validator';
 
 @Component({
   selector: 'app-reset-password',
@@ -19,7 +20,39 @@ import { NzInputModule } from 'ng-zorro-antd/input';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ResetPassword {
-  private readonly fb = inject(FormBuilder); private readonly auth = inject(Auth); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly destroyRef = inject(DestroyRef);
-  protected readonly busy = signal(false); protected readonly error = signal(''); protected readonly form = this.fb.nonNullable.group({ password: ['', [Validators.required, Validators.minLength(8)]], confirm: ['', Validators.required] });
-  protected submit(): void { const value = this.form.getRawValue(); if (this.form.invalid || value.password !== value.confirm) { this.error.set('Passwords must match and contain at least 8 characters.'); return; } const token = this.route.snapshot.queryParamMap.get('token') ?? ''; this.busy.set(true); this.auth.resetPassword({ verificationToken: token, newPassword: value.password }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: () => void this.router.navigate(['/login']), error: () => this.error.set('Password could not be reset. Request a new code and try again.') }); }
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(Auth);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+  protected readonly form = this.fb.nonNullable.group({
+    password: ['', [Validators.required, Validators.minLength(8), passwordComplexityValidator()]],
+    confirm: ['', Validators.required],
+  });
+
+  protected submit(): void {
+    const value = this.form.getRawValue();
+    if (this.form.invalid || value.password !== value.confirm) {
+      if (value.password !== value.confirm) {
+        this.error.set('Mật khẩu xác nhận không khớp.');
+      } else {
+        this.error.set('Mật khẩu phải có tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.');
+      }
+      return;
+    }
+    const token = this.route.snapshot.queryParamMap.get('token') ?? '';
+    this.busy.set(true);
+    this.auth
+      .resetPassword({ verificationToken: token, newPassword: value.password })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.busy.set(false)),
+      )
+      .subscribe({
+        next: () => void this.router.navigate(['/login']),
+        error: () => this.error.set('Không thể đặt lại mật khẩu. Vui lòng yêu cầu mã xác nhận mới và thử lại.'),
+      });
+  }
 }

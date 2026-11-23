@@ -301,7 +301,12 @@
 
 .action-link {
   flex-shrink: 0;
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 82px;
+  padding: 0 12px;
   border: 1px solid #10387d;
   border-radius: 4px;
   background: #10387d;
@@ -310,6 +315,8 @@
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  box-sizing: border-box;
+  text-align: center;
 
   &:hover {
     background: #0d2e67;

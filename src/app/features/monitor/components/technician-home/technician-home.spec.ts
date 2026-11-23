@@ -8,9 +8,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
 import { UavRecord } from '../../../../models/drone-management.models';
-import { DroneManagementApi } from '../../../../core/services/drone-management-api';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
-import { MonitorApi } from '../../../../core/services/monitor-api';
+import { DroneManagementApi } from '../../../drones/data-access/drone-management-api';
+import { MaintenanceApi } from '../../../maintenance/data-access/maintenance-api';
+import { MonitorApi } from '../../data-access/monitor-api';
 import { TechnicianHome } from './technician-home';
 
 const ticket = (id: string, status: string, dueDate?: string): MaintenanceTicket => ({
@@ -82,7 +82,7 @@ describe('TechnicianHome', () => {
   it('groups my tickets by status and highlights overdue ones', async () => {
     const { el, maintenanceApi } = await setup();
     expect(maintenanceApi.mine).toHaveBeenCalledTimes(1);
-    expect(el.textContent).toContain('Kỹ thuật viên');
+    expect(el.textContent).toContain('Technician');
 
     const open = section(el, 'Open');
     expect(open.textContent).toContain('Chờ xử lý');
@@ -107,6 +107,6 @@ describe('TechnicianHome', () => {
     expect(codes).toEqual(['UAV-BAD', 'UAV-NEW']);
     expect(drones.textContent).toContain('Lỗi - không bay');
     expect(drones.textContent).toContain('Chưa kiểm tra kỹ thuật');
-    expect(drones.querySelector('li.item a')?.getAttribute('href')).toBe('/drones/inspection?droneId=UAV-BAD');
+    expect(drones.querySelector('li.item a')?.getAttribute('href')).toBe('/drones');
   });
 });

@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { Auth } from '../../../../core/auth/auth';
 import { Mission, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
-import { MissionsApi } from '../../../../core/services/missions-api';
+import { MissionsApi } from '../../../missions/data-access/missions-api';
 import { InspectorGroupKey, groupInspectorMissions, inspectorMissionLink, myResponseStatus } from '../../data-access/field-dashboard';
 import { pollResource } from '../../data-access/polled-resource';
 import { FieldHomeHeader } from '../field-home-header/field-home-header';
@@ -22,7 +22,6 @@ interface MissionGroupView {
 type Tone = 'info' | 'warning' | 'danger' | 'success' | 'neutral';
 
 const STATUS_TONES: Record<string, Tone> = {
-  Pending: 'warning',
   PendingAcceptance: 'warning',
   Assigned: 'info',
   Preparing: 'info',

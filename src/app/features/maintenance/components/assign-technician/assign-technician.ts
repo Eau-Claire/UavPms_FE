@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { MaintenanceTicket, TechnicianSummary } from '../../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
 
 /** Local calendar day as yyyy-MM-dd. */
 export const localDay = (date: Date): string =>

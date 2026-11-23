@@ -1,8 +1,9 @@
-﻿import { UserRole } from './auth.models';
+import { BaseAuditableEntity } from './api.models';
+import { UserRole } from './auth.models';
 
 export type UserStatus = 'Active' | 'Inactive' | 'Locked';
 
-export interface UserRecord {
+export interface UserRecord extends BaseAuditableEntity {
   readonly id: string;
   readonly username: string;
   readonly fullName: string;
@@ -11,6 +12,9 @@ export interface UserRecord {
   readonly role: UserRole;
   readonly status: UserStatus;
   readonly createdAt?: string;
+  readonly updatedAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
 }
 
 export interface CreateUserRequest {
@@ -18,6 +22,7 @@ export interface CreateUserRequest {
   readonly email: string;
   readonly phone?: string;
   readonly role: UserRole;
+  readonly password?: string;
 }
 
 /** A region in a user's default geographic scope (UserGeographicScopeRegionDto). */

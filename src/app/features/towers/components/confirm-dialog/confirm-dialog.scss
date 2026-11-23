@@ -1,1 +1,5 @@
-@use '../../../shared/components/confirm-dialog/confirm-dialog.scss';
+@use '../../towers-shared' as shared;
+
+@include shared.dialog;
+
+.tower-dialog { width: min(440px, calc(100vw - 32px)); }

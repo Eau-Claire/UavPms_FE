@@ -147,13 +147,15 @@
 
               <div class="notification-detail-actions">
                 @if (selectedLink(); as link) {
-                  <a class="notification-go-mission-btn" [routerLink]="link.commands" (click)="closeNotifications()">
+                  <a class="notification-go-mission-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" (click)="closeNotifications()">
                     <span nz-icon nzType="arrow-right" aria-hidden="true"></span> {{ link.label }}
                   </a>
                 }
-                <button type="button" class="danger notif-btn-danger" [disabled]="notifications.deletingId() === selected.id" (click)="deleteNotification($event, selected.id)">
-                  <span nz-icon nzType="delete"></span> Xóa
-                </button>
+                @if (!selected.isRead) {
+                  <button type="button" class="notif-btn-secondary" (click)="notifications.markRead(selected.id)">
+                    <span nz-icon nzType="check"></span> Đánh dấu đã đọc
+                  </button>
+                }
               </div>
             </article>
           } @else if (notifications.loading()) {
@@ -217,34 +219,6 @@
         </section>
       }
     </div>
-    <div class="app-profile-wrap">
-      <button
-        type="button"
-        class="app-header-user-btn"
-        aria-label="Tài khoản người dùng"
-        [attr.aria-expanded]="menuOpen()"
-        (click)="menuOpen.update((value) => !value)"
-      >
-        <span class="app-user-display-name">{{ userDisplayName() }}</span>
-        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
-      </button>
-      @if (menuOpen()) {
-        <div class="app-profile-menu" role="menu">
-          <div class="app-profile-menu-header">
-            <strong>{{ userDisplayName() }}</strong>
-            <small>{{ userRoleLabel() }}</small>
-          </div>
-          <hr />
-          <button type="button" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
-            <span nz-icon nzType="lock"></span> Đổi mật khẩu
-          </button>
-          <hr />
-          <button type="button" class="danger" (click)="logout()" role="menuitem">
-            <span nz-icon nzType="logout"></span> Đăng xuất
-          </button>
-        </div>
-      }
-    </div>
     @if (showFacilitySelector()) {
       <div class="app-facility-wrap">
         <button
@@ -264,7 +238,7 @@
         @if (facilityMenuOpen()) {
           <div class="facility-dropdown-menu" role="menu">
             <div class="facility-dropdown-header">
-              <span>CƠ SỞ / ĐƠN VỊ THÀNH VIÊN</span>
+              <span>Cơ sở / Đơn vị thành viên</span>
               <small class="facility-count">({{ facilityStore.facilities().length }})</small>
             </div>
             <div class="facility-dropdown-list">
@@ -288,5 +262,49 @@
         }
       </div>
     }
+
+    <div class="app-profile-wrap">
+      <button
+        type="button"
+        class="app-header-user-btn"
+        aria-label="Tài khoản người dùng"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.update((value) => !value)"
+      >
+        <span class="user-avatar-badge">{{ userInitial() }}</span>
+        <span class="app-user-display-name">{{ userDisplayName() }}</span>
+        <span nz-icon nzType="down" class="user-caret" [class.rotated]="menuOpen()" aria-hidden="true"></span>
+      </button>
+      @if (menuOpen()) {
+        <div class="app-profile-menu" role="menu">
+          <div class="app-profile-menu-header">
+            <div class="menu-user-info">
+              <span class="menu-user-email" [title]="userEmail()">{{ userEmail() }}</span>
+              <span class="menu-user-role">{{ userRoleLabel() }}</span>
+            </div>
+          </div>
+          <div class="profile-menu-divider"></div>
+          @if (canViewAuditLogs()) {
+            <button type="button" class="profile-menu-item" routerLink="/system/audit-logs" (click)="menuOpen.set(false)" role="menuitem">
+              <span nz-icon nzType="history"></span>
+              <span>Nhật ký hệ thống</span>
+            </button>
+            <button type="button" class="profile-menu-item" routerLink="/system/settings" (click)="menuOpen.set(false)" role="menuitem">
+              <span nz-icon nzType="setting"></span>
+              <span>Cấu hình hệ thống</span>
+            </button>
+          }
+          <button type="button" class="profile-menu-item" routerLink="/change-password" (click)="menuOpen.set(false)" role="menuitem">
+            <span nz-icon nzType="lock"></span>
+            <span>Đổi mật khẩu</span>
+          </button>
+          <div class="profile-menu-divider"></div>
+          <button type="button" class="profile-menu-item logout" (click)="logout()" role="menuitem">
+            <span nz-icon nzType="logout"></span>
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      }
+    </div>
   </div>
 </header>

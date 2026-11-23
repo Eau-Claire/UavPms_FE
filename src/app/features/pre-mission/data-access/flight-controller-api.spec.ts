@@ -8,7 +8,7 @@ import {
   FlightControllerResolveResult,
   PairFlightControllerPayload,
 } from "../../../models/flight-controller.models";
-import { FlightControllerApi } from "../../../core/services/flight-controller-api";
+import { FlightControllerApi } from "./flight-controller-api";
 
 describe("FlightControllerApi", () => {
   let api: FlightControllerApi;

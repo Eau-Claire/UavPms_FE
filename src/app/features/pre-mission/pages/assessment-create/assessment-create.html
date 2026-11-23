@@ -4,7 +4,7 @@
       <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
         <a routerLink="/pre-mission">TIỀN NHIỆM VỤ</a>
         <span class="separator" aria-hidden="true">/</span>
-        <strong>TẠO ĐÁNH GIÁ MỚI</strong>
+        <strong>TẠO ĐÁNH GIÁ MỚI (MF01)</strong>
       </nav>
       <h1>Khởi tạo đánh giá tiền nhiệm vụ</h1>
       <p>Chọn khu vực, các cột điện cần kiểm tra, sắp xếp thứ tự tuyến bay và khung giờ dự kiến để hệ thống đánh giá mặt bằng, nhân sự và drone.</p>
@@ -141,21 +141,21 @@
             <div class="quota-header-title">
               <span nz-icon nzType="control" aria-hidden="true"></span>
               <h2 id="quotas-title" style="font-size: 11.5px; font-weight: 700; color: #174f83; margin: 0; text-transform: uppercase;">
-                3. Định mức nhân sự & Giới hạn thiết bị bay
+                3. Định mức nhân sự & Giới hạn thiết bị bay (MF01 &rarr; MF02)
               </h2>
             </div>
             <span class="panel-badge optional" style="background: #eff6ff; color: #0284c7; border-color: #bfdbfe;">Thiết lập định mức</span>
           </div>
           <div class="panel-body">
             <p class="quota-guide-text">
-              Quy định số lượng nhân sự tối thiểu cho từng vai trò và <strong>giới hạn số lượng UAV tối đa</strong> mà người quản lý có thể huy động cho mỗi chuyến bay ở bước tạo nhiệm vụ.
+              Quy định số lượng nhân sự tối thiểu cho từng vai trò và <strong>giới hạn số lượng UAV tối đa</strong> mà người quản lý có thể huy động cho mỗi chuyến bay ở bước tạo nhiệm vụ (MF02).
             </p>
             <div class="quota-grid">
               <!-- Inspector -->
               <div class="quota-item">
                 <div class="quota-label-wrapper">
                   <label for="requiredInspectors" class="quota-role-title">
-                    <span class="role-dot dot-inspector" aria-hidden="true"></span> Phi công / Inspector
+                    <span class="role-dot dot-inspector" aria-hidden="true"></span> INSPECTOR
                   </label>
                   <span class="quota-role-hint">Điều khiển UAV, quan sát trực quan</span>
                 </div>
@@ -183,7 +183,7 @@
               <div class="quota-item">
                 <div class="quota-label-wrapper">
                   <label for="requiredAnalysts" class="quota-role-title">
-                    <span class="role-dot dot-analyst" aria-hidden="true"></span> Chuyên viên phân tích
+                    <span class="role-dot dot-analyst" aria-hidden="true"></span> ANALYST
                   </label>
                   <span class="quota-role-hint">Phân tích hình ảnh, AI khiếm khuyết</span>
                 </div>
@@ -211,7 +211,7 @@
               <div class="quota-item">
                 <div class="quota-label-wrapper">
                   <label for="requiredTechnicians" class="quota-role-title">
-                    <span class="role-dot dot-technician" aria-hidden="true"></span> Kỹ thuật viên bảo trì
+                    <span class="role-dot dot-technician" aria-hidden="true"></span> TECHNICIAN
                   </label>
                   <span class="quota-role-hint">Kiểm tra BIST, pin, cảm biến</span>
                 </div>
@@ -267,7 +267,7 @@
             <div class="quota-summary-bar">
               <span nz-icon nzType="info-circle" aria-hidden="true"></span>
               <span>
-                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ cleanInspectors() }} Inspector, {{ cleanAnalysts() }} Analyst, {{ cleanTechnicians() }} Technician) · Giới hạn: <strong>tối đa {{ cleanMaxDrones() }} UAV/chuyến bay</strong>
+                Tổng nhân sự tối thiểu: <strong>{{ totalRequiredPersonnel() }} người</strong> ({{ cleanInspectors() }} INSPECTOR, {{ cleanAnalysts() }} ANALYST, {{ cleanTechnicians() }} TECHNICIAN) · Giới hạn: <strong>tối đa {{ cleanMaxDrones() }} UAV/chuyến bay</strong>
               </span>
             </div>
           </div>
@@ -439,48 +439,6 @@
               <div class="empty-sequence-msg">
                 <span nz-icon nzType="ordered-list" aria-hidden="true"></span>
                 <span>Chưa có cột điện nào được chọn. Hãy chọn các cột ở mục 2 hoặc click trực tiếp trên bản đồ để lập thứ tự bay kiểm tra.</span>
-              </div>
-            }
-          </div>
-        </section>
-
-        <!-- Tóm tắt hồ sơ -->
-        <section class="evn-panel box-summary" aria-labelledby="summary-title">
-          <div class="panel-header">
-            <h2 id="summary-title">Tóm tắt hồ sơ</h2>
-          </div>
-          <div class="panel-body">
-            <dl class="summary-list">
-              <div class="summary-row">
-                <dt class="summary-label">Khu vực</dt>
-                <dd class="summary-value highlight">{{ selectedRegion()?.name || '—' }}</dd>
-              </div>
-              <div class="summary-row">
-                <dt class="summary-label">Số cột kiểm tra</dt>
-                <dd class="summary-value">{{ selectedTowerIds().length }} cột</dd>
-              </div>
-              <div class="summary-row">
-                <dt class="summary-label">Khung giờ</dt>
-                <dd class="summary-value">
-                  {{ plannedStartValue() | date: 'dd/MM/yyyy HH:mm' }} – {{ plannedEndValue() | date: 'dd/MM/yyyy HH:mm' }}
-                </dd>
-              </div>
-              <div class="summary-row">
-                <dt class="summary-label">Định mức nhân sự</dt>
-                <dd class="summary-value">
-                  {{ totalRequiredPersonnel() }} người ({{ form.controls.requiredInspectors.value }} Insp / {{ form.controls.requiredAnalysts.value }} Ana / {{ form.controls.requiredTechnicians.value }} Tech)
-                </dd>
-              </div>
-              <div class="summary-row">
-                <dt class="summary-label">Giới hạn drone</dt>
-                <dd class="summary-value highlight">Tối đa {{ form.controls.maxDronesLimit.value }} UAV/chuyến</dd>
-              </div>
-            </dl>
-            @if (selectedTowers().length) {
-              <div class="towers-pick-container" aria-label="Cột đã chọn theo thứ tự">
-                @for (t of selectedTowers(); track t.id; let i = $index) {
-                  <span class="tower-chip">{{ i + 1 }}. {{ t.towerCode }}</span>
-                }
               </div>
             }
           </div>

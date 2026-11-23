@@ -20,7 +20,7 @@ import {
   anomalyErrorMessage,
   TowerLookupItem,
   TowerSuggestions,
-} from '../../../../core/services/anomaly-api';
+} from '../../data-access/anomaly-api';
 
 /**
  * Links an anomaly to a tower (`PUT /anomalies/{id}/tower`). Offers the nearest towers from
@@ -200,7 +200,7 @@ export class AnomalyTowerAssignmentPanel {
   protected readonly messageIsError = signal(false);
 
   constructor() {
-
+    // When confirmation failed for lack of a tower, fetch suggestions right away.
     effect(() => {
       if (this.highlight() && !this.disabled() && !this.suggestions() && !this.suggestionsLoading()) {
         untracked(() => this.loadSuggestions());

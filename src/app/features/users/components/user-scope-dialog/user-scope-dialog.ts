@@ -16,8 +16,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, forkJoin } from 'rxjs';
 import { RegionLookup } from '../../../../models/assets.models';
 import { UserGeographicScopes, UserRecord } from '../../../../models/users.models';
-import { RegionsApi } from '../../../../core/services/regions-api';
-import { UsersApi } from '../../../../core/services/users-api';
+import { RegionsApi } from '../../../towers/data-access/regions-api';
+import { UsersApi } from '../../data-access/users-api';
 
 /**
  * View / edit a user's default geographic scope (GET/PUT /users/{id}/geographic-scopes).
@@ -75,7 +75,7 @@ export class UserScopeDialog implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)))
       .subscribe({
         next: ({ regions, scopes }) => {
-
+          // Keep scope regions the region list might not return (e.g. soft-deleted) so they stay visible.
           const known = new Set(regions.map((region) => region.id));
           const extra = scopes.regions
             .filter((region) => !known.has(region.regionId))

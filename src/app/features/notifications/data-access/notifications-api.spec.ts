@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { NotificationsApi } from '../../../core/services/notifications-api';
+import { NotificationsApi } from './notifications-api';
 
 describe('NotificationsApi', () => {
   let api: NotificationsApi;

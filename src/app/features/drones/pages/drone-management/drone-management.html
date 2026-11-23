@@ -2,14 +2,15 @@
   <!-- TẦNG 1: Header Bar & Breadcrumb -->
   <header class="pre-mission-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <span>PHƯƠNG TIỆN</span>
+      <nav class="pre-mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
-        <strong>QUẢN LÝ ĐỘI BAY & UAV</strong>
-      </div>
+        <strong>QUẢN LÝ UAV</strong>
+      </nav>
       <h1>Quản lý đội bay &amp; Phương tiện UAV</h1>
       <p>
-        Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật, định danh Flight Controller và ước tính năng lực bay hành lang GIS
+        Quản trị danh mục UAV, đo kiểm an toàn kỹ thuật (MF01), định danh Flight Controller và ước tính năng lực bay
+        hành lang GIS.
       </p>
     </div>
     <div class="head-actions">
@@ -23,13 +24,15 @@
           <span nz-icon nzType="calculator" aria-hidden="true"></span> Ước tính tải GIS
         </button>
       }
-      <a
+      <button
+        type="button"
         class="evn-btn secondary"
-        routerLink="/drones/inspection"
-        title="Đo kiểm kỹ thuật và viễn trắc BIST"
+        (click)="loadDrones()"
+        [disabled]="loading()"
+        title="Làm mới danh sách"
       >
-        <span nz-icon nzType="dashboard" aria-hidden="true"></span> Đo kiểm kỹ thuật UAV
-      </a>
+        <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span> Làm mới
+      </button>
       @if (canEditDrone()) {
         <button
           type="button"
@@ -43,90 +46,57 @@
     </div>
   </header>
 
-  <!-- TẦNG 2: Feedback Alert -->
-  @if (successMessage()) {
-    <div class="evn-alert success" role="status">
-      <span nz-icon nzType="check-circle" class="alert-icon" aria-hidden="true"></span>
-      <span class="alert-content">{{ successMessage() }}</span>
-    </div>
-  }
-
-  @if (error()) {
-    <div class="evn-alert danger" role="alert">
-      <span nz-icon nzType="close-circle" class="alert-icon" aria-hidden="true"></span>
-      <span class="alert-content">{{ error() }}</span>
-    </div>
-  }
-
   <!-- TẦNG 3: Filter Toolbar -->
   <section class="pre-mission-filters" aria-label="Bộ lọc phương tiện UAV">
     <div class="filter-item search-grow">
       <span nz-icon nzType="search" class="search-icon" aria-hidden="true"></span>
       <input
         type="text"
-        placeholder="Tìm mã UAV, model, serial, UID FC..."
+        placeholder="Tìm kiếm theo mã UAV, tên model, serial, UID phần cứng FC..."
         [value]="search()"
-        (input)="search.set($any($event.target).value); goToPage(1)"
+        (input)="search.set($any($event.target).value); page.set(1)"
         aria-label="Tìm kiếm UAV"
       />
+      @if (search()) {
+        <button type="button" class="clear-btn" (click)="search.set(''); page.set(1)" aria-label="Xóa từ khóa">
+          <span nz-icon nzType="close"></span>
+        </button>
+      }
     </div>
 
-    <div class="filter-item">
-      <span class="filter-label">Vận hành:</span>
+    <label>
+      <span>Vận hành:</span>
       <select
         [value]="statusFilter()"
-        (change)="statusFilter.set($any($event.target).value); goToPage(1)"
+        (change)="statusFilter.set($any($event.target).value); page.set(1)"
         aria-label="Lọc theo trạng thái vận hành"
       >
         <option value="">Tất cả trạng thái</option>
         @for (opt of operationalStatuses; track opt.value) {
-          <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+          <option [value]="opt.value">{{ opt.label }}</option>
         }
       </select>
-    </div>
+    </label>
 
-    <div class="filter-item">
-      <span class="filter-label">Sức khỏe:</span>
+    <label>
+      <span>Sức khỏe:</span>
       <select
         [value]="healthFilter()"
-        (change)="healthFilter.set($any($event.target).value); goToPage(1)"
+        (change)="healthFilter.set($any($event.target).value); page.set(1)"
         aria-label="Lọc theo sức khỏe kỹ thuật"
       >
         <option value="">Tất cả sức khỏe</option>
         @for (opt of technicalHealths; track opt.value) {
-          <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
+          <option [value]="opt.value">{{ opt.label }}</option>
         }
       </select>
-    </div>
+    </label>
 
-    <div class="filter-item">
-      <span class="filter-label">Hiển thị:</span>
-      <select
-        [value]="pageSize()"
-        (change)="changePageSize($any($event.target).value)"
-        aria-label="Số lượng hiển thị mỗi trang"
-      >
-        @for (size of pageSizes; track size) {
-          <option [value]="size">{{ size }} / trang</option>
-        }
-      </select>
-    </div>
-
-    <button
-      type="button"
-      class="evn-btn secondary"
-      (click)="loadDrones()"
-      [disabled]="loading()"
-      title="Làm mới danh sách"
-    >
-      <span nz-icon nzType="reload" [nzSpin]="loading()" aria-hidden="true"></span> Làm mới
-    </button>
-
-    @if (hasActiveFilters()) {
+    @if (search() || statusFilter() || healthFilter()) {
       <button
         type="button"
         class="evn-btn secondary"
-        (click)="resetFilters()"
+        (click)="search.set(''); statusFilter.set(''); healthFilter.set(''); page.set(1)"
         title="Đặt lại bộ lọc"
       >
         <span nz-icon nzType="clear" aria-hidden="true"></span> Đặt lại
@@ -137,33 +107,33 @@
   <!-- TẦNG 4: Summary Metric Strip -->
   <div class="pre-mission-summary-strip" aria-label="Thống kê phương tiện UAV">
     <div class="summary-item">
-      <span class="summary-val">{{ stats().total }}</span>
-      <span class="summary-label">Tổng UAV</span>
+      <strong>{{ stats().total }}</strong>
+      <span>Tổng số UAV</span>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ stats().available }}</span>
-      <span class="summary-label">Khả dụng</span>
+      <strong style="color: #166534;">{{ stats().available }}</strong>
+      <span>Khả dụng</span>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ stats().inUse }}</span>
-      <span class="summary-label">Đang bay / Đặt trước</span>
+      <strong style="color: #1d4f91;">{{ stats().inUse }}</strong>
+      <span>Đang bay / Đặt trước</span>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ stats().maintenance }}</span>
-      <span class="summary-label">Bảo trì / Ngưng dùng</span>
+      <strong style="color: #b45309;">{{ stats().maintenance }}</strong>
+      <span>Bảo trì / Ngưng dùng</span>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ stats().healthy }}</span>
-      <span class="summary-label">Kỹ thuật tốt</span>
+      <strong style="color: #166534;">{{ stats().healthy }}</strong>
+      <span>Kỹ thuật tốt</span>
     </div>
     <div class="summary-item">
-      <span class="summary-val">{{ stats().critical }}</span>
-      <span class="summary-label">Lỗi nghiêm trọng</span>
+      <strong style="color: #dc2626;">{{ stats().critical }}</strong>
+      <span>Lỗi nghiêm trọng</span>
     </div>
   </div>
 
-  <!-- TẦNG 5 & 6: Dense Bordered Table Card & Pagination -->
-  <div class="pre-mission-table-card">
+  <!-- TẦNG 5: UAV Fleet Table -->
+  <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
     <div class="table-scroll">
       <table>
         <thead>
@@ -175,7 +145,7 @@
             <th>Năng lực bay</th>
             <th>Phần cứng Flight Controller</th>
             <th>Lần đo kiểm gần nhất</th>
-            <th style="text-align: right;">Thao tác</th>
+            <th style="text-align: right; width: 140px;">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -185,7 +155,7 @@
                 <span nz-icon nzType="loading" [nzSpin]="true"></span> Đang tải danh sách UAV...
               </td>
             </tr>
-          } @else if (pagedDrones().length === 0) {
+          } @else if (filteredDrones().length === 0) {
             <tr>
               <td colspan="8" class="empty-cell">
                 <span nz-icon nzType="inbox" style="font-size: 24px; color: #94a3b8;"></span>
@@ -193,7 +163,7 @@
               </td>
             </tr>
           } @else {
-            @for (drone of pagedDrones(); track drone.id) {
+            @for (drone of paginatedDrones(); track drone.id) {
               <tr>
                 <!-- Code & Name -->
                 <td>
@@ -218,7 +188,7 @@
                 <!-- Operational Status -->
                 <td style="text-align: center;">
                   <span class="evn-status" [class]="operationalStatusTone(drone.operationalStatus)">
-                    {{ drone.operationalStatus }}
+                    {{ statusLabel(drone.operationalStatus) }}
                   </span>
                 </td>
 
@@ -232,7 +202,7 @@
                     } @else if (drone.technicalHealth === 'Warning') {
                       <span nz-icon nzType="warning" aria-hidden="true"></span>
                     }
-                    {{ drone.technicalHealth }}
+                    {{ healthLabel(drone.technicalHealth) }}
                   </span>
                   @if (drone.technicalHealth === 'Critical') {
                     <div class="critical-notice">Không được phép bay</div>
@@ -244,7 +214,7 @@
                   <div class="cap-cell">
                     <div><span nz-icon nzType="clock-circle" aria-hidden="true"></span> {{ drone.flightEnduranceMinutes || 35 }} phút</div>
                     <div><span nz-icon nzType="radar-chart" aria-hidden="true"></span> {{ drone.operationalRangeKm || 15 }} km</div>
-                    <div class="battery-bar" [title]="'Mức pin: ' + drone.batteryLevel + '%'">
+                    <div class="battery-bar">
                       <div class="bar-fill" [style.width.%]="drone.batteryLevel || 100"></div>
                       <span class="battery-pct">{{ drone.batteryLevel }}%</span>
                     </div>
@@ -260,11 +230,23 @@
                       </div>
                       <div class="fc-meta">{{ fc.boardIdentifier || 'Betaflight' }} ({{ fc.firmwareVersion || 'v4.5' }})</div>
                       @if (fc.lastSeenAt) {
-                        <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'HH:mm dd/MM' }}</div>
+                        <div class="fc-seen">Nhận diện: {{ fc.lastSeenAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                      }
+                      @if (canEditDrone()) {
+                        <button type="button" class="fc-btn-link" (click)="openFcModal(drone)">
+                          <span nz-icon nzType="edit" aria-hidden="true"></span> Cập nhật FC
+                        </button>
                       }
                     </div>
                   } @else {
-                    <span class="fc-unpaired">Chưa ghép nối FC</span>
+                    <div class="fc-unpaired-wrap">
+                      <span class="fc-unpaired">Chưa ghép nối FC</span>
+                      @if (canEditDrone()) {
+                        <button type="button" class="fc-btn-link pair" (click)="openFcModal(drone)">
+                          <span nz-icon nzType="plus" aria-hidden="true"></span> Ghép nối FC
+                        </button>
+                      }
+                    </div>
                   }
                 </td>
 
@@ -284,47 +266,16 @@
 
                 <!-- Actions -->
                 <td style="text-align: right;">
-                  <div class="actions-cell">
+                  <div class="actions-cell" style="justify-content: flex-end;">
                     <button
                       type="button"
                       class="evn-btn secondary"
                       (click)="openHistory(drone)"
-                      title="Lịch sử kiểm định kỹ thuật"
-                      [attr.aria-label]="'Lịch sử kiểm định kỹ thuật của ' + drone.code"
+                      title="Chi tiết & Lịch sử kiểm định kỹ thuật"
+                      [attr.aria-label]="'Chi tiết ' + drone.code"
                     >
-                      <span nz-icon nzType="history" aria-hidden="true"></span>
+                      Chi tiết
                     </button>
-                    @if (canEditDrone()) {
-                      <button
-                        type="button"
-                        class="evn-btn secondary"
-                        (click)="openTechCheck(drone)"
-                        title="Kiểm định kỹ thuật an toàn (Checklist)"
-                      >
-                        <span nz-icon nzType="safety-certificate" aria-hidden="true"></span> Kiểm tra
-                      </button>
-                      <button
-                        type="button"
-                        class="evn-btn secondary"
-                        (click)="openEdit(drone)"
-                        title="Chỉnh sửa thông số UAV"
-                        [attr.aria-label]="'Chỉnh sửa ' + drone.code"
-                      >
-                        <span nz-icon nzType="edit" aria-hidden="true"></span>
-                      </button>
-                    }
-                    @if (canManageFleet()) {
-                      <button
-                        type="button"
-                        class="evn-btn secondary danger"
-                        (click)="deleteDrone(drone)"
-                        [disabled]="drone.operationalStatus === 'InUse'"
-                        title="Xóa UAV"
-                        [attr.aria-label]="'Xóa ' + drone.code"
-                      >
-                        <span nz-icon nzType="delete" aria-hidden="true"></span>
-                      </button>
-                    }
                   </div>
                 </td>
               </tr>
@@ -334,529 +285,614 @@
       </table>
     </div>
 
-    <footer>
-      <span class="page-info">
-        Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ totalItems() }} phương tiện UAV
-      </span>
-      <nav class="evn-pagination" aria-label="Phân trang danh sách UAV">
-        <button
-          type="button"
-          class="page-btn"
-          [disabled]="page() <= 1"
-          (click)="goToPage(page() - 1)"
-          aria-label="Trang trước"
-        >
-          <span nz-icon nzType="left" aria-hidden="true"></span>
-        </button>
-        @for (btn of pageButtons(); track btn) {
-          <button
-            type="button"
-            class="page-btn"
-            [class.active]="btn === page()"
-            (click)="goToPage(btn)"
-            [attr.aria-current]="btn === page() ? 'page' : null"
-          >
-            {{ btn }}
-          </button>
-        }
-        <button
-          type="button"
-          class="page-btn"
-          [disabled]="page() >= totalPages()"
-          (click)="goToPage(page() + 1)"
-          aria-label="Trang sau"
-        >
-          <span nz-icon nzType="right" aria-hidden="true"></span>
-        </button>
-      </nav>
+    <footer class="drone-pagination-wrap">
+      <app-pagination [page]="page()" [totalPages]="totalPages()" [totalCount]="filteredDrones().length"
+        [pageSize]="pageSize()" (pageChanged)="page.set($event)" />
     </footer>
-  </div>
+  </section>
 </div>
 
 <!-- ================= MODAL: CREATE / EDIT DRONE ================= -->
 @if (modalOpen()) {
-  <div class="modal-backdrop" (click)="closeModal()">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>
-          <span nz-icon [nzType]="editingDrone() ? 'edit' : 'plus'"></span>
-          {{ editingDrone() ? 'Chỉnh Sửa Thông Tin UAV' : 'Thêm Mới Phương Tiện UAV' }}
-        </h3>
-        <button type="button" class="close-x" (click)="closeModal()">
-          <span nz-icon nzType="close"></span>
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span nz-icon [nzType]="editingDrone() ? 'edit' : 'plus'"></span>
+        {{ editingDrone() ? 'Chỉnh Sửa Thông Tin UAV' : 'Thêm Mới Phương Tiện UAV' }}
+      </h3>
+      <button type="button" class="close-x" (click)="closeModal()">
+        <span nz-icon nzType="close"></span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (editingDrone(); as ed) {
+      <div class="modal-sub-actions-bar">
+        <button type="button" class="sub-action-btn check" (click)="openTechCheck(ed)">
+          <span nz-icon nzType="safety-certificate"></span> Kiểm tra kỹ thuật (MF01)
         </button>
+        <button type="button" class="sub-action-btn history" (click)="openHistory(ed)">
+          <span nz-icon nzType="history"></span> Lịch sử kiểm định
+        </button>
+        @if (canManageFleet()) {
+        <button type="button" class="sub-action-btn danger" (click)="closeModal(); deleteDrone(ed)"
+          [disabled]="ed.operationalStatus === 'InUse'">
+          <span nz-icon nzType="delete"></span> Xóa UAV
+        </button>
+        }
       </div>
-
-      <div class="modal-body">
-        <form [formGroup]="droneForm" (ngSubmit)="saveDrone()">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Mã UAV (Drone Code) <span class="req">*</span></label>
-              <input
-                type="text"
-                formControlName="code"
-                placeholder="Ví dụ: UAV-001"
-                [readonly]="!!editingDrone()"
-              />
-            </div>
-            <div class="form-group">
-              <label>Tên định danh UAV <span class="req">*</span></label>
-              <input type="text" formControlName="name" placeholder="Ví dụ: UAV Khảo sát nhiệt 01" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Model thiết bị <span class="req">*</span></label>
-              <input type="text" formControlName="model" placeholder="Ví dụ: Matrice 350 RTK" />
-            </div>
-            <div class="form-group">
-              <label>Phân loại (Category)</label>
-              <select formControlName="category">
-                <option value="Quadcopter">Quadcopter (4 cánh)</option>
-                <option value="Hexacopter">Hexacopter (6 cánh)</option>
-                <option value="Octocopter">Octocopter (8 cánh)</option>
-                <option value="VTOL">VTOL Cánh bằng</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Số Serial thiết bị</label>
-              <input type="text" formControlName="serialNumber" placeholder="Ví dụ: SN-EVN-998822" />
-            </div>
-            <div class="form-group">
-              <label>Khu vực quản lý (Region ID)</label>
-              <input type="text" formControlName="assignedRegionId" placeholder="Ví dụ: reg-cpc" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Thời gian bay tối đa (Phút) <span class="req">*</span></label>
-              <input type="number" formControlName="flightEnduranceMinutes" min="5" max="180" />
-            </div>
-            <div class="form-group">
-              <label>Bán kính hoạt động (km) <span class="req">*</span></label>
-              <input type="number" formControlName="operationalRangeKm" min="1" max="100" />
-            </div>
-          </div>
-
+      }
+      <form [formGroup]="droneForm" (ngSubmit)="saveDrone()">
+        <div class="form-row">
           <div class="form-group">
-            <label>Cảm biến / Tải trọng (Camera Payload)</label>
-            <input type="text" formControlName="cameraPayloadInfo" placeholder="Ví dụ: Zenmuse H20T Thermal & Optical 4K" />
+            <label>Mã UAV (Drone Code) <span class="req">*</span></label>
+            <input type="text" formControlName="code" placeholder="Ví dụ: UAV-001" [readonly]="!!editingDrone()" />
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Trạng thái vận hành</label>
-              <select formControlName="operationalStatus">
-                @for (opt of operationalStatuses; track opt.value) {
-                  <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
-                }
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Sức khỏe kỹ thuật</label>
-              <select formControlName="technicalHealth">
-                @for (opt of technicalHealths; track opt.value) {
-                  <option [value]="opt.value">{{ opt.value }} ({{ opt.label }})</option>
-                }
-              </select>
-            </div>
+          <div class="form-group">
+            <label>Tên định danh UAV <span class="req">*</span></label>
+            <input type="text" formControlName="name" placeholder="Ví dụ: UAV Khảo sát nhiệt 01" />
           </div>
+        </div>
 
-          <div class="modal-footer">
-            <button type="button" class="button secondary" (click)="closeModal()">Hủy bỏ</button>
-            <button type="submit" class="button primary" [disabled]="busy()">
-              @if (busy()) {
-                <span nz-icon nzType="loading"></span> Đang lưu...
-              } @else {
-                <span nz-icon nzType="save"></span> Lưu thông tin UAV
+        <div class="form-row">
+          <div class="form-group">
+            <label>Model thiết bị <span class="req">*</span></label>
+            <input type="text" formControlName="model" placeholder="Ví dụ: Matrice 350 RTK" />
+          </div>
+          <div class="form-group">
+            <label>Phân loại (Category)</label>
+            <select formControlName="category">
+              <option value="Quadcopter">Quadcopter (4 cánh)</option>
+              <option value="Hexacopter">Hexacopter (6 cánh)</option>
+              <option value="Octocopter">Octocopter (8 cánh)</option>
+              <option value="VTOL">VTOL Cánh bằng</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Số Serial thiết bị</label>
+            <input type="text" formControlName="serialNumber" placeholder="Ví dụ: SN-EVN-998822" />
+          </div>
+          <div class="form-group">
+            <label>Khu vực quản lý (Region ID)</label>
+            <input type="text" formControlName="assignedRegionId" placeholder="Ví dụ: reg-cpc" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Thời gian bay tối đa (Phút) <span class="req">*</span></label>
+            <input type="number" formControlName="flightEnduranceMinutes" min="5" max="180" />
+          </div>
+          <div class="form-group">
+            <label>Bán kính hoạt động (km) <span class="req">*</span></label>
+            <input type="number" formControlName="operationalRangeKm" min="1" max="100" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Cảm biến / Tải trọng (Camera Payload)</label>
+          <input type="text" formControlName="cameraPayloadInfo"
+            placeholder="Ví dụ: Zenmuse H20T Thermal & Optical 4K" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Trạng thái vận hành</label>
+            <select formControlName="operationalStatus">
+              @for (opt of operationalStatuses; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
               }
-            </button>
+            </select>
           </div>
-        </form>
-      </div>
+          <div class="form-group">
+            <label>Sức khỏe kỹ thuật</label>
+            <select formControlName="technicalHealth">
+              @for (opt of technicalHealths; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="button secondary" (click)="closeModal()">Hủy bỏ</button>
+          <button type="submit" class="button primary" [disabled]="busy()">
+            @if (busy()) {
+            <span nz-icon nzType="loading"></span> Đang lưu...
+            } @else {
+            <span nz-icon nzType="save"></span> Lưu thông tin UAV
+            }
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+</div>
 }
 
 <!-- ================= MODAL: BASIC TECHNICAL CHECK ================= -->
 @if (techCheckModalOpen()) {
-  <div class="modal-backdrop" (click)="closeTechCheck()">
-    <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>
-          <span nz-icon nzType="safety-certificate"></span>
-          Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}
-        </h3>
-        <button type="button" class="close-x" (click)="closeTechCheck()">
-          <span nz-icon nzType="close"></span>
-        </button>
+<div class="modal-backdrop" (click)="closeTechCheck()">
+  <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span nz-icon nzType="safety-certificate"></span>
+        Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}
+      </h3>
+      <button type="button" class="close-x" (click)="closeTechCheck()">
+        <span nz-icon nzType="close"></span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="tech-check-intro">
+        Biên bản kiểm tra kỹ thuật an toàn theo quy trình MF01. Mọi hạng mục trọng yếu (Khung vỏ, Cánh quạt, Động cơ,
+        Pin, GPS, FC) nếu <strong>FAIL</strong> sẽ đánh giá sức khỏe <strong>CRITICAL</strong> và khóa điều kiện bay của
+        UAV.
       </div>
 
-      <div class="modal-body">
-        <div class="tech-check-intro">
-          Biên bản kiểm tra kỹ thuật an toàn theo quy trình MF01. Mọi hạng mục trọng yếu (Khung vỏ, Cánh quạt, Động cơ, Pin, GPS, FC) nếu <strong>FAIL</strong> sẽ đánh giá sức khỏe <strong>CRITICAL</strong> và khóa điều kiện bay của UAV.
+      <form [formGroup]="checkForm" (ngSubmit)="submitTechnicalCheck()">
+        <!-- 1. Frame / Body -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">1. Khung vỏ & Kết cấu (Frame / Body)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="frameBodyPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.frameBodyPassed.value">
+                {{ checkForm.controls.frameBodyPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <input type="text" formControlName="frameBodyNotes"
+            placeholder="Ghi chú tình trạng khung thân, chân đáp..." />
         </div>
 
-        <form [formGroup]="checkForm" (ngSubmit)="submitTechnicalCheck()">
-          <!-- 1. Frame / Body -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">1. Khung vỏ & Kết cấu (Frame / Body)</span>
+        <!-- 2. Propellers -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">2. Cánh quạt (Propellers)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="propellersPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.propellersPassed.value">
+                {{ checkForm.controls.propellersPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <input type="text" formControlName="propellersNotes"
+            placeholder="Ghi chú kiểm tra vết rạn, độ dơ cánh quạt..." />
+        </div>
+
+        <!-- 3. Motors -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">3. Động cơ không chổi than (Motors)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="motorsPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.motorsPassed.value">
+                {{ checkForm.controls.motorsPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <input type="text" formControlName="motorsNotes"
+            placeholder="Ghi chú bạc đạn, tiếng ồn quay tay, cuộn dây..." />
+        </div>
+
+        <!-- 4. Camera / Payload -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">4. Cảm biến / Camera / Gimbal</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="cameraPayloadPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.cameraPayloadPassed.value">
+                {{ checkForm.controls.cameraPayloadPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <input type="text" formControlName="cameraPayloadNotes"
+            placeholder="Ghi chú gimbal cân bằng, hình ảnh nhiệt..." />
+        </div>
+
+        <!-- 5. Battery (Numeric + Checklist) -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">5. Nguồn điện & Pin bay (Battery)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="batteryPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.batteryPassed.value">
+                {{ checkForm.controls.batteryPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Điện áp tổng (V)</label>
+              <input type="number" formControlName="batteryVoltage" step="0.1" />
+            </div>
+            <div class="form-group">
+              <label>Phần trăm dung lượng (%)</label>
+              <input type="number" formControlName="batteryPercent" min="0" max="100" />
+            </div>
+            <div class="form-group">
+              <label>Số Cell pin</label>
+              <input type="number" formControlName="batteryCellCount" min="1" max="14" />
+            </div>
+          </div>
+          <input type="text" formControlName="batteryNotes" placeholder="Ghi chú độ phồng pin, cân bằng cell..." />
+        </div>
+
+        <!-- 6. GPS GNSS -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">6. Định vị vệ tinh (GPS / RTK)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="gpsPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.gpsPassed.value">
+                {{ checkForm.controls.gpsPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Trạng thái Fix</label>
+              <input type="text" formControlName="gpsFixStatus" placeholder="3D_FIX / RTK_FIX" />
+            </div>
+            <div class="form-group">
+              <label>Số lượng vệ tinh kết nối</label>
+              <input type="number" formControlName="gpsSatelliteCount" min="0" max="40" />
+            </div>
+          </div>
+          <input type="text" formControlName="gpsNotes" placeholder="Ghi chú độ trôi vị trí, nhiễu từ trường..." />
+        </div>
+
+        <!-- 7. Communication -->
+        <div class="check-item-card">
+          <div class="check-item-head">
+            <span class="item-title">7. Kênh truyền thông vô tuyến (Communication)</span>
+            <label class="check-toggle">
+              <input type="checkbox" formControlName="communicationPassed" />
+              <span class="toggle-status" [class.pass]="checkForm.controls.communicationPassed.value">
+                {{ checkForm.controls.communicationPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
+              </span>
+            </label>
+          </div>
+          <input type="text" formControlName="communicationSignalInfo"
+            placeholder="Cường độ tín hiệu (ví dụ: -55 dBm, 100%)" />
+          <input type="text" formControlName="communicationNotes" placeholder="Ghi chú độ trễ, nhiễu sóng..."
+            style="margin-top: 6px;" />
+        </div>
+
+        <!-- 8. Flight Controller Identification -->
+        <div class="check-item-card fc-check">
+          <div class="check-item-head">
+            <span class="item-title">8. Bo mạch điều khiển bay (Flight Controller MSP)</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button type="button" class="button secondary small" (click)="populateFcFromConnectedSerial()"
+                title="Đọc thông số từ cổng USB/Serial kết nối hiện thời">
+                <span nz-icon nzType="usb"></span> Nạp từ FC USB
+              </button>
               <label class="check-toggle">
-                <input type="checkbox" formControlName="frameBodyPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.frameBodyPassed.value">
-                  {{ checkForm.controls.frameBodyPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
+                <input type="checkbox" formControlName="flightControllerPassed" />
+                <span class="toggle-status" [class.pass]="checkForm.controls.flightControllerPassed.value">
+                  {{ checkForm.controls.flightControllerPassed.value ? 'ĐẠT (PASS)' : 'LỖI (FAIL)' }}
                 </span>
               </label>
             </div>
-            <input type="text" formControlName="frameBodyNotes" placeholder="Ghi chú tình trạng khung thân, chân đáp..." />
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Flight Controller Hardware UID (MSP_UID)</label>
+              <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: BF-F405-A1B2C3D4" />
+            </div>
+            <div class="form-group">
+              <label>Bo mạch (Board Identifier)</label>
+              <input type="text" formControlName="flightControllerBoard" placeholder="Ví dụ: MATEKF722" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Firmware Version</label>
+              <input type="text" formControlName="flightControllerFirmware" placeholder="Betaflight 4.5.1" />
+            </div>
+            <div class="form-group">
+              <label>Ghi chú FC</label>
+              <input type="text" formControlName="flightControllerNotes" placeholder="Trạng thái giao thức MSP..." />
+            </div>
+          </div>
+        </div>
 
-          <!-- 2. Propellers -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">2. Cánh quạt</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="propellersPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.propellersPassed.value">
-                  {{ checkForm.controls.propellersPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <input type="text" formControlName="propellersNotes" placeholder="Ghi chú kiểm tra vết rạn, độ dơ cánh quạt..." />
-          </div>
+        <div class="form-group" style="margin-top: 14px;">
+          <label>Kết luận chung biên bản kiểm định</label>
+          <textarea formControlName="notes" rows="2" placeholder="Ghi chú kết luận của kỹ thuật viên..."></textarea>
+        </div>
 
-          <!-- 3. Motors -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">3. Động cơ không chổi than</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="motorsPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.motorsPassed.value">
-                  {{ checkForm.controls.motorsPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <input type="text" formControlName="motorsNotes" placeholder="Ghi chú bạc đạn, tiếng ồn quay tay, cuộn dây..." />
-          </div>
-
-          <!-- 4. Camera / Payload -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">4. Cảm biến / Camera / Gimbal</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="cameraPayloadPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.cameraPayloadPassed.value">
-                  {{ checkForm.controls.cameraPayloadPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <input type="text" formControlName="cameraPayloadNotes" placeholder="Ghi chú gimbal cân bằng, hình ảnh nhiệt..." />
-          </div>
-
-          <!-- 5. Battery (Numeric + Checklist) -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">5. Nguồn điện & Pin bay</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="batteryPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.batteryPassed.value">
-                  {{ checkForm.controls.batteryPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Điện áp tổng (V)</label>
-                <input type="number" formControlName="batteryVoltage" step="0.1" />
-              </div>
-              <div class="form-group">
-                <label>Phần trăm dung lượng (%)</label>
-                <input type="number" formControlName="batteryPercent" min="0" max="100" />
-              </div>
-              <div class="form-group">
-                <label>Số Cell pin</label>
-                <input type="number" formControlName="batteryCellCount" min="1" max="14" />
-              </div>
-            </div>
-            <input type="text" formControlName="batteryNotes" placeholder="Ghi chú độ phồng pin, cân bằng cell..." />
-          </div>
-
-          <!-- 6. GPS GNSS -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">6. Định vị vệ tinh (GPS / RTK)</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="gpsPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.gpsPassed.value">
-                  {{ checkForm.controls.gpsPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Trạng thái Fix</label>
-                <input type="text" formControlName="gpsFixStatus" placeholder="3D_FIX / RTK_FIX" />
-              </div>
-              <div class="form-group">
-                <label>Số lượng vệ tinh kết nối</label>
-                <input type="number" formControlName="gpsSatelliteCount" min="0" max="40" />
-              </div>
-            </div>
-            <input type="text" formControlName="gpsNotes" placeholder="Ghi chú độ trôi vị trí, nhiễu từ trường..." />
-          </div>
-
-          <!-- 7. Communication -->
-          <div class="check-item-card">
-            <div class="check-item-head">
-              <span class="item-title">7. Kênh truyền thông vô tuyến</span>
-              <label class="check-toggle">
-                <input type="checkbox" formControlName="communicationPassed" />
-                <span class="toggle-status" [class.pass]="checkForm.controls.communicationPassed.value">
-                  {{ checkForm.controls.communicationPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                </span>
-              </label>
-            </div>
-            <input type="text" formControlName="communicationSignalInfo" placeholder="Cường độ tín hiệu (ví dụ: -55 dBm, 100%)" />
-            <input type="text" formControlName="communicationNotes" placeholder="Ghi chú độ trễ, nhiễu sóng..." style="margin-top: 6px;" />
-          </div>
-
-          <!-- 8. Flight Controller Identification -->
-          <div class="check-item-card fc-check">
-            <div class="check-item-head">
-              <span class="item-title">8. Bo mạch điều khiển bay (Flight Controller)</span>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <button
-                  type="button"
-                  class="button secondary small"
-                  (click)="populateFcFromConnectedSerial()"
-                  title="Đọc thông số từ cổng USB/Serial kết nối hiện thời"
-                >
-                  <span nz-icon nzType="usb"></span> Nạp từ FC USB
-                </button>
-                <label class="check-toggle">
-                  <input type="checkbox" formControlName="flightControllerPassed" />
-                  <span class="toggle-status" [class.pass]="checkForm.controls.flightControllerPassed.value">
-                    {{ checkForm.controls.flightControllerPassed.value ? 'ĐẠT' : 'KHÔNG ĐẠT' }}
-                  </span>
-                </label>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Mã định danh phần cứng (UID)</label>
-                <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: BF-F405-A1B2C3D4" />
-              </div>
-              <div class="form-group">
-                <label>Mã nhận diện bo mạch</label>
-                <input type="text" formControlName="flightControllerBoard" placeholder="Ví dụ: MATEKF722" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Firmware Version</label>
-                <input type="text" formControlName="flightControllerFirmware" placeholder="Betaflight 4.5.1" />
-              </div>
-              <div class="form-group">
-                <label>Ghi chú FC</label>
-                <input type="text" formControlName="flightControllerNotes" placeholder="Trạng thái giao thức MSP..." />
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group" style="margin-top: 14px;">
-            <label>Kết luận chung biên bản kiểm định</label>
-            <textarea formControlName="notes" rows="2" placeholder="Ghi chú kết luận của kỹ thuật viên..."></textarea>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="button secondary" (click)="closeTechCheck()">Hủy bỏ</button>
-            <button type="submit" class="button primary" [disabled]="busy()">
-              @if (busy()) {
-                <span nz-icon nzType="loading"></span> Đang nộp biên bản...
-              } @else {
-                <span nz-icon nzType="check-square"></span> Nộp Biên Bản Kiểm Định
-              }
-            </button>
-          </div>
-        </form>
-      </div>
+        <div class="modal-footer">
+          <button type="button" class="button secondary" (click)="closeTechCheck()">Hủy bỏ</button>
+          <button type="submit" class="button primary" [disabled]="busy()">
+            @if (busy()) {
+            <span nz-icon nzType="loading"></span> Đang nộp biên bản...
+            } @else {
+            <span nz-icon nzType="check-square"></span> Nộp Biên Bản Kiểm Định
+            }
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+</div>
 }
 
 <!-- ================= MODAL: TECHNICAL INSPECTION HISTORY ================= -->
 @if (historyDrone(); as hd) {
-  <div class="modal-backdrop" tabindex="-1" (click)="closeHistory()" (keydown.escape)="closeHistory()">
-    <div class="modal-dialog modal-lg" role="dialog" aria-modal="true" aria-labelledby="drone-history-title" (click)="$event.stopPropagation()" (keydown.escape)="closeHistory()">
-      <div class="modal-header">
-        <h3 id="drone-history-title">
-          <span nz-icon nzType="history" aria-hidden="true"></span>
-          Lịch sử kiểm định kỹ thuật: {{ hd.code }}
-        </h3>
-        <button type="button" class="close-x" aria-label="Đóng" (click)="closeHistory()">
-          <span nz-icon nzType="close" aria-hidden="true"></span>
-        </button>
-      </div>
+<div class="modal-backdrop" tabindex="-1" (click)="closeHistory()" (keydown.escape)="closeHistory()">
+  <div class="modal-dialog modal-lg" role="dialog" aria-modal="true" aria-labelledby="drone-history-title"
+    (click)="$event.stopPropagation()" (keydown.escape)="closeHistory()">
+    <div class="modal-header">
+      <h3 id="drone-history-title">
+        <span nz-icon nzType="history" aria-hidden="true"></span>
+        Lịch sử kiểm định kỹ thuật: {{ hd.code }}
+      </h3>
+      <button type="button" class="close-x" aria-label="Đóng" (click)="closeHistory()">
+        <span nz-icon nzType="close" aria-hidden="true"></span>
+      </button>
+    </div>
 
-      <div class="modal-body">
-        @if (historyLoading()) {
-          <p class="history-state" role="status"><span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span> Đang tải lịch sử kiểm định...</p>
-        } @else if (historyError()) {
-          <p class="history-state history-error" role="alert">{{ historyError() }}</p>
-        } @else if (!historyItems().length) {
-          <p class="history-state">UAV này chưa có lần kiểm định kỹ thuật nào.</p>
-        } @else {
-          <div class="history-table-wrap">
-            <table class="history-table">
-              <caption class="sr-only">Các lần kiểm định kỹ thuật gần nhất của {{ hd.code }}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Hoàn thành</th>
-                  <th scope="col">Kết quả</th>
-                  <th scope="col">Sức khỏe</th>
-                  <th scope="col">Kỹ thuật viên</th>
-                  <th scope="col">Hiệu lực đến</th>
-                  <th scope="col">Ghi chú</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (insp of historyItems(); track insp.id) {
-                  <tr>
-                    <td>{{ insp.completedAt ? (insp.completedAt | date:'dd/MM/yyyy HH:mm') : 'Chưa hoàn thành' }}</td>
-                    <td>{{ insp.status }}</td>
-                    <td><span class="badge" [class]="healthBadgeClass(insp.health)">{{ insp.health }}</span></td>
-                    <td>{{ insp.technicianName || '—' }}</td>
-                    <td>{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
-                    <td>{{ insp.notes || '—' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        }
+    <div class="modal-body">
+      @if (historyLoading()) {
+      <p class="history-state" role="status"><span nz-icon nzType="loading" [nzSpin]="true" aria-hidden="true"></span>
+        Đang tải lịch sử kiểm định...</p>
+      } @else if (historyError()) {
+      <p class="history-state history-error" role="alert">{{ historyError() }}</p>
+      } @else if (!historyItems().length) {
+      <p class="history-state">UAV này chưa có lần kiểm định kỹ thuật nào.</p>
+      } @else {
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <caption class="sr-only">Các lần kiểm định kỹ thuật gần nhất của {{ hd.code }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Hoàn thành</th>
+              <th scope="col">Kết quả</th>
+              <th scope="col">Sức khỏe</th>
+              <th scope="col">Kỹ thuật viên</th>
+              <th scope="col">Hiệu lực đến</th>
+              <th scope="col">Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (insp of historyItems(); track insp.id) {
+            <tr>
+              <td>{{ insp.completedAt ? (insp.completedAt | date:'dd/MM/yyyy HH:mm') : 'Chưa hoàn thành' }}</td>
+              <td>{{ insp.status }}</td>
+              <td><span class="badge" [class]="healthBadgeClass(insp.health)">{{ insp.health }}</span></td>
+              <td>{{ insp.technicianName || '—' }}</td>
+              <td>{{ insp.validUntil ? (insp.validUntil | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+              <td>{{ insp.notes || '—' }}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
       </div>
+      }
+    </div>
 
-      <div class="modal-footer">
-        <button type="button" class="button secondary" (click)="closeHistory()">Đóng</button>
-      </div>
+    <div class="modal-footer">
+      @if (canEditDrone()) {
+      <button type="button" class="button primary" (click)="closeHistory(); openTechCheck(hd)"
+        title="Kiểm định kỹ thuật an toàn (Checklist)">
+        <span nz-icon nzType="safety-certificate" aria-hidden="true"></span>
+        <span>Kiểm định an toàn</span>
+      </button>
+      <button type="button" class="button secondary" (click)="closeHistory(); openEdit(hd)"
+        title="Chỉnh sửa thông số UAV">
+        <span nz-icon nzType="edit" aria-hidden="true"></span>
+        <span>Chỉnh sửa</span>
+      </button>
+      }
+      @if (canManageFleet()) {
+      <button type="button" class="button danger" (click)="closeHistory(); deleteDrone(hd)"
+        [disabled]="hd.operationalStatus === 'InUse'" title="Xóa UAV">
+        <span nz-icon nzType="delete" aria-hidden="true"></span>
+        <span>Xóa UAV</span>
+      </button>
+      }
+      <button type="button" class="button secondary" (click)="closeHistory()">Đóng</button>
     </div>
   </div>
+</div>
 }
 
 <!-- ================= MODAL: GIS SCOPE ESTIMATION ================= -->
 @if (canManageFleet() && gisModalOpen()) {
-  <div class="modal-backdrop" (click)="closeGisModal()">
-    <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>
-          <span nz-icon nzType="calculator"></span>
-          Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS
-        </h3>
-        <button type="button" class="close-x" (click)="closeGisModal()">
-          <span nz-icon nzType="close"></span>
-        </button>
-      </div>
+<div class="modal-backdrop" (click)="closeGisModal()">
+  <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span nz-icon nzType="calculator"></span>
+        Ước Tính Năng Lực Bay Theo Hành Lang Tuyến GIS
+      </h3>
+      <button type="button" class="close-x" (click)="closeGisModal()">
+        <span nz-icon nzType="close"></span>
+      </button>
+    </div>
 
-      <div class="modal-body">
-        <p class="gis-intro-text">
-          Hệ thống tính toán thời gian khảo sát thực tế dựa trên độ dài tuyến hành lang (GIS Corridor) và số vị trí cột điện (số cột).
-          Quy định cố định các ràng buộc (Constraints): Tốc độ bay trung bình <strong>36 km/h (10 m/s)</strong>, Pin dự phòng an toàn <strong>20%</strong>, thời gian dừng chụp ảnh đo kiểm mỗi cột <strong>3.0 phút</strong>.
-        </p>
+    <div class="modal-body">
+      <p class="gis-intro-text">
+        Hệ thống tính toán thời gian khảo sát thực tế dựa trên độ dài tuyến hành lang (GIS Corridor) và số vị trí cột
+        điện (số cột).
+        Quy định cố định các ràng buộc (Constraints): Tốc độ bay trung bình <strong>36 km/h (10 m/s)</strong>, Pin dự
+        phòng an toàn <strong>20%</strong>, thời gian dừng chụp ảnh đo kiểm mỗi cột <strong>3.0 phút</strong>.
+      </p>
 
-        <form [formGroup]="gisForm" (ngSubmit)="runGisEstimation()" class="gis-calc-form">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Chiều dài tuyến hành lang GIS (km) <span class="req">*</span></label>
-              <input type="number" formControlName="corridorLengthKm" step="0.5" min="0.5" max="100" />
-            </div>
-            <div class="form-group">
-              <label>Số lượng vị trí cột cần đo kiểm (Cột) <span class="req">*</span></label>
-              <input type="number" formControlName="assetCount" min="1" max="200" />
-            </div>
-            <div class="form-group" style="align-self: flex-end;">
-              <button type="submit" class="button primary" [disabled]="gisBusy()" style="width: 100%;">
-                @if (gisBusy()) {
-                  <span nz-icon nzType="loading"></span> Đang tính toán...
-                } @else {
-                  <span nz-icon nzType="thunderbolt"></span> Chạy Mô Phỏng Ước Tính
-                }
-              </button>
-            </div>
+      <form [formGroup]="gisForm" (ngSubmit)="runGisEstimation()" class="gis-calc-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Chiều dài tuyến hành lang GIS (km) <span class="req">*</span></label>
+            <input type="number" formControlName="corridorLengthKm" step="0.5" min="0.5" max="100" />
           </div>
-        </form>
-
-        <!-- GIS Results Output -->
-        @if (gisResult(); as res) {
-          <div class="gis-results-box">
-            <div class="gis-summary-bar">
-              <div class="summary-stat">
-                <span class="stat-lbl">Tổng thời gian nhiệm vụ:</span>
-                <span class="stat-val">{{ res.estimatedMissionDurationMinutes | number:'1.1-1' }} phút</span>
-              </div>
-              <div class="summary-stat">
-                <span class="stat-lbl">Tốc độ bay / Pin dự phòng:</span>
-                <span class="stat-val" style="color: #0369a1;">{{ res.averageSpeedKmh }} km/h · {{ res.reserveBatteryPercent }}%</span>
-              </div>
-              <div class="summary-stat">
-                <span class="stat-lbl">Quy mô khảo sát:</span>
-                <span class="stat-val">{{ res.corridorLengthKm }} km ({{ res.assetCount }} vị trí cột)</span>
-              </div>
-            </div>
-
-            <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: #1e293b; font-weight: 700;">
-              Đánh giá mức độ phù hợp của từng Drone trong đội bay:
-            </h4>
-
-            <div class="gis-drones-list">
-              @for (item of res.drones; track item.droneId) {
-                <div class="gis-drone-card" [class.unsuitable]="item.suitability === 'UNSUITABLE'">
-                  <div class="card-head">
-                    <div class="drone-meta">
-                      <strong>{{ item.droneCode }}</strong> - {{ item.droneName }}
-                      <span class="endurance-tag">{{ item.flightEnduranceMinutes }} phút / {{ item.operationalRangeKm }} km</span>
-                    </div>
-                    <span class="badge" [class]="suitabilityBadgeClass(item.suitability)">
-                      @if (item.suitability === 'SUITABLE') {
-                        <span nz-icon nzType="check"></span> ĐẠT
-                      } @else if (item.suitability === 'SUITABLE_WITH_SPLIT') {
-                        <span nz-icon nzType="branches"></span> CHIA CHẶNG ({{ item.estimatedFlightsNeeded }} LẦN BAY)
-                      } @else {
-                        <span nz-icon nzType="close"></span> KHÔNG PHÙ HỢP
-                      }
-                    </span>
-                  </div>
-
-                  <div class="card-desc">
-                    <p>{{ item.recommendation }}</p>
-                    <div class="card-specs">
-                      <span>Số lần bay ước tính: <strong>{{ item.estimatedFlightsNeeded }} lượt</strong></span>
-                      <span>Tầm bay tối đa mỗi lần (trừ 20% dự phòng): <strong>{{ item.maxCoverageDistanceKm | number:'1.1-1' }} km</strong></span>
-                    </div>
-                    <!-- Suitability only compares scope with flight capability; readiness is reported separately. -->
-                    <div class="card-specs">
-                      <span>Sẵn sàng vận hành: <strong>{{ item.isAvailable ? 'Có' : 'Không' }}</strong></span>
-                      <span>
-                        Kiểm định kỹ thuật:
-                        <strong>{{ item.isTechnicallyReady ? 'Còn hiệu lực' : 'Cần Kỹ thuật viên kiểm định' }}</strong>
-                      </span>
-                    </div>
-                  </div>
-                </div>
+          <div class="form-group">
+            <label>Số lượng vị trí cột cần đo kiểm (Cột) <span class="req">*</span></label>
+            <input type="number" formControlName="assetCount" min="1" max="200" />
+          </div>
+          <div class="form-group" style="align-self: flex-end;">
+            <button type="submit" class="button primary" [disabled]="gisBusy()" style="width: 100%;">
+              @if (gisBusy()) {
+              <span nz-icon nzType="loading"></span> Đang tính toán...
+              } @else {
+              <span nz-icon nzType="thunderbolt"></span> Chạy Mô Phỏng Ước Tính
               }
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- GIS Results Output -->
+      @if (gisResult(); as res) {
+      <div class="gis-results-box">
+        <div class="gis-summary-bar">
+          <div class="summary-stat">
+            <span class="stat-lbl">Tổng thời gian nhiệm vụ:</span>
+            <span class="stat-val">{{ res.estimatedMissionDurationMinutes | number:'1.1-1' }} phút</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-lbl">Tốc độ bay / Pin dự phòng:</span>
+            <span class="stat-val" style="color: #0369a1;">{{ res.averageSpeedKmh }} km/h · {{ res.reserveBatteryPercent
+              }}%</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-lbl">Quy mô khảo sát:</span>
+            <span class="stat-val">{{ res.corridorLengthKm }} km ({{ res.assetCount }} vị trí cột)</span>
+          </div>
+        </div>
+
+        <h4 style="margin: 16px 0 8px 0; font-size: 13px; color: #1e293b; font-weight: 700;">
+          Đánh giá mức độ phù hợp của từng Drone trong đội bay:
+        </h4>
+
+        <div class="gis-drones-list">
+          @for (item of res.drones; track item.droneId) {
+          <div class="gis-drone-card" [class.unsuitable]="item.suitability === 'UNSUITABLE'">
+            <div class="card-head">
+              <div class="drone-meta">
+                <strong>{{ item.droneCode }}</strong> - {{ item.droneName }}
+                <span class="endurance-tag">{{ item.flightEnduranceMinutes }} phút / {{ item.operationalRangeKm }}
+                  km</span>
+              </div>
+              <span class="badge" [class]="suitabilityBadgeClass(item.suitability)">
+                @if (item.suitability === 'SUITABLE') {
+                <span nz-icon nzType="check"></span> ĐẠT (SUITABLE)
+                } @else if (item.suitability === 'SUITABLE_WITH_SPLIT') {
+                <span nz-icon nzType="branches"></span> CHIA CHẶNG ({{ item.estimatedFlightsNeeded }} LẦN BAY)
+                } @else {
+                <span nz-icon nzType="close"></span> KHÔNG PHÙ HỢP
+                }
+              </span>
+            </div>
+
+            <div class="card-desc">
+              <p>{{ item.recommendation }}</p>
+              <div class="card-specs">
+                <span>Số lần bay ước tính: <strong>{{ item.estimatedFlightsNeeded }} lượt</strong></span>
+                <span>Tầm bay tối đa mỗi lần (trừ 20% dự phòng): <strong>{{ item.maxCoverageDistanceKm | number:'1.1-1'
+                    }} km</strong></span>
+              </div>
+              <!-- Suitability only compares scope with flight capability; readiness is reported separately. -->
+              <div class="card-specs">
+                <span>Sẵn sàng vận hành: <strong>{{ item.isAvailable ? 'Có' : 'Không' }}</strong></span>
+                <span>
+                  Kiểm định kỹ thuật:
+                  <strong>{{ item.isTechnicallyReady ? 'Còn hiệu lực' : 'Cần Kỹ thuật viên kiểm định' }}</strong>
+                </span>
+              </div>
             </div>
           </div>
+          }
+        </div>
+      </div>
+      }
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="button secondary" (click)="closeGisModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+}
+
+<!-- ================= MODAL: FLIGHT CONTROLLER (FC) BINDING ================= -->
+@if (fcModalOpen()) {
+<div class="modal-backdrop" (click)="closeFcModal()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span nz-icon nzType="usb"></span>
+        Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}
+      </h3>
+      <button type="button" class="close-x" (click)="closeFcModal()" [disabled]="fcBusy()">
+        <span nz-icon nzType="close"></span>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (fcError()) {
+      <div class="error-banner" role="alert">
+        <span nz-icon nzType="alert"></span> {{ fcError() }}
+      </div>
+      }
+
+      <div class="fc-quick-connect-bar">
+        <button type="button" class="sub-action-btn check" (click)="scanFcFromUsb()" [disabled]="fcBusy()">
+          <span nz-icon nzType="usb"></span> Quét USB MSP (Betaflight)
+        </button>
+        <button type="button" class="sub-action-btn history" (click)="simulateFcConnect()" [disabled]="fcBusy()">
+          <span nz-icon nzType="thunderbolt"></span> Mô phỏng UID
+        </button>
+        @if (targetDroneForFc()?.activeFlightController) {
+        <button type="button" class="sub-action-btn danger" (click)="unpairFc()" [disabled]="fcBusy()">
+          <span nz-icon nzType="disconnect"></span> Hủy ghép nối FC
+        </button>
         }
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="button secondary" (click)="closeGisModal()">Đóng</button>
-      </div>
+      <form [formGroup]="fcForm" (ngSubmit)="saveFcBinding()">
+        <div class="form-group">
+          <label>Mã UID phần cứng FC (Hardware UID) <span class="req">*</span></label>
+          <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: 002100373038510b34313936"
+            style="font-family: monospace;" />
+          <small class="field-hint">Chuỗi định danh độc nhất đọc từ vi điều khiển STM32 qua lệnh MSP_UID.</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tên bo mạch (Board Identifier)</label>
+            <input type="text" formControlName="boardIdentifier" placeholder="Ví dụ: Betaflight STM32F405" />
+          </div>
+          <div class="form-group">
+            <label>Phần mềm / Firmware</label>
+            <input type="text" formControlName="firmwareName" placeholder="Ví dụ: Betaflight" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Phiên bản Firmware (Version)</label>
+          <input type="text" formControlName="firmwareVersion" placeholder="Ví dụ: 4.5.1" />
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="button secondary" (click)="closeFcModal()" [disabled]="fcBusy()">Hủy</button>
+          <button type="submit" class="button primary" [disabled]="fcBusy()">
+            @if (fcBusy()) {
+            <span nz-icon nzType="loading"></span> Đang lưu...
+            } @else {
+            <span nz-icon nzType="save"></span> Lưu ghép nối FC
+            }
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+</div>
 }

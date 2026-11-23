@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildInspectionChecklist } from '../../../shared/utils/inspection-checklist';
+import { buildInspectionChecklist } from './inspection-checklist';
 
 /** Items the backend always treats as critical; a critical item without a reading fails. */
 const CRITICAL = ['FRAME_BODY', 'PROP_INTEGRITY', 'MOTORS', 'BATTERY_HEALTH', 'IMU_CALIBRATION', 'GPS_FIX', 'FLIGHT_CONTROLLER', 'RF_LINK_TELEMETRY'];

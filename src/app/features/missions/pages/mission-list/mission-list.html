@@ -1,201 +1,153 @@
-<div class="pre-mission-page mission-list-page">
-  <!-- TẦNG 1: HEADER & BREADCRUMB -->
-  <header class="pre-mission-head">
+<div class="mission-page mission-list-page">
+  <div class="mission-page-head">
     <div>
-      <div class="pre-mission-breadcrumb">
-        <span>NHIỆM VỤ BAY</span>
+      <nav class="mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
         <span class="separator">/</span>
         <strong>DANH SÁCH NHIỆM VỤ</strong>
-      </div>
+      </nav>
       <h1>Danh sách nhiệm vụ bay</h1>
       <p>Quản lý và giám sát tiến độ các đợt khảo sát hạ tầng điện</p>
     </div>
     @if (canCreateMission()) {
-      <div class="head-actions">
-        <a class="evn-btn primary" routerLink="/missions/new">
-          <span nz-icon nzType="plus" aria-hidden="true"></span>Tạo nhiệm vụ mới
-        </a>
-      </div>
+      <a class="mission-primary-btn" routerLink="/missions/new"><span nz-icon nzType="plus"></span>Tạo nhiệm vụ mới</a>
     }
-  </header>
+  </div>
 
-  <!-- TẦNG 2: ALERTS -->
-  @if (error()) {
-    <div class="evn-alert" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" (click)="error.set('')">Đóng</button>
+  @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
+
+  <!-- Unified Enterprise KPI Status Bar -->
+  <section class="mission-kpi-bar" aria-label="Thống kê nhiệm vụ bay">
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Tổng nhiệm vụ</span>
+      <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
     </div>
-  }
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Chờ xử lý</span>
+      <strong class="kpi-bar-value text-pending">{{ stats()[1].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Đang bay</span>
+      <strong class="kpi-bar-value text-info">{{ stats()[2].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Hoàn thành</span>
+      <strong class="kpi-bar-value text-approved">{{ stats()[3].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Sự cố / Hủy</span>
+      <strong class="kpi-bar-value text-danger">{{ stats()[4].value }}</strong>
+    </div>
+  </section>
 
-  <!-- TẦNG 3: FILTER TOOLBAR -->
-  <section class="pre-mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
-    <div class="mission-scope-tabs" role="group" aria-label="Phạm vi nhiệm vụ">
-      <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" [attr.aria-pressed]="scope() === 'my'" (click)="setScope('my')">
-        <span nz-icon nzType="user" aria-hidden="true"></span> Nhiệm vụ của tôi
-      </button>
-      @if (canViewAll()) {
-        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" [attr.aria-pressed]="scope() === 'all'" (click)="setScope('all')">
-          <span nz-icon nzType="appstore" aria-hidden="true"></span> Tất cả nhiệm vụ
+  <div class="mission-toolbar-card">
+    <div class="mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
+      <div class="mission-scope-tabs" role="group" aria-label="Phạm vi nhiệm vụ">
+        <button type="button" class="mission-scope-tab" [class.active]="scope() === 'my'" [attr.aria-pressed]="scope() === 'my'" (click)="setScope('my')">
+          <span nz-icon nzType="user" aria-hidden="true"></span> Nhiệm vụ của tôi
         </button>
-      }
-    </div>
-
-    <div class="search-input-wrap">
-      <span nz-icon nzType="search" class="search-icon"></span>
-      <input type="search" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" />
-    </div>
-
-    <label>
-      <span>Trạng thái:</span>
-      <select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()" title="Lọc theo trạng thái">
-        <option value="">Tất cả trạng thái</option>
-        @for (item of statuses; track item) {
-          <option [value]="item">{{ statusLabel(item) }}</option>
+        @if (canViewAll()) {
+          <button type="button" class="mission-scope-tab" [class.active]="scope() === 'all'" [attr.aria-pressed]="scope() === 'all'" (click)="setScope('all')">
+            <span nz-icon nzType="appstore" aria-hidden="true"></span> Tất cả nhiệm vụ
+          </button>
         }
-      </select>
-    </label>
-
-    <label>
-      <span>Độ ưu tiên:</span>
-      <select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()" title="Lọc theo độ ưu tiên">
-        <option value="">Tất cả độ ưu tiên</option>
-        <option value="EMERGENCY">⚡ Khẩn cấp</option>
-        <option value="HIGH">🔥 Cao</option>
-        <option value="NORMAL">○ Bình thường</option>
-      </select>
-    </label>
-
-    <button type="button" class="evn-btn primary" style="height: 26px;" (click)="applyFilters()">
-      <span nz-icon nzType="filter"></span> Lọc
-    </button>
-    <button type="button" class="evn-btn secondary" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên">
-      <span nz-icon nzType="thunderbolt"></span> Ưu tiên
-    </button>
-    <button type="button" class="evn-btn secondary" [disabled]="loading()" (click)="refreshList()" title="Tải lại danh sách">
-      <span nz-icon nzType="reload" aria-hidden="true"></span> Làm mới
-    </button>
-    @if (search() || status() || priority()) {
-      <button type="button" class="evn-btn secondary" (click)="resetFilters()" title="Đặt lại bộ lọc">
-        <span nz-icon nzType="clear"></span> Đặt lại
-      </button>
-    }
-  </section>
-
-  <!-- TẦNG 4: SUMMARY METRIC STRIP -->
-  <section class="pre-mission-summary-strip" aria-label="Tổng quan số liệu nhiệm vụ">
-    @for (item of stats(); track item.label) {
-      <div class="summary-item">
-        <strong>{{ item.value }}</strong>
-        <span>{{ item.label }}</span>
       </div>
-    }
-  </section>
 
-  <!-- TẦNG 5: DENSE EVN BORDERED TABLE CARD -->
-  <section class="pre-mission-table-card" [class.is-loading]="loading()" [attr.aria-busy]="loading()">
-    <div class="table-scroll">
+      <div class="search-input-wrap mission-search-wrap">
+        <span nz-icon nzType="search" class="search-icon"></span>
+        <input type="search" class="mission-search-input" placeholder="Tìm kiếm nhiệm vụ, mã NV..." [value]="search()" (input)="updateSearch($any($event.target).value)" (keydown.enter)="applyFilters()" />
+      </div>
+
+      <div class="mission-filter-selects">
+        <label class="mission-select-label">
+          <span class="filter-lbl">Trạng thái:</span>
+          <select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()" title="Lọc theo trạng thái">
+            <option value="">Tất cả</option>
+            @for (item of statuses; track item) {
+              <option [value]="item">{{ item }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="mission-select-label">
+          <span class="filter-lbl">Độ ưu tiên:</span>
+          <select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()" title="Lọc theo độ ưu tiên">
+            <option value="">Tất cả</option>
+            <option value="EMERGENCY">EMERGENCY</option>
+            <option value="HIGH">HIGH</option>
+            <option value="NORMAL">NORMAL</option>
+          </select>
+        </label>
+
+        <label class="mission-select-label">
+          <span class="filter-lbl">Sắp xếp:</span>
+          <select [value]="sortOption()" (change)="setSortOption($any($event.target).value)" title="Sắp xếp danh sách">
+            <option value="createdAt_desc">Thời gian: Gần nhất (Mới nhất)</option>
+            <option value="createdAt_asc">Thời gian: Xa nhất (Cũ nhất)</option>
+            <option value="priority_desc">Mức ưu tiên: Cao nhất</option>
+            <option value="priority_asc">Mức ưu tiên: Thấp nhất</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <section class="mission-table-card" [class.is-loading]="loading()" aria-busy="{{ loading() }}">
+    <div class="mission-table-scroll">
       <table>
-        <thead>
-          <tr>
-            <th style="width: 140px;">Mã nhiệm vụ</th>
-            <th style="width: 125px;">Độ ưu tiên</th>
-            <th style="width: 250px;">Tên nhiệm vụ</th>
-            <th style="width: 110px;">Ngày tạo</th>
-            <th style="width: 230px;">Phạm vi (Khu vực / Cột)</th>
-            <th style="width: 180px;">Thanh tra viên / UAV</th>
-            <th style="width: 130px;">Trạng thái</th>
-            <th style="width: 110px;" class="text-center">Thao tác</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Mã nhiệm vụ</th><th>Độ ưu tiên</th><th>Tên nhiệm vụ</th><th>Ngày tạo</th><th>Khu vực / Tuyến</th><th>Thanh tra viên / UAV</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
         <tbody>
           @if (loading()) {
             @for (row of [1,2,3,4,5,6]; track row) {
-              <tr class="skeleton-row">
-                <td colspan="8" class="text-center" style="color: #64748b; font-style: italic;">
-                  Đang tải dữ liệu nhiệm vụ bay...
-                </td>
-              </tr>
+              <tr class="mission-skeleton-row"><td colspan="8"><span></span></td></tr>
             }
           } @else if (!response().items.length) {
+            <tr><td colspan="8">Không có nhiệm vụ phù hợp.</td></tr>
+          }
+          @for (mission of response().items; track mission.id) {
+            @let link = rowLink(mission);
             <tr>
-              <td colspan="8" class="text-center" style="padding: 24px; color: #64748b;">
-                Chưa có nhiệm vụ nào phù hợp điều kiện lọc.
+              <td><a [routerLink]="link.commands" [queryParams]="link.queryParams" class="mission-code">{{ mission.missionCode }}</a></td>
+              <td>
+                <span class="mission-priority-badge {{ priorityClass(mission.priority) }}">
+                  {{ priorityLabel(mission.priority) }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong>
+                @if (mission.objective) {
+                  <small class="mission-objective-text">{{ objectiveLabel(mission.objective) }}</small>
+                }
+              </td>
+              <td>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</td>
+              <td>{{ routeLabel(mission) }}</td>
+              <td><span>{{ mission.assignedToUsername }}</span><small>{{ mission.droneCode }}</small></td>
+              <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
+              <td>
+                <div class="mission-row-actions">
+                  <a class="button secondary small mission-row-detail-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Chi tiết nhiệm vụ ' + mission.missionCode">
+                    <span nz-icon nzType="eye" aria-hidden="true"></span>
+                    <span>{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Chi tiết' }}</span>
+                  </a>
+                </div>
               </td>
             </tr>
-          } @else {
-            @for (mission of response().items; track mission.id) {
-              @let link = rowLink(mission);
-              <tr>
-                <td>
-                  <a [routerLink]="link.commands" [queryParams]="link.queryParams" class="evn-code mission-code" [title]="'Xem chi tiết ' + mission.missionCode">
-                    {{ mission.missionCode }}
-                  </a>
-                </td>
-                <td class="text-center">
-                  <span class="evn-status {{ priorityTone(mission.priority) }}">
-                    {{ priorityLabel(mission.priority) }}
-                  </span>
-                  @if (mission.objective) {
-                    <small style="display: block; font-size: 9px; color: #64748b; margin-top: 2px;">{{ mission.objective }}</small>
-                  }
-                </td>
-                <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
-                <td>
-                  <span style="font-size: 11px; color: #334155;">{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : '—' }}</span>
-                </td>
-                <td>
-                  <div class="mission-scope-cell">
-                    <strong>{{ missionRegion(mission) }}</strong>
-                    @if (missionTowerCount(mission) > 0) {
-                      <span style="color: #64748b;"> · {{ missionTowerCount(mission) }} cột</span>
-                    }
-                  </div>
-                </td>
-                <td>
-                  <strong>{{ mission.assignedToUsername || 'Chưa phân công' }}</strong>
-                  @if (mission.droneCode) {
-                    <small style="display: block; font-size: 10px; color: #64748b;">{{ mission.droneCode }}</small>
-                  }
-                </td>
-                <td class="text-center">
-                  <span class="evn-status {{ statusClass(mission.status) }}">
-                    {{ statusLabel(mission.status) }}
-                  </span>
-                </td>
-                <td class="text-center">
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                    <a
-                      class="evn-btn secondary"
-                      style="height: 22px; min-height: 22px; padding: 0 8px; font-size: 10px;"
-                      [routerLink]="link.commands"
-                      [queryParams]="link.queryParams"
-                      [attr.aria-label]="'Xem nhiệm vụ ' + mission.missionCode"
-                    >
-                      {{ link.commands.length > 2 ? 'Tiếp nhận' : 'Xem' }}
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            }
           }
         </tbody>
       </table>
     </div>
-
-    <!-- TẦNG 6: TABLE FOOTER & PAGINATION -->
-    <footer>
-      <span>Hiển thị {{ startIndex() }} - {{ endIndex() }} trong tổng số {{ response().totalCount }} nhiệm vụ</span>
-      <div class="evn-pagination">
-        <button type="button" [disabled]="page() <= 1" (click)="goToPage(page() - 1)" aria-label="Trang trước">
-          <span nz-icon nzType="left"></span>
-        </button>
-        @for (item of pageButtons(); track $index) {
-          <button type="button" [class.active]="item === page()" (click)="goToPage(item)">{{ item }}</button>
-        }
-        <button type="button" [disabled]="page() >= response().totalPages" (click)="goToPage(page() + 1)" aria-label="Trang tiếp">
-          <span nz-icon nzType="right"></span>
-        </button>
-      </div>
+    <footer class="mission-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="response().totalPages"
+        [totalCount]="response().totalCount"
+        [pageSize]="pageSize()"
+        (pageChanged)="goToPage($event)"
+      />
     </footer>
   </section>
 </div>

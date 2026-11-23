@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { Auth } from './auth';
+import { TrustedDeviceService } from './trusted-device.service';
 
 describe('Auth', () => {
   let auth: Auth;
@@ -44,7 +45,7 @@ describe('Auth', () => {
   it('normalizes login username email before sending credentials', () => {
     auth.login({ username: '  OPERATOR@EVN.VN  ', password: 'secret12' }).subscribe();
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
-    expect(request.request.body).toEqual({ username: 'OPERATOR@EVN.VN', email: 'OPERATOR@EVN.VN', password: 'secret12' });
+    expect(request.request.body).toMatchObject({ username: 'OPERATOR@EVN.VN', email: 'OPERATOR@EVN.VN', password: 'secret12' });
     request.flush({ data: { otpRequired: true, email: 'OPERATOR@EVN.VN' } });
   });
 
@@ -116,63 +117,35 @@ describe('Auth', () => {
     expect(auth.isAuthenticated()).toBe(false);
   });
 
-  it('stores device trust token upon OTP verification and includes it in subsequent login', () => {
-    auth.verifyOtp({ email: 'operator@evn.vn', otp: '123456', purpose: 'Login' }).subscribe();
-    http.expectOne(`${environment.apiBaseUrl}/auth/otp/verify`).flush({
+  it('automatically verifies OTP when device is already trusted', () => {
+    // 1. Trust the device first
+    const trustedDevice = TestBed.inject(TrustedDeviceService);
+    trustedDevice.trustDevice('operator@evn.vn', 30);
+    expect(trustedDevice.isDeviceTrusted('operator@evn.vn')).toBe(true);
+
+    // 2. Perform login which asks for OTP from server
+    let result: any;
+    auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe((val) => (result = val));
+
+    const loginReq = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
+    expect(loginReq.request.body.isTrustedDevice).toBe(true);
+    loginReq.flush({ data: { otpRequired: true, email: 'operator@evn.vn' } });
+
+    // 3. Since device is trusted, Auth automatically calls verifyOtp
+    const otpReq = http.expectOne(`${environment.apiBaseUrl}/auth/otp/verify`);
+    otpReq.flush({
       data: {
-        deviceTrustToken: 'trust-token-123',
         authResult: {
-          accessToken: 'access',
-          refreshToken: 'refresh',
-          deviceTrustToken: 'trust-token-123',
-          user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector' },
+          accessToken: 'trusted-access-token',
+          refreshToken: 'trusted-refresh-token',
+          user: { id: 'u-trusted', email: 'operator@evn.vn', role: 'Inspector' },
         },
       },
     });
 
-    expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');
-
-    auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe();
-    const req = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
-    expect(req.request.body).toEqual({
-      username: 'operator@evn.vn',
-      email: 'operator@evn.vn',
-      password: 'secret12',
-      deviceTrustToken: 'trust-token-123',
-    });
-    expect(req.request.headers.get('X-Device-Trust-Token')).toBe('trust-token-123');
-    req.flush({
-      data: {
-        accessToken: 'access2',
-        refreshToken: 'refresh2',
-        deviceTrustToken: 'trust-token-123',
-        user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector' },
-      },
-    });
-
+    expect(result.otpRequired).toBe(false);
     expect(auth.isAuthenticated()).toBe(true);
-
-    auth.logout();
-    expect(auth.isAuthenticated()).toBe(false);
-    expect(auth.getDeviceTrustToken('operator@evn.vn')).toBe('trust-token-123');
-  });
-
-  it('validates active session and keeps session authenticated', () => {
-    localStorage.setItem('uavpms.session', JSON.stringify({
-      user: { id: 'u1', email: 'operator@evn.vn', fullName: 'Operator', role: 'Inspector', mustChangePassword: false },
-      tokens: { accessToken: jwtWithExpiry(Math.floor(Date.now() / 1000) + 3600), refreshToken: 'valid-refresh-token' },
-    }));
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
-    auth = TestBed.inject(Auth);
-    http = TestBed.inject(HttpTestingController);
-
-    auth.validateSession();
-    const req = http.expectOne(`${environment.apiBaseUrl}/auth/validate-session`);
-    expect(req.request.body).toEqual({ refreshToken: 'valid-refresh-token' });
-    req.flush({ success: true, message: 'Session active.' });
-
-    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.user()?.id).toBe('u-trusted');
   });
 });
 

@@ -6,7 +6,7 @@ import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
 import { buildTimeline } from '../../components/ticket-timeline/ticket-timeline';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
+import { MaintenanceApi } from '../../data-access/maintenance-api';
 import { MaintenanceDetail } from './maintenance-detail';
 
 const proof = { id: 'p1', proofType: 'After', fileUrl: 'https://img/p1.jpg', technicianNotes: 'Đã thay', uploadedAt: '2026-10-31T03:00:00Z' };
@@ -76,18 +76,18 @@ describe('MaintenanceDetail', () => {
     await setup('Manager', ticket());
     expect(api.get).toHaveBeenCalledWith('t1');
     expect(text()).toContain('TKT-1');
-    expect(text()).toContain('Chờ xử lý');
+    expect(text()).toContain('Mới mở');
     const links = Array.from(element().querySelectorAll('a')).map((anchor) => anchor.getAttribute('href'));
     expect(links).toContain('/towers/tw1');
     expect(links).toContain('/missions/ms1');
   });
 
-  it('lets a manager assign an unassigned Open ticket; start is reserved for the assigned technician', async () => {
+  it('lets a manager assign an unassigned Open ticket; start is blocked until a technician is assigned', async () => {
     await setup('Manager', ticket());
     expect(api.technicians).toHaveBeenCalled();
     expect(text()).toContain('Giao kỹ thuật viên');
     expect(text()).toContain('Nguyễn Văn Thợ — 2 phiếu chưa đóng');
-    expect(button('Bắt đầu sửa chữa')).toBeUndefined();
+    expect(button('Bắt đầu sửa chữa')?.disabled).toBe(true);
     expect(button('Gửi nghiệm thu')).toBeUndefined();
     expect(button('Nghiệm thu & đóng phiếu')).toBeUndefined();
   });
@@ -106,11 +106,11 @@ describe('MaintenanceDetail', () => {
     expect(api.get).toHaveBeenCalledTimes(2);
   });
 
-  it('disables "Gửi nghiệm thu" until a proof exists and shows the evidence upload while in progress', async () => {
+  it('disables "Gửi nghiệm thu" until a proof exists and shows the evidence forms while in progress', async () => {
     await setup('MaintenanceTechnician', ticket({ technicianId: 'u1', status: 'InProgress' }));
     expect(button('Gửi nghiệm thu')?.disabled).toBe(true);
     expect(element().querySelector('app-proof-upload')).not.toBeNull();
-    expect(element().querySelector('app-material-form')).toBeNull();
+    expect(element().querySelector('app-material-form')).not.toBeNull();
   });
 
   it('enables "Gửi nghiệm thu" when a proof exists and submits PendingVerification', async () => {
@@ -146,7 +146,7 @@ describe('MaintenanceDetail', () => {
 
   it('shows the Vietnamese error when an action fails', async () => {
     api.updateStatus.mockReturnValue(throwError(() => ({ status: 400, error: { errorCode: 'Cannot submit ticket for verification without repair proof photo', message: 'Cannot submit ticket for verification without repair proof photo' } })));
-    await setup('Technician', ticket({ technicianId: 'u1', status: 'InProgress', proofs: [proof] }));
+    await setup('Manager', ticket({ technicianId: 'tech1', status: 'InProgress', proofs: [proof] }));
     const component = fixture.componentInstance as unknown as DetailHarness;
     component.ask('submit');
     component.runAction();

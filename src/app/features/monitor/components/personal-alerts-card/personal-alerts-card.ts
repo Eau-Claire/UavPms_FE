@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MonitorAlert } from '../../../../models/monitor.models';
 import { ActiveAlertsPanel } from '../active-alerts-panel/active-alerts-panel';
-import { MonitorApi } from '../../../../core/services/monitor-api';
+import { MonitorApi } from '../../data-access/monitor-api';
 import { pollResource } from '../../data-access/polled-resource';
 
 /** The signed-in user's own notifications (`GET /monitor/alerts`), refreshed every minute. */
@@ -41,12 +41,7 @@ export class PersonalAlertsCard {
 
   protected readonly alerts = computed<readonly MonitorAlert[]>(() => {
     const read = this.readIds();
-    const list = (this.resource.value() ?? []).map((alert) => (read.has(alert.id) && !alert.isRead ? { ...alert, isRead: true } : alert));
-    return [...list].sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
-    });
+    return (this.resource.value() ?? []).map((alert) => (read.has(alert.id) && !alert.isRead ? { ...alert, isRead: true } : alert));
   });
   protected readonly unreadCount = computed(() => this.alerts().filter((alert) => !alert.isRead).length);
 

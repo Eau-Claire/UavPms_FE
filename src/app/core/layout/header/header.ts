@@ -2,9 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, output, s
 import { Router, RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AppNotification, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
+import { formatAsiaDate } from '../../../shared/utils/date-utils';
 import { Auth } from '../../auth/auth';
 import { isManagerRole, roleLabel } from '../../auth/roles';
-import { NotificationsStore } from '../../notifications/notifications-store';
+import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 import { FacilityItem, FacilityStore } from '../../facility/facility-store';
 import { NotificationLink, notificationLink, referenceTypeLabel } from './notification-link';
 
@@ -32,13 +33,22 @@ export class Header {
   protected readonly notificationFiltersOpen = signal(false);
   protected readonly facilityMenuOpen = signal(false);
 
+  protected readonly userEmail = computed(() => {
+    const u = this.user();
+    return u?.email || 'Người dùng';
+  });
   protected readonly userDisplayName = computed(() => {
     const u = this.user();
     return u?.fullName || u?.email?.split('@')[0] || 'Người dùng';
   });
+  protected readonly userInitial = computed(() => {
+    const name = this.userDisplayName();
+    return name.charAt(0).toUpperCase();
+  });
   protected readonly userRoleLabel = computed(() => roleLabel(this.user()?.role));
   /** The working-area picker is a manager tool; field roles work on what is assigned to them. */
   protected readonly showFacilitySelector = computed(() => isManagerRole(this.user()?.role));
+  protected readonly canViewAuditLogs = computed(() => isManagerRole(this.user()?.role));
   /** Link for the opened notification, or null when the role has no page for it. */
   protected readonly selectedLink = computed<NotificationLink | null>(() => {
     const selected = this.notifications.selected();
@@ -47,13 +57,8 @@ export class Header {
   protected readonly referenceTypeLabel = referenceTypeLabel;
   protected readonly groupedNotifications = computed(() => {
     const list = this.notifications.filteredNotifications();
-    const sorted = [...list].sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
-    });
     const groups: { dateLabel: string; items: AppNotification[] }[] = [];
-    sorted.forEach((item) => {
+    list.forEach((item) => {
       const date = new Date(item.createdAt);
       let label = 'Không rõ ngày';
       if (!Number.isNaN(date.getTime())) {
@@ -136,7 +141,13 @@ export class Header {
     if (!notification.isRead) {
       this.notifications.markRead(notification.id);
     }
-    this.notifications.select(notification);
+    const link = notificationLink(notification, this.user()?.role);
+    if (link) {
+      this.closeNotifications();
+      void this.router.navigate(link.commands, { queryParams: link.queryParams });
+    } else {
+      this.notifications.select(notification);
+    }
   }
   protected deleteNotification(event: Event, id: string): void { event.stopPropagation(); this.notifications.delete(id); }
   protected updateReadFilter(event: Event): void { this.notifications.setReadFilter(((event.target as HTMLSelectElement | null)?.value ?? 'all') as NotificationReadFilter); }
@@ -170,16 +181,10 @@ export class Header {
     return 'bell';
   }
   protected formatTime(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return formatAsiaDate(value, { timeOnly: true });
   }
   protected formatDate(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Không rõ thời gian';
-    return new Intl.DateTimeFormat('vi', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    return formatAsiaDate(value);
   }
   protected markAllAsRead(): void {
     this.notifications.markAllAsRead();

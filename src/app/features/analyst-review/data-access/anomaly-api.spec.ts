@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { AnomalyApi, anomalyErrorMessage, apiErrorCode, AnomalyPage, groupSuperseded, normalizeAnomalyItem } from '../../../core/services/anomaly-api';
+import { AnomalyApi, anomalyErrorMessage, apiErrorCode, AnomalyPage, groupSuperseded, normalizeAnomalyItem } from './anomaly-api';
 
 describe('AnomalyApi', () => {
   let api: AnomalyApi;
@@ -69,6 +69,38 @@ describe('AnomalyApi', () => {
     expect(get.request.params.get('radiusMeters')).toBe('300');
     get.flush({ success: true, data: { anomalyId: 'a1', currentTowerId: null, source: 'Anomaly', latitude: 21, longitude: 105, radiusMeters: 300, towers: [{ towerId: 't9', towerCode: 'NPC_HN_01_014', regionId: 'r', address: null, latitude: 21, longitude: 105, distanceMeters: 55.6, isCurrent: false }] } });
     expect(distance).toBe(55.6);
+  });
+
+  it('lists confirmed defects via monitor inspections fallback', () => {
+    let page: AnomalyPage | undefined;
+    api.listConfirmed({ pageIndex: 1, pageSize: 15 }).subscribe((p) => (page = p));
+    const req = http.expectOne((r) => r.url === `${base}/monitor/inspections`);
+    expect(req.request.params.get('isDefect')).toBe('true');
+    req.flush({
+      success: true,
+      data: {
+        items: [
+          {
+            inspectionId: 'ins-1',
+            imageUrl: 'https://cdn/b.jpg',
+            defectType: 'Rỉ sét',
+            confidenceScore: 0.88,
+            towerId: 't-1',
+            towerCode: 'HCM-TB-01',
+            detectedAt: '2026-11-20T10:00:00Z',
+          },
+        ],
+        totalCount: 1,
+        pageIndex: 1,
+        pageSize: 15,
+        totalPages: 1,
+      },
+    });
+
+    expect(page?.items.length).toBe(1);
+    expect(page?.items[0].id).toBe('ins-1');
+    expect(page?.items[0].categoryName).toBe('Rỉ sét');
+    expect(page?.items[0].validationStatus).toBe('Confirmed');
   });
 
   it('does not swallow validation errors and explains TOWER_REQUIRED in Vietnamese', () => {

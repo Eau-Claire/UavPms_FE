@@ -1,21 +1,21 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
-import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzTagModule } from 'ng-zorro-antd/tag';
-import { NzInputModule } from 'ng-zorro-antd/input';
-import { NzSelectModule } from 'ng-zorro-antd/select';
-import { NzNotificationService } from 'ng-zorro-antd/notification';
-import { NzTableModule } from 'ng-zorro-antd/table';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 
 import { Auth } from '../../../../core/auth/auth';
 import { isAdminRole } from '../../../../core/auth/roles';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
-import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
-import { alertErrorMessage, EmergencyAlertsApi } from '../../../../core/services/emergency-alerts-api';
+import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
+import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
+import { alertErrorMessage, EmergencyAlertsApi } from '../../data-access/emergency-alerts-api';
+import { AnomalyApi, mapAlertToAnomaly } from '../../../analyst-review/data-access/anomaly-api';
+import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
+import { ToastService } from '../../../../core/toast/toast.service';
 import {
   ActiveEmergencyAlert,
   ALERT_PRIORITY_LABELS,
@@ -25,7 +25,7 @@ import {
   EmergencyAlertDetail,
   EmergencyAlertHistoryPage,
   EscalationTarget,
-} from '../../../../models/emergency-alert.models';
+} from '../../models/emergency-alert.models';
 
 interface BoundingBoxStyle {
   readonly left: number;
@@ -57,11 +57,8 @@ export const URGENCY_LEVELS = [
     DecimalPipe,
     ReactiveFormsModule,
     NzIconModule,
-    NzButtonModule,
-    NzTagModule,
-    NzInputModule,
-    NzSelectModule,
-    NzTableModule,
+    RouterLink,
+    Pagination,
   ],
   templateUrl: './emergency-alerts-review.html',
   styleUrl: './emergency-alerts-review.scss',
@@ -71,8 +68,11 @@ export class EmergencyAlertsReview {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(Auth);
   private readonly api = inject(EmergencyAlertsApi);
+  private readonly anomalyHistory = inject(AnomalyHistoryService);
+  private readonly anomalyApi = inject(AnomalyApi);
   private readonly realtime = inject(NotificationsRealtime);
-  private readonly notification = inject(NzNotificationService);
+  private readonly notificationsStore = inject(NotificationsStore, { optional: true });
+  private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly statusLabels = ALERT_STATUS_LABELS;
@@ -82,6 +82,7 @@ export class EmergencyAlertsReview {
 
   protected readonly selectedTab = signal<'active' | 'history'>('active');
 
+  // --- Active alerts (GET /alerts/active) ---
   protected readonly activeAlerts = this.api.activeAlerts;
   protected readonly activeCount = this.api.activeCount;
   protected readonly activeLoading = signal(false);
@@ -90,27 +91,38 @@ export class EmergencyAlertsReview {
   protected readonly selectedAlertId = signal<string | null>(null);
   protected readonly selectedAlert = computed<ActiveEmergencyAlert | null>(() => {
     const alerts = this.activeAlerts();
-    const id = this.selectedAlertId();
-    return alerts.find((a) => a.id === id) ?? alerts[0] ?? null;
+    const id = this.selectedAlertId()?.trim();
+    if (!id) return alerts[0] ?? null;
+    return alerts.find((a) => a.id === id || a.anomalyId === id) ?? alerts[0] ?? null;
   });
 
+  // --- History (GET /alerts?status&page&pageSize) ---
   protected readonly historyStatus = this.fb.nonNullable.control<AlertStatus | ''>('');
   protected readonly historyPage = signal<EmergencyAlertHistoryPage>({ totalCount: 0, page: 1, pageSize: 10, items: [] });
   protected readonly historyLoading = signal(false);
   protected readonly historyError = signal('');
+  protected readonly historyTotalPages = computed(() => {
+    const total = this.historyPage().totalCount;
+    const size = this.historyPage().pageSize || 10;
+    return Math.max(1, Math.ceil(total / size));
+  });
 
+  // --- Detail modal (GET /alerts/{id}) ---
   protected readonly detail = signal<EmergencyAlertDetail | null>(null);
   protected readonly detailLoading = signal(false);
 
+  // --- Permissions ---
   protected readonly user = computed(() => this.auth.user());
-  /** Chỉ tài khoản Analyst mới có quyền xác nhận hoặc bác bỏ cảnh báo khẩn cấp. */
-  protected readonly canReview = computed(() => this.user()?.role?.toLowerCase() === 'analyst');
+  /** `PUT /alerts/{id}/review` and `POST /alerts/{id}/escalate`: SystemAdmin, Manager, Analyst. */
+  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.emergencyAlerts));
 
+  // --- Evidence viewer ---
   protected readonly zoomLevel = signal(1);
   protected readonly showBoundingBox = signal(true);
   protected readonly imgNaturalWidth = signal(0);
   protected readonly imgNaturalHeight = signal(0);
 
+  // --- Actions ---
   protected readonly actionBusy = signal(false);
   protected readonly isConfirmModalVisible = signal(false);
   protected readonly isDismissModalVisible = signal(false);
@@ -139,6 +151,19 @@ export class EmergencyAlertsReview {
   private audioCtx: AudioContext | null = null;
 
   constructor() {
+    const route = inject(ActivatedRoute);
+    route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const id = (params.get('id') || params.get('alertId'))?.trim();
+      if (id) {
+        const matching = this.activeAlerts().find((a) => a.id === id || a.anomalyId === id);
+        this.selectedAlertId.set(matching ? matching.id : id);
+      }
+      const tab = params.get('tab');
+      if (tab === 'history' || tab === 'active') {
+        this.selectedTab.set(tab);
+      }
+    });
+
     this.loadActive();
     this.loadHistory(1);
 
@@ -157,6 +182,36 @@ export class EmergencyAlertsReview {
         finalize(() => this.activeLoading.set(false)),
       )
       .subscribe({
+        next: (alerts) => {
+          const targetId = this.selectedAlertId()?.trim();
+          if (alerts.length === 0) {
+            // Không còn cảnh báo nào đang hoạt động -> tự động đánh dấu đã xem thông báo khẩn cấp
+            this.notificationsStore?.markReadForEmergencyAlert();
+            return;
+          }
+
+          if (!targetId) {
+            // Tự động xem cảnh báo đầu tiên và đánh dấu đã đọc
+            const first = alerts[0];
+            if (first) {
+              this.notificationsStore?.markReadForEmergencyAlert(first.id, first.anomalyId, first.towerCode);
+            }
+            return;
+          }
+
+          // Check if targetId matches an active alert (by id or anomalyId)
+          const matching = alerts.find((a) => a.id === targetId || a.anomalyId === targetId);
+          if (matching) {
+            this.selectedAlertId.set(matching.id);
+            this.notificationsStore?.markReadForEmergencyAlert(matching.id, matching.anomalyId, matching.towerCode);
+            return;
+          }
+
+          // If not in active alerts and the user is on history tab, try to view history detail silently
+          if (this.selectedTab() === 'history') {
+            this.viewDetail(targetId, false);
+          }
+        },
         error: (err: unknown) => this.activeError.set(alertErrorMessage(err, 'Không thể tải danh sách cảnh báo đang hoạt động.')),
       });
   }
@@ -187,10 +242,7 @@ export class EmergencyAlertsReview {
       const isEmergency = notif.type === 'EmergencyAlert' || notif.referenceType === 'EmergencyAlert';
       if (!isEmergency) return;
       this.playWarningBeep();
-      this.notification.error('Cảnh báo khẩn cấp mới', `${notif.title}: ${notif.body}`, {
-        nzDuration: 8000,
-        nzPauseOnHover: true,
-      });
+      this.toast.error(`Cảnh báo khẩn cấp mới: ${notif.title || ''} - ${notif.body || ''}`);
       this.loadActive();
     });
   }
@@ -212,11 +264,14 @@ export class EmergencyAlertsReview {
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
     } catch {
+      // Audio is blocked until the user interacts with the page; the toast is enough.
     }
   }
 
+  // --- Selection & evidence viewer ---
   protected selectAlert(alert: ActiveEmergencyAlert): void {
     this.selectedAlertId.set(alert.id);
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     this.zoomLevel.set(1);
     this.imgNaturalWidth.set(0);
     this.imgNaturalHeight.set(0);
@@ -245,55 +300,58 @@ export class EmergencyAlertsReview {
   }
 
   protected boundingBoxStyle(box: AlertBoundingBox | null): BoundingBoxStyle | null {
-    if (!box) return null;
-    if (box.isNormalized) return { left: box.x, top: box.y, width: box.width, height: box.height };
-    const w = this.imgNaturalWidth();
-    const h = this.imgNaturalHeight();
-    if (!w || !h) return null;
+    if (!box || (box.width === 0 && box.height === 0)) {
+      // Default visible box highlighting the anomaly area
+      return { left: 20, top: 15, width: 60, height: 60 };
+    }
+    if (box.isNormalized) {
+      const left = box.x > 1 ? box.x : box.x * 100;
+      const top = box.y > 1 ? box.y : box.y * 100;
+      const width = box.width > 1 ? box.width : box.width * 100;
+      const height = box.height > 1 ? box.height : box.height * 100;
+      return {
+        left: Math.max(0, Math.min(95, left)),
+        top: Math.max(0, Math.min(95, top)),
+        width: Math.max(5, Math.min(100, width)),
+        height: Math.max(5, Math.min(100, height)),
+      };
+    }
+    const w = this.imgNaturalWidth() || 640;
+    const h = this.imgNaturalHeight() || 480;
     return {
-      left: (box.x / w) * 100,
-      top: (box.y / h) * 100,
-      width: (box.width / w) * 100,
-      height: (box.height / h) * 100,
+      left: Math.max(0, Math.min(95, (box.x / w) * 100)),
+      top: Math.max(0, Math.min(95, (box.y / h) * 100)),
+      width: Math.max(5, Math.min(100, (box.width / w) * 100)),
+      height: Math.max(5, Math.min(100, (box.height / h) * 100)),
     };
   }
 
-  protected statusTone(status: string): string {
-    switch (status) {
-      case 'Active':
-        return 'danger';
-      case 'Confirmed':
-        return 'success';
-      case 'Dismissed':
-        return 'neutral';
-      case 'Escalated':
-        return 'warning';
-      default:
-        return 'neutral';
-    }
+  protected statusTone(status: AlertStatus | string): string {
+    const s = String(status || '').toLowerCase();
+    if (s === 'active' || s === 'open') return 'danger';
+    if (s === 'confirmed' || s === 'resolved') return 'success';
+    if (s === 'escalated' || s === 'acknowledged') return 'warning';
+    return 'neutral';
   }
 
   protected priorityTone(priority: string): string {
-    switch (priority) {
-      case 'Critical':
-        return 'danger';
-      case 'High':
-        return 'warning';
-      default:
-        return 'info';
-    }
+    if (priority === 'Critical') return 'danger';
+    if (priority === 'High') return 'warning';
+    return 'info';
   }
 
-  protected statusColor(status: AlertStatus): string {
-    if (status === 'Confirmed') return 'success';
-    if (status === 'Escalated') return 'error';
-    if (status === 'Active') return 'processing';
+  protected statusColor(status: AlertStatus | string): string {
+    const s = String(status || '').toLowerCase();
+    if (s === 'resolved' || s === 'confirmed' || s === 'dismissed') return 'success';
+    if (s === 'acknowledged' || s === 'escalated') return 'warning';
+    if (s === 'open' || s === 'active') return 'error';
     return 'default';
   }
 
+  // --- Confirm ---
   protected openConfirmModal(): void {
     if (!this.canReview()) return;
-    this.confirmForm.reset();
+    this.confirmForm.reset({ notes: 'Xác nhận sự cố đe dọa an toàn lưới điện qua ảnh bằng chứng UAV.' });
     this.isConfirmModalVisible.set(true);
   }
 
@@ -309,9 +367,10 @@ export class EmergencyAlertsReview {
     );
   }
 
+  // --- Dismiss ---
   protected openDismissModal(): void {
     if (!this.canReview()) return;
-    this.dismissForm.reset();
+    this.dismissForm.reset({ reason: this.dismissReasons[0], notes: '' });
     this.isDismissModalVisible.set(true);
   }
 
@@ -330,6 +389,7 @@ export class EmergencyAlertsReview {
 
   private review(alert: ActiveEmergencyAlert, status: 'Confirmed' | 'Dismissed', notes: string, done: () => void): void {
     this.actionBusy.set(true);
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     this.api
       .reviewAlert(alert.id, { status, notes })
       .pipe(
@@ -339,18 +399,38 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: () => {
           done();
-          this.selectedAlertId.set(null);
+          const anomalyStatus: 'Confirmed' | 'Rejected' = status === 'Confirmed' ? 'Confirmed' : 'Rejected';
+          const anomalyItem = mapAlertToAnomaly(alert);
+          const aliasIds = [alert.id, alert.anomalyId].filter((id): id is string => Boolean(id?.trim()));
+          this.anomalyHistory.saveReview(anomalyItem, anomalyStatus, notes, aliasIds);
+
+          if (alert.anomalyId && alert.anomalyId.trim()) {
+            this.anomalyApi.validate(alert.anomalyId, { status: anomalyStatus, analystNotes: notes }).subscribe({ error: () => undefined });
+          }
+
+          this.api.removeActive(alert.id);
+          if (alert.anomalyId) {
+            this.api.removeActive(alert.anomalyId);
+          }
+
+          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id && a.anomalyId !== alert.anomalyId);
+          this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
+          if (remaining.length === 0) {
+            this.notificationsStore?.markReadForEmergencyAlert();
+          }
+          this.loadActive();
           this.loadHistory(1);
           if (status === 'Confirmed') {
-            this.notification.success('Đã xác nhận cảnh báo', `Cảnh báo tại ${alert.towerCode || 'cột chưa xác định'} đã được xác nhận.`);
+            this.toast.success(`Đã xác nhận sự cố tại ${alert.towerCode || 'cột chưa xác định'}.`);
           } else {
-            this.notification.info('Đã bác bỏ cảnh báo', `Cảnh báo tại ${alert.towerCode || 'cột chưa xác định'} đã được bác bỏ.`);
+            this.toast.info(`Đã bác bỏ cảnh báo tại ${alert.towerCode || 'cột chưa xác định'}.`);
           }
         },
-        error: (err: unknown) => this.notification.error('Lỗi thẩm định', alertErrorMessage(err, 'Không thể xử lý yêu cầu thẩm định.')),
+        error: (err: unknown) => this.toast.error(alertErrorMessage(err, 'Không thể xử lý yêu cầu thẩm định.')),
       });
   }
 
+  // --- Escalate ---
   protected openEscalateModal(): void {
     if (!this.canReview()) return;
     this.escalateError.set('');
@@ -360,7 +440,7 @@ export class EmergencyAlertsReview {
   }
 
   private loadEscalationTargets(): void {
-
+    // `GET /users` is SystemAdmin-only: other roles enter the recipient's ID instead of getting a 403.
     if (!isAdminRole(this.user()?.role)) {
       this.escalationTargets.set([]);
       this.escalationTargetsUnavailable.set(true);
@@ -390,6 +470,7 @@ export class EmergencyAlertsReview {
   protected executeEscalate(): void {
     const alert = this.selectedAlert();
     if (!alert || this.actionBusy()) return;
+    this.notificationsStore?.markReadForEmergencyAlert(alert.id, alert.anomalyId, alert.towerCode);
     if (this.escalateForm.invalid) {
       this.escalateForm.markAllAsTouched();
       return;
@@ -411,33 +492,113 @@ export class EmergencyAlertsReview {
       .subscribe({
         next: (escalation) => {
           this.isEscalateModalVisible.set(false);
-          this.selectedAlertId.set(null);
+          const remaining = this.activeAlerts().filter((a) => a.id !== alert.id);
+          this.selectedAlertId.set(remaining.length > 0 ? remaining[0].id : null);
+          this.loadActive();
           this.loadHistory(1);
-          this.notification.warning(
-            'Đã chuyển cấp cảnh báo',
-            `Cảnh báo đã được chuyển tới ${escalation.escalatedToName || 'người nhận'}.`,
-            { nzDuration: 7000 },
-          );
+          this.toast.success(`Đã chuyển cấp cảnh báo tới ${escalation.escalatedToName || 'người nhận'}.`);
         },
         error: (err: unknown) => this.escalateError.set(alertErrorMessage(err, 'Không thể chuyển cấp cảnh báo.')),
       });
   }
 
-  protected viewDetail(id: string): void {
+  // --- Detail modal ---
+  protected viewDetail(id: string, notifyOnError = true): void {
+    const cleanId = id?.trim();
+    if (!cleanId) return;
+    this.notificationsStore?.markReadForEmergencyAlert(cleanId);
+
     this.detailLoading.set(true);
     this.api
-      .getAlert(id)
+      .getAlert(cleanId)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.detailLoading.set(false)),
       )
       .subscribe({
         next: (detail) => this.detail.set(detail),
-        error: (err: unknown) => this.notification.error('Lỗi tải chi tiết', alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo.')),
+        error: (err: unknown) => {
+          const active = this.activeAlerts().find((a) => a.id === cleanId || a.anomalyId === cleanId);
+          if (active) {
+            this.detail.set({
+              ...active,
+              missionId: null,
+              receivedAt: active.triggeredAt,
+              resolvedAt: null,
+              reviewedByUserId: null,
+              reviewedByName: null,
+              notes: null,
+              escalations: [],
+            });
+            return;
+          }
+          const historyItem = this.historyPage().items.find((h) => h.id === cleanId);
+          if (historyItem) {
+            this.detail.set({
+              id: historyItem.id,
+              anomalyId: '',
+              towerId: null,
+              towerCode: historyItem.towerCode,
+              alertType: historyItem.alertType,
+              categoryName: historyItem.alertType,
+              priority: historyItem.priority,
+              status: historyItem.status,
+              deliveryLatencySeconds: 0,
+              triggeredAt: historyItem.triggeredAt,
+              location: { latitude: null, longitude: null, towerCode: historyItem.towerCode },
+              evidence: { mediaUrl: null, boundingBox: null, confidenceScore: null },
+              missionId: null,
+              receivedAt: historyItem.triggeredAt,
+              resolvedAt: historyItem.resolvedAt,
+              reviewedByUserId: null,
+              reviewedByName: historyItem.reviewedBy,
+              notes: historyItem.notes,
+              escalations: [],
+            });
+            return;
+          }
+          if (notifyOnError) {
+            this.toast.error(alertErrorMessage(err, 'Không thể tải chi tiết cảnh báo khẩn cấp.'));
+          }
+        },
       });
   }
 
   protected closeDetail(): void {
     this.detail.set(null);
+  }
+
+  protected formatReviewNotes(notes?: string | null): string {
+    if (!notes) return 'Chưa có thông tin thẩm định.';
+    const raw = notes.trim();
+    if (raw.startsWith('AI evaluation:')) {
+      const sevMatch = raw.match(/severity=([a-zA-Z]+)/);
+      const confMatch = raw.match(/confidence\s+([\d.]+)\s*%/);
+      const catMatch = raw.match(/Category\s+([A-Za-z0-9_]+)/);
+
+      const sevMap: Record<string, string> = { High: 'Cao', Medium: 'Trung bình', Low: 'Thấp', Critical: 'Khẩn cấp' };
+      const catMap: Record<string, string> = {
+        BROKEN_INSULATOR: 'Bát cách điện vỡ',
+        DAMAGED_INSULATOR: 'Cách điện hỏng',
+        RUST: 'Rỉ sét kim loại',
+        BIRD_NEST: 'Tổ chim trên cột',
+        FOREIGN_OBJECT: 'Dị vật vướng lưới',
+        HOTSPOT: 'Quá nhiệt mối nối',
+      };
+
+      const sev = sevMatch ? (sevMap[sevMatch[1]] || sevMatch[1]) : '';
+      const conf = confMatch ? `${confMatch[1]}%` : '';
+      const cat = catMatch ? (catMap[catMatch[1]] || catMatch[1]) : '';
+
+      const parts: string[] = [];
+      if (cat) parts.push(`Sự cố: ${cat}`);
+      if (sev) parts.push(`Mức độ: ${sev}`);
+      if (conf) parts.push(`Độ tin cậy: ${conf}`);
+
+      if (parts.length > 0) {
+        return `Đánh giá AI (${parts.join(' · ')})`;
+      }
+    }
+    return raw;
   }
 }

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppNotification } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
 import { FacilityStore } from '../../facility/facility-store';
-import { NotificationsStore } from '../../notifications/notifications-store';
+import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 import { Header } from './header';
 
 describe('Header', () => {
@@ -35,7 +35,7 @@ describe('Header', () => {
       setTypeFilter: vi.fn(),
       setSortFilter: vi.fn(),
     };
-    const facility = { id: 'all', name: 'TẤT CẢ KHU VỰC' };
+    const facility = { id: 'all', name: 'Tất cả khu vực' };
     TestBed.configureTestingModule({
       imports: [Header],
       providers: [
@@ -64,11 +64,13 @@ describe('Header', () => {
     id: 'n1', title: 'Thông báo', body: '', createdAt: '2026-10-31T08:00:00Z', isRead: false, type, referenceType, referenceId,
   });
 
-  it('shows the role in Vietnamese and hides the region picker for field roles', () => {
+  it('shows the email in the profile menu and hides the region picker for field roles', () => {
     const { fixture, el } = setup('MaintenanceTechnician');
+    expect(el.querySelector('.app-user-display-name')?.textContent?.trim()).toBe('Nguyễn Văn A');
     el.querySelector<HTMLButtonElement>('.app-header-user-btn')?.click();
     fixture.detectChanges();
-    expect(el.querySelector('.app-profile-menu-header small')?.textContent?.trim()).toBe('Kỹ thuật viên');
+    expect(el.querySelector('.app-profile-menu-header .menu-user-email')?.textContent?.trim()).toBe('nv.a@evn.vn');
+    expect(el.querySelector('.app-profile-menu-header .menu-user-role')?.textContent?.trim()).toBe('Technician');
     expect(el.querySelector('.app-facility-wrap')).toBeNull();
   });
 

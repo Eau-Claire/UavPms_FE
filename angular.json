@@ -43,6 +43,8 @@
               "node_modules/ng-zorro-antd/form/style/index.min.css",
               "node_modules/ng-zorro-antd/input/style/index.min.css",
               "node_modules/ng-zorro-antd/divider/style/index.min.css",
+              "node_modules/ng-zorro-antd/modal/style/index.min.css",
+              "node_modules/ng-zorro-antd/select/style/index.min.css",
               "src/tailwind.css",
               "src/styles/reference/globals.css",
               "src/styles.scss"

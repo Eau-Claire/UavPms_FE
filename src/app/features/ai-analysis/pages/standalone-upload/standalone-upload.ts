@@ -6,14 +6,13 @@ import {
   DestroyRef,
   ElementRef,
   ViewChild,
-  computed,
   inject,
   signal,
   ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
@@ -26,27 +25,103 @@ import {
   StandaloneUploadRequest,
   captureVideoFrameAtTime,
   extractCropDataUrl,
+  normalizeDetectionItem,
   VideoTimelineMarker,
-} from '../../../../core/services/ai-analysis-api';
+} from '../../data-access/ai-analysis-api';
+import {
+  AiAnalysisSessionStore,
+  AnalysisWorkflowMode,
+  StandaloneMediaPreview,
+  StandaloneWorkflowStage,
+} from '../../data-access/ai-analysis-session-store';
+import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { ActiveEmergencyAlert } from '../../../emergency-alerts/models/emergency-alert.models';
 
-export type AnalysisWorkflowMode = 'image' | 'video';
-export type StandaloneWorkflowStage = 'idle' | 'ready' | 'processing' | 'inspected';
-
-export interface StandaloneMediaPreview {
-  readonly id: string;
-  readonly file: File;
-  readonly name: string;
-  readonly sizeFormatted: string;
-  readonly previewUrl: string;
-  readonly thumbnailUrl: string;
-  readonly resolution: string;
-  readonly fps: string;
-  readonly duration: string;
-  readonly durationSeconds: number;
-  readonly kind: 'image' | 'video';
-  readonly status: string;
-  readonly progress: number;
+export interface SampleDefectPreset {
+  readonly key: 'insulator-crack' | 'bolt-missing' | 'corridor-tree' | 'insulator-dirty';
+  readonly label: string;
+  readonly badge: string;
+  readonly badgeClass: string;
+  readonly imagePath: string;
+  readonly title: string;
+  readonly categoryCode: string;
+  readonly confidence: number;
+  readonly description: string;
+  readonly severityWeight: number;
+  readonly isEmergency: boolean;
+  readonly tower: string;
+  readonly gps: string;
+  readonly boundingBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
 }
+
+export const SAMPLE_DEFECT_PRESETS: readonly SampleDefectPreset[] = [
+  {
+    key: 'insulator-crack',
+    label: 'Bát sứ nứt vỡ',
+    badge: 'Khẩn cấp',
+    badgeClass: 'danger',
+    imagePath: '/images/defect-insulator-crack.png',
+    title: 'Bát cách điện vỡ',
+    categoryCode: 'BROKEN_INSULATOR',
+    confidence: 88,
+    description: 'Nứt vỡ đĩa cách điện chuỗi đỡ 220kV, nguy cơ phóng điện vầng quang cao khi thời tiết ẩm ướt.',
+    severityWeight: 5,
+    isEmergency: true,
+    tower: 'HCM-TB-T02',
+    gps: '10.80650, 106.71750',
+    boundingBox: { x: 26, y: 22, width: 48, height: 52 },
+  },
+  {
+    key: 'bolt-missing',
+    label: 'Mất bu-lông xà',
+    badge: 'Cấp 3/5',
+    badgeClass: 'warning',
+    imagePath: '/images/defect-bolt-missing.png',
+    title: 'Mất bu-lông liên kết',
+    categoryCode: 'MISSING_BOLT',
+    confidence: 91,
+    description: 'Thiếu bu-lông liên kết thanh giằng chữ V xà đỡ cáp phía hạ lưu cột điện.',
+    severityWeight: 3,
+    isEmergency: false,
+    tower: 'HCM-AP-T01',
+    gps: '10.80150, 106.74550',
+    boundingBox: { x: 30, y: 25, width: 40, height: 45 },
+  },
+  {
+    key: 'corridor-tree',
+    label: 'Cây vi phạm hành lang',
+    badge: 'Cấp 4/5',
+    badgeClass: 'warning',
+    imagePath: '/images/defect-corridor-tree.png',
+    title: 'Cây vi phạm hành lang',
+    categoryCode: 'VEGETATION_ENCROACHMENT',
+    confidence: 84,
+    description: 'Cây xanh tán cao phát triển xâm phạm khoảng cách an toàn pha - đất dưới 4.5m.',
+    severityWeight: 4,
+    isEmergency: false,
+    tower: 'HCM-TB-T01',
+    gps: '10.80410, 106.71890',
+    boundingBox: { x: 20, y: 35, width: 55, height: 50 },
+  },
+  {
+    key: 'insulator-dirty',
+    label: 'Sứ bám bẩn',
+    badge: 'Theo dõi',
+    badgeClass: 'info',
+    imagePath: '/images/defect-insulator-dirty.png',
+    title: 'Bát sứ bám bẩn',
+    categoryCode: 'DIRTY_INSULATOR',
+    confidence: 76,
+    description: 'Bề mặt đĩa sứ cách điện nhiễm bẩn công nghiệp, có vết phóng điện cục bộ nhẹ.',
+    severityWeight: 2,
+    isEmergency: false,
+    tower: 'HCM-TB-T03',
+    gps: '10.80820, 106.71610',
+    boundingBox: { x: 24, y: 20, width: 52, height: 55 },
+  },
+];
+
+export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowStage };
 
 @Component({
   selector: 'app-standalone-upload',
@@ -58,95 +133,82 @@ export interface StandaloneMediaPreview {
 })
 export class StandaloneUpload {
   private readonly api = inject(AiAnalysisApi);
+  private readonly emergencyApi = inject(EmergencyAlertsApi);
+  private readonly store = inject(AiAnalysisSessionStore);
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('videoPlayer') private readonly videoPlayer?: ElementRef<HTMLVideoElement>;
   @ViewChild('imageViewerContainer') private readonly imageViewerContainer?: ElementRef<HTMLDivElement>;
 
   protected readonly user = this.auth.user;
-  protected readonly workflowMode = signal<AnalysisWorkflowMode>('image');
-  protected readonly workflowStage = signal<StandaloneWorkflowStage>('idle');
+
+  // Delegated state from singleton store (persists across navigation)
+  protected readonly workflowMode = this.store.workflowMode;
+  protected readonly workflowStage = this.store.workflowStage;
+  protected readonly selectedFiles = this.store.selectedFiles;
+  protected readonly activeMediaId = this.store.activeMediaId;
+  protected readonly currentMedia = this.store.currentMedia;
+  protected readonly allDetections = this.store.allDetections;
+  protected readonly filteredDetections = this.store.filteredDetections;
+  protected readonly confidenceThreshold = this.store.confidenceThreshold;
+  protected readonly selectedCategoryFilter = this.store.selectedCategoryFilter;
+  protected readonly selectedDetection = this.store.selectedDetection;
+  protected readonly showBoundingBoxes = this.store.showBoundingBoxes;
+  protected readonly reviewNotes = this.store.reviewNotes;
+  protected readonly reviewFeedback = this.store.reviewFeedback;
+  protected readonly uploadSuccessResult = this.store.uploadSuccessResult;
+  protected readonly lastTriggeredEmergencyAlert = this.store.lastTriggeredEmergencyAlert;
+  protected readonly videoTimelineMarkers = this.store.videoTimelineMarkers;
+  protected readonly availableCategories = this.store.availableCategories;
+
+  // Video Inspection State
+  protected readonly isVideoPlaying = this.store.isVideoPlaying;
+  protected readonly videoCurrentTime = this.store.videoCurrentTime;
+  protected readonly videoDuration = this.store.videoDuration;
+  protected readonly videoHoveredMarker = this.store.videoHoveredMarker;
+
+  // Transient upload/processing operation state
   protected readonly isDragging = signal(false);
   protected readonly uploading = signal(false);
   protected readonly uploadProgress = signal(0);
   protected readonly uploadError = signal<string | null>(null);
-  protected readonly uploadSuccessResult = signal<AnalysisSessionResult | null>(null);
+  protected readonly processingStep = signal<number>(1);
+  protected readonly processingMessage = signal<string>('Đang tải tệp lên máy chủ...');
+  protected readonly samplePresets = SAMPLE_DEFECT_PRESETS;
 
-  protected readonly selectedFiles = signal<readonly StandaloneMediaPreview[]>([]);
-  protected readonly activeMediaId = signal<string>('');
-  protected readonly currentMedia = computed<StandaloneMediaPreview | null>(() => {
-    const list = this.selectedFiles();
-    if (!list.length) return null;
-    return list.find((item) => item.id === this.activeMediaId()) ?? list[0];
-  });
-
-  protected readonly allDetections = signal<readonly AiDetection[]>([]);
-  protected readonly confidenceThreshold = signal<number>(60);
-  protected readonly selectedCategoryFilter = signal<string>('ALL');
-  protected readonly selectedDetection = signal<AiDetection | null>(null);
-  protected readonly showBoundingBoxes = signal<boolean>(true);
-  protected readonly reviewNotes = signal<string>('');
-  protected readonly reviewFeedback = signal<string>('');
-
-  protected readonly isVideoPlaying = signal<boolean>(false);
-  protected readonly videoCurrentTime = signal<number>(0);
-  protected readonly videoDuration = signal<number>(0);
-  protected readonly videoHoveredMarker = signal<VideoTimelineMarker | null>(null);
+  private pollingTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollCount = 0;
 
   protected readonly form = this.fb.nonNullable.group({
-    notes: [''],
-    analysisType: ['DefectDetection' as NonNullable<StandaloneUploadRequest['analysisType']>],
-    preferredModel: ['DefectDetection-Standard'],
+    notes: [this.store.formNotes()],
+    analysisType: [this.store.formAnalysisType() as NonNullable<StandaloneUploadRequest['analysisType']>],
+    preferredModel: [this.store.formPreferredModel()],
   });
 
-  protected readonly filteredDetections = computed<readonly AiDetection[]>(() => {
-    const thresh = this.confidenceThreshold();
-    const cat = this.selectedCategoryFilter();
-    return this.allDetections().filter((det) => {
-      if (det.confidence < thresh) return false;
-      if (cat !== 'ALL' && det.categoryCode !== cat && det.title !== cat) return false;
-      return true;
+  constructor() {
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe((val) => {
+      if (val.notes !== undefined) this.store.formNotes.set(val.notes);
+      if (val.analysisType !== undefined) this.store.formAnalysisType.set(val.analysisType);
+      if (val.preferredModel !== undefined) this.store.formPreferredModel.set(val.preferredModel);
     });
-  });
 
-  protected readonly videoTimelineMarkers = computed<readonly VideoTimelineMarker[]>(() => {
-    const duration = this.videoDuration() || this.currentMedia()?.durationSeconds || 60;
-    return this.filteredDetections()
-      .filter((d) => d.timestampSeconds !== null && d.timestampSeconds <= duration)
-      .map((d) => {
-        const ts = d.timestampSeconds!;
-        const pct = Math.min(100, Math.max(0, (ts / duration) * 100));
-        return {
-          id: `marker-${d.id}`,
-          detectionId: d.id,
-          timestampSeconds: ts,
-          timestampLabel: d.timestampLabel,
-          percent: pct,
-          title: d.title,
-          confidence: d.confidence,
-          isEmergency: d.isEmergency,
-        };
-      });
-  });
-
-  protected readonly availableCategories = computed<readonly string[]>(() => {
-    const set = new Set<string>();
-    this.allDetections().forEach((d) => set.add(d.title));
-    return Array.from(set);
-  });
+    this.destroyRef.onDestroy(() => {
+      if (this.pollingTimer) {
+        clearTimeout(this.pollingTimer);
+        this.pollingTimer = null;
+      }
+    });
+  }
 
   isAuthorized(): boolean {
     return canAccess(this.user()?.role, ROUTE_ROLES.aiAnalysis);
   }
 
   onWorkflowModeChange(mode: AnalysisWorkflowMode): void {
-    if (this.workflowMode() === mode) return;
-    this.workflowMode.set(mode);
-    if (this.workflowStage() === 'ready' || this.workflowStage() === 'inspected') {
-      this.clearFiles();
-    }
+    this.store.setWorkflowMode(mode);
   }
 
   onDragOver(event: DragEvent): void {
@@ -174,6 +236,15 @@ export class StandaloneUpload {
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files?.length) {
+      this.addFiles(Array.from(input.files));
+      input.value = '';
+    }
+  }
+
+  onQuickFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.length) {
+      this.clearFiles();
       this.addFiles(Array.from(input.files));
       input.value = '';
     }
@@ -221,10 +292,11 @@ export class StandaloneUpload {
     });
 
     const combined = [...existing, ...additions];
-    this.selectedFiles.set(combined);
-    this.activeMediaId.set(combined[0]?.id ?? '');
-    this.workflowStage.set('ready');
+    this.store.setFiles(combined);
+    this.store.selectMedia(combined[0]?.id ?? '');
+    this.store.setWorkflowStage('ready');
 
+    // Extract metadata & thumbnails
     additions.forEach((item) => {
       if (item.kind === 'video') {
         this.extractVideoMetadataAndThumbnail(item);
@@ -237,13 +309,13 @@ export class StandaloneUpload {
   private extractImageMetadata(item: StandaloneMediaPreview): void {
     const img = new Image();
     img.onload = () => {
-      this.updateMedia(item.id, {
+      this.store.updateMedia(item.id, {
         resolution: `${img.naturalWidth} x ${img.naturalHeight}`,
         thumbnailUrl: item.previewUrl,
       });
     };
     img.onerror = () => {
-      this.updateMedia(item.id, { resolution: 'N/A' });
+      this.store.updateMedia(item.id, { resolution: 'N/A' });
     };
     img.src = item.previewUrl;
   }
@@ -262,9 +334,9 @@ export class StandaloneUpload {
           ? `${video.videoWidth} x ${video.videoHeight}`
           : '1920 x 1080 (FHD)';
       const durLabel = this.formatTime(durSec);
-      this.videoDuration.set(durSec);
+      this.store.videoDuration.set(durSec);
 
-      this.updateMedia(item.id, {
+      this.store.updateMedia(item.id, {
         resolution: res,
         duration: durLabel,
         durationSeconds: durSec,
@@ -283,54 +355,26 @@ export class StandaloneUpload {
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const thumb = canvas.toDataURL('image/jpeg', 0.85);
-          this.updateMedia(item.id, { thumbnailUrl: thumb });
+          this.store.updateMedia(item.id, { thumbnailUrl: thumb });
         }
       } catch {
-        this.updateMedia(item.id, { thumbnailUrl: item.previewUrl });
+        this.store.updateMedia(item.id, { thumbnailUrl: item.previewUrl });
       }
     };
   }
 
-  private updateMedia(id: string, patch: Partial<StandaloneMediaPreview>): void {
-    this.selectedFiles.update((list) =>
-      list.map((m) => (m.id === id ? { ...m, ...patch } : m)),
-    );
-  }
-
   selectMedia(id: string): void {
-    this.activeMediaId.set(id);
-    const media = this.selectedFiles().find((m) => m.id === id);
-    if (media && media.durationSeconds > 0) {
-      this.videoDuration.set(media.durationSeconds);
-    }
+    this.store.selectMedia(id);
   }
 
   removeFile(id: string, event?: Event): void {
     event?.stopPropagation();
-    const removed = this.selectedFiles().find((m) => m.id === id);
-    if (removed) {
-      URL.revokeObjectURL(removed.previewUrl);
-    }
-    const remaining = this.selectedFiles().filter((m) => m.id !== id);
-    this.selectedFiles.set(remaining);
-    if (this.activeMediaId() === id) {
-      this.activeMediaId.set(remaining[0]?.id ?? '');
-    }
-    if (!remaining.length) {
-      this.workflowStage.set('idle');
-      this.uploadError.set(null);
-    }
+    this.store.removeFile(id);
   }
 
   clearFiles(): void {
-    this.selectedFiles().forEach((m) => URL.revokeObjectURL(m.previewUrl));
-    this.selectedFiles.set([]);
-    this.activeMediaId.set('');
-    this.workflowStage.set('idle');
+    this.store.clearFiles();
     this.uploadError.set(null);
-    this.uploadSuccessResult.set(null);
-    this.allDetections.set([]);
-    this.selectedDetection.set(null);
   }
 
   onSubmit(): void {
@@ -342,8 +386,10 @@ export class StandaloneUpload {
 
     this.uploading.set(true);
     this.uploadProgress.set(0);
+    this.processingStep.set(1);
+    this.processingMessage.set('Đang tải tệp lên máy chủ...');
     this.uploadError.set(null);
-    this.workflowStage.set('processing');
+    this.store.setWorkflowStage('processing');
 
     const formValues = this.form.getRawValue();
     const isVideo = this.workflowMode() === 'video';
@@ -367,38 +413,143 @@ export class StandaloneUpload {
             this.uploadProgress.set(percent);
           } else if (event instanceof HttpResponse) {
             this.uploadProgress.set(100);
+            this.processingStep.set(2);
+            this.processingMessage.set('Máy chủ đang nhận diện khuyết tật thiết bị bằng AI...');
+
             const rawBody = event.body;
             const data = unwrapApiData<Record<string, unknown>>(rawBody);
             const serverId = this.extractServerId(data, rawBody) || `analysis-${Date.now()}`;
 
             let detections: readonly AiDetection[] = [];
-            const rawDetections = data && typeof data === 'object' ? data['detections'] : undefined;
-            if (Array.isArray(rawDetections) && rawDetections.length) {
-              detections = (rawDetections as readonly AiDetection[]).map((d) => ({
-                ...d,
-                imageUrl: userMediaUrl || d.imageUrl,
-                sourceUrl: userMediaUrl || d.sourceUrl,
-              }));
+            const rawDetections = this.extractRawDetections(data, rawBody);
+            if (rawDetections.length) {
+              detections = rawDetections.map((d, idx) => normalizeDetectionItem(d, idx, userMediaUrl));
             }
 
-            const result: AnalysisSessionResult = {
-              id: String(serverId),
-              status: 'Completed',
-              analysisType: formValues.analysisType,
-              notes: formValues.notes,
-              createdAt: new Date().toISOString(),
-              filesCount: files.length,
-              detections,
-              raw: rawBody,
-            };
-
-            this.uploadSuccessResult.set(result);
-            void this.applyDetectionsWithCrops(detections, isVideo, userMediaUrl);
+            if (detections.length > 0) {
+              const result: AnalysisSessionResult = {
+                id: String(serverId),
+                status: 'Completed',
+                analysisType: formValues.analysisType,
+                notes: formValues.notes,
+                createdAt: new Date().toISOString(),
+                filesCount: files.length,
+                detections,
+                raw: rawBody,
+              };
+              this.store.setUploadResult(result);
+              void this.applyDetectionsWithCrops(detections, isVideo, userMediaUrl);
+              this.checkAndLinkActiveEmergencyAlert(detections);
+            } else {
+              // Asynchronous background processing: poll for analysis result and check active alerts
+              this.startPollingAnalysisResult(serverId, formValues.analysisType, formValues.notes, files.length, isVideo, userMediaUrl);
+            }
           }
         },
         error: () => {
           this.uploadError.set('Không thể kết nối dịch vụ xử lý dữ liệu. Vui lòng thử lại sau.');
-          this.workflowStage.set('ready');
+          this.store.setWorkflowStage('ready');
+        },
+      });
+  }
+
+  private startPollingAnalysisResult(
+    serverId: string,
+    analysisType: NonNullable<StandaloneUploadRequest['analysisType']>,
+    notes: string,
+    filesCount: number,
+    isVideo: boolean,
+    userMediaUrl: string,
+  ): void {
+    this.pollCount = 0;
+    const maxPolls = 10;
+    const pollInterval = 1500;
+
+    const runPoll = () => {
+      this.pollCount++;
+      this.processingStep.set(3);
+      this.processingMessage.set(`Đang phân tích và xử lý mô hình AI (lần ${this.pollCount}/${maxPolls})...`);
+
+      this.api
+        .getAnalysisResult(serverId)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (res) => {
+            const hasDetections = res.detections && res.detections.length > 0;
+            const isFinished = res.status === 'Completed' || res.status === 'Finished' || res.status === 'Success';
+
+            if (hasDetections || (isFinished && this.pollCount >= 2)) {
+              this.finishAnalysis(res, isVideo, userMediaUrl);
+              return;
+            }
+
+            if (this.pollCount < maxPolls) {
+              this.pollingTimer = setTimeout(runPoll, pollInterval);
+            } else {
+              this.handlePollingTimeout(serverId, analysisType, notes, filesCount, isVideo, userMediaUrl);
+            }
+          },
+          error: () => {
+            if (this.pollCount < maxPolls) {
+              this.pollingTimer = setTimeout(runPoll, pollInterval);
+            } else {
+              this.handlePollingTimeout(serverId, analysisType, notes, filesCount, isVideo, userMediaUrl);
+            }
+          },
+        });
+    };
+
+    this.pollingTimer = setTimeout(runPoll, pollInterval);
+  }
+
+  private handlePollingTimeout(
+    serverId: string,
+    analysisType: NonNullable<StandaloneUploadRequest['analysisType']>,
+    notes: string,
+    filesCount: number,
+    isVideo: boolean,
+    userMediaUrl: string,
+  ): void {
+    this.processingStep.set(4);
+    this.processingMessage.set('Hoàn tất quét dữ liệu độc lập.');
+
+    const result: AnalysisSessionResult = {
+      id: String(serverId),
+      status: 'Completed',
+      analysisType,
+      notes,
+      createdAt: new Date().toISOString(),
+      filesCount,
+      detections: [],
+    };
+    this.store.setUploadResult(result);
+    void this.applyDetectionsWithCrops([], isVideo, userMediaUrl);
+    this.store.setLastTriggeredEmergencyAlert(null);
+  }
+
+  private finishAnalysis(res: AnalysisSessionResult, isVideo: boolean, userMediaUrl: string): void {
+    this.store.setUploadResult(res);
+    void this.applyDetectionsWithCrops(res.detections, isVideo, userMediaUrl);
+    this.checkAndLinkActiveEmergencyAlert(res.detections);
+  }
+
+  private checkAndLinkActiveEmergencyAlert(detections: readonly AiDetection[]): void {
+    if (!detections.length) {
+      this.store.setLastTriggeredEmergencyAlert(null);
+      return;
+    }
+    this.emergencyApi
+      .fetchActiveAlerts()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (alerts) => {
+          const matchedAlert = alerts.find((a) =>
+            detections.some((d) => d.id && (d.id === a.id || d.id === a.anomalyId))
+          );
+          this.store.setLastTriggeredEmergencyAlert(matchedAlert ?? null);
+        },
+        error: () => {
+          // ignore
         },
       });
   }
@@ -408,9 +559,8 @@ export class StandaloneUpload {
     isVideo: boolean,
     mediaUrl: string,
   ): Promise<void> {
-    this.workflowStage.set('inspected');
-    this.allDetections.set(rawDetections);
-    this.selectedDetection.set(rawDetections[0] ?? null);
+    this.store.setWorkflowStage('inspected');
+    this.store.setDetections(rawDetections);
 
     const updatedDetections = await Promise.all(
       rawDetections.map(async (det) => {
@@ -434,21 +584,26 @@ export class StandaloneUpload {
             };
           }
         } catch {
+          // Fallback to original detection
         }
         return det;
       }),
     );
 
-    this.allDetections.set(updatedDetections);
-    if (updatedDetections.length > 0) {
-      this.selectedDetection.set(updatedDetections[0]);
-    }
+    this.store.setDetections(updatedDetections);
   }
 
+  navigateToEmergencyAlert(alertIdOrAnomalyId?: string): void {
+    const alert = this.lastTriggeredEmergencyAlert();
+    const targetId = alertIdOrAnomalyId || alert?.id || alert?.anomalyId;
+    void this.router.navigate(['/emergency-alerts'], {
+      queryParams: targetId ? { id: targetId } : undefined,
+    });
+  }
+
+  // Inspection UI Actions
   selectDetection(detection: AiDetection): void {
-    this.selectedDetection.set(detection);
-    this.reviewNotes.set(detection.analystNotes ?? '');
-    this.reviewFeedback.set('');
+    this.store.selectDetection(detection);
 
     if (detection.mediaType === 'video' && detection.timestampSeconds !== null) {
       this.seekVideo(detection.timestampSeconds);
@@ -461,7 +616,7 @@ export class StandaloneUpload {
       video.currentTime = seconds;
       void video.play().catch(() => undefined);
     }
-    this.videoCurrentTime.set(seconds);
+    this.store.videoCurrentTime.set(seconds);
   }
 
   toggleVideoPlay(): void {
@@ -469,19 +624,19 @@ export class StandaloneUpload {
     if (!video) return;
     if (video.paused) {
       void video.play();
-      this.isVideoPlaying.set(true);
+      this.store.isVideoPlaying.set(true);
     } else {
       video.pause();
-      this.isVideoPlaying.set(false);
+      this.store.isVideoPlaying.set(false);
     }
   }
 
   onVideoTimeUpdate(): void {
     const video = this.videoPlayer?.nativeElement;
     if (!video) return;
-    this.videoCurrentTime.set(video.currentTime);
+    this.store.videoCurrentTime.set(video.currentTime);
     if (!this.videoDuration() && Number.isFinite(video.duration)) {
-      this.videoDuration.set(video.duration);
+      this.store.videoDuration.set(video.duration);
     }
   }
 
@@ -496,7 +651,7 @@ export class StandaloneUpload {
   }
 
   setTimelineHoverMarker(marker: VideoTimelineMarker | null): void {
-    this.videoHoveredMarker.set(marker);
+    this.store.videoHoveredMarker.set(marker);
   }
 
   reviewDetection(decision: 'Approved' | 'Rejected'): void {
@@ -509,12 +664,8 @@ export class StandaloneUpload {
       analystNotes: this.reviewNotes(),
     };
 
-    this.selectedDetection.set(updated);
-    this.allDetections.update((list) =>
-      list.map((item) => (item.id === updated.id ? updated : item)),
-    );
-
-    this.reviewFeedback.set(
+    this.store.updateDetection(updated);
+    this.store.setReviewFeedback(
       decision === 'Approved'
         ? 'Đã đánh dấu tạm là khuyết tật (chỉ lưu tạm trên trình duyệt, chưa ghi vào hệ thống).'
         : 'Đã đánh dấu tạm là không phải khuyết tật (chỉ lưu tạm trên trình duyệt, chưa ghi vào hệ thống).',
@@ -523,29 +674,150 @@ export class StandaloneUpload {
 
   setConfidenceFilter(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.confidenceThreshold.set(value);
+    this.store.setConfidenceThreshold(value);
+  }
+
+  lowerConfidenceThreshold(targetValue = 30): void {
+    this.store.setConfidenceThreshold(targetValue);
+  }
+
+  async loadPresetSample(sampleKey: 'insulator-crack' | 'bolt-missing' | 'corridor-tree' | 'insulator-dirty'): Promise<void> {
+    const preset = this.samplePresets.find((p) => p.key === sampleKey);
+    if (!preset) return;
+
+    try {
+      let file: File;
+      try {
+        const response = await fetch(preset.imagePath);
+        const blob = await response.blob();
+        file = new File([blob], `${preset.key}.png`, { type: 'image/png' });
+      } catch {
+        file = new File(['sample content'], `${preset.key}.png`, { type: 'image/png' });
+      }
+
+      const previewUrl = preset.imagePath;
+      const mediaId = `sample-${Date.now()}`;
+
+      const media: StandaloneMediaPreview = {
+        id: mediaId,
+        file,
+        name: `${preset.label}.png`,
+        sizeFormatted: '480 KB',
+        previewUrl,
+        thumbnailUrl: previewUrl,
+        resolution: '1920 x 1080',
+        fps: '-',
+        duration: '-',
+        durationSeconds: 0,
+        kind: 'image',
+        status: 'Đã phân tích',
+        progress: 100,
+      };
+
+      this.store.clearFiles();
+      this.store.setWorkflowMode('image');
+      this.store.setFiles([media]);
+      this.store.selectMedia(mediaId);
+
+      let cropUrl = previewUrl;
+      try {
+        cropUrl = await extractCropDataUrl(previewUrl, preset.boundingBox);
+      } catch {
+        // Fallback
+      }
+
+      const det: AiDetection = {
+        id: `det-sample-${preset.key}`,
+        title: preset.title,
+        confidence: preset.confidence,
+        categoryCode: preset.categoryCode,
+        description: preset.description,
+        mediaType: 'image',
+        timestampSeconds: null,
+        timestampLabel: 'Ảnh mẫu chuẩn',
+        frameIndex: 1,
+        gps: preset.gps,
+        tower: preset.tower,
+        missionName: 'Kiểm thử mẫu QA',
+        imageUrl: previewUrl,
+        sourceUrl: previewUrl,
+        cropImageUrl: cropUrl,
+        boundingBox: preset.boundingBox,
+        severityWeight: preset.severityWeight,
+        isEmergency: preset.isEmergency,
+        status: 'Pending',
+        detectedAt: new Date().toISOString(),
+      };
+
+      const sessionResult: AnalysisSessionResult = {
+        id: `sample-${preset.key}-${Date.now().toString().slice(-6)}`,
+        status: 'Completed',
+        analysisType: 'DefectDetection',
+        notes: `Ảnh mẫu kiểm thử khuyết tật: ${preset.title}`,
+        createdAt: new Date().toISOString(),
+        filesCount: 1,
+        detections: [det],
+      };
+
+      this.store.setUploadResult(sessionResult);
+      this.store.setWorkflowStage('inspected');
+      this.store.setDetections([det]);
+
+      if (preset.isEmergency) {
+        const emergencyAlert: ActiveEmergencyAlert = {
+          id: `alert-sample-${preset.key}`,
+          anomalyId: det.id,
+          categoryName: preset.title,
+          alertType: preset.categoryCode,
+          priority: 'Critical',
+          towerCode: preset.tower,
+          towerId: 't-sample-01',
+          status: 'Open',
+          deliveryLatencySeconds: 1,
+          triggeredAt: new Date().toISOString(),
+          location: {
+            latitude: 10.8065,
+            longitude: 106.7175,
+            towerCode: preset.tower,
+          },
+          evidence: {
+            confidenceScore: preset.confidence,
+            mediaUrl: previewUrl,
+            boundingBox: {
+              ...preset.boundingBox,
+              isNormalized: true,
+            },
+          },
+        };
+        this.store.setLastTriggeredEmergencyAlert(emergencyAlert);
+      } else {
+        this.store.setLastTriggeredEmergencyAlert(null);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   onCategoryFilterChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
-    this.selectedCategoryFilter.set(value);
+    this.store.setSelectedCategoryFilter(value);
   }
 
   onReviewNotesInput(event: Event): void {
     const value = (event.target as HTMLTextAreaElement).value;
-    this.reviewNotes.set(value);
+    this.store.setReviewNotes(value);
   }
 
   setCategoryFilter(category: string): void {
-    this.selectedCategoryFilter.set(category);
+    this.store.setSelectedCategoryFilter(category);
   }
 
   toggleBoundingBoxes(): void {
-    this.showBoundingBoxes.update((v) => !v);
+    this.store.toggleBoundingBoxes();
   }
 
   onReset(): void {
-    this.clearFiles();
+    this.store.resetSession();
     this.form.reset({
       notes: '',
       analysisType: 'DefectDetection',
@@ -582,5 +854,17 @@ export class StandaloneUpload {
       if (rawId) return String(rawId);
     }
     return '';
+  }
+
+  private extractRawDetections(data: unknown, rawBody: unknown): readonly unknown[] {
+    const check = (src: unknown): readonly unknown[] | null => {
+      if (!src || typeof src !== 'object') return null;
+      const obj = src as Record<string, unknown>;
+      const list = obj['detections'] ?? obj['items'] ?? obj['results'] ?? obj['anomalies'] ?? obj['defects'] ?? obj['predictions'];
+      if (Array.isArray(list)) return list;
+      return null;
+    };
+
+    return check(data) ?? check(rawBody) ?? [];
   }
 }

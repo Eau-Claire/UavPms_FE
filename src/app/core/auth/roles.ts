@@ -44,13 +44,13 @@ export const isTechnicianRole = (role: RoleInput): boolean => roleFamily(role) =
 export const isFieldRole = (role: RoleInput): boolean => ['inspector', 'analyst', 'technician'].includes(roleFamily(role));
 
 const ROLE_LABELS: Record<RoleFamily, string> = {
-  admin: 'Quản trị hệ thống',
-  manager: 'Quản lý vận hành',
-  inspector: 'Phi công / Thanh tra bay',
-  analyst: 'Chuyên viên phân tích',
-  technician: 'Kỹ thuật viên',
-  other: 'Người dùng',
+  admin: 'SystemAdmin',
+  manager: 'Manager',
+  inspector: 'Inspector',
+  analyst: 'Analyst',
+  technician: 'Technician',
+  other: 'User',
 };
 
-/** Vietnamese label for showing the signed-in user's role. */
+/** Doc role label for showing the signed-in user's role. */
 export const roleLabel = (role: RoleInput): string => ROLE_LABELS[roleFamily(role)];

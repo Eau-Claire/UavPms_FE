@@ -1,0 +1,135 @@
+<div class="system-settings-page">
+  <header class="page-heading">
+    <div class="heading-left">
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>CẤU HÌNH HỆ THỐNG</strong>
+      </nav>
+      <h1 class="page-title">Tham số & cấu hình vận hành</h1>
+      <p class="review-subtitle">
+        Quản lý các ngưỡng kích hoạt AI, thông số an toàn UAV, thời hạn hiệu lực Token/OTP và điều phối nhiệm vụ theo cơ sở dữ liệu SystemSettings.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="button secondary" [disabled]="loading()" (click)="load()" title="Làm mới cấu hình">
+        <span nz-icon nzType="reload" [nzSpin]="loading()"></span> Tải lại
+      </button>
+    </div>
+  </header>
+
+  <div class="settings-toolbar-card">
+    <div class="category-tabs" role="tablist" aria-label="Phân nhóm cấu hình">
+      @for (cat of categories; track cat.key) {
+        <button
+          type="button"
+          class="category-tab"
+          [class.active]="selectedCategory() === cat.key"
+          (click)="selectedCategory.set(cat.key)"
+          role="tab"
+          [attr.aria-selected]="selectedCategory() === cat.key"
+        >
+          <span nz-icon [nzType]="cat.icon" aria-hidden="true"></span>
+          <span>{{ cat.label }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="settings-search-wrap">
+      <span nz-icon nzType="search" class="search-icon"></span>
+      <input
+        type="search"
+        class="settings-search-input"
+        placeholder="Tìm kiếm tham số theo mã Key hoặc mô tả..."
+        [value]="searchQuery()"
+        (input)="searchQuery.set($any($event.target).value)"
+      />
+    </div>
+  </div>
+
+  <section class="settings-card">
+    <div class="settings-table-wrap" [class.is-loading]="loading()">
+      <table class="settings-table">
+        <thead>
+          <tr>
+            <th class="th-key">Mã tham số</th>
+            <th class="th-cat">Nhóm</th>
+            <th class="th-val">Giá trị thiết lập</th>
+            <th class="th-type">Kiểu dữ liệu</th>
+            <th class="th-desc">Mô tả & Ý nghĩa nghiệp vụ</th>
+            <th class="th-actions">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (loading() && !settings().length) {
+            @for (row of [1,2,3,4,5]; track row) {
+              <tr class="skeleton-row"><td colspan="6"><span></span></td></tr>
+            }
+          } @else if (!filteredSettings().length) {
+            <tr>
+              <td colspan="6" class="empty-state">Không có tham số nào phù hợp với bộ lọc.</td>
+            </tr>
+          }
+
+          @for (item of filteredSettings(); track item.key) {
+            <tr>
+              <td class="td-key">
+                <code>{{ item.key }}</code>
+              </td>
+              <td class="td-cat">
+                <span class="cat-pill tone-{{ categoryTone(item.category) }}">{{ item.category }}</span>
+              </td>
+              <td class="td-val">
+                @if (editingItem()?.key === item.key) {
+                  <div class="inline-edit-wrap">
+                    <input
+                      type="text"
+                      class="inline-edit-input"
+                      [value]="editValue()"
+                      (input)="editValue.set($any($event.target).value)"
+                      (keydown.enter)="saveEdit()"
+                      (keydown.escape)="cancelEdit()"
+                    />
+                    <button type="button" class="btn-save-inline" (click)="saveEdit()" [disabled]="savingKey() === item.key">
+                      <span nz-icon nzType="check"></span>
+                    </button>
+                    <button type="button" class="btn-cancel-inline" (click)="cancelEdit()">
+                      <span nz-icon nzType="close"></span>
+                    </button>
+                  </div>
+                } @else {
+                  <strong class="setting-value-badge">{{ item.value }}</strong>
+                }
+              </td>
+              <td class="td-type">
+                <span class="type-badge">{{ item.dataType }}</span>
+              </td>
+              <td class="td-desc">
+                <span class="setting-desc-text">{{ item.description }}</span>
+              </td>
+              <td class="td-actions">
+                @if (canEdit()) {
+                  @if (editingItem()?.key === item.key) {
+                    <span class="editing-indicator">Đang sửa...</span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="setting-btn-edit"
+                      (click)="startEdit(item)"
+                      title="Chỉnh sửa giá trị"
+                    >
+                      <span nz-icon nzType="edit"></span> Chỉnh sửa
+                    </button>
+                  }
+                } @else {
+                  <span class="readonly-tag">Chỉ xem</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+

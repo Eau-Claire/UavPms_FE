@@ -33,9 +33,6 @@ export interface MonitorAlert {
   readonly message: string;
   readonly createdAt: string;
   readonly isRead: boolean;
-  readonly type?: string;
-  readonly referenceType?: string;
-  readonly referenceId?: string;
 }
 
 export interface InspectionRecord {

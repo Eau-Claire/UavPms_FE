@@ -95,9 +95,10 @@
 .gis-page-wrapper {
   position: relative;
   width: 100%;
-  flex: 1 1 auto;
-  min-height: 420px;
-  height: 100%;
+  height: calc(100vh - 210px);
+  min-height: 480px;
+  max-height: calc(100vh - 210px);
+  margin-bottom: 16px;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
@@ -585,9 +586,8 @@
         &.sym-tower { background: #ffffff; border: 2px solid #10387d; box-shadow: 0 1px 3px rgba(16, 56, 125, 0.2); }
         &.sym-line-220 { width: 18px; height: 4px; border-radius: 2px; background: #1d4f91; }
         &.sym-line-500 { width: 18px; height: 5px; border-radius: 2px; background: #dc2626; }
-        &.sym-critical { background: #ffffff; border: 2px solid #dc2626; }
-        &.sym-high { background: #ffffff; border: 2px solid #ea580c; }
-        &.sym-alert { background: #ffffff; border: 2px solid #dc2626; }
+        &.sym-anomaly { background: #fefce8; border: 2px solid #eab308; box-shadow: 0 1px 3px rgba(234, 179, 8, 0.3); }
+        &.sym-alert { background: #fef2f2; border: 2px solid #dc2626; box-shadow: 0 1px 3px rgba(220, 38, 38, 0.3); }
       }
     }
   }
@@ -614,18 +614,19 @@
   width: 360px;
   z-index: 510;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   .drawer-head {
-    padding: 16px 20px;
-    background: #0f172a;
-    color: #ffffff;
+    padding: 14px 18px;
+    background: #f0f5fc;
+    border-bottom: 1px solid #d0e1fd;
+    color: #0f2952;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -636,24 +637,24 @@
       gap: 2px;
 
       span.badge-tag {
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
-        color: #38bdf8;
+        color: #0369a1;
       }
 
       h3 {
         margin: 0;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
-        color: #ffffff;
+        color: #0f2952;
       }
     }
 
     button.btn-close-drawer {
-      border: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
       width: 28px;
       height: 28px;
       border-radius: 6px;
@@ -662,7 +663,10 @@
       align-items: center;
       justify-content: center;
 
-      &:hover { background: rgba(255, 255, 255, 0.2); }
+      &:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
     }
   }
 
@@ -724,7 +728,7 @@
   }
 
   .drawer-footer {
-    padding: 14px 20px;
+    padding: 12px 18px;
     background: #f8fafc;
     border-top: 1px solid #e2e8f0;
     display: flex;
@@ -733,7 +737,7 @@
     button, a {
       flex: 1;
       height: 38px;
-      border-radius: 8px;
+      border-radius: 6px;
       font-size: 13px;
       font-weight: 600;
       display: inline-flex;
@@ -741,20 +745,21 @@
       justify-content: center;
       gap: 6px;
       text-decoration: none;
-      border: none;
       cursor: pointer;
+      transition: all 0.15s ease;
 
       &.btn-primary {
-        background: #0284c7;
+        background: #10387d;
         color: #ffffff;
-        &:hover { background: #0369a1; }
+        border: 1px solid #10387d;
+        &:hover { background: #0c2b62; border-color: #0c2b62; }
       }
 
       &.btn-outline {
         background: #ffffff;
         border: 1px solid #cbd5e1;
         color: #334155;
-        &:hover { background: #f1f5f9; }
+        &:hover { background: #f1f5f9; border-color: #94a3b8; }
       }
     }
   }
@@ -787,21 +792,39 @@
   color: #10387d;
   box-shadow: 0 2px 6px rgba(16, 56, 125, 0.25);
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
   .tower-node-icon {
     display: block;
-    stroke: #10387d;
+    stroke: currentColor;
   }
 
-  &:hover {
-    transform: scale(1.25);
+  &.has-anomaly {
+    border: 2.5px solid #eab308;
+    background: #fefce8;
+    color: #ca8a04;
+    box-shadow: 0 2px 8px rgba(234, 179, 8, 0.45);
+  }
+
+  &.has-alert {
+    border: 2.5px solid #dc2626;
+    color: #dc2626;
+    background: #fef2f2;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+  }
+
+  &.is-selected {
+    transform: scale(1.3);
+    border: 2.5px solid #2563eb !important;
+    color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.4), 0 4px 12px rgba(15, 23, 42, 0.35);
+    z-index: 1200 !important;
+  }
+
+  &:hover:not(.is-selected) {
+    transform: scale(1.2);
     border-color: #0284c7;
     color: #0284c7;
-
-    .tower-node-icon {
-      stroke: #0284c7;
-    }
   }
 }
 
@@ -817,7 +840,7 @@
   font-weight: 800;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   &.sev-5, &.sev-critical {
     border: 2px solid #dc2626;
@@ -832,8 +855,16 @@
     color: #d97706;
   }
 
-  &:hover {
-    transform: scale(1.25);
+  &.is-selected {
+    transform: scale(1.3);
+    border: 2.5px solid #2563eb !important;
+    color: #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.4), 0 4px 12px rgba(15, 23, 42, 0.35);
+    z-index: 1200 !important;
+  }
+
+  &:hover:not(.is-selected) {
+    transform: scale(1.2);
   }
 }
 
@@ -850,25 +881,23 @@
   justify-content: center;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   svg {
     display: block;
     stroke: #dc2626;
   }
 
-  &::after {
-    content: '';
-    position: absolute;
-    inset: -5px;
-    border-radius: 50%;
-    border: 1.5px solid #ef4444;
-    animation: radarPulse 1.5s infinite ease-out;
+  &.is-selected {
+    transform: scale(1.3);
+    border: 2.5px solid #2563eb !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.45), 0 4px 12px rgba(220, 38, 38, 0.4);
+    z-index: 1200 !important;
   }
-}
 
-@keyframes radarPulse {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.8); opacity: 0; }
+  &:hover:not(.is-selected) {
+    transform: scale(1.2);
+  }
 }
 
 @keyframes slideInLeft {

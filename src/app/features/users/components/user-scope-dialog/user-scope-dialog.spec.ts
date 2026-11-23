@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { UserRecord } from '../../../../models/users.models';
-import { RegionsApi } from '../../../../core/services/regions-api';
-import { UsersApi } from '../../../../core/services/users-api';
+import { RegionsApi } from '../../../towers/data-access/regions-api';
+import { UsersApi } from '../../data-access/users-api';
 import { UserScopeDialog } from './user-scope-dialog';
 
 const user: UserRecord = { id: 'u1', username: 'insp', fullName: 'Nguyễn Văn A', email: 'a@evn.vn', role: 'Inspector', status: 'Active' };

@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, DestroyRef, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Observable, catchError, map, of } from 'rxjs';
@@ -6,8 +6,8 @@ import { Auth } from '../../../../core/auth/auth';
 import { isAnalystRole, isManagerRole } from '../../../../core/auth/roles';
 import { Mission } from '../../../../models/missions.models';
 import { InspectionFilters as Filters } from '../../../../models/monitor.models';
-import { MissionsApi } from '../../../../core/services/missions-api';
-import { GUID_PATTERN } from '../../../../core/services/monitor-api';
+import { MissionsApi } from '../../../missions/data-access/missions-api';
+import { GUID_PATTERN } from '../../data-access/monitor-api';
 
 export interface MissionOption {
   readonly id: string;
@@ -62,9 +62,14 @@ export class InspectionFilters {
   protected readonly missionOptions = signal<readonly MissionOption[]>([]);
 
   constructor() {
+    const destroyRef = inject(DestroyRef);
     this.loadMissionOptions()
-      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .pipe(takeUntilDestroyed(destroyRef))
       .subscribe((options) => this.missionOptions.set(options));
+
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.apply());
   }
 
   protected apply(): void {

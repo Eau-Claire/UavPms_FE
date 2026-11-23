@@ -1,19 +1,21 @@
-import { NotificationsRealtime } from '../../../../core/services/notifications-realtime';
+import { NotificationsRealtime } from '../../../notifications/data-access/notifications-realtime';
 import { Subscription } from 'rxjs';
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { PreMissionAssessment } from '../../../../models/pre-mission.models';
 import { statusLabel, statusTone } from '../../../../shared/status/status';
-import { PreMissionApi } from '../../../../core/services/pre-mission-api';
+import { PreMissionApi } from '../../data-access/pre-mission-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole } from '../../../../core/auth/roles';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-assessment-list',
-  imports: [RouterLink, DatePipe, NzIconModule],
+  imports: [RouterLink, DatePipe, NzIconModule, Pagination],
   templateUrl: './assessment-list.html',
   styleUrl: './assessment-list.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -22,6 +24,7 @@ export class AssessmentList implements OnDestroy {
   private readonly api = inject(PreMissionApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
   private realtimeSub: Subscription | null = null;
 
   /** Create, re-evaluate and cancel are manager actions; technicians and inspectors read the list. */
@@ -37,6 +40,7 @@ export class AssessmentList implements OnDestroy {
   protected readonly totalCount = signal(0);
   protected readonly totalPages = signal(1);
 
+  // Filters
   protected readonly statusFilter = signal('');
   protected readonly regionFilter = signal('');
   protected readonly dateFilter = signal('');
@@ -46,12 +50,12 @@ export class AssessmentList implements OnDestroy {
 
   protected readonly statuses = [
     { value: '', label: 'Tất cả trạng thái' },
-    { value: 'EVALUATING', label: 'Đang đánh giá' },
-    { value: 'READY', label: 'Sẵn sàng' },
-    { value: 'NOT_READY', label: 'Chưa sẵn sàng' },
-    { value: 'EXPIRED', label: 'Hết hạn' },
-    { value: 'COMPLETED', label: 'Đã lập nhiệm vụ' },
-    { value: 'CANCELLED', label: 'Đã hủy' },
+    { value: 'Evaluating', label: 'Evaluating' },
+    { value: 'Ready', label: 'Ready' },
+    { value: 'NotReady', label: 'NotReady' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' },
+    { value: 'Expired', label: 'Expired' },
   ];
 
   protected readonly filteredItems = computed(() => {
@@ -82,26 +86,18 @@ export class AssessmentList implements OnDestroy {
     return list;
   });
 
-  protected isItemCompleted(item: PreMissionAssessment): boolean {
-    return item.status === 'COMPLETED' || !!item.completedMissionId;
-  }
-
-  protected effectiveStatus(item: PreMissionAssessment): string {
-    return this.isItemCompleted(item) ? 'COMPLETED' : item.status;
-  }
-
   protected readonly stats = computed(() => {
     const list = this.items();
+    const isReady = (s: string) => (s || '').toUpperCase() === 'READY';
+    const isNotReady = (s: string) => ['NOTREADY', 'NOT_READY', 'INCOMPLETE'].includes((s || '').toUpperCase().replace(/[\s_-]/g, ''));
+    const isTerminal = (s: string) => ['EXPIRED', 'COMPLETED', 'CANCELLED', 'CANCELED'].includes((s || '').toUpperCase().replace(/[\s_-]/g, ''));
     return [
       { label: 'Tổng số đánh giá', value: this.totalCount() || list.length },
-      { label: 'Sẵn sàng', value: list.filter((x) => this.effectiveStatus(x) === 'READY').length },
-      { label: 'Chưa sẵn sàng', value: list.filter((x) => this.effectiveStatus(x) === 'NOT_READY').length },
+      { label: 'Ready', value: list.filter((x) => isReady(x.status)).length },
+      { label: 'NotReady', value: list.filter((x) => isNotReady(x.status)).length },
       {
-        label: 'Hết hạn / Hoàn thành / Hủy',
-        value: list.filter((x) => {
-          const s = this.effectiveStatus(x);
-          return s === 'EXPIRED' || s === 'COMPLETED' || s === 'CANCELLED';
-        }).length,
+        label: 'Expired / Cancelled',
+        value: list.filter((x) => isTerminal(x.status)).length,
       },
     ];
   });
@@ -244,12 +240,12 @@ export class AssessmentList implements OnDestroy {
   }
 
   protected onRegionChange(regionId: string): void {
-
+    // Backend không lọc theo khu vực: lọc trên trang hiện tại.
     this.regionFilter.set(regionId);
   }
 
   protected onDateChange(date: string): void {
-
+    // Backend không lọc theo ngày: lọc trên trang hiện tại.
     this.dateFilter.set(date);
   }
 
@@ -269,16 +265,16 @@ export class AssessmentList implements OnDestroy {
   protected reevaluateItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (this.isItemCompleted(item)) {
-      this.error.set('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
+    if (item.status === 'COMPLETED') {
+      this.toast.error('Đánh giá tiền nhiệm vụ đã hoàn thành tạo nhiệm vụ bay, không thể đánh giá lại.');
       return;
     }
     if (item.status === 'EXPIRED') {
-      this.error.set('Bản đánh giá đã hết hạn hiệu lực / khung giờ bay đã qua, không thể đánh giá lại.');
+      this.toast.error('Bản đánh giá đã hết hạn hiệu lực / khung giờ bay đã qua, không thể đánh giá lại.');
       return;
     }
     if (item.status === 'CANCELLED') {
-      this.error.set('Bản đánh giá đã bị hủy, không thể đánh giá lại.');
+      this.toast.error('Bản đánh giá đã bị hủy, không thể đánh giá lại.');
       return;
     }
     this.actionBusyId.set(item.id);
@@ -288,7 +284,9 @@ export class AssessmentList implements OnDestroy {
     this.api.reEvaluate(item.id).subscribe({
       next: (updated) => {
         this.items.update((list) => list.map((x) => (x.id === updated.id ? updated : x)));
-        this.successMessage.set(`Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`);
+        const msg = `Đã đánh giá lại thành công cho mã ${item.assessmentCode}.`;
+        this.successMessage.set(msg);
+        this.toast.success(msg);
         this.realtime.broadcastAssessmentEvent({
           assessmentId: updated.id,
           type: 'AssessmentStatusChanged',
@@ -301,7 +299,9 @@ export class AssessmentList implements OnDestroy {
       },
       error: (err: unknown) => {
         this.actionBusyId.set(null);
-        this.error.set(`${item.assessmentCode}: ${describeHttpError(err, 'Không thể đánh giá lại hồ sơ.')}`);
+        const errMsg = `${item.assessmentCode}: ${describeHttpError(err, 'Không thể đánh giá lại hồ sơ.')}`;
+        this.error.set(errMsg);
+        this.toast.error(errMsg);
       },
       complete: () => {
         this.actionBusyId.set(null);
@@ -315,7 +315,7 @@ export class AssessmentList implements OnDestroy {
   protected cancelItem(item: PreMissionAssessment, event: Event): void {
     event.stopPropagation();
     if (this.actionBusyId()) return;
-    if (this.isItemCompleted(item)) {
+    if (item.status === 'COMPLETED') {
       this.error.set('Không thể hủy đánh giá đã hoàn thành / tạo nhiệm vụ.');
       return;
     }
@@ -367,6 +367,26 @@ export class AssessmentList implements OnDestroy {
     if (targetPage < 1 || targetPage > this.totalPages() || targetPage === this.page()) return;
     this.page.set(targetPage);
     this.load();
+  }
+
+  protected isSiteReady(item: PreMissionAssessment): boolean {
+    const s = (item.site?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || s === 'FEASIBLE' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isPersonnelReady(item: PreMissionAssessment): boolean {
+    const s = (item.personnel?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isUavReady(item: PreMissionAssessment): boolean {
+    const s = (item.uav?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || item.status === 'READY' || item.status === 'COMPLETED';
+  }
+
+  protected isTechnicalReady(item: PreMissionAssessment): boolean {
+    const s = (item.technical?.status || '').toUpperCase();
+    return s === 'READY' || s === 'PASS' || s === 'HEALTHY' || item.status === 'READY' || item.status === 'COMPLETED';
   }
 
   protected statusTone = statusTone;

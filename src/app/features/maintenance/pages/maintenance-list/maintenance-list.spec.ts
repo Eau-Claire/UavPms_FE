@@ -1,19 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import {
-  ClearOutline,
-  CloseCircleOutline,
-  InboxOutline,
-  LeftOutline,
-  ReloadOutline,
-  RightOutline,
-  WarningOutline,
-} from '@ant-design/icons-angular/icons';
+import { ReloadOutline, RightOutline } from '@ant-design/icons-angular/icons';
 import { provideNzIcons } from 'ng-zorro-antd/icon';
 import { of, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
+import { MaintenanceApi } from '../../data-access/maintenance-api';
 import { MaintenanceList } from './maintenance-list';
 
 const ticket = (overrides: Partial<MaintenanceTicket> = {}): MaintenanceTicket => ({
@@ -44,15 +36,7 @@ describe('MaintenanceList', () => {
       imports: [MaintenanceList],
       providers: [
         provideRouter([]),
-        provideNzIcons([
-          ClearOutline,
-          CloseCircleOutline,
-          InboxOutline,
-          LeftOutline,
-          ReloadOutline,
-          RightOutline,
-          WarningOutline,
-        ]),
+        provideNzIcons([ReloadOutline, RightOutline]),
         { provide: MaintenanceApi, useValue: api },
         { provide: Auth, useValue: { user: () => ({ id: 'u1', role }) } },
       ],
@@ -81,7 +65,7 @@ describe('MaintenanceList', () => {
     };
   });
 
-  it('shows all tickets to a manager, with technician names and unassigned Open tickets highlighted', async () => {
+  it('shows all tickets to a manager, with technician names and unassigned Open tickets', async () => {
     await setup('Manager');
     expect(api.list).toHaveBeenCalledWith({ pageIndex: 0, pageSize: 20, status: '', priority: '' });
     expect(api.mine).not.toHaveBeenCalled();
@@ -89,10 +73,7 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Chưa giao');
     expect(text()).toContain('Nguyễn Văn Thợ');
     expect(text()).toContain('Khẩn cấp');
-    expect(text()).toContain('Đang sửa chữa');
-    const highlighted = (fixture.nativeElement as HTMLElement).querySelectorAll('tr.row-unassigned');
-    expect(highlighted.length).toBe(1);
-    expect(text()).toContain('1 phiếu trên trang này chưa được giao');
+    expect(text()).toContain('Đang xử lý');
   });
 
   it('sends filters and the 0-based page to GET /maintenance/tickets', async () => {

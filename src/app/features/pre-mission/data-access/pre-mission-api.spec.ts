@@ -3,8 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { environment } from '../../../../environments/environment';
-import { buildInspectionChecklist } from '../../../shared/utils/inspection-checklist';
-import { PreMissionApi } from '../../../core/services/pre-mission-api';
+import { buildInspectionChecklist } from './inspection-checklist';
+import { PreMissionApi } from './pre-mission-api';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const URL = `${environment.apiBaseUrl}/pre-mission-assessments`;
@@ -37,7 +37,7 @@ describe('PreMissionApi', () => {
     const req = http.expectOne(`${URL}/${ID}/re-evaluate`);
     expect(req.request.method).toBe('POST');
     req.flush(assessmentDto());
-    expect(status).toBe('READY');
+    expect(status).toBe('Ready');
   });
 
   it('derives availability and technical eligibility of UAV candidates from reasonCode', () => {

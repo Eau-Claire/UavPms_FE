@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { concatMap, finalize, from, tap } from 'rxjs';
 import { MaintenanceProof } from '../../../../models/maintenance.models';
-import { MaintenanceApi, maintenanceErrorMessage } from '../../../../core/services/maintenance-api';
+import { MaintenanceApi, maintenanceErrorMessage } from '../../data-access/maintenance-api';
 
 export const MAX_PROOF_BYTES = 50 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff'];

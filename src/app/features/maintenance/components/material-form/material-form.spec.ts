@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { MaterialLog } from '../../../../models/maintenance.models';
-import { MaintenanceApi } from '../../../../core/services/maintenance-api';
+import { MaintenanceApi } from '../../data-access/maintenance-api';
 import { MaterialForm } from './material-form';
 
 interface FormHarness {

@@ -2,6 +2,10 @@ import { MaintenanceTicket } from '../../../models/maintenance.models';
 import { Mission, normalizeMissionStatus } from '../../../models/missions.models';
 import { UavRecord } from '../../../models/drone-management.models';
 
+// ---------------------------------------------------------------------------
+// Inspector: GET /missions/my
+// ---------------------------------------------------------------------------
+
 export type InspectorGroupKey = 'awaiting' | 'upcoming' | 'flying' | 'paused' | 'completed';
 
 export interface InspectorMissionGroups {
@@ -19,7 +23,7 @@ export interface InspectorMissionGroups {
 
 export const RECENT_COMPLETED_LIMIT = 5;
 
-const UPCOMING_STATUSES = new Set(['Ready', 'Assigned', 'Preparing', 'Pending', 'PendingAcceptance']);
+const UPCOMING_STATUSES = new Set(['Confirmed', 'Assigned', 'Preparing', 'Ready', 'PendingAcceptance']);
 const PAUSED_STATUSES = new Set(['Suspended', 'Postponed']);
 
 const time = (value: string | null | undefined): number => {
@@ -66,7 +70,7 @@ export const groupInspectorMissions = (missions: readonly Mission[], userId: str
       continue;
     }
     const response = myResponseStatus(mission, userId);
-    if (response === 'PENDING' || (response === null && (status === 'Pending' || status === 'PendingAcceptance'))) {
+    if (response === 'PENDING' || (response === null && status === 'PendingAcceptance')) {
       awaiting.push(mission);
     } else if (response === 'POSTPONED' || PAUSED_STATUSES.has(status)) {
       paused.push(mission);
@@ -89,6 +93,10 @@ export const groupInspectorMissions = (missions: readonly Mission[], userId: str
 /** Accept / postpone happens on the inspector page; everything else on the mission detail page. */
 export const inspectorMissionLink = (mission: Mission, group: InspectorGroupKey): readonly string[] =>
   group === 'awaiting' ? ['/missions', mission.id, 'inspector'] : ['/missions', mission.id];
+
+// ---------------------------------------------------------------------------
+// Technician: GET /maintenance/tickets/my, GET /drones?detailed=true
+// ---------------------------------------------------------------------------
 
 export type TechnicianTicketGroupKey = 'Open' | 'InProgress' | 'PendingVerification';
 

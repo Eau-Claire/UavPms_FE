@@ -6,10 +6,10 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { Auth } from '../../../../core/auth/auth';
-import { AnomalyApi, normalizeAnomalyItem } from '../../../../core/services/anomaly-api';
-import { EmergencyAlertsApi } from '../../../../core/services/emergency-alerts-api';
-import { ActiveEmergencyAlert } from '../../../../models/emergency-alert.models';
-import { MonitorApi } from '../../../../core/services/monitor-api';
+import { AnomalyApi, normalizeAnomalyItem } from '../../../analyst-review/data-access/anomaly-api';
+import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
+import { ActiveEmergencyAlert } from '../../../emergency-alerts/models/emergency-alert.models';
+import { MonitorApi } from '../../data-access/monitor-api';
 import { AnalystHome } from './analyst-home';
 
 const anomalies = Array.from({ length: 5 }, (_, i) =>
@@ -64,7 +64,7 @@ describe('AnalystHome', () => {
   it('shows the pending AI detections count and the top 5 with review links', async () => {
     const { el, anomalyApi } = await setup();
     expect(anomalyApi.listPending).toHaveBeenCalledWith({ pageIndex: 1, pageSize: 5 });
-    expect(el.textContent).toContain('Chuyên viên phân tích');
+    expect(el.textContent).toContain('Analyst');
 
     const pending = el.querySelector('[aria-labelledby="analyst-pending-title"]') as HTMLElement;
     expect(pending.querySelector('.group-count')?.textContent?.trim()).toBe('17');

@@ -11,6 +11,78 @@
   max-width: none;
 }
 
+.pre-mission-breadcrumb .breadcrumb-link {
+  color: #10387d;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.active-count-badge {
+  padding: 2px 7px;
+  font-size: 10px;
+  animation: badge-pulse 2s infinite;
+}
+
+.tab-count-pill {
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.evn-alert {
+  .alert-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &.info {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e40af;
+    margin-bottom: 6px;
+  }
+}
+
+.empty-panel {
+  padding: 36px 24px;
+  text-align: center;
+  margin-top: 0;
+  border-top: 0;
+
+  .empty-panel-icon {
+    font-size: 32px;
+    color: #64748b;
+
+    &.success {
+      color: #16a34a;
+    }
+  }
+
+  h3 {
+    margin: 12px 0 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f2952;
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
 // Realtime Indicator Chip
 .realtime-status-chip {
   display: inline-flex;
@@ -50,7 +122,7 @@
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 0;
-  margin-top: 4px;
+  margin-top: 0;
   align-items: stretch;
 
   @media (max-width: 1024px) {
@@ -62,6 +134,7 @@
 .alerts-queue-panel {
   border: 1px solid #9fc3e4;
   border-right: 0;
+  margin-top: 0;
   background: #ffffff;
   display: flex;
   flex-direction: column;
@@ -150,10 +223,8 @@
       color: #173b70;
     }
 
-    .meta-conf {
-      strong {
-        color: #0284c7;
-      }
+    .meta-conf strong {
+      color: #0284c7;
     }
   }
 }
@@ -161,9 +232,11 @@
 // Right Pane: Inspection View
 .alert-inspection-panel {
   border: 1px solid #9fc3e4;
+  margin-top: 0;
   background: #ffffff;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 
   .panel-body {
     padding: 8px;
@@ -215,6 +288,14 @@
     background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
   }
 
+  .no-evidence-text {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    margin: 0;
+  }
+
   .image-stage {
     position: relative;
     display: inline-block;
@@ -251,6 +332,10 @@
       display: inline-flex;
       gap: 4px;
       line-height: 1.2;
+
+      .bbox-label-conf {
+        color: #fef08a;
+      }
     }
 
     .corner {
@@ -311,7 +396,7 @@
     line-height: 1.4;
 
     dt {
-      width: 95px;
+      width: 105px;
       flex-shrink: 0;
       color: #64748b;
       font-weight: 500;
@@ -324,6 +409,18 @@
       word-break: break-word;
     }
   }
+
+  .link-to-location {
+    margin-left: 8px;
+    color: #0284c7;
+    text-decoration: underline;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .conf-value {
+    color: #0284c7;
+  }
 }
 
 // Action Bar
@@ -331,6 +428,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 8px 12px;
   background: #d9edf9;
@@ -351,15 +449,14 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
-  .readonly-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    color: #64748b;
-    font-weight: 500;
+  .action-btn-lg {
+    height: 32px;
+    min-height: 32px;
+    font-size: 12px;
+    padding: 0 14px;
   }
 }
 
@@ -368,14 +465,54 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+
+  .resolved-time {
+    color: #64748b;
+    font-size: 10px;
+  }
 }
 
 .review-log-cell {
   font-size: 11px;
   line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .reviewer-name {
+    font-weight: 600;
+    color: #174f83;
+  }
+
+  .review-notes-text {
+    margin: 0;
+    color: #475569;
+    font-size: 11px;
+  }
+
+  .text-muted {
+    color: #94a3b8;
+    font-style: italic;
+  }
 }
 
-// EVN Modal Backdrop & Dialog (Standard Enterprise)
+.btn-xs {
+  height: 24px;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.empty-history-cell {
+  padding: 24px !important;
+  color: #64748b;
+}
+
+.history-pagination-footer {
+  justify-content: flex-end !important;
+}
+
+// EVN Modal Backdrop & Dialog
 .evn-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -390,15 +527,19 @@
   .evn-modal-dialog {
     background: #ffffff;
     width: 100%;
-    max-width: 480px;
+    max-width: 500px;
     border: 1px solid #8fb9df;
     border-radius: 0;
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
     overflow: hidden;
     animation: evn-slide-down 0.18s ease-out;
 
+    &.detail-dialog {
+      max-width: 640px;
+    }
+
     .evn-modal-header {
-      padding: 7px 12px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -408,12 +549,28 @@
       &.danger {
         background: #fee2e2;
         border-bottom-color: #fca5a5;
+
+        h3 {
+          color: #991b1b;
+        }
       }
 
       .modal-title-group {
         display: flex;
         align-items: center;
         gap: 8px;
+
+        .modal-icon {
+          font-size: 15px;
+
+          &.primary {
+            color: #1d4f91;
+          }
+
+          &.danger {
+            color: #dc2626;
+          }
+        }
 
         h3 {
           margin: 0;
@@ -442,10 +599,12 @@
     .evn-modal-body {
       padding: 12px;
       font-size: 11px;
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
     }
 
     .evn-modal-footer {
-      padding: 7px 12px;
+      padding: 8px 12px;
       background: #f8fbfe;
       border-top: 1px solid #9fc3e4;
       display: flex;
@@ -453,6 +612,12 @@
       gap: 8px;
     }
   }
+}
+
+.evn-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .evn-modal-info-box {
@@ -463,6 +628,101 @@
   border: 1px solid #bae6fd;
   border-radius: 2px;
   align-items: flex-start;
+
+  .info-box-icon {
+    color: #0284c7;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    color: #475569;
+  }
+}
+
+.evn-modal-warn-box {
+  margin: 0;
+  font-size: 11px;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  padding: 8px 10px;
+  border-radius: 2px;
+
+  &.callout {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+
+    .callout-icon {
+      font-size: 16px;
+      color: #dc2626;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    p {
+      margin: 2px 0 0;
+      color: #7f1d1d;
+    }
+  }
+}
+
+.evn-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #174f83;
+
+    &.required::after {
+      content: ' *';
+      color: #dc2626;
+    }
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    border: 1px solid #9fc3e4;
+    border-radius: 2px;
+    padding: 5px 8px;
+    font-size: 11.5px;
+    font-family: inherit;
+    color: #0b1c30;
+    background: #ffffff;
+
+    &:focus {
+      outline: none;
+      border-color: #1d4f91;
+    }
+  }
+
+  input,
+  select {
+    height: 28px;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  .field-hint {
+    color: #64748b;
+    font-size: 10.5px;
+  }
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 11px;
+  margin: 0;
 }
 
 .history-detail-modal-body {
@@ -490,6 +750,38 @@
     border: 1px solid #9fc3e4;
     background: #f8fbfe;
     padding: 8px 12px;
+  }
+
+  .escalations-history-block {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #cbd8e5;
+
+    h4 {
+      margin: 0 0 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #991b1b;
+      text-transform: uppercase;
+    }
+
+    .escalation-entry {
+      padding: 6px 8px;
+      background: #ffffff;
+      border: 1px solid #fecaca;
+      border-radius: 2px;
+      margin-bottom: 6px;
+
+      p {
+        margin: 0;
+        font-size: 11px;
+      }
+
+      .escalate-reason-text {
+        color: #475569;
+        margin-top: 2px;
+      }
+    }
   }
 }
 
