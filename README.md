@@ -1,6 +1,6 @@
 # SEPPMS Angular Frontend
 
-Angular 21 frontend for SEPPMS, deployed at https://seppms.vercel.app/.
+Angular 21 frontend for SEPPMS (UAV Powerline Management System).
 
 This app is the written with Angular, it uses standalone Angular components, zoneless change detection, signal-based local state, lazy routes, ng-zorro UI primitives, Tailwind CSS v4, and SCSS feature styles.
 
@@ -60,6 +60,11 @@ npm test -- --watch=false
 
 Current API tests cover auth, monitor API, notification API, and auth interceptor behavior.
 
+## Backend Connectivity
+
+- Primary API / SignalR Hub: `https://uavpms.ddns.net`
+- Automatic Fallback (on network/gateway errors `0`, `502`, `503`, `504`): `https://uavpms.duckdns.org`
+
 ## Build And Deploy
 
 Production build:
@@ -68,8 +73,10 @@ Production build:
 npm run build
 ```
 
-Build output is written to `dist/uav-pms-frontend`. The current public deployment is hosted on Vercel:
+Build output is written to `dist/uav-pms-frontend/browser`.
 
-```text
-https://seppms.vercel.app/
-```
+### CI/CD (GitHub Actions -> Vercel)
+
+- Workflow: `.github/workflows/deploy-vercel.yml`
+- On Pull Requests (`review-2`, `main`): runs `npm ci`, unit tests (`ng test --watch=false`), and production build verification (`npm run build`).
+- On Push / Merge (`review-2`, `main`): runs tests, builds artifacts via `vercel build --prod`, and deploys automatically to Vercel using repository secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
