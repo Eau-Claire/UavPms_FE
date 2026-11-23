@@ -1,6 +1,6 @@
 # SEPPMS Angular Frontend
 
-Angular 21 frontend for SEPPMS (UAV Powerline Management System).
+Angular 21 frontend for SEPPMS (UAV Powerline Management System), deployed at https://uav-pms-fe-mw3s.vercel.app/.
 
 This app is the written with Angular, it uses standalone Angular components, zoneless change detection, signal-based local state, lazy routes, ng-zorro UI primitives, Tailwind CSS v4, and SCSS feature styles.
 

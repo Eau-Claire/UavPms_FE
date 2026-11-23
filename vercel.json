@@ -4,6 +4,22 @@
   "outputDirectory": "dist/uav-pms-frontend/browser",
   "rewrites": [
     {
+      "source": "/api/v1/:path*",
+      "destination": "https://uavpms.ddns.net/api/v1/:path*"
+    },
+    {
+      "source": "/api-fallback/v1/:path*",
+      "destination": "https://uavpms.duckdns.org/api/v1/:path*"
+    },
+    {
+      "source": "/hubs/:path*",
+      "destination": "https://uavpms.ddns.net/hubs/:path*"
+    },
+    {
+      "source": "/hubs-fallback/:path*",
+      "destination": "https://uavpms.duckdns.org/hubs/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
