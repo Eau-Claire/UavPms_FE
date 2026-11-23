@@ -1,4 +1,4 @@
-export type AuditActionType = 'Added' | 'Modified' | 'Deleted';
+export type AuditActionType = 'Added' | 'Modified' | 'Deleted' | 'Evaluating';
 
 export interface AuditRecord {
   readonly id: string;
@@ -66,4 +66,5 @@ export const AUDIT_ACTION_OPTIONS: readonly ActionOption[] = [
   { value: 'Added', label: 'Tạo mới / Thêm' },
   { value: 'Modified', label: 'Cập nhật / Thay đổi' },
   { value: 'Deleted', label: 'Xóa' },
+  { value: 'Evaluating', label: 'Đang đánh giá' },
 ];

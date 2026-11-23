@@ -54,6 +54,36 @@
               <div class="ant-form-item-explain"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>Mật khẩu phải có ít nhất 3 ký tự</span></div>
             } @else if (error()) {
               <div class="ant-form-item-explain" role="alert"><span class="auth-field-error"><span nz-icon nzType="exclamation-circle"></span>{{ error() }}</span></div>
+              @if (unverifiedEmail()) {
+                <div style="margin-top: 10px;">
+                  <button
+                    nz-button
+                    nzType="default"
+                    nzSize="small"
+                    [nzBlock]="true"
+                    type="button"
+                    (click)="sendActivationOtp()"
+                    [nzLoading]="sendingOtp()"
+                    style="border-color: #10387d; color: #10387d; font-weight: 600;"
+                  >
+                    <span nz-icon nzType="mail"></span> Gửi mã OTP kích hoạt tài khoản
+                  </button>
+                </div>
+              }
+              @if (isApiUnreachable()) {
+                <div style="margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; text-align: center;">
+                  <p style="margin: 0 0 8px 0; font-size: 11.5px; color: #475569; font-weight: 600;">
+                    Đăng nhập thử nghiệm (Ngoại tuyến):
+                  </p>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Admin')">Quản trị viên</button>
+                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Manager')">Trưởng phòng</button>
+                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Inspector')">Thanh tra viên</button>
+                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Technician')">Kỹ thuật viên</button>
+                    <button type="button" nz-button nzSize="small" nzType="default" (click)="loginAsDemo('Analyst')">Phân tích viên</button>
+                  </div>
+                </div>
+              }
             }
           </nz-form-control>
         </nz-form-item>

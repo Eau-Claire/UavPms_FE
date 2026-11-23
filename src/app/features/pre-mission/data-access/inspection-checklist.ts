@@ -12,9 +12,9 @@ export interface InspectionChecklistInput {
   readonly flightControllerConnected?: boolean;
 }
 
-/** Backend thresholds (`Drone:CriticalBatteryThreshold`, `Drone:MinRfLinkThreshold`); readings below them fail. */
+/** Backend thresholds (`Drone:CriticalBatteryThreshold` = 30.0, `Drone:MinRfLinkThreshold` = 50.0); readings below them fail. */
 export const MIN_BATTERY_PERCENT = 30;
-export const MIN_RF_LINK_PERCENT = 60;
+export const MIN_RF_LINK_PERCENT = 50;
 export const MIN_GPS_SATELLITES = 6;
 
 /**

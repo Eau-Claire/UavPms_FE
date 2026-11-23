@@ -76,7 +76,7 @@ describe('MaintenanceDetail', () => {
     await setup('Manager', ticket());
     expect(api.get).toHaveBeenCalledWith('t1');
     expect(text()).toContain('TKT-1');
-    expect(text()).toContain('Chờ xử lý');
+    expect(text()).toContain('Mới mở');
     const links = Array.from(element().querySelectorAll('a')).map((anchor) => anchor.getAttribute('href'));
     expect(links).toContain('/towers/tw1');
     expect(links).toContain('/missions/ms1');

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { MonitorAlert } from '../../../../models/monitor.models';
@@ -127,7 +127,9 @@ describe('ActiveAlertsPanel', () => {
     expect(cards.length).toBe(2);
   });
 
-  it('marks alert as read when clicked and opens modal', async () => {
+  it('marks alert as read and navigates directly to emergency-alerts when clicked', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const list: MonitorAlert[] = [makeAlert('a-1', false, 1)];
     host.alerts.set(list);
     fixture.detectChanges();
@@ -140,10 +142,7 @@ describe('ActiveAlertsPanel', () => {
 
     expect(notificationsApiMock.markRead).toHaveBeenCalledWith('a-1');
     expect(host.onAlertRead).toHaveBeenCalledWith('a-1');
-
-    const modal = fixture.nativeElement.querySelector('.modal-card');
-    expect(modal).not.toBeNull();
-    expect(modal.textContent).toContain('Cảnh báo 1');
+    expect(navSpy).toHaveBeenCalledWith(['/emergency-alerts'], { queryParams: { id: 'a-1' } });
   });
 
   it('shows compact footer with emergency alerts link when <= 5 items', async () => {

@@ -23,7 +23,7 @@ export interface InspectorMissionGroups {
 
 export const RECENT_COMPLETED_LIMIT = 5;
 
-const UPCOMING_STATUSES = new Set(['Assigned', 'Preparing', 'Ready', 'PendingAcceptance']);
+const UPCOMING_STATUSES = new Set(['Confirmed', 'Assigned', 'Preparing', 'Ready', 'PendingAcceptance']);
 const PAUSED_STATUSES = new Set(['Suspended', 'Postponed']);
 
 const time = (value: string | null | undefined): number => {

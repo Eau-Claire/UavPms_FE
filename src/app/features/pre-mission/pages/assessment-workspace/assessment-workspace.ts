@@ -247,9 +247,9 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
         missingRoles.push(`${label} (${count}/${required})`);
       }
     };
-    check('Inspector', inspectors.length, cfg.reqInspectors);
-    check('Analyst', analysts.length, cfg.reqAnalysts);
-    check('Technician', technicians.length, cfg.reqTechnicians);
+    check('Phi công', inspectors.length, cfg.reqInspectors);
+    check('Chuyên viên phân tích', analysts.length, cfg.reqAnalysts);
+    check('Kỹ thuật viên', technicians.length, cfg.reqTechnicians);
 
     return {
       inspectors,
@@ -315,11 +315,23 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
     return list;
   });
 
+  protected formatManagerName(managerId?: string | null): string {
+    if (!managerId) return 'Quản lý vận hành';
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(managerId.trim())) {
+      const u = this.auth.user();
+      if (u && (u.id === managerId || u.email === managerId)) {
+        return u.fullName || u.email || 'Quản lý vận hành';
+      }
+      return 'Quản lý vận hành';
+    }
+    return managerId;
+  }
+
   protected readonly filteredPersonnel = computed(() => {
     let list: readonly PersonnelCandidate[] = this.item()?.personnelCandidates ?? [];
 
     if (this.onlyAvailableFilter()) {
-      list = list.filter((p) => p.availabilityStatus === 'Available');
+      list = list.filter((p) => p.availabilityStatus === 'Available' && p.isEligible);
     }
     const roleFilter = this.selectedRoleFilter();
     if (roleFilter !== 'ALL') {
@@ -421,16 +433,17 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
       const a = this.item();
       const tab = this.activeTab();
       const scopeEl = this.scopeMapContainer();
-      const siteEl = this.siteMapContainer();
       this.regionTowers();
-      if (a && (tab === 'overview' || tab === 'site') && (scopeEl || siteEl)) {
+      if (a && tab === 'overview' && scopeEl) {
         setTimeout(() => this.initOrUpdateMap(), 60);
+      } else if (tab !== 'overview') {
+        this.cleanupMap();
       }
     });
   }
 
   ngAfterViewInit(): void {
-    if (this.activeTab() === 'overview' || this.activeTab() === 'site') {
+    if (this.activeTab() === 'overview') {
       setTimeout(() => this.initOrUpdateMap(), 150);
     }
   }
@@ -1072,8 +1085,11 @@ export class AssessmentWorkspace implements AfterViewInit, OnDestroy {
   }
 
   private initOrUpdateMap(): void {
-    const container =
-      this.activeTab() === 'overview' ? this.scopeMapContainer()?.nativeElement : this.siteMapContainer()?.nativeElement;
+    if (this.activeTab() !== 'overview') {
+      this.cleanupMap();
+      return;
+    }
+    const container = this.scopeMapContainer()?.nativeElement;
     if (!container) return;
 
     if (this.map && this.map.getContainer() !== container) this.cleanupMap();

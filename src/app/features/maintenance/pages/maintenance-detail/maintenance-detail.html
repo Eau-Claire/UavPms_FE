@@ -20,16 +20,6 @@
 } @else if (!ticket() && error()) {
   <section class="tower-card"><app-data-state kind="error" [message]="error()" (retry)="load()" /></section>
 } @else if (ticket(); as data) {
-  @if (notice(); as message) {
-    <div class="tower-banner" [class.tower-banner-success]="message.tone === 'success'" [class.tower-banner-error]="message.tone === 'error'" [attr.role]="message.tone === 'error' ? 'alert' : 'status'">
-      <span>{{ message.text }}</span>
-      <button type="button" (click)="notice.set(null)">Đóng</button>
-    </div>
-  }
-  @if (error()) {
-    <div class="tower-banner tower-banner-error" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">Thử lại</button></div>
-  }
-
   <div class="md-layout" [attr.aria-busy]="loading()">
     <div class="md-main">
       <section class="tower-card md-card" aria-labelledby="md-info-title">

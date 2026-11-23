@@ -1,12 +1,17 @@
 @use '../field-home';
 
 /* The recent-defects table scrolls inside a fixed-height panel, as on the manager dashboard. */
-.panel-defects {
-  height: 320px;
+.panel.panel-defects {
+  display: flex;
+  flex-direction: column;
+  min-height: 340px;
+  height: auto;
 
   > :not(header) {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 

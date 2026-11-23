@@ -25,11 +25,15 @@
           <td>{{ defect.detectedAt | date:'dd/MM/yyyy, HH:mm' }}</td>
           <td>
             @if (defect.imageUrl) {
-              <a [href]="defect.imageUrl" target="_blank" rel="noopener">
-                <img [src]="defect.imageUrl" alt="Ảnh kiểm tra của {{ defect.missionName }}" />
+              <a [href]="defect.imageUrl" target="_blank" rel="noopener" class="thumb-link" title="Xem ảnh kiểm tra">
+                <img
+                  [src]="defect.imageUrl"
+                  alt="Ảnh kiểm tra của {{ defect.missionName }}"
+                  (error)="onImageError($event)"
+                />
               </a>
             } @else {
-              <span class="no-image">Không có ảnh</span>
+              <span class="no-image" title="Không có ảnh kiểm tra">Không ảnh</span>
             }
           </td>
         </tr>
@@ -37,4 +41,10 @@
     </tbody>
   </table>
 </div>
-<app-pagination [page]="data().page" [totalPages]="data().totalPages" [totalCount]="data().totalCount" (pageChanged)="pageChanged.emit($event)" />
+<app-pagination
+  [page]="data().page"
+  [totalPages]="data().totalPages"
+  [totalCount]="data().totalCount"
+  [pageSize]="data().pageSize || 5"
+  (pageChanged)="pageChanged.emit($event)"
+/>

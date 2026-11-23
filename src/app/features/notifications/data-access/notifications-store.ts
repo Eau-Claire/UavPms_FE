@@ -1,156 +1,13 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter, finalize } from 'rxjs';
 import { Auth } from '../../../core/auth/auth';
 import { AppNotification, NotificationFilters, NotificationReadFilter, NotificationSort } from '../../../models/notification.models';
 import { NotificationsApi } from './notifications-api';
-import { MissionLifecycleRealtimeEvent, NotificationsRealtime } from './notifications-realtime';
+import { NotificationsRealtime } from './notifications-realtime';
 
 import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../monitor/data-access/monitor-api';
-
-const LOCAL_STORAGE_NOTIFS_KEY = 'uav_pms_notifications_v1';
-
-function getLocalNotifications(): AppNotification[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_NOTIFS_KEY) || sessionStorage.getItem(LOCAL_STORAGE_NOTIFS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed as AppNotification[];
-      }
-    }
-  } catch {
-    // Ignore storage read errors
-  }
-  return [];
-}
-
-function saveLocalNotifications(list: readonly AppNotification[]): void {
-  try {
-    const json = JSON.stringify(list);
-    localStorage.setItem(LOCAL_STORAGE_NOTIFS_KEY, json);
-    sessionStorage.setItem(LOCAL_STORAGE_NOTIFS_KEY, json);
-  } catch {
-    // Ignore storage write errors
-  }
-}
-
-function convertMissionEventToNotification(
-  event: MissionLifecycleRealtimeEvent,
-  currentUserId?: string,
-  currentUserRole?: string,
-): AppNotification | null {
-  const now = event.timestamp || new Date().toISOString();
-  const missionId = event.missionId;
-  const actor = event.actorName || (event.actorRole ? `[${event.actorRole}]` : 'Hệ thống');
-  const role = (currentUserRole || '').toLowerCase();
-  const isManagerOrAdmin = role.includes('manager') || role.includes('admin') || role.includes('quản lý');
-
-  switch (event.type) {
-    case 'DISPATCHED':
-    case 'ASSIGNED':
-    case 'CREATED':
-    case 'REASSIGNED':
-      if (isManagerOrAdmin) {
-        return {
-          id: `notif-disp-${missionId}`,
-          userId: currentUserId,
-          title: `Đã ban hành nhiệm vụ ${missionId}`,
-          body: `Nhiệm vụ đã được gửi tới đội ngũ vận hành. Hạn chót xác nhận: ${event.confirmationDeadline ? new Date(event.confirmationDeadline).toLocaleString('vi-VN') : 'Trước giờ bay'}.`,
-          type: 'MISSION_DISPATCH',
-          referenceType: 'MISSION',
-          referenceId: missionId,
-          createdAt: now,
-          isRead: true,
-        };
-      }
-      return {
-        id: `notif-disp-${missionId}`,
-        userId: currentUserId,
-        title: `Yêu cầu xác nhận nhiệm vụ ${missionId}`,
-        body: `Bạn được phân công tham gia nhiệm vụ. Hạn chót xác nhận: ${event.confirmationDeadline ? new Date(event.confirmationDeadline).toLocaleString('vi-VN') : 'Trước giờ bay'}.${event.managerInstructions ? ` Chỉ thị: "${event.managerInstructions}"` : ''}`,
-        type: 'MISSION_DISPATCH',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'CONFIRMED':
-      return {
-        id: `notif-conf-${missionId}-${event.actorRole || 'MEMBER'}-${Date.now()}`,
-        userId: currentUserId,
-        title: `${actor} đã xác nhận nhiệm vụ ${missionId}`,
-        body: `Tiến độ: ${event.confirmedCount ?? 1}/${event.totalRequiredCount ?? 3}. ${event.allConfirmed ? 'Tất cả vai trò đã sẵn sàng.' : 'Đang chờ các vai trò còn lại.'}`,
-        type: 'MISSION_CONFIRMED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'POSTPONED':
-      return {
-        id: `notif-post-${missionId}`,
-        userId: currentUserId,
-        title: `${actor} đề xuất hoãn nhiệm vụ ${missionId}`,
-        body: `Lý do hoãn: "${event.reason || 'Bận việc đột xuất'}".`,
-        type: 'MISSION_POSTPONED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'SUSPENDED':
-      return {
-        id: `notif-susp-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} bị tạm dừng`,
-        body: event.reason || 'Quản lý đã ra lệnh tạm dừng chuyến bay.',
-        type: 'MISSION_SUSPENDED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'REMINDER':
-      return {
-        id: `notif-rem-${missionId}-${Date.now()}`,
-        userId: currentUserId,
-        title: `Nhắc nhở tiếp nhận nhiệm vụ ${missionId}`,
-        body: event.reason || 'Vui lòng xác nhận tiếp nhận trước hạn chót.',
-        type: 'MISSION_REMINDER',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'STARTED':
-      return {
-        id: `notif-start-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} bắt đầu bay`,
-        body: 'UAV đã cất cánh và đang thực hiện hành trình bay kiểm tra.',
-        type: 'MISSION_STARTED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    case 'COMPLETED':
-      return {
-        id: `notif-comp-${missionId}`,
-        userId: currentUserId,
-        title: `Nhiệm vụ ${missionId} đã hoàn tất khảo sát`,
-        body: 'UAV đã hạ cánh an toàn. Đã mở khóa cổng nạp dữ liệu ảnh/video.',
-        type: 'MISSION_COMPLETED',
-        referenceType: 'MISSION',
-        referenceId: missionId,
-        createdAt: now,
-        isRead: false,
-      };
-    default:
-      return null;
-  }
-}
 
 @Injectable({
   providedIn: 'root',
@@ -159,8 +16,9 @@ export class NotificationsStore {
   private readonly api = inject(NotificationsApi);
   private readonly realtime = inject(NotificationsRealtime);
   private readonly auth = inject(Auth);
+  private readonly router = inject(Router, { optional: true });
   private readonly destroyRef = inject(DestroyRef);
-  private readonly notificationsState = signal<readonly AppNotification[]>(getLocalNotifications());
+  private readonly notificationsState = signal<readonly AppNotification[]>([]);
   private readonly selectedState = signal<AppNotification | null>(null);
   private realtimeStarted = false;
 
@@ -175,30 +33,16 @@ export class NotificationsStore {
   readonly types = computed(() => Array.from(new Set(this.notificationsState().map((item) => item.type).filter(Boolean))).sort() as string[]);
 
   readonly userNotifications = computed(() => {
-    const currentUser = this.auth.user();
-    const currentUserId = currentUser?.id?.toLowerCase();
-    const currentUserEmail = currentUser?.email?.toLowerCase();
-    const currentRole = (currentUser?.role || '').toLowerCase();
-    const isManagerOrAdmin = currentRole.includes('manager') || currentRole.includes('admin') || currentRole.includes('quản lý');
+    const list = this.notificationsState();
+    const seenIds = new Set<string>();
+    const deduped: AppNotification[] = [];
 
-    return this.notificationsState().filter((item) => {
-      if (isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && (item.body?.includes('Bạn được phân công') || item.title?.includes('Yêu cầu xác nhận'))) {
-        return false;
-      }
-
-      if (!isManagerOrAdmin && item.type === 'MISSION_DISPATCH' && item.title?.includes('Đã ban hành nhiệm vụ')) {
-        return false;
-      }
-
-      if (item.userId && currentUserId) {
-        const target = item.userId.toLowerCase();
-        const matches =
-          target === currentUserId ||
-          (currentUserEmail && target === currentUserEmail);
-        if (!matches) return false;
-      }
-      return true;
-    });
+    for (const item of list) {
+      if (seenIds.has(item.id)) continue;
+      seenIds.add(item.id);
+      deduped.push(item);
+    }
+    return deduped;
   });
 
   readonly unreadCount = computed(() => this.userNotifications().filter((item) => !item.isRead).length);
@@ -221,17 +65,26 @@ export class NotificationsStore {
   constructor() {
     this.realtime.notifications$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((notification) => this.upsert(notification));
-    this.realtime.missionEvents$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => {
-        const u = this.auth.user();
-        const notif = convertMissionEventToNotification(event, u?.id, u?.role);
-        if (notif) this.upsert(notif);
+      .subscribe((notification) => {
+        this.upsert(notification);
+        if (this.router && typeof this.router.url === 'string') {
+          this.handleAutoReadOnNavigation(this.router.url);
+        }
       });
     this.realtime.status$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => this.realtimeStatus.set(status));
+
+    if (this.router && this.router.events) {
+      this.router.events
+        .pipe(
+          filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe((event) => {
+          this.handleAutoReadOnNavigation(event.urlAfterRedirects || event.url);
+        });
+    }
   }
 
   connect(userId?: string): void {
@@ -259,15 +112,17 @@ export class NotificationsStore {
         next: (items) => {
           const merged = sortNotifications(items, this.filters().sort);
           this.notificationsState.set(merged);
-          saveLocalNotifications(merged);
           const readIds = merged.filter((item) => item.isRead).map((item) => item.id);
           if (readIds.length > 0) {
             markAllAlertIdsAsReadLocally(readIds);
           }
+          if (this.router && typeof this.router.url === 'string') {
+            this.handleAutoReadOnNavigation(this.router.url);
+          }
         },
         error: () => {
-          const local = getLocalNotifications();
-          this.notificationsState.set(sortNotifications(local, this.filters().sort));
+          this.notificationsState.set([]);
+          this.error.set('Không thể tải danh sách thông báo từ máy chủ.');
         },
       });
   }
@@ -283,51 +138,171 @@ export class NotificationsStore {
       )
       .subscribe({
         next: (detail) => {
-          const merged = { ...notification, ...detail };
-          this.selectedState.set(merged);
-          this.upsert(merged);
-          if (!merged.isRead) this.markRead(merged.id);
+          this.selectedState.set(detail);
+          this.patch(detail.id, detail);
+          if (!detail.isRead) {
+            this.markRead(detail.id);
+          }
         },
         error: () => {
           this.selectedState.set(notification);
-          if (!notification.isRead) this.markRead(notification.id);
+          if (!notification.isRead) {
+            this.markRead(notification.id);
+          }
         },
       });
   }
 
-  clearSelection(): void {
+  closeDetail(): void {
     this.selectedState.set(null);
   }
 
+  clearSelection(): void {
+    this.closeDetail();
+  }
+
   setReadFilter(read: NotificationReadFilter): void {
-    this.filters.update((value) => ({ ...value, read }));
+    this.filters.update((f) => ({ ...f, read }));
   }
 
   setTypeFilter(type: string): void {
-    this.filters.update((value) => ({ ...value, type }));
+    this.filters.update((f) => ({ ...f, type }));
+  }
+
+  setSort(sort: NotificationSort): void {
+    this.filters.update((f) => ({ ...f, sort }));
+    this.notificationsState.update((items) => sortNotifications(items, sort));
   }
 
   setSortFilter(sort: NotificationSort): void {
-    this.filters.update((value) => ({ ...value, sort }));
+    this.setSort(sort);
   }
 
   markRead(id: string): void {
     markAlertIdAsReadLocally(id);
+    this.patch(id, { isRead: true });
     this.api
       .markRead(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.patch(id, { isRead: true }),
-        error: () => this.patch(id, { isRead: true }),
+        error: () => {},
       });
   }
 
-  markAllAsRead(): void {
-    const unread = this.userNotifications().filter((item) => !item.isRead);
+  markAllRead(): void {
+    const unread = this.notificationsState().filter((item) => !item.isRead);
     const ids = unread.map((item) => item.id);
     if (ids.length > 0) {
       markAllAlertIdsAsReadLocally(ids);
       ids.forEach((id) => this.markRead(id));
+    }
+  }
+
+  markAllAsRead(): void {
+    this.markAllRead();
+  }
+
+  markReadByReference(referenceType: string, referenceId?: string): void {
+    const normType = referenceType.toLowerCase().trim();
+    const unreadMatches = this.notificationsState().filter((item) => {
+      if (item.isRead) return false;
+      const itemRefType = (item.referenceType ?? '').toLowerCase().trim();
+      const itemType = (item.type ?? '').toLowerCase().trim();
+
+      const typeMatches =
+        !normType ||
+        itemRefType === normType ||
+        itemType === normType ||
+        (normType === 'emergencyalert' &&
+          (itemRefType.includes('alert') ||
+            itemType.includes('alert') ||
+            itemRefType.includes('emergency') ||
+            itemType.includes('emergency'))) ||
+        (normType === 'detectedanomaly' &&
+          (itemRefType.includes('anomal') ||
+            itemType.includes('anomal') ||
+            itemRefType.includes('defect') ||
+            itemType.includes('defect'))) ||
+        (normType === 'mission' && (itemRefType.includes('mission') || itemType.includes('mission'))) ||
+        (normType === 'maintenanceticket' &&
+          (itemRefType.includes('maint') || itemType.includes('maint') || itemRefType.includes('ticket')));
+
+      if (!typeMatches) return false;
+      if (referenceId) {
+        const targetId = referenceId.trim();
+        const notifRefId = (item.referenceId ?? '').trim();
+        return (
+          notifRefId === targetId ||
+          (item.body && item.body.includes(targetId)) ||
+          (item.title && item.title.includes(targetId))
+        );
+      }
+      return true;
+    });
+
+    unreadMatches.forEach((n) => this.markRead(n.id));
+  }
+
+  markReadForEmergencyAlert(alertId?: string, anomalyId?: string, towerCode?: string): void {
+    const unreadMatches = this.notificationsState().filter((item) => {
+      if (item.isRead) return false;
+      const itemRefType = (item.referenceType ?? '').toLowerCase().trim();
+      const itemType = (item.type ?? '').toLowerCase().trim();
+      const title = (item.title ?? '').toLowerCase();
+      const body = (item.body ?? '').toLowerCase();
+
+      const isAlertNotif =
+        itemRefType.includes('alert') ||
+        itemType.includes('alert') ||
+        itemRefType.includes('emergency') ||
+        itemType.includes('emergency') ||
+        title.includes('nghiêm trọng') ||
+        title.includes('khẩn cấp') ||
+        title.includes('báo động') ||
+        body.includes('nghiêm trọng') ||
+        body.includes('khẩn cấp') ||
+        body.includes('báo động');
+
+      if (!isAlertNotif) return false;
+
+      if (alertId || anomalyId || towerCode) {
+        const refId = (item.referenceId ?? '').trim();
+        if (alertId && (refId === alertId.trim() || body.includes(alertId.trim()) || title.includes(alertId.trim()))) return true;
+        if (anomalyId && (refId === anomalyId.trim() || body.includes(anomalyId.trim()) || title.includes(anomalyId.trim()))) return true;
+        if (towerCode && (body.includes(towerCode.trim().toLowerCase()) || title.includes(towerCode.trim().toLowerCase()))) return true;
+        if (!refId) return true;
+        return false;
+      }
+      return true;
+    });
+
+    unreadMatches.forEach((n) => this.markRead(n.id));
+  }
+
+  private handleAutoReadOnNavigation(url: string): void {
+    if (!url) return;
+    const cleanUrl = url.split('?')[0];
+    const queryStr = url.includes('?') ? url.split('?')[1] : '';
+    const searchParams = new URLSearchParams(queryStr);
+
+    if (cleanUrl.startsWith('/emergency-alerts')) {
+      const alertId = searchParams.get('id') || searchParams.get('alertId');
+      this.markReadForEmergencyAlert(alertId || undefined);
+    } else if (cleanUrl.startsWith('/missions/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[1] !== 'new') {
+        this.markReadByReference('mission', parts[1]);
+      }
+    } else if (cleanUrl.startsWith('/maintenance/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[1] !== 'new') {
+        this.markReadByReference('maintenanceticket', parts[1]);
+      }
+    } else if (cleanUrl.startsWith('/ai-review/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        this.markReadByReference('detectedanomaly', parts[1]);
+      }
     }
   }
 
@@ -350,19 +325,22 @@ export class NotificationsStore {
 
   private patch(id: string, patch: Partial<AppNotification>): void {
     this.notificationsState.update((items) => {
-      const updated = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
-      saveLocalNotifications(updated);
-      return updated;
+      return items.map((item) => (item.id === id ? { ...item, ...patch } : item));
     });
     if (this.selectedState()?.id === id) this.selectedState.update((item) => (item ? { ...item, ...patch } : item));
   }
 
   upsert(notification: AppNotification): void {
     this.notificationsState.update((items) => {
-      const exists = items.some((item) => item.id === notification.id);
-      const updated = sortNotifications(exists ? items.map((item) => (item.id === notification.id ? notification : item)) : [notification, ...items], this.filters().sort);
-      saveLocalNotifications(updated);
-      return updated;
+      const existingIndex = items.findIndex((item) => item.id === notification.id);
+      let nextList: AppNotification[];
+      if (existingIndex >= 0) {
+        nextList = [...items];
+        nextList[existingIndex] = { ...items[existingIndex], ...notification };
+      } else {
+        nextList = [notification, ...items];
+      }
+      return sortNotifications(nextList, this.filters().sort);
     });
     if (this.selectedState()?.id === notification.id) this.selectedState.set(notification);
   }

@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { AnomalyHistoryService } from '../../analyst-review/data-access/anomaly-history.service';
 import {
   ActiveEmergencyAlert,
   ALERT_STATUSES,
@@ -48,6 +49,7 @@ const ESCALATION_ROLES = new Set(['manager', 'systemadmin', 'admin']);
 })
 export class EmergencyAlertsApi {
   private readonly http = inject(HttpClient);
+  private readonly history = inject(AnomalyHistoryService);
   private readonly baseUrl = `${environment.apiBaseUrl}/alerts`;
 
   private readonly activeAlertsState = signal<readonly ActiveEmergencyAlert[]>([]);
@@ -56,10 +58,18 @@ export class EmergencyAlertsApi {
   readonly activeAlerts = this.activeAlertsState.asReadonly();
   readonly activeCount = computed(() => this.activeAlertsState().length);
 
-  /** `GET /alerts/active` returns a raw array. */
+  /** `GET /alerts/active` returns a raw array. Filter out alerts that were already reviewed. */
   fetchActiveAlerts(): Observable<readonly ActiveEmergencyAlert[]> {
     return this.http.get<unknown>(`${this.baseUrl}/active`).pipe(
-      map((response) => arrayOf(response).map(normalizeActiveAlert)),
+      map((response) =>
+        arrayOf(response)
+          .map(normalizeActiveAlert)
+          .filter(
+            (alert) =>
+              !this.history.isReviewed(alert.id) &&
+              (!alert.anomalyId || !this.history.isReviewed(alert.anomalyId)),
+          ),
+      ),
       tap((alerts) => this.activeAlertsState.set(alerts)),
     );
   }
@@ -126,8 +136,20 @@ export class EmergencyAlertsApi {
     );
   }
 
-  private removeActive(id: string): void {
-    this.activeAlertsState.update((list) => list.filter((alert) => alert.id !== id));
+  removeActive(idOrAnomalyId: string): void {
+    const clean = idOrAnomalyId?.trim();
+    if (!clean) return;
+    this.activeAlertsState.update((list) =>
+      list.filter((alert) => alert.id !== clean && alert.anomalyId !== clean),
+    );
+  }
+
+  findActiveByAnomalyOrAlertId(idOrAnomalyId: string): ActiveEmergencyAlert | undefined {
+    const clean = idOrAnomalyId?.trim();
+    if (!clean) return undefined;
+    return this.activeAlertsState().find(
+      (alert) => alert.id === clean || alert.anomalyId === clean,
+    );
   }
 }
 
@@ -155,8 +177,11 @@ const optionalNumber = (value: unknown): number | null => {
 };
 
 const toStatus = (value: unknown): AlertStatus => {
-  const text = stringOf(value).toLowerCase();
-  return ALERT_STATUSES.find((status) => status.toLowerCase() === text) ?? 'Active';
+  const text = stringOf(value).toLowerCase().replace(/[\s_-]/g, '');
+  if (text === 'open' || text === 'active') return 'Open';
+  if (text === 'acknowledged' || text === 'confirmed' || text === 'escalated') return 'Acknowledged';
+  if (text === 'resolved' || text === 'dismissed') return 'Resolved';
+  return 'Open';
 };
 
 const toPriority = (value: unknown): AlertPriority => {

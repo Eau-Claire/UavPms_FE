@@ -1,11 +1,11 @@
 <div class="review-page">
   <div class="review-page-head">
     <div class="heading-left">
-      <div class="review-breadcrumb">
-        <span>THẨM ĐỊNH KỸ THUẬT</span>
-        <span>/</span>
+      <nav class="review-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
         <strong>DUYỆT KẾT QUẢ PHÁT HIỆN</strong>
-      </div>
+      </nav>
       <h1 class="page-title">Hàng đợi thẩm định khuyết tật AI</h1>
       <p class="review-subtitle">
         Xem xét, gán cột điện và phê duyệt hoặc bác bỏ các kết quả phát hiện khuyết tật từ dữ liệu khảo sát (Edge và Cloud)
@@ -26,35 +26,53 @@
     </div>
   </div>
 
-  @if (error()) {
-    <div class="alert-banner error" role="alert">
-      <span nz-icon nzType="close-circle"></span>
-      <span>{{ error() }}</span>
-      <button type="button" class="alert-close" aria-label="Đóng cảnh báo" (click)="error.set('')">×</button>
-    </div>
-  }
-
-  <section class="review-status-bar" aria-label="Thống kê thẩm định">
-    <div class="status-item">
-      <span class="status-label">Chờ thẩm định</span>
-      <strong class="status-value">{{ response().totalCount }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Sự cố khẩn cấp (trang này)</span>
-      <strong class="status-value">{{ criticalCount() }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Độ tin cậy cao (≥90%)</span>
-      <strong class="status-value">{{ highConfidenceCount() }}</strong>
-    </div>
-    <div class="status-sep" aria-hidden="true"></div>
-    <div class="status-item">
-      <span class="status-label">Chưa gắn cột điện</span>
-      <strong class="status-value">{{ missingTowerCount() }}</strong>
-    </div>
-  </section>
+  <div class="review-status-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Pending'"
+      [class.secondary]="statusFilter() !== 'Pending'"
+      (click)="setStatusFilter('Pending')"
+    >
+      Chờ duyệt ({{ pendingCount() || (statusFilter() === 'Pending' ? response().totalCount : 0) }})
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Reviewed'"
+      [class.secondary]="statusFilter() !== 'Reviewed'"
+      (click)="setStatusFilter('Reviewed')"
+    >
+      Đã duyệt
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Confirmed'"
+      [class.secondary]="statusFilter() !== 'Confirmed'"
+      (click)="setStatusFilter('Confirmed')"
+    >
+      Chấp nhận
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'Rejected'"
+      [class.secondary]="statusFilter() !== 'Rejected'"
+      (click)="setStatusFilter('Rejected')"
+    >
+      Từ chối
+    </button>
+    <button
+      type="button"
+      class="button small"
+      [class.primary]="statusFilter() === 'ALL'"
+      [class.secondary]="statusFilter() !== 'ALL'"
+      (click)="setStatusFilter('ALL')"
+    >
+      Tất cả
+    </button>
+  </div>
 
   <section class="review-filter-bar" aria-label="Bộ lọc kết quả">
     <div class="search-input-wrap">
@@ -125,9 +143,9 @@
     </div>
   } @else if (!displayedItems().length) {
     <div class="empty-state-card">
-      <span nz-icon nzType="check-circle" class="empty-state-icon" aria-hidden="true"></span>
-      <h3>Không có phát hiện nào cần thẩm định</h3>
-      <p>Tất cả các kết quả phát hiện đã được xử lý hoặc không có dữ liệu phù hợp với từ khóa tìm kiếm.</p>
+      <span nz-icon [nzType]="emptyStateIcon()" class="empty-state-icon" aria-hidden="true"></span>
+      <h3>{{ emptyStateTitle() }}</h3>
+      <p>{{ emptyStateDescription() }}</p>
     </div>
   } @else if (viewMode() === 'grid') {
     <section class="detections-grid" aria-label="Danh sách phát hiện sự cố">
@@ -143,10 +161,15 @@
               />
             }
             <div class="card-badges">
-              <span class="status-pill {{ statusClass(item) }}">
-                <span class="status-dot"></span>
-                {{ statusText(item) }}
-              </span>
+              <div class="badge-group-left">
+                <span class="status-pill {{ statusClass(item) }}">
+                  <span class="status-dot"></span>
+                  {{ statusText(item) }}
+                </span>
+                @if (isEmergencyItem(item)) {
+                  <span class="emergency-pill">Khẩn cấp</span>
+                }
+              </div>
               <span class="confidence-badge {{ confidenceClass(item.confidenceScore) }}">
                 {{ item.confidenceScore }}%
               </span>
@@ -161,6 +184,12 @@
             <h2 class="card-title">{{ item.categoryName }}</h2>
 
             <div class="card-meta-list">
+              @if (isEmergencyItem(item)) {
+                <div class="meta-row meta-row-emergency">
+                  <span>Mức độ:</span>
+                  <strong class="text-danger">Sự cố khẩn cấp</strong>
+                </div>
+              }
               <div class="meta-row">
                 <span>Cột điện:</span>
                 @if (item.towerId) {
@@ -195,7 +224,7 @@
               class="btn-review"
               (click)="$event.stopPropagation(); openDetail(item)"
             >
-              <span>Thẩm định</span>
+              <span>{{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}</span>
               <span nz-icon nzType="right" aria-hidden="true"></span>
             </button>
           </div>
@@ -233,7 +262,12 @@
                   }
                 </td>
                 <td>
-                  <strong>{{ item.categoryName }}</strong>
+                  <div class="table-cat-title">
+                    <strong>{{ item.categoryName }}</strong>
+                    @if (isEmergencyItem(item)) {
+                      <span class="emergency-tag">Khẩn cấp</span>
+                    }
+                  </div>
                   @if (supersededCountFor(item) > 0) {
                     <small class="superseded-hint">Thay thế {{ supersededCountFor(item) }} kết quả Edge</small>
                   }
@@ -271,7 +305,7 @@
                     class="action-btn btn-primary btn-sm"
                     (click)="$event.stopPropagation(); openDetail(item)"
                   >
-                    Xem &amp; Duyệt
+                    {{ item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved' ? 'Xem chi tiết' : 'Thẩm định' }}
                   </button>
                 </td>
               </tr>
@@ -282,40 +316,15 @@
     </div>
   }
 
-  @if (response().totalPages > 1) {
+  @if (response().totalCount > 0) {
     <footer class="review-pagination-footer">
-      <span class="total-text">
-        Tổng cộng <strong>{{ response().totalCount }}</strong> sự cố phát hiện
-      </span>
-      <nav class="mission-pagination" aria-label="Phân trang">
-        <button
-          type="button"
-          aria-label="Trang trước"
-          [disabled]="page() <= 1"
-          (click)="setPage(page() - 1)"
-        >
-          <span nz-icon nzType="left" aria-hidden="true"></span>
-        </button>
-        @for (p of pageNumbers(); track p) {
-          <button
-            type="button"
-            class="page-number"
-            [class.active]="p === page()"
-            [attr.aria-current]="p === page() ? 'page' : null"
-            (click)="setPage(p)"
-          >
-            {{ p }}
-          </button>
-        }
-        <button
-          type="button"
-          aria-label="Trang sau"
-          [disabled]="page() >= response().totalPages"
-          (click)="setPage(page() + 1)"
-        >
-          <span nz-icon nzType="right" aria-hidden="true"></span>
-        </button>
-      </nav>
+      <app-pagination
+        [page]="page()"
+        [totalPages]="response().totalPages"
+        [totalCount]="response().totalCount"
+        [pageSize]="pageSize()"
+        (pageChanged)="setPage($event)"
+      />
     </footer>
   }
 </div>

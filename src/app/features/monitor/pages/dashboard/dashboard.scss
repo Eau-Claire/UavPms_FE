@@ -1,9 +1,37 @@
+@use '../../components/field-home';
+
 :host {
   display: block;
   width: 100%;
   height: 100%;
   font-family: 'Be Vietnam Pro', 'Roboto', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
+}
+
+.manager-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-body-padded {
+  padding: 12px;
+  overflow: hidden;
+}
+
+.panel.panel-defects {
+  display: flex;
+  flex-direction: column;
+  min-height: 340px;
+  height: auto;
+
+  > :not(header) {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .dashboard-page {
@@ -86,75 +114,144 @@
   }
 }
 
-/* Compact Status Bar */
-.dashboard-status-bar {
-  display: flex;
-  align-items: center;
+/* Executive KPI Container */
+.dashboard-kpi-container {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.kpi-card-block {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 6px 14px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-  gap: 16px;
-  flex-shrink: 0;
+  border-radius: 8px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.status-group {
+.kpi-block-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex: 1;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 8px;
+
+  .kpi-block-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f2952;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .kpi-block-icon {
+    font-size: 15px;
+
+    &.mission-color {
+      color: #1d4ed8;
+    }
+
+    &.defect-color {
+      color: #b45309;
+    }
+  }
+
+  .kpi-block-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: #10387d;
+    text-decoration: none;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+  }
 }
 
-.group-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  color: #10387d;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.status-items {
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
+.kpi-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  flex: 1;
+
+  &.defect-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-.status-item {
+.kpi-tile {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.15s ease;
 
-  .item-label {
+  &:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .kpi-tile-label {
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     white-space: nowrap;
   }
 
-  .item-value {
-    font-size: 15px;
+  .kpi-tile-num {
+    font-size: 20px;
     font-weight: 700;
-    color: #0f2952;
-    line-height: 1;
+    line-height: 1.15;
+    color: #0f172a;
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
 
-    &.critical-value {
+    &.warn {
+      color: #b45309;
+    }
+
+    &.info {
+      color: #0284c7;
+    }
+
+    &.success {
+      color: #15803d;
+    }
+
+    &.danger {
+      color: #b91c1c;
+    }
+  }
+
+  &.highlight-critical {
+    .kpi-tile-label {
+      color: #991b1b;
+      font-weight: 700;
+    }
+
+    .kpi-tile-num {
       color: #b91c1c;
     }
   }
 }
 
-.status-divider {
-  width: 1px;
-  height: 24px;
-  background: #e2e8f0;
-  flex-shrink: 0;
+@media (max-width: 1024px) {
+  .dashboard-kpi-container {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stale-warning {
@@ -168,16 +265,16 @@
   flex-shrink: 0;
 }
 
-/* 4-Panel Grid - Fits Viewport on Desktop */
+/* 4-Panel Grid - Flexible Proportional Layout */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 380px 1fr 1fr;
-  grid-template-rows: 205px 225px;
+  grid-template-columns: 390px 1fr 1fr;
+  grid-template-rows: minmax(260px, 300px) minmax(320px, 1fr);
   grid-template-areas:
     "alerts statistics missions"
     "alerts defects defects";
-  gap: 12px;
-  flex-shrink: 0;
+  gap: 14px;
+  flex: 1 1 auto;
 }
 
 /* Panel Uniform Architecture (1 Single Unified Style) */

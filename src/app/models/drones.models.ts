@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 /** Trạng thái bay của drone (`DroneStatus`): Idle, Flying, Maintenance, Offline, Online. */
 export type DroneFlightStatus = 'Idle' | 'Flying' | 'Maintenance' | 'Offline' | 'Online' | string;
 
@@ -6,7 +8,7 @@ export type DroneFlightStatus = 'Idle' | 'Flying' | 'Maintenance' | 'Offline' | 
  * Lưu ý: trường `operationalStatus` của DTO này chứa trạng thái bay (`DroneFlightStatus`),
  * khác với `operationalStatus` của `UavDetailsDto` (Available, Reserved, InUse...).
  */
-export interface DroneDto {
+export interface DroneDto extends BaseAuditableEntity {
   readonly id: string;
   readonly droneCode: string;
   readonly name: string;
@@ -17,4 +19,8 @@ export interface DroneDto {
   readonly latitude?: number | null;
   readonly longitude?: number | null;
   readonly altitude?: number | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }

@@ -4,8 +4,44 @@ import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
+import { EmergencyAlertsApi } from '../../emergency-alerts/data-access/emergency-alerts-api';
+import { ActiveEmergencyAlert } from '../../emergency-alerts/models/emergency-alert.models';
+import { AnomalyHistoryService } from './anomaly-history.service';
 
-export type AnomalyValidationStatus = 'Pending' | 'Confirmed' | 'Rejected' | 'Resolved';
+export function mapAlertToAnomaly(alert: ActiveEmergencyAlert): AnomalyItem {
+  const id = alert.anomalyId || alert.id;
+  return {
+    id,
+    mediaUrl: alert.evidence?.mediaUrl || '/images/defect-preview-frame.png',
+    towerId: alert.towerId ?? null,
+    towerCode: alert.towerCode || alert.location?.towerCode || null,
+    missionCode: null,
+    missionName: alert.towerCode ? `Khảo sát vị trí ${alert.towerCode}` : 'Kiểm tra đường dây',
+    categoryName: alert.categoryName || alert.alertType || 'Sự cố khẩn cấp',
+    categoryCode: alert.alertType || null,
+    boundingBox: alert.evidence?.boundingBox
+      ? {
+          x: alert.evidence.boundingBox.x,
+          y: alert.evidence.boundingBox.y,
+          width: alert.evidence.boundingBox.width,
+          height: alert.evidence.boundingBox.height,
+          isNormalized: alert.evidence.boundingBox.isNormalized,
+        }
+      : undefined,
+    confidenceScore: alert.evidence?.confidenceScore ?? 85,
+    validationStatus: 'InReview',
+    analystNotes: '',
+    aiSource: 'Cloud (Server)',
+    analysisRunId: null,
+    executionLocation: 'Cloud',
+    supersededById: null,
+    createdAt: alert.triggeredAt || new Date().toISOString(),
+    severity: alert.priority === 'Critical' ? 5 : alert.priority === 'High' ? 4 : 3,
+    isEmergency: true,
+  };
+}
+
+export type AnomalyValidationStatus = 'Pending' | 'InReview' | 'Confirmed' | 'Rejected' | 'Resolved';
 
 /** Where the AI run that produced the anomaly executed (ERD v2.2 `ai_analysis_runs.execution_location`). */
 export type AnomalyExecutionLocation = 'Edge' | 'Cloud' | 'Manual';
@@ -130,6 +166,7 @@ const ANOMALY_ERROR_MESSAGES: Record<string, string> = {
   ANOMALY_RESOLVED: 'Bất thường đã được xử lý xong, không thể đổi cột điện.',
   LOCATION_UNKNOWN: 'Bất thường và ảnh gốc đều không có tọa độ GPS. Vui lòng tìm và chọn cột điện thủ công.',
   NOT_FOUND: 'Không tìm thấy bất thường hoặc cột điện.',
+  ANOMALY_NOT_IN_REVIEW: 'Sự cố này đã được thẩm định trước đó (không còn ở trạng thái chờ duyệt).',
 };
 
 export const apiErrorCode = (error: unknown): string | null => {
@@ -158,6 +195,8 @@ export const anomalyErrorMessage = (error: unknown, fallback = 'Đã xảy ra l�
 })
 export class AnomalyApi {
   private readonly http = inject(HttpClient);
+  private readonly history = inject(AnomalyHistoryService);
+  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly baseUrl = environment.apiBaseUrl;
 
   listPending(params?: AnomalyListParams): Observable<AnomalyPage> {
@@ -170,13 +209,260 @@ export class AnomalyApi {
 
     return this.http
       .get<unknown>(`${this.baseUrl}/anomalies/pending`, { params: queryParams })
-      .pipe(map((response) => normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize)));
+      .pipe(
+        map((response) => {
+          const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
+          const activeAlerts = this.alertsApi.activeAlerts();
+
+          const isItemReviewed = (item: AnomalyItem | string | null | undefined): boolean => {
+            if (!item) return false;
+            if (typeof item === 'object') {
+              if (
+                item.validationStatus === 'Confirmed' ||
+                item.validationStatus === 'Rejected' ||
+                item.validationStatus === 'Resolved'
+              ) {
+                return true;
+              }
+              const rev = this.history.getReview(item.id);
+              return (
+                !!rev &&
+                (rev.validationStatus === 'Confirmed' ||
+                  rev.validationStatus === 'Rejected' ||
+                  rev.validationStatus === 'Resolved')
+              );
+            }
+            const rev = this.history.getReview(item);
+            return (
+              !!rev &&
+              (rev.validationStatus === 'Confirmed' ||
+                rev.validationStatus === 'Rejected' ||
+                rev.validationStatus === 'Resolved')
+            );
+          };
+
+          // Nếu không có active alerts (hoặc test unit), giữ đúng cấu trúc page gốc
+          if (activeAlerts.length === 0) {
+            const filteredItems = page.items.filter((item) => !isItemReviewed(item));
+            return {
+              ...page,
+              items: filteredItems,
+              totalCount: page.totalCount - (page.items.length - filteredItems.length),
+            };
+          }
+
+          // Chuyển đổi các active alerts chưa review thành AnomalyItem
+          let activePendingAlerts = activeAlerts
+            .filter((alert) => !isItemReviewed(alert.id) && !isItemReviewed(alert.anomalyId))
+            .map(mapAlertToAnomaly);
+
+          if (search) {
+            const s = search.toLowerCase();
+            activePendingAlerts = activePendingAlerts.filter(
+              (i) =>
+                i.categoryName.toLowerCase().includes(s) ||
+                (i.towerCode && i.towerCode.toLowerCase().includes(s)) ||
+                (i.missionName && i.missionName.toLowerCase().includes(s)) ||
+                i.id.toLowerCase().includes(s),
+            );
+          }
+
+          // Tạo Map để gộp và loại bỏ trùng lặp
+          const itemMap = new Map<string, AnomalyItem>();
+
+          for (const item of activePendingAlerts) {
+            itemMap.set(item.id, item);
+          }
+
+          for (const item of page.items) {
+            if (isItemReviewed(item)) continue;
+
+            const matchingAlert = activeAlerts.find(
+              (a) => a.id === item.id || a.anomalyId === item.id,
+            );
+            if (matchingAlert) {
+              if (isItemReviewed(matchingAlert.id) || isItemReviewed(matchingAlert.anomalyId)) {
+                continue;
+              }
+              itemMap.set(item.id, {
+                ...item,
+                isEmergency: true,
+                severity: Math.max(item.severity ?? 0, matchingAlert.priority === 'Critical' ? 5 : 4),
+              });
+            } else if (!itemMap.has(item.id)) {
+              itemMap.set(item.id, item);
+            }
+          }
+
+          const allItems = Array.from(itemMap.values()).sort((a, b) => {
+            if (a.isEmergency !== b.isEmergency) {
+              return a.isEmergency ? -1 : 1;
+            }
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+
+          const totalCount = allItems.length;
+          const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+          const pagedItems = allItems.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+
+          return {
+            items: pagedItems,
+            totalCount,
+            pageIndex,
+            pageSize,
+            totalPages,
+          };
+        }),
+      );
+  }
+
+  /**
+   * Lấy danh sách các phát hiện đã được thẩm định (Confirmed hoặc Rejected hoặc tất cả đã duyệt)
+   */
+  listReviewed(
+    status: 'ALL_REVIEWED' | 'Confirmed' | 'Rejected' = 'ALL_REVIEWED',
+    params?: AnomalyListParams,
+  ): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    const search = params?.search?.trim().toLowerCase();
+
+    let allReviewed = this.history.getReviewedItems();
+
+    if (status === 'Confirmed') {
+      allReviewed = allReviewed.filter(
+        (i) => i.validationStatus === 'Confirmed' || i.validationStatus === 'Resolved',
+      );
+    } else if (status === 'Rejected') {
+      allReviewed = allReviewed.filter((i) => i.validationStatus === 'Rejected');
+    }
+
+    if (search) {
+      allReviewed = allReviewed.filter(
+        (i) =>
+          i.categoryName.toLowerCase().includes(search) ||
+          (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
+          (i.missionName && i.missionName.toLowerCase().includes(search)) ||
+          i.id.toLowerCase().includes(search),
+      );
+    }
+
+    const totalCount = allReviewed.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const pagedItems = allReviewed.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+
+    return of({
+      items: pagedItems,
+      totalCount,
+      pageIndex,
+      pageSize,
+      totalPages,
+    });
+  }
+
+  /**
+   * Lấy tất cả phát hiện: Hợp nhất hàng đợi Chờ duyệt và các phát hiện Đã duyệt
+   */
+  listAll(params?: AnomalyListParams): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    const search = params?.search?.trim().toLowerCase();
+
+    return this.listPending({ pageIndex: 1, pageSize: 100, search }).pipe(
+      map((pendingPage) => {
+        let allReviewed = this.history.getReviewedItems();
+        if (search) {
+          allReviewed = allReviewed.filter(
+            (i) =>
+              i.categoryName.toLowerCase().includes(search) ||
+              (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
+              (i.missionName && i.missionName.toLowerCase().includes(search)) ||
+              i.id.toLowerCase().includes(search),
+          );
+        }
+
+        // Kết hợp Pending + Reviewed
+        const mapById = new Map<string, AnomalyItem>();
+        allReviewed.forEach((it) => mapById.set(it.id, it));
+        pendingPage.items.forEach((it) => {
+          if (!mapById.has(it.id)) {
+            mapById.set(it.id, it);
+          }
+        });
+
+        const merged = Array.from(mapById.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+
+        const totalCount = merged.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+        const pagedItems = merged.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+
+        return {
+          items: pagedItems,
+          totalCount,
+          pageIndex,
+          pageSize,
+          totalPages,
+        };
+      }),
+      catchError(() => this.listReviewed('ALL_REVIEWED', params)),
+    );
+  }
+
+  /**
+   * Lấy chi tiết Anomaly theo ID: tìm trong history cache, gọi GET /anomalies/{id}, hoặc tìm trong pending
+   */
+  getAnomalyById(id: string): Observable<AnomalyItem | null> {
+    const cleanId = id?.trim();
+    if (!cleanId || cleanId === '00000000-0000-0000-0000-000000000000') {
+      return of(null);
+    }
+
+    const fromHistory = this.history.getReview(cleanId);
+    if (fromHistory) {
+      return of(fromHistory);
+    }
+
+    const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(cleanId);
+    if (matchingAlert) {
+      return of(mapAlertToAnomaly(matchingAlert));
+    }
+
+    return this.http.get<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(cleanId)}`).pipe(
+      map((res) => normalizeAnomalyItem(unwrapApiData(res))),
+      catchError(() =>
+        this.listPending({ pageIndex: 1, pageSize: 100 }).pipe(
+          map((res) => {
+            const found = res.items.find((it) => it.id === cleanId);
+            return found ?? this.history.getReview(cleanId) ?? null;
+          }),
+          catchError(() => of(this.history.getReview(cleanId) ?? null)),
+        ),
+      ),
+    );
   }
 
   validate(id: string, request: AnomalyValidateRequest): Observable<void> {
+    const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(id);
+    const targetAlertId = matchingAlert ? matchingAlert.id : id;
+    const targetAnomalyId = matchingAlert?.anomalyId || id;
+
     return this.http
-      .put<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(id)}/validate`, request)
-      .pipe(map(() => undefined));
+      .put<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(targetAnomalyId)}/validate`, request)
+      .pipe(
+        map(() => undefined),
+        catchError((err: unknown) => {
+          if (matchingAlert && err instanceof HttpErrorResponse && err.status === 404) {
+            const alertStatus = request.status === 'Confirmed' ? 'Confirmed' : 'Dismissed';
+            return this.alertsApi.reviewAlert(targetAlertId, {
+              status: alertStatus,
+              notes: request.analystNotes || 'Đã thẩm định khuyết tật qua hàng đợi.',
+            });
+          }
+          throw err;
+        }),
+      );
   }
 
   assignTower(id: string, towerId: string): Observable<AnomalyTowerAssignment> {
@@ -209,7 +495,83 @@ export class AnomalyApi {
       catchError(() => of(null)),
     );
   }
+
+  /** Lấy danh sách các phát hiện khuyết tật đã được thẩm định & xác nhận (Confirmed) */
+  listConfirmed(params?: AnomalyListParams): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    return this.http
+      .get<unknown>(`${this.baseUrl}/monitor/inspections`, {
+        params: { isDefect: true, page: pageIndex, pageSize },
+      })
+      .pipe(
+        map((response) => normalizeConfirmedInspectionsPage(unwrapApiData(response), pageIndex, pageSize)),
+        catchError(() =>
+          this.http
+            .get<unknown>(`${this.baseUrl}/monitor/recent-defects`, {
+              params: { page: pageIndex, pageSize },
+            })
+            .pipe(
+              map((response) => normalizeConfirmedInspectionsPage(unwrapApiData(response), pageIndex, pageSize)),
+              catchError(() => of({ items: [], totalCount: 0, pageIndex, pageSize, totalPages: 1 })),
+            ),
+        ),
+      );
+  }
 }
+
+export const normalizeConfirmedInspectionsPage = (
+  value: unknown,
+  fallbackPage: number,
+  fallbackPageSize: number,
+): AnomalyPage => {
+  const root = record(value);
+  const rawItems = itemsOf(root['items'] ?? root['data'] ?? value);
+  const pagination = record(root['pagination'] ?? root['page']);
+  const totalCount = numberValue(pick(pagination, 'totalItems', 'totalCount', 'total') ?? rawItems.length);
+  const pageSize = numberValue(pick(pagination, 'pageSize', 'size') ?? fallbackPageSize) || fallbackPageSize;
+  const pageIndex = numberValue(pick(pagination, 'page', 'pageIndex') ?? fallbackPage) || fallbackPage;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const items: AnomalyItem[] = rawItems.map((raw) => {
+    const r = record(raw);
+    const id = stringValue(pick(r, 'inspectionId', 'id', 'defectId'));
+    const mediaUrl = stringValue(pick(r, 'imageUrl', 'mediaUrl', 'cropUrl', 'fileUrl'));
+    const missionTitle = stringValue(pick(r, 'missionTitle', 'missionCode', 'missionName'));
+    const defectType = stringValue(pick(r, 'defectType', 'categoryName', 'name'), 'Khuyết tật đã thẩm định');
+    const detectedAt = stringValue(pick(r, 'detectedAt', 'createdAt', 'timestamp'), new Date().toISOString());
+
+    return {
+      id,
+      mediaUrl,
+      towerId: optionalString(pick(r, 'towerId')),
+      towerCode: optionalString(pick(r, 'towerCode')),
+      missionCode: missionTitle || null,
+      missionName: missionTitle || null,
+      categoryName: defectType,
+      categoryCode: null,
+      boundingBox: undefined,
+      confidenceScore: 95,
+      validationStatus: 'Confirmed',
+      analystNotes: 'Sự cố đã được thẩm định và xác nhận vào hệ thống.',
+      aiSource: 'Cloud',
+      analysisRunId: null,
+      executionLocation: 'Cloud',
+      supersededById: null,
+      createdAt: detectedAt,
+      severity: 3,
+      isEmergency: false,
+    };
+  });
+
+  return {
+    items,
+    totalCount,
+    pageIndex,
+    pageSize,
+    totalPages,
+  };
+};
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -285,10 +647,11 @@ export const parseBoundingBox = (value: unknown): AnomalyBoundingBox | undefined
 };
 
 const toValidationStatus = (value: unknown): AnomalyValidationStatus => {
-  const status = stringValue(value, 'Pending').toLowerCase();
+  const status = stringValue(value, 'Pending').toLowerCase().replace(/[\s_-]/g, '');
   if (status === 'confirmed' || status === 'approved') return 'Confirmed';
   if (status === 'rejected' || status === 'dismissed') return 'Rejected';
-  if (status === 'resolved') return 'Resolved';
+  if (status === 'resolved' || status === 'closed') return 'Resolved';
+  if (status === 'inreview' || status === 'underreview' || status === 'review') return 'InReview';
   return 'Pending';
 };
 

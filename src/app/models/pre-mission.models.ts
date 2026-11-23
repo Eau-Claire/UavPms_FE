@@ -1,25 +1,25 @@
+import { BaseAuditableEntity } from './api.models';
+
 /**
- * Trạng thái hồ sơ đánh giá tiền khả thi. Backend (`AssessmentMappingExtensions.ToDto`) trả về
- * chuỗi in hoa: `DRAFT`, `EVALUATING`, `READY`, `NOT_READY`, `EXPIRED`, `COMPLETED`, `CANCELLED`.
+ * Trạng thái hồ sơ đánh giá tiền khả thi theo State Machine doc:
+ * Evaluating, Ready, NotReady, Completed, Cancelled, Expired.
  */
 export type AssessmentStatus =
-  | 'DRAFT'
-  | 'EVALUATING'
-  | 'READY'
-  | 'NOT_READY'
-  | 'EXPIRED'
-  | 'COMPLETED'
-  | 'CANCELLED'
+  | 'Evaluating'
+  | 'Ready'
+  | 'NotReady'
+  | 'Completed'
+  | 'Cancelled'
+  | 'Expired'
   | string;
 
 export const ASSESSMENT_STATUSES: readonly AssessmentStatus[] = [
-  'DRAFT',
-  'EVALUATING',
-  'READY',
-  'NOT_READY',
-  'EXPIRED',
-  'COMPLETED',
-  'CANCELLED',
+  'Evaluating',
+  'Ready',
+  'NotReady',
+  'Completed',
+  'Cancelled',
+  'Expired',
 ];
 
 /** Kết quả một trụ cột đánh giá (`AssessmentCheckResultDto`): `PASS` hoặc `FAIL`. */
@@ -142,7 +142,7 @@ export interface DroneTechnicalInspectionResult {
 }
 
 /** Hồ sơ đánh giá tiền khả thi (`PreMissionAssessmentDto`). */
-export interface PreMissionAssessment {
+export interface PreMissionAssessment extends BaseAuditableEntity {
   readonly id: string;
   readonly assessmentCode: string;
   readonly managerId: string;
@@ -168,6 +168,8 @@ export interface PreMissionAssessment {
   readonly technical: ReadinessCheck;
   readonly createdAt: string;
   readonly updatedAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
 }
 
 /** `GET /pre-mission-assessments/{id}/resource-readiness` (`ResourceReadinessDto`). */

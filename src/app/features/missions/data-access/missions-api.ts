@@ -98,12 +98,15 @@ export class MissionsApi {
   update(
     id: string,
     request: {
-      title: string;
-      routeData: string;
-      assignedToUserId: string;
-      droneCode: string;
-      status: string;
+      title?: string;
+      routeData?: string;
+      assignedToUserId?: string;
+      droneCode?: string;
+      status?: string;
       description?: string;
+      priority?: string;
+      objective?: string;
+      managerInstructions?: string;
     },
   ): Observable<unknown> {
     return this.http.put<unknown>(`${this.url}/${id}`, request);
@@ -362,6 +365,7 @@ const normalizeTargets = (source: unknown): readonly MissionTarget[] => {
   return source.map((item, index) => {
     const r = record(item);
     return {
+      id: stringValue(r['id'] ?? r['towerId'] ?? `target-${index}`),
       towerId: stringValue(r['towerId']),
       towerCode: stringValue(r['towerCode']),
       sequence: optionalNumber(r['sequence']) ?? index + 1,
@@ -423,6 +427,12 @@ export const normalizeMission = (source: unknown): Mission => {
   const totalRequiredCount = required.length;
   const allConfirmed = totalRequiredCount > 0 && confirmedCount >= totalRequiredCount;
 
+  const rawStatus = stringValue(r['status']);
+  let status = normalizeMissionStatus(rawStatus);
+  if (allConfirmed && (status === 'Assigned' || status === 'PendingAcceptance' || rawStatus === 'Assigned' || rawStatus === 'CONFIRMED')) {
+    status = 'Confirmed';
+  }
+
   return {
     id,
     missionCode: stringValue(r['missionCode'], id),
@@ -432,7 +442,7 @@ export const normalizeMission = (source: unknown): Mission => {
     assignedToUsername: stringValue(pick(r, 'assignedToUsername', 'assignedToEmail', 'inspectorEmail')),
     droneCode: stringValue(r['droneCode']),
     droneId: optionalString(pick(r, 'droneId', 'uavId')) ?? null,
-    status: normalizeMissionStatus(stringValue(r['status'])),
+    status,
     description: stringValue(r['description']),
     managerId: stringValue(r['managerId']),
     managerUsername: stringValue(r['managerEmail']),

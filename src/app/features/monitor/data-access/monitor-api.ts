@@ -150,7 +150,7 @@ const normalizeDefect = (value: unknown, index: number): RecentDefect => {
     missionName: stringValue(s['missionTitle'] ?? s['missionName'], 'Nhiệm vụ không xác định'),
     defectType: stringValue(s['defectType'], 'Chưa phân loại'),
     detectedAt: stringValue(s['detectedAt'], new Date(0).toISOString()),
-    imageUrl: stringValue(s['imageUrl']) || undefined,
+    imageUrl: stringValue(s['imageUrl'] ?? s['mediaUrl'] ?? s['thumbnailUrl'] ?? s['cropUrl'] ?? s['fileUrl']) || undefined,
   };
 };
 

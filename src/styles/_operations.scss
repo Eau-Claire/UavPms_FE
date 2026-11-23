@@ -98,9 +98,10 @@
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Unified Restrained Status Pills & Tones */
+/* Unified Restrained Status Pills, Badges & Tones */
 .status-pill,
-.badge {
+.badge,
+.app-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -113,34 +114,72 @@
   background: #f8fafc;
   color: #334155;
   white-space: nowrap;
+
+  &.tone-good,
+  &.tone-success,
+  &.badge-success {
+    background: #f0fdf4 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+  }
+
+  &.tone-warn,
+  &.tone-warning,
+  &.badge-warning {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+  }
+
+  &.tone-danger,
+  &.tone-critical,
+  &.badge-danger {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+    color: #b91c1c !important;
+  }
+
+  &.tone-info,
+  &.tone-neutral,
+  &.badge-info {
+    background: #f0f9ff !important;
+    border-color: #bae6fd !important;
+    color: #0284c7 !important;
+  }
 }
 
-.tone-good,
-.tone-success {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
-  color: #166534 !important;
+/* Global Semantic Value Text Colors */
+.text-total,
+.text-neutral {
+  color: #0f172a !important;
 }
 
-.tone-warn,
-.tone-warning {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
-  color: #854d0e !important;
+.text-pending,
+.text-warning,
+.text-warn {
+  color: #b45309 !important;
 }
 
-.tone-danger,
-.tone-critical {
-  background: #fef2f2 !important;
-  border-color: #fecaca !important;
-  color: #991b1b !important;
+.text-inprogress,
+.text-info {
+  color: #0284c7 !important;
 }
 
-.tone-info,
-.tone-neutral {
-  background: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-  color: #334155 !important;
+.text-approved,
+.text-success,
+.text-normal {
+  color: #15803d !important;
+}
+
+.text-danger,
+.text-defect,
+.text-critical {
+  color: #b91c1c !important;
+}
+
+.text-draft,
+.text-muted {
+  color: #64748b !important;
 }
 
 @media (max-width: 900px) {

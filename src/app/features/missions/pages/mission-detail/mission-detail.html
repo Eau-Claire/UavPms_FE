@@ -31,6 +31,13 @@
     }
     <header class="mission-live-header">
       <div class="header-main-info">
+        <nav class="page-breadcrumb" aria-label="Đường dẫn">
+          <a routerLink="/dashboard">TỔNG QUAN</a>
+          <span class="separator">/</span>
+          <a routerLink="/missions">NHIỆM VỤ BAY</a>
+          <span class="separator">/</span>
+          <strong>{{ mission.missionCode }}</strong>
+        </nav>
         <div class="header-title-row">
           <strong class="header-mission-code">Nhiệm vụ: {{ mission.missionCode }}</strong>
           <span class="mission-live-badge status-primary">{{ statusLabel(mission.status) }}</span>
@@ -41,6 +48,16 @@
         <p class="header-sub-desc">{{ mission.title || mission.description }}</p>
       </div>
       <div class="mission-live-actions">
+        @if (canEditDraft(mission.status)) {
+          <a
+            [routerLink]="['/missions/new']"
+            [queryParams]="{ editMissionId: mission.id, assessmentId: mission.sourceAssessmentId }"
+            class="btn-back-link"
+            style="background: #0284c7; color: #ffffff; border-color: #0284c7; font-weight: 600;"
+          >
+            <span nz-icon nzType="edit" aria-hidden="true"></span> Chỉnh sửa nhiệm vụ (Quay lại tạo)
+          </a>
+        }
         @if (mission.sourceAssessmentId && canOpenPreMission()) {
           <a [routerLink]="['/pre-mission', mission.sourceAssessmentId]" class="btn-back-link">
             <span nz-icon nzType="file-done"></span> Hồ sơ tiền nhiệm vụ
@@ -249,7 +266,17 @@
               <div class="manager-action-buttons">
                 <!-- Flight lifecycle: managers and the mission's flight crew -->
                 @if (canOperateFlight()) {
-                  @if (mission.status === 'Assigned' || mission.status === 'Preparing' || mission.status === 'Ready') {
+                  @if (mission.status === 'Confirmed' || (mission.status === 'Assigned' && allRolesConfirmed())) {
+                    <button
+                      type="button"
+                      class="btn-manager-primary"
+                      [disabled]="actionBusy()"
+                      (click)="checkInFlight()">
+                      <span nz-icon nzType="environment" aria-hidden="true"></span> Check-in tại điểm bay
+                    </button>
+                  }
+
+                  @if (mission.status === 'Ready' || mission.status === 'Preparing' || (!allRolesConfirmed() && mission.status === 'Assigned')) {
                     <button
                       type="button"
                       class="btn-flight-start"
@@ -684,12 +711,12 @@
                 <div class="proc-actions">
                   @if (isAiProcessing()) {
                     <span class="ai-processing-pill">
-                      <span nz-icon nzType="loading"></span> AI Worker đang phân tích...
+                      <span nz-icon nzType="loading"></span> AI đang phân tích dữ liệu...
                     </span>
                   } @else {
-                    <button type="button" class="btn-ai-worker-trigger" (click)="runAiWorkerMock()">
-                      <span nz-icon nzType="thunderbolt"></span>
-                      {{ detections().length ? 'Chạy lại AI Worker Mock' : 'Kích hoạt AI Worker Mock' }}
+                    <button type="button" class="btn-ai-worker-trigger" (click)="refreshAiDetections()">
+                      <span nz-icon nzType="reload"></span>
+                      Làm mới kết quả AI
                     </button>
                   }
                 </div>
@@ -962,10 +989,8 @@
                     <div class="field-wide"><span>Loại khuyết tật</span><p class="defect-type-value">{{ selected.title }}</p></div>
                     <div class="field-wide"><span>Mô tả phát hiện</span><p>{{ selected.description }}</p></div>
                     <div class="confidence-field"><span>Độ tin cậy</span><div><i><b [style.width.%]="selected.confidence"></b></i><strong>{{ selected.confidence }}%</strong></div></div>
-                    <div><span>Vị trí Cột</span><p class="font-bold">{{ selected.tower }}</p></div>
+                    <div><span>Vị trí cột</span><p class="font-bold">{{ selected.tower || 'Chưa gắn cột' }}</p></div>
                     <div><span>Tọa độ GPS</span><p class="font-mono">{{ selected.gps }}</p></div>
-                    <div><span>Mã cột</span><p class="font-mono">{{ selected.towerId || 'Chưa gắn cột' }}</p></div>
-                    <div><span>Mã danh mục</span><p class="font-mono">{{ selected.categoryCode }}</p></div>
                     <div><span>Thời điểm phát hiện</span><p class="font-mono">{{ selected.timestampLabel }} ({{ selected.detectedAt | date:'HH:mm:ss dd/MM/yyyy' }})</p></div>
                     <div><span>Mức độ nguy cấp</span><p class="font-semibold">{{ selected.isEmergency ? 'Khẩn cấp' : 'Bình thường' }}</p></div>
                     <div class="field-wide"><span>Trạng thái kiểm duyệt</span><p>{{ detectionStatusLabel(selected.status) }}</p></div>
@@ -1078,7 +1103,7 @@
                 <span nz-icon nzType="tool" class="empty-icon"></span>
                 <h3>Chưa có Khuyến nghị Bảo dưỡng</h3>
                 <p>Chưa có khuyết tật nào được Phân tích viên (Analyst) xác nhận lỗi để lập phiếu công tác sửa chữa.</p>
-                <small>Khuyến nghị bảo dưỡng sẽ tự động đề xuất từ các phát hiện có trạng thái <strong>Đã duyệt (Approved)</strong>.</small>
+                <small>Khuyến nghị bảo dưỡng sẽ tự động đề xuất từ các phát hiện có trạng thái <strong>Đã duyệt</strong>.</small>
                 @if (detections().length > 0) {
                   <button type="button" class="btn-batch-create-tickets" style="margin-top: 14px;" (click)="createTicketsForAllDetections()">
                     <span nz-icon nzType="thunderbolt"></span> Lập phiếu bảo trì tự động từ {{ detections().length }} khuyết tật đã phát hiện
@@ -1394,17 +1419,17 @@
         <div class="modal-dialog modal-dialog-lg" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
           <div class="modal-header">
             <h3 id="priority-modal-title">
-              <span nz-icon nzType="setting"></span> Điều chỉnh Mức độ Ưu tiên (MF02)
+              <span nz-icon nzType="setting"></span> Điều chỉnh mức độ ưu tiên
             </h3>
             <button type="button" class="btn-modal-close" aria-label="Đóng" (click)="closePriorityModal()">&times;</button>
           </div>
           <div class="modal-body">
             <p class="modal-desc">
-              Điều chỉnh mức độ ưu tiên cho nhiệm vụ. Lưu ý: Độ ưu tiên <strong>EMERGENCY</strong> không được tự động chiếm đoạt tài nguyên của nhiệm vụ khác hoặc bỏ qua điều kiện an toàn (BR-04, BR-05).
+              Điều chỉnh mức độ ưu tiên cho nhiệm vụ. Lưu ý: Độ ưu tiên <strong>Khẩn cấp</strong> không được tự động chiếm đoạt tài nguyên của nhiệm vụ khác hoặc bỏ qua điều kiện an toàn (BR-04, BR-05).
             </p>
 
             <div class="form-field-group">
-              <span class="form-group-label" id="editPriorityLabel">Mức độ ưu tiên (Mission Priority) <span class="required">*</span></span>
+              <span class="form-group-label" id="editPriorityLabel">Mức độ ưu tiên <span class="required">*</span></span>
               <div class="priority-radio-group" role="radiogroup" aria-labelledby="editPriorityLabel">
                 <label class="priority-option-card" [class.selected]="editPriority() === 'NORMAL'">
                   <input
@@ -1414,7 +1439,7 @@
                     [checked]="editPriority() === 'NORMAL'"
                     (change)="editPriority.set('NORMAL')" />
                   <div class="priority-label-block">
-                    <strong>Bình thường (NORMAL)</strong>
+                    <strong>Bình thường</strong>
                     <small>Khảo sát định kỳ tuyến, kiểm tra định kỳ cột</small>
                   </div>
                 </label>
@@ -1426,7 +1451,7 @@
                     [checked]="editPriority() === 'HIGH'"
                     (change)="editPriority.set('HIGH')" />
                   <div class="priority-label-block">
-                    <strong>Ưu tiên cao (HIGH)</strong>
+                    <strong>Ưu tiên cao</strong>
                     <small>Theo dõi khuyết tật đã phát hiện, bất thường lặp lại</small>
                   </div>
                 </label>
@@ -1438,7 +1463,7 @@
                     [checked]="editPriority() === 'EMERGENCY'"
                     (change)="editPriority.set('EMERGENCY')" />
                   <div class="priority-label-block">
-                    <strong>Khẩn cấp (EMERGENCY)</strong>
+                    <strong>Khẩn cấp</strong>
                     <small>Sự cố hạ tầng lưới điện, khuyết tật nguy hiểm</small>
                   </div>
                 </label>
@@ -1448,7 +1473,7 @@
             @if (editPriority() === 'EMERGENCY') {
               <div class="form-field-group emergency-field-box">
                 <label for="editEmergencyReason">
-                  Lý do khẩn cấp (Emergency Reason) <span class="required">*</span>
+                  Lý do khẩn cấp <span class="required">*</span>
                   <small class="field-hint">(Bắt buộc theo BR-06, tối thiểu 10 ký tự)</small>
                 </label>
                 <textarea
@@ -1465,32 +1490,17 @@
             }
 
             <div class="form-field-group">
-              <label for="editInspectionObjective">Mục tiêu kiểm tra (Inspection Objective)</label>
+              <label for="editInspectionObjective">Mục tiêu kiểm tra</label>
               <select
                 id="editInspectionObjective"
                 class="form-control-input"
                 [value]="editObjective()"
                 (change)="editObjective.set($any($event.target).value)">
-                <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ (PERIODIC_INSPECTION)</option>
-                <option value="TARGETED_REINSPECTION">Kiểm tra lại mục tiêu (TARGETED_REINSPECTION)</option>
-                <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố (INCIDENT_FOLLOW_UP)</option>
-                <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp (EMERGENCY_INSPECTION)</option>
+                <option value="PERIODIC_INSPECTION">Kiểm tra định kỳ</option>
+                <option value="TARGETED_REINSPECTION">Kiểm tra lại mục tiêu</option>
+                <option value="INCIDENT_FOLLOW_UP">Theo dõi xử lý sự cố</option>
+                <option value="EMERGENCY_INSPECTION">Khảo sát khẩn cấp</option>
               </select>
-            </div>
-
-            <div class="form-field-group">
-              <span class="form-group-label" id="editDefectsLabel">Danh mục khiếm khuyết trọng tâm (Priority Defects)</span>
-              <div class="defects-checklist" role="group" aria-labelledby="editDefectsLabel">
-                @for (cat of priorityDefectCategories; track cat.key) {
-                  <label class="defect-checkbox-item">
-                    <input
-                      type="checkbox"
-                      [checked]="editPriorityDefects().includes(cat.key)"
-                      (change)="toggleEditDefect(cat.key)" />
-                    <span>{{ cat.label }}</span>
-                  </label>
-                }
-              </div>
             </div>
           </div>
           <div class="modal-footer">

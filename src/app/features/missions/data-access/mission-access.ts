@@ -74,13 +74,13 @@ export const findMyAssignment = (mission: Mission | null | undefined, userId: st
  * Mission statuses in which a member can still accept or ask to postpone their assignment. The backend answers
  * `409 INVALID_MISSION_STATE` outside PendingAcceptance/Assigned/Preparing/Ready (e.g. Draft, Postponed).
  */
-const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Preparing', 'Ready'];
+const RESPONSE_OPEN_STATUSES = ['PendingAcceptance', 'Assigned', 'Confirmed', 'Preparing', 'Ready'];
 
 /** `POST /missions/{id}/postpone` (the whole mission) is Manager/SystemAdmin only; members use `/assignments/postpone`. */
 export const canPostponeWholeMission = (role: RoleInput): boolean => isManagerRole(role);
 
 /** Statuses from which `POST /missions/{id}/start` is accepted. */
-const STARTABLE_STATUSES = ['Assigned', 'Preparing', 'Ready'];
+const STARTABLE_STATUSES = ['Ready', 'Assigned', 'Preparing', 'Confirmed'];
 
 /** `Mission:StartToleranceMinutes`: a mission may start at most 2 hours before its planned start. */
 export const START_TOLERANCE_MINUTES = 120;
@@ -243,14 +243,16 @@ const SENDER_LABELS: Record<ActivitySenderKind, string> = {
 export const activitySenderLabel = (kind: ActivitySenderKind): string => SENDER_LABELS[kind];
 
 const ASSIGNMENT_ROLE_LABELS: Record<string, string> = {
-  INSPECTOR: 'Phi công / Inspector',
-  PILOT: 'Phi công',
-  CO_PILOT: 'Phi công phụ',
-  COPILOT: 'Phi công phụ',
-  OBSERVER: 'Quan sát viên',
-  ANALYST: 'Chuyên viên phân tích',
-  TECHNICIAN: 'Kỹ thuật viên',
-  MAINTENANCETECHNICIAN: 'Kỹ thuật viên bảo trì',
+  INSPECTOR: 'INSPECTOR',
+  PILOT: 'INSPECTOR',
+  CO_PILOT: 'INSPECTOR',
+  COPILOT: 'INSPECTOR',
+  OBSERVER: 'OBSERVER',
+  ANALYST: 'ANALYST',
+  TECHNICIAN: 'TECHNICIAN',
+  MAINTENANCETECHNICIAN: 'TECHNICIAN',
+  MANAGER: 'MANAGER',
+  ADMIN: 'ADMIN',
 };
 
 /** Vietnamese label for a mission assignment role (`assignmentRole`). */
@@ -289,26 +291,29 @@ export const isTowerInspected = (status: string | null | undefined): boolean =>
   ['INSPECTED', 'COMPLETED'].includes((status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase());
 
 const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Chờ xử lý',
-  PENDING: 'Chờ xử lý',
-  APPROVED: 'Chờ xử lý',
-  INPROGRESS: 'Đang sửa chữa',
-  PENDINGVERIFICATION: 'Chờ nghiệm thu',
-  RESOLVED: 'Đã đóng',
-  CLOSED: 'Đã đóng',
-  COMPLETED: 'Đã đóng',
+  OPEN: 'Open',
+  PENDING: 'Open',
+  APPROVED: 'Open',
+  ASSIGNED: 'Assigned',
+  INPROGRESS: 'InProgress',
+  PENDINGVERIFICATION: 'PendingVerification',
+  CLOSED: 'Closed',
+  RESOLVED: 'Closed',
+  COMPLETED: 'Closed',
+  CANCELLED: 'Cancelled',
+  CANCELED: 'Cancelled',
 };
 
-/** Vietnamese label for a maintenance ticket status (ticket enum or the mission DTO's simplified value). */
+/** Label for a maintenance ticket status matching doc state machine. */
 export const maintenanceStatusLabel = (status: string | null | undefined): string => {
   const key = (status ?? '').toString().replace(/[\s_-]/g, '').toUpperCase();
-  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Chờ xử lý');
+  return MAINTENANCE_STATUS_LABELS[key] ?? (status || 'Open');
 };
 
 /** CSS tone for a maintenance status pill. */
 export const maintenanceStatusTone = (status: string | null | undefined): 'pending' | 'inprogress' | 'completed' => {
   const label = maintenanceStatusLabel(status);
-  if (label === 'Đã đóng') return 'completed';
-  if (label === 'Chờ xử lý') return 'pending';
+  if (label === 'Closed' || label === 'Cancelled') return 'completed';
+  if (label === 'Open' || label === 'PendingVerification') return 'pending';
   return 'inprogress';
 };

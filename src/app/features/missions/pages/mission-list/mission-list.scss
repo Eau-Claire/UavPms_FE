@@ -92,81 +92,80 @@
 }
 
 /* =============================================================
-   Unified Compact Toolbar Card (Pre-mission Format: #e6f2fb, #9fc3e4)
+   Unified Modern Enterprise Toolbar Card
    ============================================================= */
 .mission-toolbar-card {
-  border: 1px solid #9fc3e4;
-  border-radius: 2px;
-  background: transparent;
-  box-shadow: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .mission-list-page .mission-filters {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 12px !important;
   flex-wrap: wrap !important;
-  padding: 4px 8px !important;
-  background: #e6f2fb !important;
+  padding: 12px 16px !important;
+  background: #ffffff !important;
   border: none !important;
-  border-bottom: 1px solid #9fc3e4 !important;
-  border-radius: 2px 2px 0 0 !important;
-  min-height: 36px !important;
+  min-height: 48px !important;
 }
 
 .mission-list-page .mission-scope-tabs {
   display: inline-flex !important;
-  border-radius: 2px !important;
-  background: #ffffff !important;
-  padding: 1px !important;
-  border: 1px solid #9fc3e4 !important;
+  border-radius: 6px !important;
+  background: #f1f5f9 !important;
+  padding: 3px !important;
+  border: 1px solid #e2e8f0 !important;
   flex-shrink: 0 !important;
   margin: 0 !important;
 }
 
 .mission-list-page .mission-scope-tab {
-  height: 24px !important;
-  padding: 0 8px !important;
+  height: 32px !important;
+  padding: 0 12px !important;
   background: transparent !important;
   border: none !important;
-  border-radius: 2px !important;
-  font-size: 11px !important;
-  color: #174f83 !important;
+  border-radius: 5px !important;
+  font-size: 12px !important;
+  color: #475569 !important;
   cursor: pointer !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
-  font-weight: 600 !important;
-  transition: all 0.12s ease !important;
+  gap: 6px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
 
   &:hover {
     color: #10387d !important;
-    background: #e6f2fb !important;
   }
 
   &.active {
-    background: #174f83 !important;
-    color: #ffffff !important;
-    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #10387d !important;
+    font-weight: 600 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
   }
 }
 
 .mission-list-page .mission-search-wrap,
 .mission-list-page .search-input-wrap {
   flex: 1 1 200px !important;
-  min-width: 160px !important;
-  max-width: 280px !important;
+  min-width: 180px !important;
+  max-width: 320px !important;
   position: relative !important;
   display: inline-flex !important;
   align-items: center !important;
 
   .search-icon {
     position: absolute !important;
-    left: 6px !important;
-    color: #64748b !important;
-    font-size: 12px !important;
+    left: 10px !important;
+    color: #94a3b8 !important;
+    font-size: 13px !important;
     pointer-events: none !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
@@ -176,27 +175,24 @@
   input[type='search'],
   input[type='text'] {
     width: 100% !important;
-    height: 26px !important;
-    min-height: 26px !important;
-    padding: 2px 8px 2px 24px !important;
-    border: 1px solid #9fc3e4 !important;
-    border-radius: 2px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 6px 10px 6px 30px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
     background: #ffffff !important;
-    color: #0b1c30 !important;
-    font-size: 11px !important;
+    color: #0f172a !important;
+    font-size: 12.5px !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 
     &::placeholder {
-      color: #64748b !important;
+      color: #94a3b8 !important;
     }
 
     &:focus {
       outline: none !important;
-      border-color: #1d4f91 !important;
-    }
-
-    &:focus-visible {
-      outline: 1px solid #1d4f91 !important;
-      outline-offset: 0 !important;
+      border-color: #10387d !important;
+      box-shadow: 0 0 0 2px rgba(16, 56, 125, 0.12) !important;
     }
   }
 }
@@ -204,7 +200,7 @@
 .mission-list-page .mission-filter-selects {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 12px !important;
   flex-shrink: 0 !important;
 }
 
@@ -213,38 +209,34 @@
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 6px !important;
   margin: 0 !important;
 
   .filter-lbl {
     white-space: nowrap !important;
-    color: #174f83 !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
+    color: #475569 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
   }
 
   select {
-    height: 26px !important;
-    min-height: 26px !important;
-    padding: 2px 6px !important;
-    border: 1px solid #9fc3e4 !important;
-    border-radius: 2px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 4px 10px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
     background: #ffffff !important;
-    color: #0b1c30 !important;
-    font-size: 11px !important;
+    color: #0f172a !important;
+    font-size: 12.5px !important;
     width: auto !important;
-    min-width: 90px !important;
-    max-width: 130px !important;
+    min-width: 110px !important;
     cursor: pointer !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 
     &:focus {
       outline: none !important;
-      border-color: #1d4f91 !important;
-    }
-
-    &:focus-visible {
-      outline: 1px solid #1d4f91 !important;
-      outline-offset: 0 !important;
+      border-color: #10387d !important;
+      box-shadow: 0 0 0 2px rgba(16, 56, 125, 0.12) !important;
     }
   }
 }
@@ -252,107 +244,73 @@
 .mission-list-page .mission-actions {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 5px !important;
+  gap: 8px !important;
   margin-left: auto !important;
   flex-shrink: 0 !important;
 }
 
 .mission-list-page .mission-action-btn {
-  height: 26px !important;
-  min-height: 26px !important;
-  padding: 0 8px !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  border-radius: 2px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 6px !important;
   cursor: pointer !important;
-  border: 1px solid #9fc3e4 !important;
+  transition: all 0.15s ease !important;
 
   &.primary {
-    background: #174f83 !important;
-    border-color: #174f83 !important;
+    background: #10387d !important;
+    border: 1px solid #10387d !important;
     color: #ffffff !important;
 
     &:hover {
-      background: #10387d !important;
+      background: #0d2e67 !important;
+      border-color: #0d2e67 !important;
     }
   }
 
   &.secondary {
     background: #ffffff !important;
-    border-color: #9fc3e4 !important;
-    color: #174f83 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
 
     &:hover:not(:disabled) {
-      background: #f0f7fd !important;
-      border-color: #1a568c !important;
+      background: #f8fafc !important;
+      border-color: #94a3b8 !important;
+      color: #0f172a !important;
     }
 
     &:disabled {
-      opacity: 0.55 !important;
+      opacity: 0.5 !important;
       cursor: not-allowed !important;
     }
 
     &.active {
-      background: #e7f0f9 !important;
-      border-color: #174f83 !important;
-      color: #174f83 !important;
-      font-weight: 700 !important;
+      background: #f0f5fc !important;
+      border-color: #10387d !important;
+      color: #10387d !important;
+      font-weight: 600 !important;
     }
   }
 
   &:focus-visible {
-    outline: 1px solid #1d4f91 !important;
+    outline: 2px solid #10387d !important;
     outline-offset: 1px !important;
   }
 }
 
-/* Dedicated Summary Stats Sub-Strip across bottom of toolbar card */
-.mission-list-page .mission-summary-strip {
-  display: flex !important;
-  align-items: center !important;
-  gap: 16px !important;
-  flex-wrap: wrap !important;
-  padding: 4px 10px !important;
-  border-top: 1px solid #9fc3e4 !important;
-  border-left: none !important;
-  background: #f8fbfe !important;
-  border-radius: 0 0 2px 2px !important;
-  min-height: 28px !important;
-  margin: 0 !important;
-}
 
-.mission-list-page .summary-stat-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px !important;
-  font-size: 11px !important;
-  color: #244e82 !important;
-  white-space: nowrap !important;
 
-  .stat-badge-dot {
-    width: 6px !important;
-    height: 6px !important;
-    border-radius: 50% !important;
-  }
-
-  .stat-badge-val {
-    font-weight: 700 !important;
-    color: #0f2952 !important;
-    font-size: 12px !important;
-  }
-
-  .stat-badge-label {
-    color: #526b82 !important;
-    font-weight: 500 !important;
-  }
-
-  &.tone-total .stat-badge-dot { background: #10387d !important; }
-  &.tone-warning .stat-badge-dot { background: #d97706 !important; }
-  &.tone-success .stat-badge-dot { background: #166534 !important; }
-  &.tone-danger .stat-badge-dot { background: #dc2626 !important; }
+.mission-objective-text {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 3px;
+  font-weight: 500;
 }
 
 @media (max-width: 960px) {
@@ -427,11 +385,38 @@
 }
 
 .mission-list-page .mission-status {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+
+  &.success {
+    background: #f0fdf4 !important;
+    border-color: #bbf7d0 !important;
+    color: #15803d !important;
+  }
+
+  &.warning {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+  }
+
+  &.danger {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+    color: #b91c1c !important;
+  }
+
+  &.neutral {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #475569 !important;
+  }
 }
 
 .mission-list-page .mission-row-actions {
@@ -454,6 +439,32 @@
 
   &:hover {
     background: #e2e8f0;
+  }
+}
+
+.mission-row-detail-btn {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  min-width: 78px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  height: 28px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #10387d !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+
+  &:hover {
+    background: #f0f5fc !important;
+    border-color: #10387d !important;
+    color: #10387d !important;
   }
 }
 

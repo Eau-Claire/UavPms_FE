@@ -6,7 +6,9 @@ import { RouterLink } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { catchError, map, of, Subject, switchMap, tap } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { AnomalyValidationStatus, TowerHistory, TowerHistoryFilters } from '../../../../models/assets.models';
+import { AnomalyValidationStatus, TowerAnomaly, TowerHistory, TowerHistoryFilters, TowerHistoryStats } from '../../../../models/assets.models';
+import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
+import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import {
@@ -45,6 +47,8 @@ export class TowerDetail {
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly anomalyHistory = inject(AnomalyHistoryService);
+  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly request$ = new Subject<HistoryRequest>();
 
   /** Route parameter (bound through withComponentInputBinding). */
@@ -63,6 +67,15 @@ export class TowerDetail {
   protected readonly ticketPriorityTone = ticketPriorityTone;
   protected readonly canReview = computed(() => canReviewAnomalies(this.auth.user()?.role));
   protected readonly canOpenTicket = computed(() => canOpenMaintenance(this.auth.user()?.role));
+
+  protected formatAiSource(source?: string): string {
+    if (!source) return '—';
+    const s = source.toLowerCase();
+    if (s.includes('yolo') || s.includes('curated') || s.includes('ai') || s.includes('model') || s.includes('detect')) {
+      return 'Mô hình AI';
+    }
+    return source;
+  }
 
   protected readonly history = signal<TowerHistory | null>(null);
   protected readonly loading = signal(true);
@@ -83,9 +96,130 @@ export class TowerDetail {
   protected readonly historySearch = signal('');
 
   protected readonly tower = computed(() => this.history()?.tower ?? null);
-  protected readonly stats = computed(() => this.history()?.stats ?? null);
-  protected readonly anomalies = computed(() => this.history()?.anomalies ?? []);
   protected readonly maintenance = computed(() => this.history()?.maintenanceHistory ?? []);
+
+  protected readonly anomalies = computed<readonly TowerAnomaly[]>(() => {
+    const serverAnomalies = this.history()?.anomalies ?? [];
+    const tower = this.tower();
+    const towerId = this.id();
+    const towerCode = tower?.towerCode;
+
+    const norm = (s?: string | null) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const targetNormCode = norm(towerCode);
+    const targetNormId = norm(towerId);
+
+    // Thu thập anomalies đã thẩm định từ AnomalyHistoryService
+    const reviewedItems = this.anomalyHistory.getReviewedItems();
+    const matchingReviewed = reviewedItems.filter((item) => {
+      if (item.towerId && (item.towerId === towerId || norm(item.towerId) === targetNormId)) return true;
+      if (item.towerCode && targetNormCode && norm(item.towerCode) === targetNormCode) return true;
+      return false;
+    });
+
+    // Thu thập active emergency alerts từ EmergencyAlertsApi
+    const activeAlerts = this.alertsApi.activeAlerts();
+    const matchingAlerts = activeAlerts.filter((alert) => {
+      if (alert.towerId && (alert.towerId === towerId || norm(alert.towerId) === targetNormId)) return true;
+      if (alert.towerCode && targetNormCode && norm(alert.towerCode) === targetNormCode) return true;
+      return false;
+    });
+
+    const map = new Map<string, TowerAnomaly>();
+
+    // 1. Anomalies từ backend API
+    for (const anom of serverAnomalies) {
+      map.set(anom.id, anom);
+    }
+
+    // 2. Bổ sung từ AnomalyHistoryService nếu chưa có
+    for (const it of matchingReviewed) {
+      if (!map.has(it.id)) {
+        map.set(it.id, {
+          id: it.id,
+          mediaId: '',
+          missionId: it.missionCode ?? '',
+          categoryCode: it.categoryCode ?? undefined,
+          categoryName: it.categoryName,
+          confidenceScore: it.confidenceScore,
+          validationStatus: it.validationStatus,
+          aiSource: it.aiSource,
+          imageUrl: it.mediaUrl,
+          detectedAt: it.createdAt,
+          validatedAt: it.validationStatus !== 'Pending' && it.validationStatus !== 'InReview' ? it.createdAt : undefined,
+        });
+      }
+    }
+
+    // 3. Bổ sung từ EmergencyAlertsApi nếu chưa có
+    for (const alert of matchingAlerts) {
+      const alertId = alert.anomalyId || alert.id;
+      if (!map.has(alertId)) {
+        map.set(alertId, {
+          id: alertId,
+          mediaId: '',
+          missionId: '',
+          categoryCode: alert.alertType,
+          categoryName: alert.categoryName || alert.alertType || 'Sự cố khẩn cấp',
+          confidenceScore: alert.evidence?.confidenceScore ?? 85,
+          validationStatus: 'InReview',
+          aiSource: 'Cloud (Server)',
+          imageUrl: alert.evidence?.mediaUrl || '/images/defect-preview-frame.png',
+          detectedAt: alert.triggeredAt || new Date().toISOString(),
+        });
+      }
+    }
+
+    // Áp dụng bộ lọc trạng thái và khoảng thời gian
+    const statusVal = this.filters.controls.validationStatus.value;
+    const dateFrom = this.filters.controls.from.value;
+    const dateTo = this.filters.controls.to.value;
+
+    let result = Array.from(map.values());
+    if (statusVal) {
+      result = result.filter((a) => a.validationStatus.toLowerCase() === statusVal.toLowerCase());
+    }
+    if (dateFrom) {
+      result = result.filter((a) => a.detectedAt >= dateFrom);
+    }
+    if (dateTo) {
+      const toEnd = dateTo + 'T23:59:59.999Z';
+      result = result.filter((a) => a.detectedAt <= toEnd);
+    }
+
+    return result.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  });
+
+  protected readonly stats = computed<TowerHistoryStats | null>(() => {
+    const base = this.history()?.stats;
+    const anomalyList = this.anomalies();
+    if (!base && !anomalyList.length) return null;
+
+    const openCount = anomalyList.filter(
+      (a) => a.validationStatus === 'Pending' || a.validationStatus === 'InReview' || a.validationStatus === 'Confirmed',
+    ).length;
+    const pendingCount = anomalyList.filter(
+      (a) => a.validationStatus === 'Pending' || a.validationStatus === 'InReview',
+    ).length;
+    const confirmedCount = anomalyList.filter((a) => a.validationStatus === 'Confirmed').length;
+
+    return {
+      totalAnomalies: Math.max(base?.totalAnomalies ?? 0, anomalyList.length),
+      openAnomalies: Math.max(base?.openAnomalies ?? 0, openCount),
+      pendingAnomalies: Math.max(base?.pendingAnomalies ?? 0, pendingCount),
+      confirmedAnomalies: Math.max(base?.confirmedAnomalies ?? 0, confirmedCount),
+      totalTickets: base?.totalTickets ?? 0,
+      openTickets: base?.openTickets ?? 0,
+      inProgressTickets: base?.inProgressTickets ?? 0,
+      activeTickets: base?.activeTickets ?? 0,
+      lastInspectedAt: base?.lastInspectedAt ?? (anomalyList[0]?.detectedAt || undefined),
+    };
+  });
+
+  protected readonly anomalyTotalCount = computed(() => this.anomalies().length);
+
+  protected readonly anomalyTotalPages = computed(() =>
+    Math.max(1, Math.ceil(this.anomalyTotalCount() / this.pageSize())),
+  );
 
   protected readonly filteredAnomalies = computed(() => {
     const list = this.anomalies();
@@ -96,6 +230,13 @@ export class TowerDetail {
       (a.categoryCode && a.categoryCode.toLowerCase().includes(q)) ||
       (a.aiSource && a.aiSource.toLowerCase().includes(q))
     );
+  });
+
+  protected readonly pagedAnomalies = computed(() => {
+    const list = this.filteredAnomalies();
+    const page = this.anomalyPage();
+    const size = this.pageSize();
+    return list.slice((page - 1) * size, page * size);
   });
 
   protected readonly filteredMaintenance = computed(() => {
@@ -131,6 +272,10 @@ export class TowerDetail {
         this.notFound.set(status === 404);
         this.error.set(status === 403 ? 'Bạn không có quyền xem cột điện này (ngoài phạm vi khu vực được phân công).' : error);
       });
+
+    this.filters.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyFilters());
 
     // Reload whenever the route id changes.
     effect(() => {

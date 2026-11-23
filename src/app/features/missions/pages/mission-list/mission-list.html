@@ -1,7 +1,11 @@
 <div class="mission-page mission-list-page">
   <div class="mission-page-head">
     <div>
-      <div class="mission-breadcrumb"><span>NHIỆM VỤ BAY</span><span>/</span><strong>DANH SÁCH NHIỆM VỤ</strong></div>
+      <nav class="mission-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>DANH SÁCH NHIỆM VỤ</strong>
+      </nav>
       <h1>Danh sách nhiệm vụ bay</h1>
       <p>Quản lý và giám sát tiến độ các đợt khảo sát hạ tầng điện</p>
     </div>
@@ -11,6 +15,34 @@
   </div>
 
   @if (error()) { <div class="mission-alert" role="alert">{{ error() }} <button type="button" (click)="error.set('')">Đóng</button></div> }
+
+  <!-- Unified Enterprise KPI Status Bar -->
+  <section class="mission-kpi-bar" aria-label="Thống kê nhiệm vụ bay">
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Tổng nhiệm vụ</span>
+      <strong class="kpi-bar-value text-total">{{ stats()[0].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Chờ xử lý</span>
+      <strong class="kpi-bar-value text-pending">{{ stats()[1].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Đang bay</span>
+      <strong class="kpi-bar-value text-info">{{ stats()[2].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Hoàn thành</span>
+      <strong class="kpi-bar-value text-approved">{{ stats()[3].value }}</strong>
+    </div>
+    <div class="kpi-bar-sep" aria-hidden="true"></div>
+    <div class="kpi-bar-item">
+      <span class="kpi-bar-label">Sự cố / Hủy</span>
+      <strong class="kpi-bar-value text-danger">{{ stats()[4].value }}</strong>
+    </div>
+  </section>
 
   <div class="mission-toolbar-card">
     <div class="mission-filters" role="search" aria-label="Bộ lọc nhiệm vụ">
@@ -36,7 +68,7 @@
           <select [value]="status()" (change)="status.set($any($event.target).value); applyFilters()" title="Lọc theo trạng thái">
             <option value="">Tất cả</option>
             @for (item of statuses; track item) {
-              <option [value]="item">{{ statusLabel(item) }}</option>
+              <option [value]="item">{{ item }}</option>
             }
           </select>
         </label>
@@ -45,34 +77,22 @@
           <span class="filter-lbl">Độ ưu tiên:</span>
           <select [value]="priority()" (change)="priority.set($any($event.target).value); applyFilters()" title="Lọc theo độ ưu tiên">
             <option value="">Tất cả</option>
-            <option value="EMERGENCY">⚡ Khẩn cấp</option>
-            <option value="HIGH">🔥 Cao</option>
-            <option value="NORMAL">○ Bình thường</option>
+            <option value="EMERGENCY">EMERGENCY</option>
+            <option value="HIGH">HIGH</option>
+            <option value="NORMAL">NORMAL</option>
+          </select>
+        </label>
+
+        <label class="mission-select-label">
+          <span class="filter-lbl">Sắp xếp:</span>
+          <select [value]="sortOption()" (change)="setSortOption($any($event.target).value)" title="Sắp xếp danh sách">
+            <option value="createdAt_desc">Thời gian: Gần nhất (Mới nhất)</option>
+            <option value="createdAt_asc">Thời gian: Xa nhất (Cũ nhất)</option>
+            <option value="priority_desc">Mức ưu tiên: Cao nhất</option>
+            <option value="priority_asc">Mức ưu tiên: Thấp nhất</option>
           </select>
         </label>
       </div>
-
-      <div class="mission-actions">
-        <button type="button" class="button primary mission-action-btn" (click)="applyFilters()">
-          <span nz-icon nzType="filter"></span> Lọc
-        </button>
-        <button type="button" class="button secondary mission-action-btn" [class.active]="sortBy() === 'priority'" (click)="togglePrioritySort()" title="Sắp xếp theo độ ưu tiên">
-          <span nz-icon nzType="thunderbolt"></span> Xếp theo ưu tiên
-        </button>
-        <button type="button" class="button secondary mission-action-btn" [disabled]="loading()" (click)="refreshList()" title="Tải lại danh sách">
-          <span nz-icon nzType="reload" aria-hidden="true"></span> Tải lại
-        </button>
-      </div>
-    </div>
-
-    <div class="mission-summary-strip" aria-label="Tổng quan nhiệm vụ">
-      @for (item of stats(); track item.label) {
-        <div class="summary-stat-badge tone-{{ item.tone }}">
-          <span class="stat-badge-dot"></span>
-          <strong class="stat-badge-val">{{ item.value }}</strong>
-          <span class="stat-badge-label">{{ item.label }}</span>
-        </div>
-      }
     </div>
   </div>
 
@@ -96,18 +116,23 @@
                 <span class="mission-priority-badge {{ priorityClass(mission.priority) }}">
                   {{ priorityLabel(mission.priority) }}
                 </span>
+              </td>
+              <td>
+                <strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong>
                 @if (mission.objective) {
-                  <small style="display: block; font-size: 9.5px; color: #64748b; margin-top: 1px;">{{ mission.objective }}</small>
+                  <small class="mission-objective-text">{{ objectiveLabel(mission.objective) }}</small>
                 }
               </td>
-              <td><strong>{{ mission.title || 'Chưa đặt tên nhiệm vụ' }}</strong></td>
               <td>{{ mission.createdAt ? (mission.createdAt | date:'dd/MM/yyyy') : 'N/A' }}</td>
               <td>{{ routeLabel(mission) }}</td>
               <td><span>{{ mission.assignedToUsername }}</span><small>{{ mission.droneCode }}</small></td>
               <td><span class="mission-status {{ statusClass(mission.status) }}">{{ statusLabel(mission.status) }}</span></td>
               <td>
                 <div class="mission-row-actions">
-                  <a class="mission-row-action" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Xem nhiệm vụ ' + mission.missionCode">{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Xem' }}</a>
+                  <a class="button secondary small mission-row-detail-btn" [routerLink]="link.commands" [queryParams]="link.queryParams" [attr.aria-label]="'Chi tiết nhiệm vụ ' + mission.missionCode">
+                    <span nz-icon nzType="eye" aria-hidden="true"></span>
+                    <span>{{ link.commands.length > 2 ? 'Tiếp nhận' : 'Chi tiết' }}</span>
+                  </a>
                 </div>
               </td>
             </tr>
@@ -115,15 +140,14 @@
         </tbody>
       </table>
     </div>
-    <footer>
-      <span>Hiển thị {{ startIndex() }} - {{ endIndex() }} của {{ response().totalCount }} nhiệm vụ</span>
-      <div class="mission-pagination">
-        <button type="button" [disabled]="page() <= 1" (click)="goToPage(page() - 1)"><span nz-icon nzType="left"></span></button>
-        @for (item of pageButtons(); track $index) {
-          <button type="button" class="page-number" [class.active]="item === page()" (click)="goToPage(item)">{{ item }}</button>
-        }
-        <button type="button" [disabled]="page() >= response().totalPages" (click)="goToPage(page() + 1)"><span nz-icon nzType="right"></span></button>
-      </div>
+    <footer class="mission-pagination-wrap">
+      <app-pagination
+        [page]="page()"
+        [totalPages]="response().totalPages"
+        [totalCount]="response().totalCount"
+        [pageSize]="pageSize()"
+        (pageChanged)="goToPage($event)"
+      />
     </footer>
   </section>
 </div>

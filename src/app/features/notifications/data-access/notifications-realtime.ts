@@ -7,7 +7,7 @@ import { Mission, MissionCommunicationLog } from '../../../models/missions.model
 import { AppNotification } from '../../../models/notification.models';
 import { normalizeNotification } from './notifications-api';
 
-export type AiAnalysisRealtimeStatus = 'Pending' | 'Completed' | 'Failed' | string;
+export type AiAnalysisRealtimeStatus = 'Pending' | 'Evaluating' | 'Completed' | 'Failed' | string;
 
 export interface AiAnalysisStatusChangedEvent {
   readonly requestId: string;
@@ -36,6 +36,7 @@ export type MissionLifecycleEventType =
   | 'CANCELLED'
   | 'REMINDER'
   | 'COMMUNICATION'
+  | 'CHECKED_IN'
   | 'STARTED'
   | 'COMPLETED'
   | 'OVERDUE'

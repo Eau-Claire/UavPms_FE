@@ -329,6 +329,74 @@
   text-align: center;
 }
 
+.password-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  margin: -10px 0 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+
+    span[nz-icon] {
+      font-size: 13px;
+    }
+
+    &.valid {
+      color: #16a34a;
+      font-weight: 500;
+    }
+  }
+}
+
+.otp-trust-device {
+  margin: 14px 0 8px;
+
+  .trust-device-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #10387d;
+      cursor: pointer;
+    }
+  }
+}
+
+.otp-dev-hint {
+  margin: 8px 0;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #475569;
+
+  code {
+    font-weight: 700;
+    color: #10387d;
+    background: #e2e8f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
 .auth-card-otp .auth-muted-note,
 .auth-card-reset .auth-muted-note {
   color: var(--evn-muted);

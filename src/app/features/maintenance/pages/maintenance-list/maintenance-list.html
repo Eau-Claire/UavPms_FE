@@ -1,6 +1,10 @@
 <header class="page-heading">
   <div class="heading-left">
-    <div class="page-breadcrumb"><span>VẬN HÀNH</span><span>/</span><strong>PHIẾU BẢO TRÌ</strong></div>
+    <nav class="page-breadcrumb" aria-label="Đường dẫn">
+      <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+      <span class="separator">/</span>
+      <strong>PHIẾU BẢO TRÌ</strong>
+    </nav>
     <h1>{{ isManager() ? 'Phiếu bảo trì' : 'Phiếu bảo trì của tôi' }}</h1>
     <p class="review-subtitle">
       @if (isManager()) {
@@ -10,18 +14,7 @@
       }
     </p>
   </div>
-  <div class="tower-actions">
-    <button type="button" class="button secondary" aria-label="Tải lại danh sách" (click)="load()">
-      <span nz-icon nzType="reload" aria-hidden="true"></span><span>Tải lại</span>
-    </button>
-  </div>
 </header>
-
-@if (unassignedCount()) {
-  <div class="tower-banner maintenance-banner-warning" role="status">
-    <span><strong>{{ unassignedCount() }}</strong> phiếu trên trang này chưa được giao kỹ thuật viên. Mở phiếu để giao việc.</span>
-  </div>
-}
 
 <form class="tower-toolbar" [formGroup]="filters" role="search" aria-label="Lọc phiếu bảo trì" (ngSubmit)="load()">
   <div class="tower-filter">
@@ -42,18 +35,14 @@
       }
     </select>
   </div>
-  @if (isManager()) {
-    <div class="tower-filter">
-      <label for="maintenance-page-size">Số dòng / trang</label>
-      <select id="maintenance-page-size" [value]="pageSize()" (change)="changePageSize($any($event.target).value)">
-        @for (size of pageSizes; track size) {
-          <option [value]="size">{{ size }}</option>
-        }
-      </select>
-    </div>
-  }
-  <div class="tower-actions">
-    <button type="button" class="button secondary" [disabled]="!hasFilters()" (click)="resetFilters()">Đặt lại</button>
+  <div class="tower-filter">
+    <label for="maintenance-sort">Sắp xếp</label>
+    <select id="maintenance-sort" [value]="sortBy()" (change)="setSortBy($any($event.target).value)">
+      <option value="priority_desc">Ưu tiên cao → thấp</option>
+      <option value="priority_asc">Ưu tiên thấp → cao</option>
+      <option value="date_desc">Thời gian gần nhất → xa nhất</option>
+      <option value="date_asc">Thời gian xa nhất → gần nhất</option>
+    </select>
   </div>
 </form>
 
@@ -86,29 +75,33 @@
         </thead>
         <tbody>
           @for (ticket of rows(); track ticket.id) {
-            <tr [class.row-unassigned]="isManager() && isUnassigned(ticket)">
+            <tr>
               <td class="td-m-code tower-mono"><a class="tower-code-link" [routerLink]="['/maintenance', ticket.id]">{{ ticket.ticketCode || 'Phiếu' }}</a></td>
               <td class="td-m-desc" [title]="ticket.description">
-                <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
-                @if (ticket.tower) { <span class="tower-muted maintenance-sub">Cột {{ ticket.tower.towerCode }}</span> }
+                <div class="maintenance-desc-wrap">
+                  <span class="maintenance-desc">{{ ticket.description || '—' }}</span>
+                  @if (ticket.tower) { <span class="maintenance-tower-tag">Cột {{ ticket.tower.towerCode }}</span> }
+                </div>
               </td>
-              <td><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
-              <td><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
+              <td class="td-m-priority"><span class="tower-pill tone-{{ priorityTone(ticket.priority) }}">{{ priorityLabel(ticket.priority) }}</span></td>
+              <td class="td-m-status"><span class="tower-pill tone-{{ statusTone(ticket.status) }}">{{ statusLabel(ticket.status) }}</span></td>
               <td class="td-m-tech">
                 @if (ticket.technicianId) {
-                  {{ technicianName(ticket) }}
+                  <span class="tech-name-text" [title]="technicianName(ticket)">{{ technicianName(ticket) }}</span>
                 } @else {
                   <span class="maintenance-unassigned">Chưa giao</span>
                 }
               </td>
-              <td [class.maintenance-overdue]="isOverdue(ticket)">
-                {{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}
-                @if (isOverdue(ticket)) { <span class="maintenance-sub">Quá hạn</span> }
+              <td class="td-m-date">
+                <div class="maintenance-date-wrap" [class.maintenance-overdue]="isOverdue(ticket)">
+                  <span class="maintenance-date-val">{{ ticket.dueDate ? (ticket.dueDate | date: 'dd/MM/yyyy') : '—' }}</span>
+                  @if (isOverdue(ticket)) { <span class="maintenance-overdue-tag">Quá hạn</span> }
+                </div>
               </td>
-              <td>{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</td>
+              <td class="td-m-date"><span class="maintenance-date-val">{{ ticket.createdAt | date: 'dd/MM/yyyy' }}</span></td>
               <td class="td-m-actions">
-                <a class="tower-icon-button" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Xem phiếu ' + ticket.ticketCode">
-                  <span nz-icon nzType="right" aria-hidden="true"></span>
+                <a class="button secondary small" [routerLink]="['/maintenance', ticket.id]" [attr.aria-label]="'Chi tiết phiếu ' + ticket.ticketCode">
+                  Chi tiết
                 </a>
               </td>
             </tr>

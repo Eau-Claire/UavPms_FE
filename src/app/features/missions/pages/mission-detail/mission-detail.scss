@@ -467,7 +467,12 @@
 .mission-tab-results .summary-pill { min-width: 96px; border-radius: 8px; padding: 7px 12px; font-size: 13px; }
 .mission-tab-results .review-filters button { width: auto; min-width: 42px; border-radius: 8px; padding: 0 12px; }
 .mission-tab-results .review-pagination { padding: 14px 22px; }
-.mission-tab-results .review-detail { background: #f8fafc; }
+.mission-tab-results .review-detail {
+  background: #f8fafc;
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
 .mission-tab-results .review-detail > header { position: sticky; top: 0; z-index: 4; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); }
 
 @media (max-width: 1180px) {
@@ -4636,13 +4641,13 @@
   border-radius: 10px;
   margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
-  animation: banner-siren-pulse 2s infinite ease-in-out;
+  animation: banner-siren-pulse 4.5s infinite ease-in-out;
   border: 1px solid #ef4444;
 
   .emergency-banner-icon {
     font-size: 26px;
     line-height: 1;
-    animation: icon-shake 1s infinite alternate;
+    animation: icon-shake 3s infinite alternate;
   }
 
   .emergency-banner-content {

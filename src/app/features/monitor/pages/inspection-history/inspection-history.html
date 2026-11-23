@@ -1,7 +1,11 @@
 <div class="inspection-history-page">
   <header class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>GIÁM SÁT</span><span>/</span><strong>LỊCH SỬ KIỂM TRA</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>LỊCH SỬ KIỂM TRA</strong>
+      </nav>
       <h1 class="page-title">Lịch sử kiểm tra khuyết tật</h1>
       <p class="review-subtitle">Tìm kiếm, rà soát và lưu trữ hồ sơ kiểm tra khuyết tật AI qua các nhiệm vụ bay.</p>
     </div>
@@ -17,30 +21,6 @@
       </button>
     </div>
   </header>
-
-  @if (store.inspections(); as data) {
-    <section class="inspection-status-bar" aria-label="Thống kê hồ sơ kiểm tra">
-      <div class="status-item">
-        <span class="status-label">Tổng lượt kiểm tra</span>
-        <strong class="status-value">{{ data.totalCount }}</strong>
-      </div>
-      <div class="status-sep" aria-hidden="true"></div>
-      <div class="status-item">
-        <span class="status-label">Phát hiện sự cố (trên trang này)</span>
-        <strong class="status-value text-defect">{{ defectCount() }}</strong>
-      </div>
-      <div class="status-sep" aria-hidden="true"></div>
-      <div class="status-item">
-        <span class="status-label">Bình thường (trên trang này)</span>
-        <strong class="status-value text-normal">{{ normalCount() }}</strong>
-      </div>
-      <div class="status-sep" aria-hidden="true"></div>
-      <div class="status-item">
-        <span class="status-label">Tổng số trang</span>
-        <strong class="status-value">{{ data.totalPages }}</strong>
-      </div>
-    </section>
-  }
 
   <section class="filter-toolbar">
     <app-inspection-filters (filtersChanged)="apply($event)" />
@@ -58,7 +38,6 @@
   <section class="table-container">
     <div class="table-header">
       <div>
-        <p class="kicker">HỒ SƠ KHẢO SÁT</p>
         <h2>Bản ghi phát hiện sự cố</h2>
       </div>
       @if (store.inspections(); as data) {
@@ -102,7 +81,12 @@
                   <td>
                     @if (item.imageUrl) {
                       <a [href]="item.imageUrl" target="_blank" rel="noopener" class="thumb-link" title="Xem ảnh gốc">
-                        <img [src]="item.imageUrl" alt="Ảnh kiểm tra cho {{ item.missionName }}" class="thumb-img" />
+                        <img
+                          [src]="item.imageUrl"
+                          alt="Ảnh kiểm tra cho {{ item.missionName }}"
+                          class="thumb-img"
+                          (error)="onImageError($event)"
+                        />
                       </a>
                     } @else {
                       <span class="no-image">Không có ảnh</span>

@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 /** Trạng thái khai thác của drone (`DroneOperationalStatus`), đúng giá trị backend trả về. */
 export type UavOperationalStatus = 'Available' | 'Reserved' | 'InUse' | 'Maintenance' | 'Unavailable' | 'Lost' | string;
 
@@ -24,7 +26,7 @@ export const UAV_TECHNICAL_HEALTHS: readonly { readonly value: UavTechnicalHealt
 export type UavScopeSuitability = 'SUITABLE' | 'SUITABLE_WITH_SPLIT' | 'UNSUITABLE' | string;
 
 /** `FlightControllerBindingDto`. */
-export interface ActiveFlightControllerDto {
+export interface ActiveFlightControllerDto extends BaseAuditableEntity {
   readonly id: string;
   readonly droneId: string;
   readonly flightControllerUid: string;
@@ -35,6 +37,10 @@ export interface ActiveFlightControllerDto {
   readonly unpairedAt?: string | null;
   readonly lastSeenAt?: string | null;
   readonly isActive: boolean;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `DroneTechnicalInspectionSummaryDto`. Trạng thái: Pending, InProgress, Passed, Failed, Incomplete. */
@@ -50,7 +56,7 @@ export interface DroneTechnicalInspectionSummaryDto {
 }
 
 /** `UavDetailsDto` (`GET /drones?detailed=true`, `GET /drones/{id}`). */
-export interface UavRecord {
+export interface UavRecord extends BaseAuditableEntity {
   readonly id: string;
   readonly code: string;
   readonly name: string;
@@ -71,6 +77,8 @@ export interface UavRecord {
   readonly lastTechnicalInspection?: DroneTechnicalInspectionSummaryDto | null;
   readonly createdAt: string;
   readonly updatedAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
 }
 
 /** Body `POST /drones` (`CreateUavRequest`). */

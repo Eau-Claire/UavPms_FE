@@ -14,4 +14,18 @@ import { PagedResponse, RecentDefect } from '../../../../models/monitor.models';
 export class RecentDefectsTable {
   readonly data = input.required<PagedResponse<RecentDefect>>();
   readonly pageChanged = output<number>();
+
+  onImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.style.display = 'none';
+      const parent = target.parentElement;
+      if (parent && !parent.querySelector('.no-image')) {
+        const fallback = document.createElement('span');
+        fallback.className = 'no-image';
+        fallback.textContent = 'Không ảnh';
+        parent.appendChild(fallback);
+      }
+    }
+  }
 }

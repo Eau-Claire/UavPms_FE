@@ -1,45 +1,44 @@
 <div class="emergency-alerts-container">
-  <header class="page-header">
-    <div class="header-main">
-      <div class="title-with-badge">
-        <span class="emergency-siren-icon" aria-hidden="true">
-          <span nz-icon nzType="alert" nzTheme="outline"></span>
-        </span>
-        <div class="header-titles">
-          <h1 class="page-title">
-            Thẩm định cảnh báo khẩn cấp
-            @if (activeCount() > 0) {
-              <span class="active-badge-pulse">{{ activeCount() }} CẦN XỬ LÝ</span>
-            }
-          </h1>
-          <p class="page-subtitle">
-            Hàng đợi thẩm định và chuyển cấp các sự cố lưới điện được phát hiện tự động từ UAV theo thời gian thực.
-          </p>
-        </div>
-      </div>
-
-      <div class="header-actions">
-        <div class="realtime-status-chip" title="Nhận cảnh báo mới qua kênh thông báo thời gian thực">
-          <span class="live-dot" aria-hidden="true"></span>
-          <span class="live-text">Thời gian thực</span>
-        </div>
-        <button nz-button nzType="default" class="simulate-btn" [disabled]="activeLoading()" (click)="refresh()">
-          <span nz-icon [nzType]="activeLoading() ? 'loading' : 'reload'" aria-hidden="true"></span>
-          Làm mới
-        </button>
-      </div>
+  <div class="page-heading">
+    <div class="heading-left">
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>CẢNH BÁO KHẨN CẤP</strong>
+      </nav>
+      <h1 class="page-title">Thẩm định cảnh báo khẩn cấp</h1>
+      <p class="review-subtitle">
+        Hàng đợi thẩm định và chuyển cấp các sự cố lưới điện được phát hiện tự động từ UAV theo thời gian thực
+      </p>
     </div>
 
-    @if (!canReview()) {
-      <div class="permission-notice-banner" role="note">
-        <span nz-icon nzType="info-circle" nzTheme="outline" aria-hidden="true"></span>
-        <span>
-          <strong>Chế độ xem:</strong> Bạn đang đăng nhập với vai trò <em>{{ user()?.role }}</em>. Chỉ tài khoản
-          <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền xác nhận, bác bỏ hoặc chuyển cấp cảnh báo.
-        </span>
+    <div class="header-actions">
+      <div class="realtime-status-badge" title="Nhận cảnh báo mới qua kênh thông báo thời gian thực">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>Thời gian thực</span>
       </div>
-    }
-  </header>
+      <button
+        type="button"
+        class="button secondary btn-refresh"
+        [disabled]="activeLoading()"
+        (click)="refresh()"
+        title="Làm mới danh sách"
+      >
+        <span nz-icon [nzType]="activeLoading() ? 'loading' : 'reload'" aria-hidden="true"></span>
+        <span>Làm mới</span>
+      </button>
+    </div>
+  </div>
+
+  @if (!canReview()) {
+    <div class="permission-notice-banner" role="note">
+      <span nz-icon nzType="info-circle" nzTheme="outline" aria-hidden="true"></span>
+      <span>
+        <strong>Chế độ xem:</strong> Bạn đang đăng nhập với vai trò <em>{{ user()?.role }}</em>. Chỉ tài khoản
+        <strong>Analyst</strong>, <strong>Manager</strong> hoặc <strong>Admin</strong> mới có quyền xác nhận, bác bỏ hoặc chuyển cấp cảnh báo.
+      </span>
+    </div>
+  }
 
   <div class="alerts-tab-wrapper">
     <div class="custom-nav-tabs" role="tablist" aria-label="Cảnh báo khẩn cấp">
@@ -94,62 +93,15 @@
           </div>
         } @else {
           <div class="alerts-split-layout">
-            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
-              <div class="queue-header">
-                <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
-                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
-              </div>
-
-              <div class="queue-list-scroll">
-                @for (alert of activeAlerts(); track alert.id) {
-                  <button
-                    type="button"
-                    class="alert-queue-item"
-                    [class.selected]="selectedAlert()?.id === alert.id"
-                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
-                    (click)="selectAlert(alert)"
-                  >
-                    <div class="item-top-row">
-                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
-                        {{ priorityLabels[alert.priority] }}
-                      </span>
-                      <span class="item-time">{{ alert.triggeredAt | date: 'HH:mm dd/MM' }}</span>
-                    </div>
-
-                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
-
-                    <div class="item-meta">
-                      <span class="meta-code">
-                        <span nz-icon nzType="environment" aria-hidden="true"></span>
-                        {{ alert.towerCode || 'Chưa gắn cột' }}
-                      </span>
-                    </div>
-
-                    @if (alert.evidence.confidenceScore !== null) {
-                      <div class="item-confidence-row">
-                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
-                      </div>
-                    }
-                  </button>
-                }
-              </div>
-            </aside>
-
             @if (selectedAlert(); as alert) {
               <main class="alert-inspection-panel">
                 <div class="inspection-header">
                   <div class="header-details">
-                    <div class="category-chip">
-                      <span class="alert-type-label">{{ alert.alertType }}</span>
+                    <div class="header-title-row">
+                      <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
                       <span class="severity-pill" [class.critical]="alert.priority === 'Critical'">
                         Mức độ: {{ priorityLabels[alert.priority] }}
                       </span>
-                    </div>
-                    <h2 class="inspection-title">{{ alert.categoryName || alert.alertType }}</h2>
-                    <div class="inspection-sub-meta">
-                      <span><strong>Cột điện:</strong> {{ alert.towerCode || 'Chưa gắn cột' }}</span>
-                      <span><strong>Kích hoạt lúc:</strong> {{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
-                      <span><strong>Độ trễ truyền:</strong> {{ alert.deliveryLatencySeconds }} giây</span>
                     </div>
                   </div>
                 </div>
@@ -179,7 +131,8 @@
                           [attr.aria-pressed]="showBoundingBox()"
                           (click)="toggleBoundingBox()"
                         >
-                          <span nz-icon nzType="border" aria-hidden="true"></span> Khung nhận diện
+                          <span nz-icon nzType="border" aria-hidden="true"></span>
+                          <span>Khung nhận diện</span>
                         </button>
                       </div>
                     }
@@ -226,9 +179,17 @@
 
                 <div class="incident-details-grid">
                   <div class="detail-card">
-                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí</h4>
+                    <h4><span nz-icon nzType="environment" aria-hidden="true"></span> Vị trí sự cố</h4>
                     <ul class="detail-list">
-                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
+                      <li>
+                        <span>Cột điện:</span>
+                        <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong>
+                        @if (alert.towerCode) {
+                          <a [routerLink]="['/gis']" [queryParams]="{ towerCode: alert.towerCode, lat: alert.location.latitude, lng: alert.location.longitude }" class="link-to-location" title="Xem trên bản đồ GIS" style="margin-left: 8px; color: #0284c7; text-decoration: underline; font-size: 12px;">
+                            Xem trên GIS →
+                          </a>
+                        }
+                      </li>
                       <li>
                         <span>Tọa độ GPS:</span>
                         @if (alert.location.latitude !== null && alert.location.longitude !== null) {
@@ -249,6 +210,9 @@
                         <strong class="conf-high">{{ alert.evidence.confidenceScore !== null ? alert.evidence.confidenceScore + '%' : 'Không rõ' }}</strong>
                       </li>
                       <li><span>Trạng thái:</span> <span class="status-badge-active">{{ statusLabels[alert.status] }}</span></li>
+                      <li><span>Cột điện:</span> <strong>{{ alert.towerCode || 'Chưa gắn cột' }}</strong></li>
+                      <li><span>Kích hoạt lúc:</span> <strong>{{ alert.triggeredAt | date: 'HH:mm:ss dd/MM/yyyy' }}</strong></li>
+                      <li><span>Độ trễ truyền:</span> <strong>{{ alert.deliveryLatencySeconds }} giây</strong></li>
                     </ul>
                   </div>
                 </div>
@@ -294,7 +258,56 @@
                   </div>
                 </div>
               </main>
+            } @else {
+              <main class="alert-inspection-panel empty-selection">
+                <div class="empty-state-card">
+                  <span nz-icon nzType="picture" class="empty-icon-neutral" aria-hidden="true"></span>
+                  <h3>Chưa chọn cảnh báo</h3>
+                  <p>Chọn một cảnh báo từ danh sách chờ xử lý bên phải để xem bằng chứng hình ảnh và thực hiện thẩm định.</p>
+                </div>
+              </main>
             }
+
+            <aside class="alerts-queue-panel" aria-label="Danh sách cảnh báo chờ xử lý">
+              <div class="queue-header">
+                <h3>Danh sách chờ xử lý ({{ activeAlerts().length }})</h3>
+                <span class="queue-hint">Chọn để kiểm tra bằng chứng</span>
+              </div>
+
+              <div class="queue-list-scroll">
+                @for (alert of activeAlerts(); track alert.id) {
+                  <button
+                    type="button"
+                    class="alert-queue-item"
+                    [class.selected]="selectedAlert()?.id === alert.id"
+                    [attr.aria-pressed]="selectedAlert()?.id === alert.id"
+                    (click)="selectAlert(alert)"
+                  >
+                    <div class="item-top-row">
+                      <span class="severity-tag" [class.critical]="alert.priority === 'Critical'" [class.high]="alert.priority === 'High'">
+                        {{ priorityLabels[alert.priority] }}
+                      </span>
+                      <span class="item-time">{{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+
+                    <h4 class="item-title">{{ alert.categoryName || alert.alertType }}</h4>
+
+                    <div class="item-meta">
+                      <span class="meta-code">
+                        <span nz-icon nzType="environment" aria-hidden="true"></span>
+                        {{ alert.towerCode || 'Chưa gắn cột' }}
+                      </span>
+                    </div>
+
+                    @if (alert.evidence.confidenceScore !== null) {
+                      <div class="item-confidence-row">
+                        <span class="confidence-badge">Độ tin cậy: {{ alert.evidence.confidenceScore }}%</span>
+                      </div>
+                    }
+                  </button>
+                }
+              </div>
+            </aside>
           </div>
         }
       </div>
@@ -304,14 +317,19 @@
       <div class="history-content-container" role="tabpanel">
         <div class="history-filter-bar">
           <div class="filter-group">
-            <label for="history-status-filter">Lọc theo trạng thái:</label>
-            <nz-select id="history-status-filter" [formControl]="historyStatus" style="width: 220px;">
-              <nz-option nzValue="" nzLabel="Tất cả trạng thái"></nz-option>
-              <nz-option nzValue="Active" nzLabel="Đang hoạt động"></nz-option>
-              <nz-option nzValue="Confirmed" nzLabel="Đã xác nhận"></nz-option>
-              <nz-option nzValue="Escalated" nzLabel="Đã chuyển cấp"></nz-option>
-              <nz-option nzValue="Dismissed" nzLabel="Đã bác bỏ"></nz-option>
-            </nz-select>
+            <label for="history-status-filter" class="filter-label">Lọc theo trạng thái:</label>
+            <select
+              id="history-status-filter"
+              class="history-native-select"
+              [value]="historyStatus.value"
+              (change)="historyStatus.setValue($any($event.target).value)"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="Active">Đang hoạt động</option>
+              <option value="Confirmed">Đã xác nhận</option>
+              <option value="Escalated">Đã chuyển cấp</option>
+              <option value="Dismissed">Đã bác bỏ</option>
+            </select>
           </div>
           <span class="history-total">Tổng số: <strong>{{ historyPage().totalCount }}</strong> bản ghi</span>
         </div>
@@ -327,14 +345,10 @@
           <nz-table
             #historyTable
             [nzData]="historyPage().items"
-            [nzFrontPagination]="false"
+            [nzShowPagination]="false"
             [nzLoading]="historyLoading()"
-            [nzTotal]="historyPage().totalCount"
-            [nzPageIndex]="historyPage().page"
-            [nzPageSize]="historyPage().pageSize"
             [nzBordered]="true"
             nzSize="middle"
-            (nzPageIndexChange)="loadHistory($event)"
           >
             <thead>
               <tr>
@@ -344,7 +358,7 @@
                 <th nzWidth="120px">Mức độ</th>
                 <th nzWidth="140px">Trạng thái</th>
                 <th>Người xử lý &amp; ghi chú</th>
-                <th nzWidth="110px" nzAlign="center">Chi tiết</th>
+                <th nzWidth="120px" nzAlign="center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -384,7 +398,7 @@
                         </div>
                       }
                       @if (item.notes) {
-                        <p class="review-notes-text">{{ item.notes }}</p>
+                        <p class="review-notes-text">{{ formatReviewNotes(item.notes) }}</p>
                       }
                       @if (!item.reviewedBy && !item.notes) {
                         <span class="text-muted">Chưa có thông tin thẩm định.</span>
@@ -392,14 +406,26 @@
                     </div>
                   </td>
                   <td nzAlign="center">
-                    <button nz-button nzSize="small" nzType="link" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
-                      Xem
+                    <button type="button" class="button secondary small" [disabled]="detailLoading()" (click)="viewDetail(item.id)">
+                      Chi tiết
                     </button>
                   </td>
                 </tr>
               }
             </tbody>
           </nz-table>
+
+          @if (historyPage().totalCount > 0) {
+            <footer class="history-pagination-wrap">
+              <app-pagination
+                [page]="historyPage().page"
+                [totalPages]="historyTotalPages()"
+                [totalCount]="historyPage().totalCount"
+                [pageSize]="historyPage().pageSize"
+                (pageChanged)="loadHistory($event)"
+              />
+            </footer>
+          }
         </div>
       </div>
     }

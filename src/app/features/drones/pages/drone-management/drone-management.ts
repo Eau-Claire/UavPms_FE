@@ -10,8 +10,11 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { DroneManagementApi } from '../../data-access/drone-management-api';
 import {
   BasicTechnicalCheckRequest,
@@ -27,13 +30,14 @@ import {
   UpdateUavRequest,
 } from '../../../../models/drone-management.models';
 import { BetaflightSerialService } from '../../../../core/services/betaflight-serial.service';
+import { FlightControllerApi } from '../../../pre-mission/data-access/flight-controller-api';
 import { Auth } from '../../../../core/auth/auth';
 import { isManagerRole, isTechnicianRole } from '../../../../core/auth/roles';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
 
 @Component({
   selector: 'app-drone-management',
-  imports: [ReactiveFormsModule, NzIconModule, DatePipe, DecimalPipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, DecimalPipe, Pagination],
   templateUrl: './drone-management.html',
   styleUrl: './drone-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -42,9 +46,11 @@ import { describeHttpError } from '../../../../shared/errors/business-error-mess
 export class DroneManagement {
   private readonly api = inject(DroneManagementApi);
   private readonly fcSerial = inject(BetaflightSerialService);
+  private readonly fcApi = inject(FlightControllerApi);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(Auth);
+  private readonly toast = inject(ToastService);
 
   /** `DELETE /drones/{id}` and the GIS load estimate (fleet planning) are for SystemAdmin/Manager. */
   protected readonly canManageFleet = computed(() => isManagerRole(this.auth.user()?.role));
@@ -69,6 +75,18 @@ export class DroneManagement {
   protected readonly search = signal('');
   protected readonly statusFilter = signal<UavOperationalStatus | ''>('');
   protected readonly healthFilter = signal<UavTechnicalHealth | ''>('');
+
+  // Pagination
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredDrones().length / this.pageSize())),
+  );
+  protected readonly paginatedDrones = computed(() => {
+    const p = this.page();
+    const s = this.pageSize();
+    return this.filteredDrones().slice((p - 1) * s, p * s);
+  });
 
   // Modals state
   protected readonly modalOpen = signal(false);
@@ -164,6 +182,134 @@ export class DroneManagement {
     corridorLengthKm: [5.0, [Validators.required, Validators.min(0.1)]],
     assetCount: [12, [Validators.required, Validators.min(1)]],
   });
+
+  // Flight Controller (FC) Update & Pairing Modal State
+  protected readonly fcModalOpen = signal(false);
+  protected readonly targetDroneForFc = signal<UavRecord | null>(null);
+  protected readonly fcBusy = signal(false);
+  protected readonly fcError = signal('');
+  protected readonly fcForm = this.fb.nonNullable.group({
+    flightControllerUid: ['', [Validators.required]],
+    boardIdentifier: ['Betaflight STM32F405'],
+    firmwareName: ['Betaflight'],
+    firmwareVersion: ['4.5.1'],
+  });
+
+  protected openFcModal(drone: UavRecord): void {
+    this.targetDroneForFc.set(drone);
+    this.fcError.set('');
+    const currentFc = drone.activeFlightController;
+    this.fcForm.reset({
+      flightControllerUid: currentFc?.flightControllerUid || '',
+      boardIdentifier: currentFc?.boardIdentifier || 'Betaflight STM32F405',
+      firmwareName: currentFc?.firmwareName || 'Betaflight',
+      firmwareVersion: currentFc?.firmwareVersion || '4.5.1',
+    });
+    this.fcModalOpen.set(true);
+  }
+
+  protected closeFcModal(): void {
+    this.fcModalOpen.set(false);
+    this.targetDroneForFc.set(null);
+  }
+
+  protected async scanFcFromUsb(): Promise<void> {
+    try {
+      this.fcBusy.set(true);
+      this.fcError.set('');
+      const meta = await this.fcSerial.connectRealSerial();
+      this.fcForm.patchValue({
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier || 'Betaflight Board',
+        firmwareName: meta.firmwareName || 'Betaflight',
+        firmwareVersion: meta.firmwareVersion || '4.5.1',
+      });
+      this.showNotification(`Đã nhận diện FC UID: ${meta.uid}`);
+    } catch (err: unknown) {
+      this.fcError.set(describeHttpError(err, 'Không thể kết nối Flight Controller qua cổng USB.'));
+    } finally {
+      this.fcBusy.set(false);
+    }
+  }
+
+  protected async simulateFcConnect(): Promise<void> {
+    try {
+      this.fcBusy.set(true);
+      this.fcError.set('');
+      const meta = await this.fcSerial.connectSimulated();
+      this.fcForm.patchValue({
+        flightControllerUid: meta.uid,
+        boardIdentifier: meta.boardIdentifier || 'Betaflight STM32F405',
+        firmwareName: meta.firmwareName || 'Betaflight',
+        firmwareVersion: meta.firmwareVersion || '4.5.1',
+      });
+      this.showNotification(`Đã mô phỏng kết nối FC UID: ${meta.uid}`);
+    } catch (err: unknown) {
+      this.fcError.set('Lỗi mô phỏng kết nối.');
+    } finally {
+      this.fcBusy.set(false);
+    }
+  }
+
+  protected saveFcBinding(): void {
+    const drone = this.targetDroneForFc();
+    if (!drone) return;
+    if (this.fcForm.invalid) {
+      this.fcError.set('Vui lòng nhập UID phần cứng FC hợp lệ.');
+      return;
+    }
+    const val = this.fcForm.getRawValue();
+    this.fcBusy.set(true);
+    this.fcError.set('');
+
+    this.fcApi
+      .pairFlightController(drone.id, {
+        flightControllerUid: val.flightControllerUid.trim(),
+        boardIdentifier: val.boardIdentifier.trim() || undefined,
+        firmwareName: val.firmwareName.trim() || undefined,
+        firmwareVersion: val.firmwareVersion.trim() || undefined,
+      })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.fcBusy.set(false)),
+      )
+      .subscribe({
+        next: (binding) => {
+          this.showNotification(`Đã cập nhật Flight Controller UID ${binding.flightControllerUid} cho UAV ${drone.code}.`);
+          this.closeFcModal();
+          this.loadDrones();
+        },
+        error: (err: unknown) => {
+          this.fcError.set(describeHttpError(err, 'Không thể ghép nối Flight Controller.'));
+        },
+      });
+  }
+
+  protected unpairFc(): void {
+    const drone = this.targetDroneForFc();
+    if (!drone) return;
+    if (!confirm(`Bạn có chắc chắn muốn hủy ghép nối Flight Controller khỏi UAV ${drone.code}?`)) return;
+
+    this.fcBusy.set(true);
+    this.fcError.set('');
+
+    this.fcApi
+      .unpairFlightController(drone.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.fcBusy.set(false)),
+      )
+      .subscribe({
+        next: () => {
+          this.showNotification(`Đã hủy ghép nối Flight Controller khỏi UAV ${drone.code}.`);
+          this.closeFcModal();
+          this.loadDrones();
+        },
+        error: (err: unknown) => {
+          this.fcError.set(describeHttpError(err, 'Không thể hủy ghép nối Flight Controller.'));
+        },
+      });
+  }
 
   constructor() {
     this.loadDrones();
@@ -502,6 +648,26 @@ export class DroneManagement {
   }
 
   // --- Helpers ---
+  protected statusLabel(status: string): string {
+    const s = (status || '').toUpperCase();
+    if (s === 'AVAILABLE') return 'Khả dụng';
+    if (s === 'INUSE') return 'Đang làm nhiệm vụ';
+    if (s === 'RESERVED') return 'Đã giữ chỗ';
+    if (s === 'MAINTENANCE') return 'Bảo dưỡng';
+    if (s === 'UNAVAILABLE') return 'Tạm ngưng';
+    if (s === 'LOST') return 'Mất thiết bị';
+    return status || 'Chưa rõ';
+  }
+
+  protected healthLabel(health: string): string {
+    const h = (health || '').toUpperCase();
+    if (h === 'HEALTHY') return 'Đạt an toàn';
+    if (h === 'WARNING') return 'Cảnh báo';
+    if (h === 'CRITICAL') return 'Lỗi - không bay';
+    if (h === 'UNKNOWN') return 'Chưa kiểm tra';
+    return health || 'Chưa kiểm tra';
+  }
+
   protected statusBadgeClass(status: string): string {
     const s = (status || '').toUpperCase();
     if (s === 'AVAILABLE') return 'badge-available';
@@ -528,9 +694,6 @@ export class DroneManagement {
   }
 
   private showNotification(msg: string): void {
-    this.successMessage.set(msg);
-    setTimeout(() => {
-      this.successMessage.set('');
-    }, 4500);
+    this.toast.success(msg);
   }
 }

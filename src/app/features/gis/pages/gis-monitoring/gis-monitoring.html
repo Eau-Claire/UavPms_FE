@@ -2,18 +2,15 @@
   <!-- Page Heading - Synchronized with /dashboard -->
   <section class="page-heading">
     <div class="heading-left">
-      <div class="page-breadcrumb"><span>BẢN ĐỒ GIS</span><span>/</span><strong>GIÁM SÁT LƯỚI ĐIỆN</strong></div>
+      <nav class="page-breadcrumb" aria-label="Đường dẫn">
+        <a routerLink="/dashboard" class="breadcrumb-link">TỔNG QUAN</a>
+        <span class="separator">/</span>
+        <strong>GIÁM SÁT GIS LƯỚI ĐIỆN</strong>
+      </nav>
       <h1>Bản đồ GIS lưới điện</h1>
       <p class="review-subtitle">Vị trí cột điện theo khu vực, bất thường đang mở và cảnh báo khẩn cấp.</p>
     </div>
   </section>
-
-  @if (error()) {
-    <div class="gis-alert gis-alert-error" role="alert">
-      <span>{{ error() }}</span>
-      <button type="button" class="gis-alert-close" (click)="error.set('')">Đóng</button>
-    </div>
-  }
 
   <div class="gis-page-wrapper">
     <!-- Top Floating HUD Bar -->
@@ -82,6 +79,16 @@
     <button
       type="button"
       class="tool-btn"
+      [class.active]="showAssetsPanel()"
+      title="Danh sách tài sản lưới điện (Cột điện)"
+      aria-label="Danh sách tài sản lưới điện"
+      (click)="toggleAssetsPanel()"
+    >
+      <span nz-icon nzType="cluster"></span>
+    </button>
+    <button
+      type="button"
+      class="tool-btn"
       [class.active]="showFilterPanel()"
       title="Bộ lọc & Phân lớp dữ liệu"
       aria-label="Bộ lọc & Phân lớp dữ liệu"
@@ -110,6 +117,60 @@
     </button>
 
   </aside>
+
+  <!-- Assets Floating Panel (Danh sách tài sản lưới điện) -->
+  @if (showAssetsPanel()) {
+    <section class="gis-filter-panel gis-assets-panel" aria-label="Danh sách tài sản cột điện">
+      <div class="panel-header">
+        <h3>
+          <span nz-icon nzType="cluster"></span>
+          Tài sản lưới điện ({{ filteredAssets().length }} cột)
+        </h3>
+        <button type="button" class="btn-close-panel" (click)="showAssetsPanel.set(false)">✕</button>
+      </div>
+
+      <div class="filter-group">
+        <label for="asset-search-input">Tìm kiếm tài sản:</label>
+        <div class="search-input-wrap">
+          <span nz-icon nzType="search" class="search-icon"></span>
+          <input
+            id="asset-search-input"
+            type="search"
+            placeholder="Tìm theo mã cột, loại cột, địa chỉ..."
+            [ngModel]="assetSearchQuery()"
+            (ngModelChange)="assetSearchQuery.set($event)"
+          />
+        </div>
+      </div>
+
+      <div class="assets-scroll-list" role="list">
+        @for (tower of filteredAssets(); track tower.id) {
+          <div class="asset-list-card" (click)="focusTowerAsset(tower)">
+            <div class="asset-card-head">
+              <span class="asset-code">{{ tower.towerCode }}</span>
+              @if (openAnomaliesForTower(tower.id); as anomalyCount) {
+                <span class="anomaly-tag-badge">{{ anomalyCount }} sự cố</span>
+              }
+            </div>
+            <div class="asset-meta-line">{{ regionName(tower.regionId) || 'Khu vực chưa định danh' }} · {{ tower.poleType || 'Cột điện' }}</div>
+            @if (tower.address) {
+              <div class="asset-address-line" [title]="tower.address">{{ tower.address }}</div>
+            }
+            <div class="asset-card-actions">
+              <button type="button" class="btn-focus-asset">
+                <span nz-icon nzType="aim"></span> Xem vị trí
+              </button>
+              <a [routerLink]="['/towers', tower.id]" [queryParams]="{ from: 'gis' }" class="btn-link-detail" (click)="$event.stopPropagation()">
+                <span nz-icon nzType="eye"></span> Chi tiết
+              </a>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-assets">Không tìm thấy cột điện nào phù hợp.</div>
+        }
+      </div>
+    </section>
+  }
 
   <!-- Filter Floating Panel -->
   @if (showFilterPanel()) {
@@ -171,9 +232,12 @@
           [ngModel]="statusFilter()"
           (ngModelChange)="statusFilter.set($event); applyFilters()"
         >
-          <option value="">Tất cả trạng thái</option>
-          <option value="Pending">Chờ duyệt (Pending)</option>
-          <option value="Confirmed">Đã xác nhận (Confirmed)</option>
+          <option value="">Sự cố đang mở (Chờ duyệt & Đã xác nhận)</option>
+          <option value="Pending">Chờ thẩm định</option>
+          <option value="Confirmed">Đã xác nhận</option>
+          <option value="Resolved">Đã khắc phục (Resolved)</option>
+          <option value="Rejected">Báo động giả / Đã từ chối (Rejected)</option>
+          <option value="all">Tất cả trạng thái (Bao gồm đã đóng)</option>
         </select>
       </div>
 
@@ -213,25 +277,6 @@
           </label>
         </div>
       </div>
-
-      <div style="display: flex; gap: 8px; margin-top: 4px;">
-        <button
-          type="button"
-          class="button secondary"
-          style="flex: 1; height: 36px; padding: 0;"
-          (click)="resetFilters()"
-        >
-          Đặt lại
-        </button>
-        <button
-          type="button"
-          class="button primary"
-          style="flex: 1; height: 36px; padding: 0;"
-          (click)="showFilterPanel.set(false)"
-        >
-          Áp dụng
-        </button>
-      </div>
     </section>
   }
 
@@ -245,19 +290,15 @@
       <div class="legend-items">
         <div class="legend-item">
           <span class="legend-symbol sym-tower"></span>
-          <span>Cột điện</span>
+          <span>Cột điện bình thường</span>
         </div>
         <div class="legend-item">
-          <span class="legend-symbol sym-critical"></span>
-          <span>Bất thường cấp 5 (Nguy cấp)</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-symbol sym-high"></span>
-          <span>Bất thường cấp 4 (Cao)</span>
+          <span class="legend-symbol sym-anomaly"></span>
+          <span>Cột điện có bất thường (Vàng)</span>
         </div>
         <div class="legend-item">
           <span class="legend-symbol sym-alert"></span>
-          <span>Cảnh báo cháy / khẩn cấp</span>
+          <span>Cột điện có cảnh báo khẩn cấp (Đỏ)</span>
         </div>
       </div>
     </div>
@@ -319,9 +360,58 @@
             </div>
             <div class="info-row">
               <span>Bất thường đang mở:</span>
-              <strong>{{ openAnomaliesForTower(selected.data.id) }}</strong>
+              <strong [style.color]="openAnomaliesForTower(selected.data.id, selected.data.towerCode) > 0 ? '#dc2626' : 'inherit'">{{ openAnomaliesForTower(selected.data.id, selected.data.towerCode) }}</strong>
             </div>
           </div>
+
+          @let towerAlerts = alertsForTower(selected.data.id, selected.data.towerCode);
+          @if (towerAlerts.length > 0) {
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: #dc2626; text-transform: uppercase;">Cảnh báo khẩn cấp ({{ towerAlerts.length }}):</span>
+              @for (alert of towerAlerts; track alert.id) {
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                  <div style="min-width: 0;">
+                    <div style="font-weight: 700; color: #991b1b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ alert.title }}</div>
+                    <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Ưu tiên: {{ alert.priority }} · {{ alert.triggeredAt | date:'dd/MM/yyyy HH:mm' }}</div>
+                  </div>
+                  @if (alert.anomalyId && canReviewAnomalies()) {
+                    <button
+                      type="button"
+                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; background: #dc2626; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
+                      (click)="navigateToReview(alert.anomalyId)"
+                    >
+                      Xử lý
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          @let towerAnomalies = anomaliesForTower(selected.data.id, selected.data.towerCode);
+          @if (towerAnomalies.length > 0) {
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase;">Sự cố / Bất thường phát hiện ({{ towerAnomalies.length }}):</span>
+              @for (anom of towerAnomalies; track anom.id) {
+                <div [style.background]="anom.severity >= 4.5 ? '#fef2f2' : '#fefce8'" [style.borderColor]="anom.severity >= 4.5 ? '#fecaca' : '#fef08a'" style="border-width: 1px; border-style: solid; border-radius: 6px; padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                  <div style="min-width: 0;">
+                    <div [style.color]="anom.severity >= 4.5 ? '#991b1b' : '#854d0e'" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ anom.category }}</div>
+                    <div [style.color]="anom.severity >= 4.5 ? '#7f1d1d' : '#713f12'" style="font-size: 10.5px; margin-top: 2px;">Cấp {{ severityLabel(anom.severity) }}/5 · {{ anomalyStatusLabel(effectiveAnomalyStatus(anom)) }}</div>
+                  </div>
+                  @if (canReviewAnomalies()) {
+                    <button
+                      type="button"
+                      [style.background]="needsAiReview(anom) ? (anom.severity >= 4.5 ? '#dc2626' : '#ca8a04') : '#475569'"
+                      style="flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 8px; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;"
+                      (click)="navigateToReview(anom.anomalyId, anom)"
+                    >
+                      {{ needsAiReview(anom) ? 'Thẩm định' : 'Chi tiết' }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          }
         } @else if (selected.type === 'anomaly') {
           @if (selected.data.imageUrl) {
             <div class="drawer-media-preview">
@@ -348,7 +438,7 @@
             </div>
             <div class="info-row">
               <span>Trạng thái:</span>
-              <strong>{{ anomalyStatusLabel(selected.data.status) }}</strong>
+              <strong [style.color]="isAnomalyClosed(selected.data) ? '#16a34a' : '#b91c1c'">{{ anomalyStatusLabel(effectiveAnomalyStatus(selected.data)) }}</strong>
             </div>
             @if (selected.data.detectedAt) {
               <div class="info-row">
@@ -358,11 +448,11 @@
             }
           </div>
         } @else if (selected.type === 'alert') {
-          <div style="padding: 12px; background: #fee2e2; border-radius: 10px; border-left: 4px solid #dc2626; color: #991b1b;">
-            <div style="font-weight: 700; font-size: 13px;">{{ selected.data.title }}</div>
-          </div>
-
           <div class="info-grid">
+            <div class="info-row">
+              <span>Mức độ:</span>
+              <strong style="color: #b91c1c;">Cảnh báo khẩn cấp (Critical)</strong>
+            </div>
             <div class="info-row">
               <span>Ưu tiên xử lý:</span>
               <strong style="color: #b91c1c;">{{ selected.data.priority }}</strong>
@@ -381,14 +471,26 @@
 
       <div class="drawer-footer">
         @if (selected.type === 'anomaly' && canReviewAnomalies()) {
-          <button
-            type="button"
-            class="btn-primary"
-            (click)="navigateToReview(selected.data.anomalyId)"
-          >
-            <span nz-icon nzType="audit" aria-hidden="true"></span>
-            Xem & Thẩm định AI
-          </button>
+          @if (needsAiReview(selected.data)) {
+            <button
+              type="button"
+              class="btn-primary"
+              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
+            >
+              <span nz-icon nzType="audit" aria-hidden="true"></span>
+              Xem &amp; Thẩm định AI
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn-primary"
+              style="background: #475569;"
+              (click)="navigateToReview(selected.data.anomalyId, selected.data)"
+            >
+              <span nz-icon nzType="file-text" aria-hidden="true"></span>
+              Xem chi tiết sự cố
+            </button>
+          }
         } @else if (selected.type === 'anomaly' && selected.data.towerId) {
           <a
             [routerLink]="['/towers', selected.data.towerId]"

@@ -1,4 +1,4 @@
-﻿import { ChangeDetectionStrategy, Component, DestroyRef, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Observable, catchError, map, of } from 'rxjs';
@@ -62,9 +62,14 @@ export class InspectionFilters {
   protected readonly missionOptions = signal<readonly MissionOption[]>([]);
 
   constructor() {
+    const destroyRef = inject(DestroyRef);
     this.loadMissionOptions()
-      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .pipe(takeUntilDestroyed(destroyRef))
       .subscribe((options) => this.missionOptions.set(options));
+
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe(() => this.apply());
   }
 
   protected apply(): void {

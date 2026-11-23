@@ -196,13 +196,13 @@ describe('mission access rules', () => {
     });
 
     it('translates enums', () => {
-      expect(assignmentRoleLabel('INSPECTOR')).toBe('Phi công / Inspector');
+      expect(assignmentRoleLabel('INSPECTOR')).toBe('INSPECTOR');
       expect(missionPriorityLabel('EMERGENCY')).toBe('Khẩn cấp');
       expect(towerInspectionStatusLabel('Inspected')).toBe('Đã kiểm tra');
-      expect(maintenanceStatusLabel('Pending')).toBe('Chờ xử lý');
-      expect(maintenanceStatusLabel('InProgress')).toBe('Đang sửa chữa');
-      expect(maintenanceStatusLabel('PendingVerification')).toBe('Chờ nghiệm thu');
-      expect(maintenanceStatusLabel('Completed')).toBe('Đã đóng');
+      expect(maintenanceStatusLabel('Pending')).toBe('Open');
+      expect(maintenanceStatusLabel('InProgress')).toBe('InProgress');
+      expect(maintenanceStatusLabel('PendingVerification')).toBe('PendingVerification');
+      expect(maintenanceStatusLabel('Completed')).toBe('Closed');
     });
   });
 

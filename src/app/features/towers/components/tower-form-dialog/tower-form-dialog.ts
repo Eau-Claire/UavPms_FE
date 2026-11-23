@@ -29,6 +29,7 @@ export class TowerFormDialog implements OnInit {
   readonly busy = input(false);
   readonly errorMessage = input('');
   readonly submitted = output<TowerUpsertRequest>();
+  readonly requestDelete = output<TowerSummary>();
   readonly closed = output<void>();
 
   protected readonly form = this.fb.group({

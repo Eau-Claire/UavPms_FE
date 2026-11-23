@@ -52,6 +52,9 @@
     </div>
 
     <footer class="tower-dialog-actions">
+      @if (tower()) {
+        <button type="button" class="button danger-outline" style="margin-right: auto;" [disabled]="busy()" (click)="requestDelete.emit(tower()!)">Xóa cột điện</button>
+      }
       <button type="button" class="button secondary" [disabled]="busy()" (click)="close()">Hủy</button>
       <button type="submit" class="button primary" [disabled]="busy()">{{ busy() ? 'Đang lưu...' : 'Lưu' }}</button>
     </footer>

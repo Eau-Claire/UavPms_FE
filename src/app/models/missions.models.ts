@@ -1,3 +1,5 @@
+import { BaseAuditableEntity } from './api.models';
+
 export type MissionPriority = 'NORMAL' | 'HIGH' | 'EMERGENCY' | string;
 
 export type InspectionObjective =
@@ -16,16 +18,15 @@ export const PRIORITY_DEFECT_CATEGORIES = [
   { key: 'Other', label: 'Khác (Other)' },
 ] as const;
 
-/** Trạng thái nhiệm vụ đúng như backend trả về (`MissionStatus.ToString()`). */
+/** Trạng thái nhiệm vụ theo Mission State Machine doc. */
 export type MissionStatus =
   | 'Draft'
   | 'PendingAcceptance'
-  | 'Assigned'
-  | 'Preparing'
+  | 'Postponed'
+  | 'Confirmed'
   | 'Ready'
   | 'InProgress'
   | 'Suspended'
-  | 'Postponed'
   | 'Completed'
   | 'Cancelled'
   | string;
@@ -33,37 +34,21 @@ export type MissionStatus =
 export const MISSION_STATUSES: readonly MissionStatus[] = [
   'Draft',
   'PendingAcceptance',
-  'Assigned',
-  'Preparing',
+  'Postponed',
+  'Confirmed',
   'Ready',
   'InProgress',
   'Suspended',
-  'Postponed',
   'Completed',
   'Cancelled',
 ];
 
-const MISSION_STATUS_LABELS: Record<string, string> = {
-  Draft: 'Bản nháp',
-  PendingAcceptance: 'Chờ thành viên tiếp nhận',
-  Assigned: 'Đã tiếp nhận',
-  Preparing: 'Đang chuẩn bị',
-  Ready: 'Sẵn sàng bay',
-  InProgress: 'Đang bay khảo sát',
-  Suspended: 'Tạm đình chỉ',
-  Postponed: 'Tạm hoãn',
-  Completed: 'Đã hoàn thành',
-  Cancelled: 'Đã hủy',
-};
-
 export function missionStatusLabel(status: string | null | undefined): string {
-  const normalized = normalizeMissionStatus(status);
-  return MISSION_STATUS_LABELS[normalized] ?? normalized;
+  return normalizeMissionStatus(status);
 }
 
 /**
- * Chuẩn hóa trạng thái nhiệm vụ về giá trị của backend.
- * Một số sự kiện realtime vẫn gửi dạng `PENDING_CONFIRMATION`, `CONFIRMED`, `Executing`...
+ * Chuẩn hóa trạng thái nhiệm vụ theo 9 state chuẩn của Mission State Machine doc.
  */
 export function normalizeMissionStatus(status: string | null | undefined): MissionStatus {
   const raw = String(status ?? '').trim();
@@ -76,12 +61,12 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
     case 'PENDINGACCEPTANCE':
     case 'PENDINGCONFIRMATION':
       return 'PendingAcceptance';
-    case 'ASSIGNED':
+    case 'POSTPONED':
+      return 'Postponed';
     case 'CONFIRMED':
-    case 'RESUMED':
-      return 'Assigned';
+    case 'ASSIGNED':
+      return 'Confirmed';
     case 'PREPARING':
-      return 'Preparing';
     case 'READY':
       return 'Ready';
     case 'INPROGRESS':
@@ -90,12 +75,11 @@ export function normalizeMissionStatus(status: string | null | undefined): Missi
       return 'InProgress';
     case 'SUSPENDED':
       return 'Suspended';
-    case 'POSTPONED':
-      return 'Postponed';
     case 'COMPLETED':
       return 'Completed';
     case 'CANCELLED':
     case 'CANCELED':
+    case 'ABORTED':
       return 'Cancelled';
     default:
       return raw;
@@ -138,7 +122,7 @@ export interface MissionAssignmentsOverview {
 }
 
 /** `GET /missions/{id}/detections` (`MissionDetectionDto`). */
-export interface MissionBackendDetection {
+export interface MissionBackendDetection extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId: string;
   readonly mediaId?: string;
@@ -167,10 +151,14 @@ export interface MissionBackendDetection {
   readonly reviewedByUserId?: string | null;
   readonly reviewedAt?: string | null;
   readonly reviewNotes?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}/maintenance-tasks` (`MissionMaintenanceTaskDto`). */
-export interface MissionBackendMaintenanceTask {
+export interface MissionBackendMaintenanceTask extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId: string;
   readonly detectionId?: string;
@@ -182,6 +170,9 @@ export interface MissionBackendMaintenanceTask {
   readonly status: 'Pending' | 'Approved' | 'InProgress' | 'Completed' | string;
   readonly assignedTeam?: string;
   readonly createdAt?: string;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}/activities` (`MissionActivityDto`). */
@@ -195,7 +186,7 @@ export interface MissionBackendActivity {
   readonly timestamp: string;
 }
 
-export interface MissionAssignment {
+export interface MissionAssignment extends BaseAuditableEntity {
   readonly id: string;
   readonly missionId?: string;
   readonly userId: string;
@@ -209,10 +200,15 @@ export interface MissionAssignment {
   readonly respondedAt?: string | null;
   readonly responseReason?: string | null;
   readonly checkedInAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** Cột điện thuộc phạm vi nhiệm vụ (`MissionTargetDto`). */
-export interface MissionTarget {
+export interface MissionTarget extends BaseAuditableEntity {
+  readonly id: string;
   readonly towerId: string;
   readonly towerCode: string;
   readonly sequence: number | null;
@@ -220,10 +216,14 @@ export interface MissionTarget {
   readonly latitude?: number;
   readonly longitude?: number;
   readonly regionId?: string;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 /** `GET /missions/{id}` (`MissionDto`). */
-export interface Mission {
+export interface Mission extends BaseAuditableEntity {
   readonly id: string;
   readonly missionCode: string;
   readonly title: string;
@@ -238,6 +238,8 @@ export interface Mission {
   readonly managerUsername: string;
   readonly createdAt: string;
   readonly updatedAt: string | null;
+  readonly createdBy?: string | null;
+  readonly updatedBy?: string | null;
   readonly targets: readonly MissionTarget[];
   readonly sourceAssessmentId?: string | null;
   readonly scheduledStartAt?: string | null;

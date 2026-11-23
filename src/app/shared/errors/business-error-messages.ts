@@ -110,6 +110,7 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   DUPLICATE_HANDOVER: 'UAV đang có một biên bản bàn giao chưa đóng.',
   DUPLICATE_RESOURCE: 'Bản ghi đã tồn tại.',
   CONCURRENCY_CONFLICT: 'Dữ liệu vừa được thay đổi bởi thao tác khác. Vui lòng tải lại và thử lại.',
+  ANOMALY_NOT_IN_REVIEW: 'Sự cố này đã được thẩm định trước đó (không còn ở trạng thái chờ duyệt).',
 };
 
 /** Codes that only say which exception type was thrown; the real code is then embedded in the message. */

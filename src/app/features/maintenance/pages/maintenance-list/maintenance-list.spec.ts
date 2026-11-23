@@ -65,7 +65,7 @@ describe('MaintenanceList', () => {
     };
   });
 
-  it('shows all tickets to a manager, with technician names and unassigned Open tickets highlighted', async () => {
+  it('shows all tickets to a manager, with technician names and unassigned Open tickets', async () => {
     await setup('Manager');
     expect(api.list).toHaveBeenCalledWith({ pageIndex: 0, pageSize: 20, status: '', priority: '' });
     expect(api.mine).not.toHaveBeenCalled();
@@ -73,10 +73,7 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Chưa giao');
     expect(text()).toContain('Nguyễn Văn Thợ');
     expect(text()).toContain('Khẩn cấp');
-    expect(text()).toContain('Đang sửa chữa');
-    const highlighted = (fixture.nativeElement as HTMLElement).querySelectorAll('tr.row-unassigned');
-    expect(highlighted.length).toBe(1);
-    expect(text()).toContain('1 phiếu trên trang này chưa được giao');
+    expect(text()).toContain('Đang xử lý');
   });
 
   it('sends filters and the 0-based page to GET /maintenance/tickets', async () => {

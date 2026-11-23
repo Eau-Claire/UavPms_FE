@@ -43,7 +43,7 @@ export interface AiDetection {
   readonly boundingBox?: DetectionBoundingBox;
   readonly severityWeight: number;
   readonly isEmergency: boolean;
-  readonly status: 'Pending' | 'Approved' | 'Rejected';
+  readonly status: 'Pending' | 'Evaluating' | 'Approved' | 'Confirmed' | 'Rejected' | string;
   readonly analystNotes?: string;
   readonly detectedAt: string;
 }
@@ -153,7 +153,14 @@ const formatTime = (seconds: number): string => {
   return `${minutes.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
 };
 
-const normalizeBoundingBox = (value: unknown): DetectionBoundingBox | undefined => {
+export const normalizeBoundingBox = (value: unknown): DetectionBoundingBox | undefined => {
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // not JSON
+    }
+  }
   if (Array.isArray(value) && value.length >= 4) {
     let [x, y, width, height] = value.map(numberValue);
     if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
@@ -246,19 +253,22 @@ export function captureVideoFrameAtTime(videoUrl: string, seconds: number): Prom
   });
 }
 
-const normalizeDetectionItem = (item: unknown, index: number, userMediaUrl?: string): AiDetection => {
+export const normalizeDetectionItem = (item: unknown, index: number, userMediaUrl?: string): AiDetection => {
   const source = record(item);
-  const confidence = numberValue(pick(source, 'confidence', 'score', 'confidenceScore'));
+  const confidence = numberValue(pick(source, 'confidence', 'score', 'confidenceScore', 'conf'));
   const timestampSec = parseTimestampSeconds(pick(source, 'timestampSeconds', 'timestamp', 'timeOffset', 'videoTimestamp'));
   const rawMediaType = stringValue(pick(source, 'mediaType', 'kind', 'type'), 'image').toLowerCase();
   const mediaType: 'image' | 'video' = rawMediaType.includes('video') ? 'video' : 'image';
-  const imgUrl = stringValue(pick(source, 'imageUrl', 'thumbnailUrl', 'fileUrl'), userMediaUrl || '');
+  const imgUrl = stringValue(pick(source, 'imageUrl', 'thumbnailUrl', 'fileUrl', 'mediaUrl'), userMediaUrl || '');
+
+  const rawPriority = stringValue(pick(source, 'priority', 'severity', 'severityWeight')).toLowerCase();
+  const isEmergency = Boolean(pick(source, 'isEmergency', 'isEmergencyClass')) || rawPriority === 'critical' || rawPriority === 'high';
 
   return {
-    id: stringValue(pick(source, 'id', 'detectionId', 'trackId'), `det-${index + 1}`),
-    title: stringValue(pick(source, 'title', 'defectType', 'categoryName', 'className', 'label'), 'Khuyết tật phát hiện'),
+    id: stringValue(pick(source, 'id', 'detectionId', 'trackId', 'anomalyId'), `det-${index + 1}`),
+    title: stringValue(pick(source, 'title', 'defectType', 'categoryName', 'className', 'label', 'name'), 'Khuyết tật phát hiện'),
     confidence: confidence > 1 ? Math.round(confidence) : confidence > 0 ? Math.round(confidence * 100) : 0,
-    categoryCode: stringValue(pick(source, 'categoryCode', 'code'), '-'),
+    categoryCode: stringValue(pick(source, 'categoryCode', 'code', 'alertType'), '-'),
     description: stringValue(pick(source, 'description', 'categoryDescription')),
     mediaType,
     timestampSeconds: timestampSec,
@@ -270,18 +280,18 @@ const normalizeDetectionItem = (item: unknown, index: number, userMediaUrl?: str
     imageUrl: imgUrl,
     sourceUrl: stringValue(pick(source, 'sourceUrl', 'fileUrl', 'mediaUrl'), userMediaUrl),
     cropImageUrl: stringValue(pick(source, 'cropImageUrl', 'cropUrl'), imgUrl),
-    boundingBox: normalizeBoundingBox(pick(source, 'boundingBox', 'box', 'rawBoundingBox')),
-    severityWeight: numberValue(pick(source, 'severityWeight', 'severity')) || 1,
-    isEmergency: Boolean(pick(source, 'isEmergency', 'isEmergencyClass')),
-    status: (stringValue(pick(source, 'status', 'reviewStatus'), 'Pending')) as 'Pending' | 'Approved' | 'Rejected',
+    boundingBox: normalizeBoundingBox(pick(source, 'boundingBox', 'box', 'rawBoundingBox', 'bbox')),
+    severityWeight: numberValue(pick(source, 'severityWeight', 'severity')) || (isEmergency ? 5 : 1),
+    isEmergency,
+    status: (stringValue(pick(source, 'status', 'reviewStatus', 'validationStatus'), 'Pending')) as 'Pending' | 'Approved' | 'Rejected',
     analystNotes: stringValue(source['analystNotes']),
-    detectedAt: stringValue(pick(source, 'detectedAt', 'createdAt', 'timestamp'), new Date().toISOString()),
+    detectedAt: stringValue(pick(source, 'detectedAt', 'createdAt', 'timestamp', 'triggeredAt'), new Date().toISOString()),
   };
 };
 
-const normalizeAnalysisResult = (value: unknown, fallbackId: string): AnalysisSessionResult => {
+export const normalizeAnalysisResult = (value: unknown, fallbackId: string): AnalysisSessionResult => {
   const source = record(value);
-  const detectionsRaw = pick(source, 'detections', 'items', 'results', 'anomalies');
+  const detectionsRaw = pick(source, 'detections', 'items', 'results', 'anomalies', 'defects', 'predictions');
   const rawList = Array.isArray(detectionsRaw) ? detectionsRaw : [];
   const detections = rawList.map((item, idx) => normalizeDetectionItem(item, idx));
 

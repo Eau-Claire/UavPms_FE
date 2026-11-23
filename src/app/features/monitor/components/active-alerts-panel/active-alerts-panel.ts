@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MonitorAlert } from '../../../../models/monitor.models';
 import { NotificationsApi } from '../../../notifications/data-access/notifications-api';
 import { markAlertIdAsReadLocally, markAllAlertIdsAsReadLocally } from '../../data-access/monitor-api';
@@ -22,12 +22,12 @@ export interface DailySummaryMetrics {
 })
 export class ActiveAlertsPanel {
   private readonly notificationsApi = inject(NotificationsApi);
+  private readonly router = inject(Router);
 
   readonly alerts = input.required<readonly MonitorAlert[]>();
   readonly alertRead = output<string>();
   readonly allRead = output<void>();
 
-  readonly selectedAlert = signal<MonitorAlert | null>(null);
   readonly filterMode = signal<'all' | 'unread'>('all');
   readonly showAll = signal<boolean>(false);
   readonly defaultLimit = 5;
@@ -81,14 +81,10 @@ export class ActiveAlertsPanel {
   }
 
   openAlert(alert: MonitorAlert): void {
-    this.selectedAlert.set(alert);
     if (!alert.isRead) {
       this.markAsRead(alert);
     }
-  }
-
-  closeModal(): void {
-    this.selectedAlert.set(null);
+    void this.router.navigate(['/emergency-alerts'], { queryParams: { id: alert.id } });
   }
 
   markAsRead(alert: MonitorAlert, event?: Event): void {
@@ -96,9 +92,6 @@ export class ActiveAlertsPanel {
     markAlertIdAsReadLocally(alert.id);
     this.alertRead.emit(alert.id);
     this.notificationsApi.markRead(alert.id).subscribe();
-    if (this.selectedAlert()?.id === alert.id) {
-      this.selectedAlert.update((curr) => (curr ? { ...curr, isRead: true } : curr));
-    }
   }
 
   markAllAsRead(): void {
@@ -109,8 +102,5 @@ export class ActiveAlertsPanel {
     unread.forEach((a) => {
       this.notificationsApi.markRead(a.id).subscribe();
     });
-    if (this.selectedAlert()) {
-      this.selectedAlert.update((curr) => (curr ? { ...curr, isRead: true } : curr));
-    }
   }
 }

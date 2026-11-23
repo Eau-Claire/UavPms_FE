@@ -9,12 +9,15 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../../../core/auth/auth';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { UserGeographicScopes, UserRecord, UserStatus } from '../../../../models/users.models';
 import { UserRole } from '../../../../models/auth.models';
+import { FacilityStore } from '../../../../core/facility/facility-store';
 import { UserScopeDialog } from '../../components/user-scope-dialog/user-scope-dialog';
 import { UsersApi } from '../../data-access/users-api';
 
@@ -23,7 +26,7 @@ const MANAGER_ROLES = ['manager', 'supervisor'];
 
 @Component({
   selector: 'app-user-management',
-  imports: [ReactiveFormsModule, NzIconModule, UserScopeDialog],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule, UserScopeDialog, Pagination],
   templateUrl: './user-management.html',
   styleUrl: './user-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -35,6 +38,8 @@ export class UserManagement {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
+  private readonly facilityStore = inject(FacilityStore, { optional: true });
 
   protected readonly users = signal<readonly UserRecord[]>([]);
   protected readonly loading = signal(true);
@@ -49,8 +54,14 @@ export class UserManagement {
   protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);
   protected readonly scopeUser = signal<UserRecord | null>(null);
 
-  protected readonly roles: readonly UserRole[] = ['Admin', 'Manager', 'Inspector', 'Technician', 'Analyst', 'Viewer'];
+  protected readonly page = signal(1);
+  protected readonly pageSize = signal(10);
+
+  protected readonly roles: readonly UserRole[] = ['SystemAdmin', 'Manager', 'Inspector', 'Technician', 'Analyst'];
   protected readonly statuses: readonly UserStatus[] = ['Active', 'Inactive', 'Locked'];
+
+  protected readonly generatedPassword = signal('');
+  protected readonly copied = signal(false);
 
   /** GET/POST/PATCH /users are SystemAdmin-only in IdentityService. */
   readonly isAdmin = computed(() => ADMIN_ROLES.includes((this.auth.user()?.role ?? '').toLowerCase()));
@@ -78,16 +89,59 @@ export class UserManagement {
     });
   });
 
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredUsers().length / this.pageSize())),
+  );
+
+  protected readonly paginatedUsers = computed(() => {
+    const p = this.page();
+    const s = this.pageSize();
+    return this.filteredUsers().slice((p - 1) * s, p * s);
+  });
+
   protected readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     phone: '',
-    role: ['Viewer' as UserRole, Validators.required],
+    role: ['Inspector' as UserRole, Validators.required],
     status: ['Active' as UserStatus, Validators.required],
   });
 
   constructor() {
     this.load();
+  }
+
+  protected generateSecurePassword(): string {
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lower = 'abcdefghijkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const specials = '!@#$%&*';
+    const all = upper + lower + digits + specials;
+    const chars = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      specials[Math.floor(Math.random() * specials.length)],
+    ];
+    for (let i = 0; i < 6; i++) {
+      chars.push(all[Math.floor(Math.random() * all.length)]);
+    }
+    return chars.sort(() => 0.5 - Math.random()).join('');
+  }
+
+  protected regeneratePassword(): void {
+    this.generatedPassword.set(this.generateSecurePassword());
+    this.copied.set(false);
+  }
+
+  protected copyPassword(): void {
+    const pwd = this.generatedPassword();
+    if (pwd && navigator.clipboard) {
+      void navigator.clipboard.writeText(pwd);
+      this.copied.set(true);
+      this.toast.info('Đã sao chép mật khẩu vào bộ nhớ tạm.');
+      setTimeout(() => this.copied.set(false), 2000);
+    }
   }
 
   /** Admins see every user; Managers only get the active Inspectors from /users/assignable (the full list is admin-only). */
@@ -102,7 +156,10 @@ export class UserManagement {
       )
       .subscribe({
         next: (users) => this.users.set(users),
-        error: () => this.error.set('Không thể tải danh sách người dùng.'),
+        error: () => {
+          this.error.set('Không thể tải danh sách người dùng.');
+          this.toast.error('Không thể tải danh sách người dùng.');
+        },
       });
   }
 
@@ -110,18 +167,28 @@ export class UserManagement {
     this.search.set('');
     this.roleFilter.set('');
     this.statusFilter.set('');
+    this.page.set(1);
   }
 
-  protected getInitials(name: string): string {
-    if (!name) return 'U';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  protected onSearchChange(term: string): void {
+    this.search.set(term);
+    this.page.set(1);
+  }
+
+  protected onRoleFilterChange(role: UserRole | ''): void {
+    this.roleFilter.set(role);
+    this.page.set(1);
+  }
+
+  protected onStatusFilterChange(status: UserStatus | ''): void {
+    this.statusFilter.set(status);
+    this.page.set(1);
   }
 
   protected openCreate(): void {
     this.editing.set(null);
-    this.form.reset({ fullName: '', email: '', phone: '', role: 'Viewer', status: 'Active' });
+    this.form.reset({ fullName: '', email: '', phone: '', role: 'Inspector', status: 'Active' });
+    this.regeneratePassword();
     this.modalOpen.set(true);
   }
 
@@ -158,12 +225,14 @@ export class UserManagement {
     }
     this.busy.set(true);
     const raw = this.form.getRawValue();
+    const temporaryPassword = this.generatedPassword() || this.generateSecurePassword();
     this.api
       .create({
         fullName: raw.fullName,
         email: raw.email,
         phone: raw.phone,
         role: raw.role,
+        password: temporaryPassword,
       })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -173,9 +242,13 @@ export class UserManagement {
         next: (user) => {
           this.users.update((users) => [user, ...users]);
           this.closeModal();
-          this.notice.set(`Đã tạo thành công tài khoản ${user.fullName || user.email}. Mật khẩu mặc định là: Pms@2026!`);
+          this.credential.set({
+            username: user.email,
+            temporaryPassword,
+          });
+          this.toast.success(`Đã tạo tài khoản ${user.fullName || user.email}. Mật khẩu khởi tạo: ${temporaryPassword}`);
         },
-        error: () => this.error.set('Không thể tạo người dùng.'),
+        error: () => this.toast.error('Không thể tạo người dùng mới.'),
       });
   }
 
@@ -198,7 +271,7 @@ export class UserManagement {
         next: (updated) => {
           this.users.update((users) => users.map((item) => (item.id === updated.id ? updated : item)));
           this.closeModal();
-          this.notice.set(`Đã cập nhật thông tin người dùng ${updated.fullName || updated.email}.`);
+          this.toast.success(`Đã cập nhật thông tin người dùng ${updated.fullName || updated.email}.`);
 
           if (newStatus === 'Locked' || newStatus === 'Inactive') {
             this.auth.broadcastUserSuspended(user.id, newStatus === 'Locked' ? 'suspended' : 'inactive');
@@ -210,7 +283,7 @@ export class UserManagement {
             }
           }
         },
-        error: () => this.error.set('Không thể cập nhật người dùng.'),
+        error: () => this.toast.error('Không thể cập nhật người dùng.'),
       });
   }
 
@@ -227,13 +300,13 @@ export class UserManagement {
             : { ...user, status };
 
         this.users.update((users) => users.map((item) => (item.id === user.id ? updatedUser : item)));
-        this.notice.set(
+        const msg =
           status === 'Active'
             ? `Đã kích hoạt tài khoản ${user.fullName || user.email}.`
             : status === 'Locked'
             ? `Đã khóa (đình chỉ) tài khoản ${user.fullName || user.email}.`
-            : `Đã vô hiệu hóa tài khoản ${user.fullName || user.email}.`,
-        );
+            : `Đã vô hiệu hóa tài khoản ${user.fullName || user.email}.`;
+        this.toast.success(msg);
 
         if (status === 'Locked' || status === 'Inactive') {
           this.auth.broadcastUserSuspended(user.id, status === 'Locked' ? 'suspended' : 'inactive');
@@ -245,7 +318,7 @@ export class UserManagement {
           }
         }
       },
-      error: () => this.error.set('Không thể cập nhật trạng thái người dùng.'),
+      error: () => this.toast.error('Không thể cập nhật trạng thái người dùng.'),
     });
   }
 
@@ -255,13 +328,15 @@ export class UserManagement {
       .resetPassword(user.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (value) => this.credential.set(value),
-        error: () => this.error.set('Không thể đặt lại mật khẩu.'),
+        next: (value) => {
+          this.credential.set(value);
+          this.toast.success(`Đã tạo mật khẩu tạm thời cho ${user.fullName || user.email}`);
+        },
+        error: () => this.toast.error('Không thể đặt lại mật khẩu.'),
       });
   }
 
   protected openScopes(user: UserRecord): void {
-    this.notice.set('');
     this.scopeUser.set(user);
   }
 
@@ -272,34 +347,59 @@ export class UserManagement {
   protected onScopesSaved(scopes: UserGeographicScopes): void {
     const user = this.scopeUser();
     this.scopeUser.set(null);
-    this.notice.set(
+    try {
+      localStorage.setItem(`uavpms.scopes.${scopes.userId}`, JSON.stringify(scopes));
+    } catch {
+      // ignore
+    }
+    if (scopes.userId === this.auth.user()?.id) {
+      this.facilityStore?.loadFacilities();
+    }
+    this.toast.success(
       `Đã cập nhật phạm vi ${scopes.regions.length} khu vực cho ${user?.fullName || user?.email || 'người dùng'}.`,
     );
   }
 
-  protected roleClass(role: UserRole): string {
-    return `role-${role.toLowerCase()}`;
+  protected roleClass(role: UserRole | string): string {
+    const key = String(role ?? '').toLowerCase().replace(/[\s_-]/g, '');
+    if (key.includes('admin')) return 'role-admin';
+    if (key.includes('manager') || key.includes('supervisor')) return 'role-manager';
+    if (key.includes('inspector') || key.includes('pilot')) return 'role-inspector';
+    if (key.includes('technician')) return 'role-technician';
+    if (key.includes('analyst')) return 'role-analyst';
+    return `role-${key}`;
   }
 
   protected statusClass(status: UserStatus): string {
     return `status-${status.toLowerCase()}`;
   }
 
-  protected roleLabel(role: UserRole): string {
-    const labels: Record<string, string> = {
-      Admin: 'Quản trị viên',
-      SystemAdmin: 'Quản trị viên',
-      Manager: 'Quản lý',
-      Supervisor: 'Quản lý',
-      Inspector: 'Thanh tra',
-      Technician: 'Kỹ thuật viên',
-      Analyst: 'Phân tích viên',
-      Viewer: 'Người xem',
-    };
-    return labels[role] ?? String(role);
+  protected roleLabel(role: UserRole | string): string {
+    const raw = String(role ?? '').trim();
+    const key = raw.toLowerCase().replace(/[\s_-]/g, '');
+    switch (key) {
+      case 'admin':
+      case 'systemadmin':
+      case 'administrator':
+        return 'SystemAdmin';
+      case 'manager':
+      case 'supervisor':
+        return 'Manager';
+      case 'inspector':
+      case 'pilot':
+        return 'Inspector';
+      case 'technician':
+      case 'maintenancetechnician':
+        return 'Technician';
+      case 'analyst':
+        return 'Analyst';
+      default:
+        return raw;
+    }
   }
 
   protected statusLabel(status: UserStatus): string {
     return ({ Active: 'Hoạt động', Inactive: 'Tạm ngưng', Locked: 'Đã khóa' } as const)[status];
   }
 }
+

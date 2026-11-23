@@ -322,6 +322,12 @@
     border-color: #a7f3d0;
   }
 
+  &.audit-badge-evaluating {
+    background-color: #f0fdf4;
+    color: #047857;
+    border-color: #bbf7d0;
+  }
+
   &.audit-badge-modified {
     background-color: #eff6ff;
     color: #1e40af;

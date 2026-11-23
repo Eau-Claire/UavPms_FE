@@ -519,6 +519,36 @@
   font-style: italic;
 }
 
+.fc-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #10387d;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  width: fit-content;
+
+  &.pair {
+    color: #0284c7;
+  }
+
+  &:hover {
+    color: #0d2e67;
+  }
+}
+
+.fc-quick-connect-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
 .insp-cell {
   font-size: 11px;
   .insp-status {
@@ -562,56 +592,158 @@
   &.badge-unsuitable { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 }
 
-/* Actions cell */
-.actions-cell {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
+.drone-row-detail-btn {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  min-width: 78px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  height: 28px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #10387d !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  background: #ffffff !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
 
-  .action-btn {
-    height: 26px;
+  &:hover {
+    background: #f0f5fc !important;
+    border-color: #10387d !important;
+    color: #10387d !important;
+  }
+}
+
+/* Actions cell - Unified Segmented Action Toolbar */
+.actions-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+
+  .action-btn-text {
+    height: 28px;
     padding: 0 8px;
     border-radius: 4px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
     font-size: 11.5px;
     font-weight: 600;
-    border: 1px solid transparent;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #f1f5f9;
-    color: #17324d;
     transition: all 0.15s ease;
 
-    &:hover { background: #e2e8f0; }
+    &:hover:not(:disabled) {
+      background: #1d4ed8;
+      color: #ffffff;
+      border-color: #1d4ed8;
+    }
+  }
 
-    &.check {
+  .action-btn-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #ffffff;
+      color: #10387d;
+      border-color: #cbd5e1;
+    }
+
+    &.check:hover:not(:disabled) {
       background: #f0fdf4;
       color: #166534;
       border-color: #bbf7d0;
+    }
+
+    &.edit:hover:not(:disabled) {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+
+    &.delete:hover:not(:disabled) {
+      background: #fef2f2;
+      color: #dc2626;
+      border-color: #fecaca;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.modal-sub-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+
+  .sub-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #1e293b;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    &.check {
+      color: #166534;
+      border-color: #bbf7d0;
+      background: #f0fdf4;
       &:hover { background: #dcfce7; }
     }
 
-    &.edit {
-      background: #f1f5f9;
-      color: #10387d;
-      border-color: #cbd8e5;
-      &:hover { background: #e2e8f0; }
-    }
-
-    &.delete {
-      background: #ffffff;
+    &.danger {
       color: #dc2626;
       border-color: #fecaca;
+      margin-left: auto;
+
       &:hover:not(:disabled) {
         background: #fee2e2;
-        border-color: #f87171;
+        border-color: #dc2626;
       }
-      &:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 }
@@ -943,3 +1075,10 @@
     white-space: nowrap;
   }
 }
+
+.drone-pagination-wrap {
+  padding: 10px 16px;
+  border-top: 1px solid #edf2f7;
+  background: #fbfcfe;
+}
+

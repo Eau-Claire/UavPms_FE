@@ -48,7 +48,7 @@ function notInPastValidator(control: AbstractControl): ValidationErrors | null {
  */
 @Component({
   selector: 'app-assessment-create',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, NzIconModule],
   templateUrl: './assessment-create.html',
   styleUrl: './assessment-create.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
