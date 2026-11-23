@@ -3,11 +3,9 @@ name: CI/CD - Test, Build & Deploy to Vercel
 on:
   push:
     branches:
-      - review-2
       - main
   pull_request:
     branches:
-      - review-2
       - main
 
 env:

@@ -78,5 +78,5 @@ Build output is written to `dist/uav-pms-frontend/browser`.
 ### CI/CD (GitHub Actions -> Vercel)
 
 - Workflow: `.github/workflows/deploy-vercel.yml`
-- On Pull Requests (`review-2`, `main`): runs `npm ci`, unit tests (`ng test --watch=false`), and production build verification (`npm run build`).
-- On Push / Merge (`review-2`, `main`): runs tests, builds artifacts via `vercel build --prod`, and deploys automatically to Vercel using repository secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+- On Pull Requests (`main`): runs `npm ci`, unit tests (`ng test --watch=false`), and production build verification (`npm run build`).
+- On Push / Merge (`main`): runs tests, builds artifacts via `vercel build --prod`, and deploys automatically to Vercel using repository secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
