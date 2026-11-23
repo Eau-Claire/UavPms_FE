@@ -17,7 +17,6 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import 'leaflet-draw';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
@@ -53,7 +52,7 @@ type SelectedGisEntity =
 
 @Component({
   selector: 'app-gis-monitoring',
-  imports: [DatePipe, RouterLink, FormsModule, NzIconModule],
+  imports: [DatePipe, RouterLink, FormsModule],
   templateUrl: './gis-monitoring.html',
   styleUrl: './gis-monitoring.scss',
   encapsulation: ViewEncapsulation.None,
@@ -907,9 +906,9 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       });
 
       const statusBadge = hasAlert
-        ? '<div style="color: #dc2626; font-weight: 700;">⚠ Cảnh báo khẩn cấp (Đỏ)</div>'
+        ? '<div style="color: #dc2626; font-weight: 600;">Cảnh báo khẩn cấp</div>'
         : hasAnomaly
-        ? `<div style="color: #ca8a04; font-weight: 700;">● Có ${openAnomalies.length} sự cố phát hiện (Vàng)</div>`
+        ? `<div style="color: #b45309; font-weight: 600;">Có ${openAnomalies.length} sự cố phát hiện</div>`
         : '';
       const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
       marker.bindTooltip(

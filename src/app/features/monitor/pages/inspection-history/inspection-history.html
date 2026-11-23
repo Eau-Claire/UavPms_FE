@@ -20,6 +20,7 @@
         aria-label="Tìm theo mã hoặc tên nhiệm vụ"
         placeholder="Chọn hoặc nhập mã, tên nhiệm vụ..."
         [value]="missionInput()"
+        (focus)="ensureMissionOptionsLoaded()"
         (input)="onMissionInputEvent($event)"
       />
       <datalist id="inspection-mission-options">
@@ -148,23 +149,35 @@
                   }
                 </td>
                 <td class="col-center">
-                  @if (item.imageUrl && !isImageBroken(item.id)) {
+                  @if (item.thumbnailUrl && !isImageBroken(item.id)) {
                     <button
                       type="button"
                       class="inspection-thumb-btn"
                       (click)="openPreview(item)"
                       [attr.aria-label]="'Xem nhanh ảnh kiểm tra của ' + item.missionName"
-                      title="Nhấn để xem nhanh ảnh"
+                      title="Nhấn để xem ảnh độ phân giải cao"
                     >
                       <img
-                        [src]="item.imageUrl"
+                        [src]="item.thumbnailUrl"
                         [alt]="'Ảnh kiểm tra cho ' + item.missionName"
                         width="56"
                         height="36"
                         loading="lazy"
+                        decoding="async"
+                        fetchpriority="low"
                         class="inspection-thumb-img"
                         (error)="onImageError(item.id)"
                       />
+                    </button>
+                  } @else if (item.imageUrl && !isImageBroken(item.id)) {
+                    <button
+                      type="button"
+                      class="app-btn-action inspection-thumb-btn-text"
+                      (click)="openPreview(item)"
+                      [attr.aria-label]="'Xem nhanh ảnh kiểm tra của ' + item.missionName"
+                      title="Tải và xem ảnh gốc"
+                    >
+                      Xem ảnh
                     </button>
                   } @else {
                     <span class="cell-muted">Không có ảnh</span>

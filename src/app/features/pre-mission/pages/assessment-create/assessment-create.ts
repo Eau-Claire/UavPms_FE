@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -16,7 +15,6 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Va
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import * as L from 'leaflet';
 import { finalize } from 'rxjs';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { AssessmentTowerOption, RegionOption } from '../../../../models/pre-mission.models';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
 import { isValidGuid, PreMissionApi } from '../../data-access/pre-mission-api';
@@ -48,7 +46,7 @@ function notInPastValidator(control: AbstractControl): ValidationErrors | null {
  */
 @Component({
   selector: 'app-assessment-create',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './assessment-create.html',
   styleUrl: './assessment-create.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -96,8 +96,8 @@ test('Batch 2 pages (/inspections, /reports, /admin/users) match Quiet Chrome be
   await expect(page.locator('input.filter-date-input')).toHaveCount(2);
   await expect(page.locator('tbody tr').first()).toContainText('Phát hiện sự cố');
 
-  // Open & close quick-view image preview modal
-  await page.locator('.inspection-thumb-btn').first().click();
+  // Open & close quick-view image preview modal (on-demand "Xem ảnh" avoids decoding 10 full-res photos on load)
+  await page.getByRole('button', { name: /Xem nhanh ảnh kiểm tra/ }).first().click();
   await expect(page.locator('#inspection-preview-title')).toContainText('Kiểm tra tuyến 220kV Hòa Khánh');
   await expect(page.locator('.inspection-preview-dialog [nz-icon], .inspection-preview-dialog svg')).toHaveCount(0);
   await page.locator('.inspection-preview-dialog').getByRole('button', { name: 'Đóng' }).click();

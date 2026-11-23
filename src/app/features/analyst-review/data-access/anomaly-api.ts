@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
@@ -160,7 +160,7 @@ export const EXECUTION_LOCATION_LABELS: Record<AnomalyExecutionLocation, string>
 
 /** Vietnamese messages for the business error codes of the anomaly endpoints. */
 const ANOMALY_ERROR_MESSAGES: Record<string, string> = {
-  TOWER_REQUIRED: 'Bất thường chưa được gắn cột điện. Vui lòng gán cột điện trước khi xác nhận.',
+  TOWER_REQUIRED: 'Bất thường cần được gán cột điện hợp lệ.',
   INVALID_TOWER: 'Mã cột điện không hợp lệ.',
   ANOMALY_SUPERSEDED: 'Kết quả Edge này đã được kết quả Cloud thay thế. Hãy thao tác trên kết quả thay thế.',
   ANOMALY_RESOLVED: 'Bất thường đã được xử lý xong, không thể đổi cột điện.',
@@ -210,6 +210,15 @@ export class AnomalyApi {
     return this.http
       .get<unknown>(`${this.baseUrl}/anomalies/pending`, { params: queryParams })
       .pipe(
+        catchError((err: unknown) => {
+          // SystemAdmin can receive 403 on /anomalies/pending while /anomalies?status=Pending returns 200 OK.
+          if (err instanceof HttpErrorResponse && err.status === 403) {
+            return this.http.get<unknown>(`${this.baseUrl}/anomalies`, {
+              params: { ...queryParams, status: 'Pending' },
+            });
+          }
+          throw err;
+        }),
         map((response) => {
           const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
           const activeAlerts = this.alertsApi.activeAlerts();
@@ -325,88 +334,137 @@ export class AnomalyApi {
   ): Observable<AnomalyPage> {
     const pageIndex = params?.pageIndex ?? 1;
     const pageSize = params?.pageSize ?? 15;
-    const search = params?.search?.trim().toLowerCase();
+    const search = params?.search?.trim();
 
-    let allReviewed = this.history.getReviewedItems();
+    if (status === 'ALL_REVIEWED') {
+      // Backend does not recognize `status=Reviewed` (returns empty []).
+      // Fetch Confirmed, Rejected, and Resolved in parallel and merge cleanly by createdAt desc.
+      const fetchSize = Math.max(pageIndex * pageSize, 100);
+      const baseQuery: Record<string, string | number> = { pageIndex: 1, pageSize: fetchSize };
+      if (search) baseQuery['search'] = search;
 
-    if (status === 'Confirmed') {
-      allReviewed = allReviewed.filter(
-        (i) => i.validationStatus === 'Confirmed' || i.validationStatus === 'Resolved',
+      const fetchByStatus = (st: 'Confirmed' | 'Rejected' | 'Resolved') =>
+        this.http
+          .get<unknown>(`${this.baseUrl}/anomalies`, { params: { ...baseQuery, status: st } })
+          .pipe(
+            map((res) => normalizeAnomalyPage(unwrapApiData<Record<string, unknown>>(res), 1, fetchSize)),
+            catchError(() =>
+              of<AnomalyPage>({ items: [], totalCount: 0, pageIndex: 1, pageSize: fetchSize, totalPages: 1 }),
+            ),
+          );
+
+      return forkJoin([
+        fetchByStatus('Confirmed'),
+        fetchByStatus('Rejected'),
+        fetchByStatus('Resolved'),
+      ]).pipe(
+        map(([confirmed, rejected, resolved]) => {
+          const mergedMap = new Map<string, AnomalyItem>();
+          for (const it of [...confirmed.items, ...rejected.items, ...resolved.items]) {
+            mergedMap.set(it.id, it);
+            this.history.cacheItem(it);
+          }
+          const merged = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+          const totalCount = Math.max(
+            merged.length,
+            confirmed.totalCount + rejected.totalCount + resolved.totalCount,
+          );
+          const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+          const pagedItems = merged.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+          return {
+            items: pagedItems,
+            totalCount,
+            pageIndex,
+            pageSize,
+            totalPages,
+          };
+        }),
       );
-    } else if (status === 'Rejected') {
-      allReviewed = allReviewed.filter((i) => i.validationStatus === 'Rejected');
     }
 
-    if (search) {
-      allReviewed = allReviewed.filter(
-        (i) =>
-          i.categoryName.toLowerCase().includes(search) ||
-          (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
-          (i.missionName && i.missionName.toLowerCase().includes(search)) ||
-          i.id.toLowerCase().includes(search),
-      );
-    }
-
-    const totalCount = allReviewed.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    const pagedItems = allReviewed.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
-
-    return of({
-      items: pagedItems,
-      totalCount,
+    const queryParams: Record<string, string | number> = {
       pageIndex,
       pageSize,
-      totalPages,
-    });
-  }
+      status,
+    };
+    if (search) {
+      queryParams['search'] = search;
+    }
 
-  /**
-   * Lấy tất cả phát hiện: Hợp nhất hàng đợi Chờ duyệt và các phát hiện Đã duyệt
-   */
-  listAll(params?: AnomalyListParams): Observable<AnomalyPage> {
-    const pageIndex = params?.pageIndex ?? 1;
-    const pageSize = params?.pageSize ?? 15;
-    const search = params?.search?.trim().toLowerCase();
-
-    return this.listPending({ pageIndex: 1, pageSize: 100, search }).pipe(
-      map((pendingPage) => {
+    return this.http.get<unknown>(`${this.baseUrl}/anomalies`, { params: queryParams }).pipe(
+      map((res) => {
+        const raw = unwrapApiData<Record<string, unknown>>(res);
+        const page = normalizeAnomalyPage(raw, pageIndex, pageSize);
+        for (const it of page.items) {
+          this.history.cacheItem(it);
+        }
+        return page;
+      }),
+      catchError(() => {
         let allReviewed = this.history.getReviewedItems();
+        if (status === 'Confirmed') {
+          allReviewed = allReviewed.filter(
+            (i) => i.validationStatus === 'Confirmed' || i.validationStatus === 'Resolved',
+          );
+        } else if (status === 'Rejected') {
+          allReviewed = allReviewed.filter((i) => i.validationStatus === 'Rejected');
+        }
+
         if (search) {
+          const s = search.toLowerCase();
           allReviewed = allReviewed.filter(
             (i) =>
-              i.categoryName.toLowerCase().includes(search) ||
-              (i.towerCode && i.towerCode.toLowerCase().includes(search)) ||
-              (i.missionName && i.missionName.toLowerCase().includes(search)) ||
-              i.id.toLowerCase().includes(search),
+              i.categoryName.toLowerCase().includes(s) ||
+              (i.towerCode && i.towerCode.toLowerCase().includes(s)) ||
+              (i.missionName && i.missionName.toLowerCase().includes(s)) ||
+              i.id.toLowerCase().includes(s),
           );
         }
 
-        // Kết hợp Pending + Reviewed
-        const mapById = new Map<string, AnomalyItem>();
-        allReviewed.forEach((it) => mapById.set(it.id, it));
-        pendingPage.items.forEach((it) => {
-          if (!mapById.has(it.id)) {
-            mapById.set(it.id, it);
-          }
-        });
-
-        const merged = Array.from(mapById.values()).sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-
-        const totalCount = merged.length;
+        const totalCount = allReviewed.length;
         const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-        const pagedItems = merged.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+        const pagedItems = allReviewed.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
 
-        return {
+        return of({
           items: pagedItems,
           totalCount,
           pageIndex,
           pageSize,
           totalPages,
-        };
+        });
       }),
-      catchError(() => this.listReviewed('ALL_REVIEWED', params)),
+    );
+  }
+
+  /**
+   * Lấy tất cả phát hiện từ backend (cả Chờ duyệt và Đã duyệt)
+   */
+  listAll(params?: AnomalyListParams): Observable<AnomalyPage> {
+    const pageIndex = params?.pageIndex ?? 1;
+    const pageSize = params?.pageSize ?? 15;
+    const search = params?.search?.trim();
+
+    const queryParams: Record<string, string | number> = {
+      status: 'ALL',
+      pageIndex,
+      pageSize,
+    };
+    if (search) {
+      queryParams['search'] = search;
+    }
+
+    return this.http.get<unknown>(`${this.baseUrl}/anomalies`, { params: queryParams }).pipe(
+      map((res) => {
+        const raw = unwrapApiData<Record<string, unknown>>(res);
+        const page = normalizeAnomalyPage(raw, pageIndex, pageSize);
+        for (const it of page.items) {
+          this.history.cacheItem(it);
+        }
+        return page;
+      }),
+      catchError(() => this.listPending(params)),
     );
   }
 

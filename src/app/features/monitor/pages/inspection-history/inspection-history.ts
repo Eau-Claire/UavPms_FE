@@ -56,6 +56,7 @@ export class InspectionHistory implements OnDestroy {
 
   private activeLoadSub: Subscription | null = null;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private missionOptionsLoaded = false;
   private readonly pageCache = new Map<string, CachedInspectionPage>();
 
   protected readonly skeletonRows = readonlyRange(10);
@@ -103,11 +104,16 @@ export class InspectionHistory implements OnDestroy {
   });
 
   constructor() {
+    this.load(1);
+  }
+
+  /** Lazy-load mission datalist options only when the user focuses the mission search input. */
+  protected ensureMissionOptionsLoaded(): void {
+    if (this.missionOptionsLoaded) return;
+    this.missionOptionsLoaded = true;
     this.loadMissionOptions()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((options) => this.missionOptions.set(options));
-
-    this.load(1);
   }
 
   ngOnDestroy(): void {

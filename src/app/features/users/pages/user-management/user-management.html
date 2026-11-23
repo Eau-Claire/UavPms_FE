@@ -84,12 +84,12 @@
     <div class="app-table-scroll app-table-stage">
       <table class="app-data-table">
         <colgroup>
-          <col style="width: 19%" />
-          <col style="width: 24%" />
-          <col style="width: 12%" />
-          <col style="width: 10%" />
+          <col style="width: 23%" />
+          <col style="width: 29%" />
           <col style="width: 13%" />
-          <col style="width: 22%" />
+          <col style="width: 12%" />
+          <col style="width: 14%" />
+          <col style="width: 9%" />
         </colgroup>
         <thead>
           <tr>
@@ -110,7 +110,7 @@
                 <td class="col-center"><span class="app-skeleton-bar w-20"></span></td>
                 <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
                 <td><span class="app-skeleton-bar w-24"></span></td>
-                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-32"></span></td>
+                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-14"></span></td>
               </tr>
             }
           } @else if (!filteredUsers().length) {
@@ -152,27 +152,14 @@
                   </span>
                 </td>
                 <td class="col-center col-sticky-right">
-                  @if (canManageScopes()) {
-                    <button
-                      type="button"
-                      class="app-btn-action"
-                      [attr.aria-label]="'Phạm vi khu vực của ' + (user.fullName || user.email)"
-                      (click)="openScopes(user)"
-                    >
-                      Khu vực
-                    </button>
-                  }
-                  @if (isAdmin()) {
-                    <button type="button" class="app-btn-action" (click)="openEdit(user)">Sửa</button>
-                    @if (user.status === 'Locked') {
-                      <button type="button" class="app-btn-action" (click)="changeStatus(user, 'Active')">Mở khóa</button>
-                    } @else if (user.status === 'Inactive') {
-                      <button type="button" class="app-btn-action" (click)="changeStatus(user, 'Active')">Kích hoạt</button>
-                    } @else {
-                      <button type="button" class="app-btn-action text-rose-600" (click)="changeStatus(user, 'Locked')">Khóa</button>
-                    }
-                    <button type="button" class="app-btn-action" (click)="resetPassword(user)">Đặt lại MK</button>
-                  }
+                  <button
+                    type="button"
+                    class="app-btn-action"
+                    [attr.aria-label]="'Chi tiết người dùng ' + (user.fullName || user.email)"
+                    (click)="openDetail(user)"
+                  >
+                    Chi tiết
+                  </button>
                 </td>
               </tr>
             }
@@ -191,6 +178,108 @@
       />
     </footer>
   </section>
+
+  <!-- User Detail & Actions Card Modal (Quiet Chrome, 0 Icons) -->
+  @if (detailUser(); as du) {
+    <div
+      class="user-detail-backdrop"
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-detail-title"
+      (click)="closeDetail()"
+      (keydown.escape)="closeDetail()"
+    >
+      <div
+        class="user-detail-dialog"
+        tabindex="-1"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeDetail()"
+      >
+        <div class="user-detail-header">
+          <h3 id="user-detail-title">Chi tiết người dùng: {{ du.fullName || du.email }}</h3>
+          <button type="button" class="app-btn-action" (click)="closeDetail()">Đóng</button>
+        </div>
+
+        <div class="user-detail-body">
+          <div class="user-detail-specs">
+            <div class="spec-item">
+              <span class="spec-label">Họ và tên</span>
+              <span class="spec-value">{{ du.fullName || 'Chưa đặt tên' }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Tên đăng nhập</span>
+              <span class="spec-value">&#64;{{ du.username || du.email.split('@')[0] }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Email</span>
+              <span class="spec-value">{{ du.email }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Số điện thoại</span>
+              <span class="spec-value">{{ du.phone || '—' }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Vai trò</span>
+              <span class="spec-value">{{ roleLabel(du.role) }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Trạng thái</span>
+              <span class="spec-value" [class]="userStatusColorClass(du.status)">{{ statusLabel(du.status) }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Ngày tạo</span>
+              <span class="spec-value tabular-nums">{{ du.createdAt ? (du.createdAt | date: 'dd/MM/yyyy HH:mm') : '—' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="user-detail-footer">
+          <div class="footer-group-left">
+            @if (isAdmin()) {
+              @if (du.status === 'Locked') {
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Active')">
+                  Mở khóa
+                </button>
+              } @else if (du.status === 'Inactive') {
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Active')">
+                  Kích hoạt
+                </button>
+                <button type="button" class="app-btn-danger" (click)="closeDetail(); changeStatus(du, 'Locked')">
+                  Khóa tài khoản
+                </button>
+              } @else {
+                <button type="button" class="app-btn-danger" (click)="closeDetail(); changeStatus(du, 'Locked')">
+                  Khóa tài khoản
+                </button>
+                <button type="button" class="app-btn-secondary" (click)="closeDetail(); changeStatus(du, 'Inactive')">
+                  Tạm ngưng
+                </button>
+              }
+            }
+          </div>
+
+          <div class="footer-group-right">
+            @if (isAdmin()) {
+              <button type="button" class="app-btn-secondary" (click)="closeDetail(); resetPassword(du)">
+                Đặt lại mật khẩu
+              </button>
+            }
+            @if (canManageScopes()) {
+              <button type="button" class="app-btn-secondary" (click)="closeDetail(); openScopes(du)">
+                Phân quyền khu vực
+              </button>
+            }
+            @if (isAdmin()) {
+              <button type="button" class="app-btn-primary" (click)="closeDetail(); openEdit(du)">
+                Chỉnh sửa
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 
   <!-- User Create / Edit Centered Dialog Modal -->
   @if (modalOpen()) {

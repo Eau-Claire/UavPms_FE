@@ -4,20 +4,17 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnIni
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { finalize, Subscription } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { statusColorClass } from '../../../../shared/status/status';
 import {
   RegionOption,
-  REPORT_TEMPLATES,
   REPORT_TYPE_LABELS,
   ReportCreateRequest,
   ReportFileFormat,
   ReportItem,
   ReportStatistics,
-  ReportTemplateConfig,
   ReportType,
 } from '../../../../models/reports.models';
 import { ReportsApi } from '../../data-access/reports-api';
@@ -25,7 +22,26 @@ import { ReportsApi } from '../../data-access/reports-api';
 const FORMAT_LABELS: Record<ReportFileFormat, string> = { pdf: 'PDF', excel: 'Excel' };
 const FORMAT_EXTENSIONS: Record<ReportFileFormat, string> = { pdf: 'pdf', excel: 'xlsx' };
 
-/** Converts a `yyyy-MM-dd` date input to an ISO timestamp at the start or end of that local day. */
+/** Auto-formats numeric input into `dd/MM/yyyy`. */
+const formatDateInput = (raw: string): string => {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
+
+/** Converts valid `dd/MM/yyyy` to `yyyy-MM-dd`. */
+const parseDateInputToIso = (display: string): string => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
+  if (!match) return '';
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+  return `${year}-${match[2]}-${match[1]}`;
+};
+
+/** Converts a `yyyy-MM-dd` date string to an ISO timestamp at the start or end of that local day. */
 const dayBoundary = (value: string, end: boolean): string | undefined => {
   if (!value) return undefined;
   const date = new Date(`${value}T${end ? '23:59:59' : '00:00:00'}`);
@@ -34,7 +50,7 @@ const dayBoundary = (value: string, end: boolean): string | undefined => {
 
 @Component({
   selector: 'app-reports-page',
-  imports: [ReactiveFormsModule, RouterLink, NzIconModule, DatePipe, Pagination],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, Pagination],
   templateUrl: './reports-page.html',
   styleUrl: './reports-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,7 +68,6 @@ export class ReportsPage implements OnInit {
     'CorridorOverview',
     'ThermalInspection',
   ];
-  protected readonly reportTemplates = REPORT_TEMPLATES;
 
   // State signals
   private activeLoadSub: Subscription | null = null;
@@ -105,14 +120,6 @@ export class ReportsPage implements OnInit {
   // Create modal
   protected readonly isCreateModalOpen = signal(false);
   protected readonly selectedFormType = signal<ReportType>('DefectReport');
-  protected readonly selectedTemplate = computed<ReportTemplateConfig>(() => {
-    const current = this.selectedFormType();
-    return (
-      this.reportTemplates.find(
-        (t) => t.reportType === current || t.reportType.toLowerCase() === String(current).toLowerCase(),
-      ) ?? this.reportTemplates[0]
-    );
-  });
 
   protected readonly createForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],
@@ -323,24 +330,7 @@ export class ReportsPage implements OnInit {
             this.showToast(`Bạn không có quyền tải báo cáo ${report.code}.`, 'error');
             return;
           }
-          // Client-side fallback generation when server export is unavailable or offline
-          const isPdf = format === 'pdf';
-          const content = isPdf
-            ? `%PDF-1.4\nBÁO CÁO: ${report.title}\nMã: ${report.code}\nLoại: ${report.typeName}\nKhu vực: ${report.region?.name || 'Toàn hệ thống'}\nKhuyết tật: ${report.defectCount}\nNgày tạo: ${report.createdAt}`
-            : `Mã báo cáo\tTiêu đề\tLoại\tKhu vực\tKhuyết tật\tNgày tạo\n${report.code}\t${report.title}\t${report.typeName}\t${report.region?.name || 'Toàn hệ thống'}\t${report.defectCount}\t${report.createdAt}`;
-          const mimeType = isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-          const blob = new Blob([content], { type: mimeType });
-          const ext = isPdf ? 'pdf' : 'xlsx';
-          const name = `${report.code || report.id}.${ext}`;
-          const blobUrl = URL.createObjectURL(blob);
-          const anchor = document.createElement('a');
-          anchor.href = blobUrl;
-          anchor.download = name;
-          document.body.appendChild(anchor);
-          anchor.click();
-          document.body.removeChild(anchor);
-          URL.revokeObjectURL(blobUrl);
-          this.showToast(`Đã xuất và tải tệp ${FORMAT_LABELS[format]} (${name}).`, 'success');
+          this.showToast(`Không thể tải tệp ${FORMAT_LABELS[format]} cho báo cáo ${report.code}. Vui lòng thử lại.`, 'error');
         },
       });
   }
@@ -350,19 +340,27 @@ export class ReportsPage implements OnInit {
     this.createForm.reset({
       type: 'DefectReport',
       regionId: this.selectedRegionId(),
-      title: this.selectedTemplate().defaultTitle,
+      title: '',
+      dateFrom: '',
+      dateTo: '',
+      description: '',
     });
     this.isCreateModalOpen.set(true);
   }
 
-  protected onFormTypeChange(type: ReportType): void {
+  protected onFormTypeEvent(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    const type = (target?.value ?? 'DefectReport') as ReportType;
     this.selectedFormType.set(type);
     this.createForm.controls.type.setValue(type);
-    const tpl = this.selectedTemplate();
-    const currentTitle = this.createForm.controls.title.value;
-    const isDefaultTitle = !currentTitle || this.reportTemplates.some((t) => t.defaultTitle === currentTitle);
-    if (isDefaultTitle) {
-      this.createForm.controls.title.setValue(tpl.defaultTitle);
+  }
+
+  protected onCreateDateEvent(controlName: 'dateFrom' | 'dateTo', event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const formatted = formatDateInput(target?.value ?? '');
+    this.createForm.controls[controlName].setValue(formatted);
+    if (target && target.value !== formatted) {
+      target.value = formatted;
     }
   }
 
@@ -377,7 +375,13 @@ export class ReportsPage implements OnInit {
       return;
     }
     const value = this.createForm.getRawValue();
-    if (value.dateFrom && value.dateTo && value.dateFrom > value.dateTo) {
+    const fromIso = parseDateInputToIso(value.dateFrom);
+    const toIso = parseDateInputToIso(value.dateTo);
+    if ((value.dateFrom.trim() && !fromIso) || (value.dateTo.trim() && !toIso)) {
+      this.showToast('Định dạng ngày không hợp lệ. Vui lòng nhập theo dạng dd/MM/yyyy.', 'error');
+      return;
+    }
+    if (fromIso && toIso && fromIso > toIso) {
       this.showToast('Ngày bắt đầu phải trước ngày kết thúc.', 'error');
       return;
     }
@@ -386,8 +390,8 @@ export class ReportsPage implements OnInit {
       title: value.title.trim(),
       type: value.type,
       regionId: value.regionId || undefined,
-      dateFrom: dayBoundary(value.dateFrom, false),
-      dateTo: dayBoundary(value.dateTo, true),
+      dateFrom: dayBoundary(fromIso, false),
+      dateTo: dayBoundary(toIso, true),
       description: value.description.trim() || undefined,
     };
 
@@ -402,9 +406,8 @@ export class ReportsPage implements OnInit {
         next: (created) => {
           this.isCreateModalOpen.set(false);
           this.showToast(`Đã lập báo cáo ${created.code}.`, 'success');
-          this.currentPage.set(1);
-          this.loadReports();
-          this.loadStatistics();
+          this.pageCache.clear();
+          this.loadReports(1, { forceRefresh: true });
         },
         error: (err: unknown) => {
           const body = err instanceof HttpErrorResponse && err.error && typeof err.error === 'object' ? (err.error as Record<string, unknown>) : {};

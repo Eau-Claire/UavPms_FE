@@ -105,62 +105,48 @@
     <div class="app-table-scroll app-table-stage">
       <table class="app-data-table">
         <colgroup>
-          <col style="width: 5%" />
-          <col style="width: 26%" />
+          <col style="width: 32%" />
+          <col style="width: 16%" />
+          <col style="width: 18%" />
           <col style="width: 13%" />
-          <col style="width: 15%" />
-          <col style="width: 12%" />
+          <col style="width: 11%" />
           <col style="width: 10%" />
-          <col style="width: 10%" />
-          <col style="width: 9%" />
         </colgroup>
         <thead>
           <tr>
-            <th class="col-center">Chọn</th>
             <th>Tiêu đề báo cáo</th>
             <th>Phân loại</th>
             <th>Khu vực</th>
             <th>Ngày lập</th>
             <th>Người lập</th>
             <th class="col-center">Trạng thái</th>
-            <th class="col-center col-sticky-right">Tải xuống</th>
           </tr>
         </thead>
         <tbody [class.is-fetching]="fetching() && !initialLoading()">
           @if (initialLoading()) {
             @for (row of skeletonRows; track row) {
               <tr aria-hidden="true">
-                <td class="col-center"><span class="app-skeleton-bar w-4"></span></td>
-                <td><span class="app-skeleton-bar w-48"></span></td>
+                <td><span class="app-skeleton-bar w-52"></span></td>
                 <td><span class="app-skeleton-bar w-24"></span></td>
                 <td><span class="app-skeleton-bar w-28"></span></td>
                 <td><span class="app-skeleton-bar w-24"></span></td>
                 <td><span class="app-skeleton-bar w-20"></span></td>
                 <td class="col-center"><span class="app-skeleton-bar w-16"></span></td>
-                <td class="col-center col-sticky-right"><span class="app-skeleton-bar w-16"></span></td>
               </tr>
             }
           } @else if (!reports().length) {
             <tr>
-              <td colspan="8" class="app-empty-cell">
+              <td colspan="6" class="app-empty-cell">
                 Không tìm thấy báo cáo nào phù hợp điều kiện lọc.
               </td>
             </tr>
           } @else {
             @for (item of reports(); track item.id) {
               <tr
-                [class.bg-slate-50]="selectedReportId() === item.id"
+                class="cursor-pointer"
+                [class.is-row-selected]="selectedReportId() === item.id"
                 (click)="selectReport(item)"
               >
-                <td class="col-center" (click)="$event.stopPropagation(); selectReport(item)">
-                  <input
-                    type="radio"
-                    name="selectedReportRadio"
-                    [checked]="selectedReportId() === item.id"
-                    (change)="selectReport(item)"
-                    [attr.aria-label]="'Chọn báo cáo ' + item.title"
-                  />
-                </td>
                 <td>
                   <span
                     class="cell-primary cell-truncate"
@@ -192,26 +178,6 @@
                     {{ item.statusName }}
                   </span>
                 </td>
-                <td class="col-center col-sticky-right">
-                  <button
-                    type="button"
-                    class="app-btn-action"
-                    [attr.aria-label]="'Tải PDF báo cáo ' + item.code"
-                    (click)="$event.stopPropagation(); downloadReport(item, 'pdf')"
-                    [disabled]="isDownloading() !== null"
-                  >
-                    PDF
-                  </button>
-                  <button
-                    type="button"
-                    class="app-btn-action"
-                    [attr.aria-label]="'Tải Excel báo cáo ' + item.code"
-                    (click)="$event.stopPropagation(); downloadReport(item, 'excel')"
-                    [disabled]="isDownloading() !== null"
-                  >
-                    Excel
-                  </button>
-                </td>
               </tr>
             }
           }
@@ -230,43 +196,58 @@
     </footer>
   </section>
 
-  <!-- Create Report Centered Modal -->
+  <!-- Create Report Centered Modal (Quiet Chrome, 0 Icons, No Mock Template Preview) -->
   @if (isCreateModalOpen()) {
     <div
-      class="modal-backdrop"
+      class="report-modal-backdrop"
       tabindex="-1"
       (click)="$event.target === $event.currentTarget && closeCreateModal()"
       (keydown.escape)="closeCreateModal()"
     >
-      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="create-report-title" (click)="$event.stopPropagation()">
-        <header class="modal-header">
+      <div
+        class="report-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-report-title"
+        tabindex="-1"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeCreateModal()"
+      >
+        <header class="report-modal-header">
           <div>
             <h3 id="create-report-title">Lập báo cáo mới</h3>
-            <p class="modal-subtitle">Nhập thông tin thiết lập báo cáo phân tích khuyết tật và vận hành</p>
+            <p class="report-modal-subtitle">Nhập thông tin thiết lập báo cáo phân tích khuyết tật và vận hành</p>
           </div>
-          <button type="button" class="btn-close" aria-label="Đóng" (click)="closeCreateModal()" [disabled]="isSubmitting()">×</button>
+          <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeCreateModal()" [disabled]="isSubmitting()">
+            Đóng
+          </button>
         </header>
 
-        <form class="modal-body" [formGroup]="createForm" (ngSubmit)="createReport()">
-          <div class="modal-field full-width">
-            <label for="new-title">Tiêu đề báo cáo <span class="required">*</span></label>
-            <input id="new-title" type="text" formControlName="title" placeholder="Ví dụ: Báo cáo khuyết tật tháng 10 - Hải Phòng" />
+        <form class="report-modal-body" [formGroup]="createForm" (ngSubmit)="createReport()">
+          <div class="report-field">
+            <label for="new-title">Tiêu đề báo cáo <span class="text-rose-600">*</span></label>
+            <input
+              id="new-title"
+              type="text"
+              formControlName="title"
+              placeholder="Ví dụ: Báo cáo khuyết tật tháng 11 - Khu vực Bình Thạnh"
+            />
             @if (createForm.controls.title.touched && createForm.controls.title.invalid) {
-              <small class="field-error" role="alert">Tiêu đề bắt buộc, tối đa 255 ký tự.</small>
+              <small class="text-rose-600" role="alert">Tiêu đề bắt buộc, tối đa 255 ký tự.</small>
             }
           </div>
 
-          <div class="modal-grid-2">
-            <div class="modal-field">
-              <label for="new-type">Mẫu báo cáo</label>
-              <select id="new-type" [value]="selectedFormType()" (change)="onFormTypeChange($any($event.target).value)">
+          <div class="report-grid-2">
+            <div class="report-field">
+              <label for="new-type">Loại báo cáo</label>
+              <select id="new-type" [value]="selectedFormType()" (change)="onFormTypeEvent($event)">
                 @for (type of reportTypes; track type) {
                   <option [value]="type">{{ typeLabels[type] || type }}</option>
                 }
               </select>
             </div>
 
-            <div class="modal-field">
+            <div class="report-field">
               <label for="new-region">Khu vực</label>
               <select id="new-region" formControlName="regionId">
                 <option value="">Không giới hạn khu vực</option>
@@ -276,58 +257,50 @@
               </select>
             </div>
 
-            <div class="modal-field">
+            <div class="report-field">
               <label for="new-date-from">Từ ngày</label>
-              <input id="new-date-from" type="date" formControlName="dateFrom" />
+              <input
+                id="new-date-from"
+                type="text"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="dd/MM/yyyy"
+                [value]="createForm.controls.dateFrom.value"
+                (input)="onCreateDateEvent('dateFrom', $event)"
+              />
             </div>
 
-            <div class="modal-field">
+            <div class="report-field">
               <label for="new-date-to">Đến ngày</label>
-              <input id="new-date-to" type="date" formControlName="dateTo" />
+              <input
+                id="new-date-to"
+                type="text"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="dd/MM/yyyy"
+                [value]="createForm.controls.dateTo.value"
+                (input)="onCreateDateEvent('dateTo', $event)"
+              />
             </div>
           </div>
 
-          <!-- Template Configuration Preview -->
-          @if (selectedTemplate(); as tpl) {
-            <div class="template-config-preview">
-              <div class="tpl-head">
-                <span class="tpl-code-badge">{{ tpl.code }}</span>
-                <span class="tpl-name">{{ tpl.name }}</span>
-              </div>
-              <p class="tpl-desc">{{ tpl.description }}</p>
-              <div class="tpl-sections-label">Các phần nội dung báo cáo tự động:</div>
-              <div class="tpl-sections-grid">
-                @for (sec of tpl.sections; track sec.title) {
-                  <div class="tpl-sec-item">
-                    <span nz-icon [nzType]="sec.icon" class="sec-icon" aria-hidden="true"></span>
-                    <div class="sec-text">
-                      <strong>{{ sec.title }}</strong>
-                      <p>{{ sec.desc }}</p>
-                    </div>
-                  </div>
-                }
-              </div>
-              <div class="tpl-footer-info">
-                <span>Dữ liệu bắt buộc: <em>{{ tpl.requiredData.join(' · ') }}</em></span>
-                <span>Hỗ trợ xuất: <strong>PDF, Excel</strong></span>
-              </div>
-            </div>
-          }
-
-          <div class="modal-field full-width">
+          <div class="report-field">
             <label for="new-desc">Ghi chú / Mô tả</label>
-            <textarea id="new-desc" rows="2" formControlName="description" placeholder="Nội dung tóm tắt, phạm vi kiểm tra..."></textarea>
+            <textarea
+              id="new-desc"
+              rows="3"
+              formControlName="description"
+              placeholder="Nội dung tóm tắt, phạm vi kiểm tra..."
+            ></textarea>
           </div>
         </form>
 
-        <footer class="modal-footer">
-          <button type="button" class="evn-btn secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">Hủy</button>
-          <button type="button" class="evn-btn primary" (click)="createReport()" [disabled]="isSubmitting()">
-            @if (isSubmitting()) {
-              <span nz-icon nzType="loading" aria-hidden="true"></span> Đang tạo...
-            } @else {
-              <span nz-icon nzType="plus" aria-hidden="true"></span> Tạo báo cáo
-            }
+        <footer class="report-modal-footer">
+          <button type="button" class="app-btn-secondary" (click)="closeCreateModal()" [disabled]="isSubmitting()">
+            Hủy
+          </button>
+          <button type="button" class="app-btn-primary" (click)="createReport()" [disabled]="isSubmitting()">
+            {{ isSubmitting() ? 'Đang tạo...' : 'Tạo báo cáo' }}
           </button>
         </footer>
       </div>

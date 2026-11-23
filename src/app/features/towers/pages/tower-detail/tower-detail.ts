@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, injec
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { NzIconModule } from 'ng-zorro-antd/icon';
 import { catchError, map, of, Subject, switchMap, tap } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { AnomalyValidationStatus, TowerAnomaly, TowerHistory, TowerHistoryFilters, TowerHistoryStats } from '../../../../models/assets.models';
@@ -11,16 +10,14 @@ import { AnomalyHistoryService } from '../../../analyst-review/data-access/anoma
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
+import { priorityColorClass, statusColorClass } from '../../../../shared/status/status';
 import {
   ANOMALY_STATUSES,
   anomalyStatusLabel,
-  anomalyStatusTone,
   canOpenMaintenance,
   canReviewAnomalies,
   ticketPriorityLabel,
-  ticketPriorityTone,
   ticketStatusLabel,
-  ticketStatusTone,
 } from '../../data-access/tower-labels';
 import { apiErrorMessage, apiErrorStatus, TowersApi } from '../../data-access/towers-api';
 
@@ -31,13 +28,9 @@ interface HistoryRequest {
   readonly filters: TowerHistoryFilters;
 }
 
-/**
- * Tower detail driven by GET /towers/{id}/history. The backend pages anomalies and maintenance tickets with the
- * same page/pageSize, so each tab keeps its own page and the request uses the active tab's page.
- */
 @Component({
   selector: 'app-tower-detail',
-  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, NzIconModule, DataState, Pagination],
+  imports: [DatePipe, DecimalPipe, ReactiveFormsModule, RouterLink, DataState, Pagination],
   templateUrl: './tower-detail.html',
   styleUrl: './tower-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,13 +51,11 @@ export class TowerDetail {
   readonly from = input<string>();
 
   protected readonly statuses = ANOMALY_STATUSES;
-  protected readonly pageSizes = [10, 20, 50] as const;
   protected readonly anomalyStatusLabel = anomalyStatusLabel;
-  protected readonly anomalyStatusTone = anomalyStatusTone;
   protected readonly ticketStatusLabel = ticketStatusLabel;
-  protected readonly ticketStatusTone = ticketStatusTone;
   protected readonly ticketPriorityLabel = ticketPriorityLabel;
-  protected readonly ticketPriorityTone = ticketPriorityTone;
+  protected readonly statusColorClass = statusColorClass;
+  protected readonly priorityColorClass = priorityColorClass;
   protected readonly canReview = computed(() => canReviewAnomalies(this.auth.user()?.role));
   protected readonly canOpenTicket = computed(() => canOpenMaintenance(this.auth.user()?.role));
 
@@ -92,8 +83,19 @@ export class TowerDetail {
     to: '',
   });
 
+  protected readonly fromDateInput = signal('');
+  protected readonly toDateInput = signal('');
   protected readonly dateRangeInvalid = signal(false);
   protected readonly historySearch = signal('');
+
+  protected readonly hasActiveFilters = computed(() =>
+    Boolean(
+      this.historySearch().trim() ||
+        this.filters.controls.validationStatus.value ||
+        this.fromDateInput().trim() ||
+        this.toDateInput().trim(),
+    ),
+  );
 
   protected readonly tower = computed(() => this.history()?.tower ?? null);
   protected readonly maintenance = computed(() => this.history()?.maintenanceHistory ?? []);
@@ -108,7 +110,6 @@ export class TowerDetail {
     const targetNormCode = norm(towerCode);
     const targetNormId = norm(towerId);
 
-    // Thu thập anomalies đã thẩm định từ AnomalyHistoryService
     const reviewedItems = this.anomalyHistory.getReviewedItems();
     const matchingReviewed = reviewedItems.filter((item) => {
       if (item.towerId && (item.towerId === towerId || norm(item.towerId) === targetNormId)) return true;
@@ -116,7 +117,6 @@ export class TowerDetail {
       return false;
     });
 
-    // Thu thập active emergency alerts từ EmergencyAlertsApi
     const activeAlerts = this.alertsApi.activeAlerts();
     const matchingAlerts = activeAlerts.filter((alert) => {
       if (alert.towerId && (alert.towerId === towerId || norm(alert.towerId) === targetNormId)) return true;
@@ -126,12 +126,10 @@ export class TowerDetail {
 
     const map = new Map<string, TowerAnomaly>();
 
-    // 1. Anomalies từ backend API
     for (const anom of serverAnomalies) {
       map.set(anom.id, anom);
     }
 
-    // 2. Bổ sung từ AnomalyHistoryService nếu chưa có
     for (const it of matchingReviewed) {
       if (!map.has(it.id)) {
         map.set(it.id, {
@@ -150,7 +148,6 @@ export class TowerDetail {
       }
     }
 
-    // 3. Bổ sung từ EmergencyAlertsApi nếu chưa có
     for (const alert of matchingAlerts) {
       const alertId = alert.anomalyId || alert.id;
       if (!map.has(alertId)) {
@@ -169,7 +166,6 @@ export class TowerDetail {
       }
     }
 
-    // Áp dụng bộ lọc trạng thái và khoảng thời gian
     const statusVal = this.filters.controls.validationStatus.value;
     const dateFrom = this.filters.controls.from.value;
     const dateTo = this.filters.controls.to.value;
@@ -215,7 +211,7 @@ export class TowerDetail {
     };
   });
 
-  protected readonly anomalyTotalCount = computed(() => this.anomalies().length);
+  protected readonly anomalyTotalCount = computed(() => this.filteredAnomalies().length);
 
   protected readonly anomalyTotalPages = computed(() =>
     Math.max(1, Math.ceil(this.anomalyTotalCount() / this.pageSize())),
@@ -228,7 +224,7 @@ export class TowerDetail {
     return list.filter((a) =>
       (a.categoryName && a.categoryName.toLowerCase().includes(q)) ||
       (a.categoryCode && a.categoryCode.toLowerCase().includes(q)) ||
-      (a.aiSource && a.aiSource.toLowerCase().includes(q))
+      (a.aiSource && a.aiSource.toLowerCase().includes(q)),
     );
   });
 
@@ -246,7 +242,7 @@ export class TowerDetail {
     return list.filter((m) =>
       (m.ticketCode && m.ticketCode.toLowerCase().includes(q)) ||
       (m.description && m.description.toLowerCase().includes(q)) ||
-      (m.status && m.status.toLowerCase().includes(q))
+      (m.status && m.status.toLowerCase().includes(q)),
     );
   });
 
@@ -273,11 +269,10 @@ export class TowerDetail {
         this.error.set(status === 403 ? 'Bạn không có quyền xem cột điện này (ngoài phạm vi khu vực được phân công).' : error);
       });
 
-    this.filters.valueChanges
+    this.filters.controls.validationStatus.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.applyFilters());
 
-    // Reload whenever the route id changes.
     effect(() => {
       const id = this.id();
       untracked(() => {
@@ -286,6 +281,36 @@ export class TowerDetail {
         this.load(id);
       });
     });
+  }
+
+  protected onSearchEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.historySearch.set(target?.value ?? '');
+    this.anomalyPage.set(1);
+  }
+
+  protected onFromDateEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const formatted = formatVietnameseDateInput(target?.value ?? '');
+    this.fromDateInput.set(formatted);
+    if (target && target.value !== formatted) target.value = formatted;
+    const iso = parseVietnameseDateToIso(formatted);
+    if (!formatted || iso) {
+      this.filters.controls.from.setValue(iso, { emitEvent: false });
+      this.applyFilters();
+    }
+  }
+
+  protected onToDateEvent(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const formatted = formatVietnameseDateInput(target?.value ?? '');
+    this.toDateInput.set(formatted);
+    if (target && target.value !== formatted) target.value = formatted;
+    const iso = parseVietnameseDateToIso(formatted);
+    if (!formatted || iso) {
+      this.filters.controls.to.setValue(iso, { emitEvent: false });
+      this.applyFilters();
+    }
   }
 
   protected load(id = this.id()): void {
@@ -314,12 +339,9 @@ export class TowerDetail {
 
   protected resetFilters(): void {
     this.historySearch.set('');
-    this.filters.reset({ validationStatus: '', from: '', to: '' });
-    this.applyFilters();
-  }
-
-  protected changePageSize(value: string): void {
-    this.pageSize.set(Number(value) || 20);
+    this.fromDateInput.set('');
+    this.toDateInput.set('');
+    this.filters.reset({ validationStatus: '', from: '', to: '' }, { emitEvent: false });
     this.applyFilters();
   }
 
@@ -331,7 +353,6 @@ export class TowerDetail {
     if (loadedPage !== wantedPage) this.load();
   }
 
-  /** Arrow keys move between the two tabs (WAI-ARIA tabs pattern). */
   protected onTabKeydown(event: KeyboardEvent, anomaliesTab: HTMLElement, maintenanceTab: HTMLElement): void {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
@@ -349,4 +370,21 @@ export class TowerDetail {
     this.maintenancePage.set(page);
     this.load();
   }
+}
+
+function formatVietnameseDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function parseVietnameseDateToIso(display: string): string {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
+  if (!match) return '';
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+  return `${year}-${match[2]}-${match[1]}`;
 }

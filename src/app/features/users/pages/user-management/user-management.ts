@@ -58,6 +58,7 @@ export class UserManagement {
   );
   protected readonly modalOpen = signal(false);
   protected readonly editing = signal<UserRecord | null>(null);
+  protected readonly detailUser = signal<UserRecord | null>(null);
   protected readonly credential = signal<{ username: string; temporaryPassword: string } | null>(null);
   protected readonly scopeUser = signal<UserRecord | null>(null);
 
@@ -214,6 +215,14 @@ export class UserManagement {
   protected onStatusFilterChange(status: UserStatus | ''): void {
     this.statusFilter.set(status);
     this.page.set(1);
+  }
+
+  protected openDetail(user: UserRecord): void {
+    this.detailUser.set(user);
+  }
+
+  protected closeDetail(): void {
+    this.detailUser.set(null);
   }
 
   protected openCreate(): void {
