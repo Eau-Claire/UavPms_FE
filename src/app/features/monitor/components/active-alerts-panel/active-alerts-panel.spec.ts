@@ -127,7 +127,7 @@ describe('ActiveAlertsPanel', () => {
     expect(cards.length).toBe(2);
   });
 
-  it('marks alert as read and navigates directly to emergency-alerts when clicked', async () => {
+  it('marks alert as read and navigates to unified ai-review emergency queue when clicked', async () => {
     const router = TestBed.inject(Router);
     const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const list: MonitorAlert[] = [makeAlert('a-1', false, 1)];
@@ -142,7 +142,7 @@ describe('ActiveAlertsPanel', () => {
 
     expect(notificationsApiMock.markRead).toHaveBeenCalledWith('a-1');
     expect(host.onAlertRead).toHaveBeenCalledWith('a-1');
-    expect(navSpy).toHaveBeenCalledWith(['/emergency-alerts'], { queryParams: { id: 'a-1' } });
+    expect(navSpy).toHaveBeenCalledWith(['/ai-review'], { queryParams: { priority: 'emergency' } });
   });
 
   it('shows compact footer with emergency alerts link when <= 5 items', async () => {
@@ -153,6 +153,6 @@ describe('ActiveAlertsPanel', () => {
 
     const footerCompact = fixture.nativeElement.querySelector('.alerts-footer-compact');
     expect(footerCompact).not.toBeNull();
-    expect(footerCompact.querySelector('a')?.getAttribute('href')).toBe('/emergency-alerts');
+    expect(footerCompact.querySelector('a')?.getAttribute('href')).toBe('/ai-review?priority=emergency');
   });
 });

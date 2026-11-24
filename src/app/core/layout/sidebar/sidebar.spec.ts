@@ -3,23 +3,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Auth } from '../../auth/auth';
-import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
 import { Sidebar } from './sidebar';
 
 describe('Sidebar', () => {
   const setup = (role: string, open = false) => {
     const user = signal<{ id: string; role: string } | null>({ id: 'u1', role });
-    const activeCount = signal(0);
-    const alertsApi = {
-      activeCount,
-      fetchActiveAlerts: vi.fn(() => {
-        activeCount.set(3);
-        return of([]);
-      }),
-    };
     TestBed.configureTestingModule({
       imports: [Sidebar],
       providers: [
@@ -27,7 +17,6 @@ describe('Sidebar', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: Auth, useValue: { user } },
-        { provide: EmergencyAlertsApi, useValue: alertsApi },
       ],
     });
     const fixture: ComponentFixture<Sidebar> = TestBed.createComponent(Sidebar);
@@ -39,26 +28,23 @@ describe('Sidebar', () => {
       Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.app-nav-item')).map((a) => ({
         href: a.getAttribute('href'),
         label: a.querySelector('.app-nav-label')?.textContent?.trim(),
-        badge: a.querySelector('.app-nav-badge-danger [aria-hidden="true"]')?.textContent?.trim(),
       }));
-    return { fixture, links, alertsApi };
+    return { fixture, links };
   };
 
   it('gives inspectors a short field menu', () => {
-    const { links, alertsApi } = setup('Inspector');
+    const { links } = setup('Inspector');
     expect(links().map((l) => l.href)).toEqual(['/dashboard', '/missions', '/gis', '/towers', '/inspections', '/reports']);
     expect(links().find((l) => l.href === '/missions')?.label).toBe('Nhiệm vụ của tôi');
     expect(links().find((l) => l.href === '/inspections')?.label).toBe('Lịch sử kiểm tra');
-    expect(alertsApi.fetchActiveAlerts).not.toHaveBeenCalled();
   });
 
-  it('gives analysts the unified ai-review link with the active alert count', () => {
-    const { links, alertsApi } = setup('Analyst');
+  it('gives analysts the unified ai-review link without alert badges', () => {
+    const { fixture, links } = setup('Analyst');
     expect(links().map((l) => l.href)).toEqual([
       '/dashboard', '/ai-review', '/ai-analysis/upload', '/missions', '/gis', '/towers', '/inspections', '/reports',
     ]);
-    expect(alertsApi.fetchActiveAlerts).toHaveBeenCalledTimes(1);
-    expect(links().find((l) => l.href === '/ai-review')?.badge).toBe('3');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.app-nav-badge-danger')).toBeNull();
   });
 
   it('gives technicians maintenance, drones, pre-mission and GIS', () => {

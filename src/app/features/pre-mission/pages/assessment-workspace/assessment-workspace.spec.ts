@@ -111,14 +111,14 @@ describe('AssessmentWorkspace technical inspection', () => {
     const c = create();
     c['runInspectionNow']();
     expect(api['runTechnicalInspection']).not.toHaveBeenCalled();
-    expect((c['showMockModal'] as unknown as () => boolean)()).toBe(true);
+    expect((c['showChecklistModal'] as unknown as () => boolean)()).toBe(true);
     expect((c['checklistManual'] as unknown as () => boolean)()).toBe(true);
   });
 
   it('submits a checklist with readings for every critical item and the inspected droneId', () => {
     const c = create();
     c['runInspectionNow']();
-    c['submitMockBistTelemetry']();
+    c['submitInspectionChecklist']();
 
     expect(api['runTechnicalInspection']).toHaveBeenCalledTimes(1);
     const [droneId, body] = api['runTechnicalInspection'].mock.calls[0] as [string, { metrics: { metricCode: string; numericValue?: number | null; boolValue?: boolean | null }[]; preMissionAssessmentId: string }];
@@ -133,14 +133,14 @@ describe('AssessmentWorkspace technical inspection', () => {
 
   it('does not re-evaluate as a technician (needs manager scope); a manager re-evaluates', () => {
     const tech = create();
-    tech['submitMockBistTelemetry']('healthy');
+    tech['submitInspectionChecklist']('healthy');
     expect(api['reEvaluate']).not.toHaveBeenCalled();
     expect((tech['actionMessage'] as unknown as () => string)()).toContain('Quản lý cần bấm');
 
     TestBed.resetTestingModule();
     role = 'Manager';
     const manager = create();
-    manager['submitMockBistTelemetry']('healthy');
+    manager['submitInspectionChecklist']('healthy');
     expect(api['reEvaluate']).toHaveBeenCalledWith(ID);
   });
 
@@ -161,7 +161,7 @@ describe('AssessmentWorkspace technical inspection', () => {
           }),
       ),
     );
-    c['submitMockBistTelemetry']('healthy');
+    c['submitInspectionChecklist']('healthy');
     expect((c['error'] as unknown as () => string)()).toContain('đã bị hủy');
     expect((c['error'] as unknown as () => string)()).not.toContain('ASSESSMENT_CANCELLED');
   });
@@ -174,7 +174,7 @@ describe('AssessmentWorkspace technical inspection', () => {
     api['runTechnicalInspection'].mockReturnValue(
       of({ id: 'i1', droneId: 'd1', status: 'Passed', overallHealth: 'HEALTHY', eligibility: 'ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
     );
-    c['submitMockBistTelemetry']('healthy');
+    c['submitInspectionChecklist']('healthy');
     expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(2);
     const d1 = (c['item'] as unknown as () => PreMissionAssessment)().uavCandidates.find((d) => d.id === 'd1');
     expect(d1?.isEligible).toBe(true);
@@ -184,7 +184,7 @@ describe('AssessmentWorkspace technical inspection', () => {
     api['runTechnicalInspection'].mockReturnValue(
       of({ id: 'i2', droneId: 'd1', status: 'Failed', overallHealth: 'CRITICAL', eligibility: 'NOT_ELIGIBLE', inspectedAt: '', subsystems: [], metrics: [] })
     );
-    c['submitMockBistTelemetry']('critical');
+    c['submitInspectionChecklist']('critical');
     expect((c['eligibleUavCount'] as unknown as () => number)()).toBe(1);
     const d1After = (c['item'] as unknown as () => PreMissionAssessment)().uavCandidates.find((d) => d.id === 'd1');
     expect(d1After?.isEligible).toBe(false);

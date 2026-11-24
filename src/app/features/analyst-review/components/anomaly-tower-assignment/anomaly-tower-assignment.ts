@@ -49,7 +49,7 @@ import {
 
       @if (highlight()) {
         <p class="tower-assign-hint" role="alert">
-          Bất thường phải được gắn với một cột điện trước khi xác nhận. Chọn cột gợi ý bên dưới hoặc tìm theo mã cột.
+          Có thể gán cột điện cho bất thường bên dưới. Nếu không gắn cột, khuyết tật sẽ được lưu vào lịch sử kiểm tra chung.
         </p>
       }
 

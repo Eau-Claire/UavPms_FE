@@ -11,6 +11,7 @@ import { DroneManagementApi } from '../../../drones/data-access/drone-management
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { MaintenanceApi } from '../../../maintenance/data-access/maintenance-api';
 import { MissionsApi } from '../../../missions/data-access/missions-api';
+import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
 import { MonitorApi } from '../../data-access/monitor-api';
 import { MonitorStore } from '../../data-access/monitor-store';
 import { Dashboard } from './dashboard';
@@ -23,6 +24,9 @@ async function setup(role: string) {
     dashboard: signal(null),
     error: signal<string | null>(null),
     summary: signal(undefined),
+    missionStatus: signal([]),
+    defectStatistics: signal([]),
+    recentDefects: signal(null),
   };
   TestBed.configureTestingModule({
     imports: [Dashboard],
@@ -33,9 +37,10 @@ async function setup(role: string) {
       { provide: Auth, useValue: { user: signal({ id: 'u1', email: 'u@evn.vn', fullName: 'Người dùng', role, mustChangePassword: false }) } },
       { provide: MonitorApi, useValue: { getAlerts: () => of([]), getRecentDefects: () => of({ items: [], page: 1, pageSize: 5, totalCount: 0, totalPages: 1 }) } },
       { provide: MissionsApi, useValue: { my: () => of([]) } },
-      { provide: AnomalyApi, useValue: { listPending: () => of({ items: [], totalCount: 0, pageIndex: 1, pageSize: 5, totalPages: 1 }) } },
+      { provide: AnomalyApi, useValue: { listPending: () => of({ items: [], totalCount: 0, pageIndex: 1, pageSize: 5, totalPages: 1 }), pendingCount: signal(0) } },
       { provide: EmergencyAlertsApi, useValue: { fetchActiveAlerts: () => of([]) } },
-      { provide: MaintenanceApi, useValue: { mine: () => of([]) } },
+      { provide: MaintenanceApi, useValue: { mine: () => of([]), list: () => of({ items: [], totalCount: 0, pageIndex: 0, pageSize: 50 }) } },
+      { provide: PreMissionApi, useValue: { list: () => of({ items: [], totalCount: 0, page: 1, pageSize: 50, totalPages: 1 }) } },
       { provide: DroneManagementApi, useValue: { getDrones: () => of([]) } },
     ],
   });
@@ -51,8 +56,8 @@ describe('Dashboard role routing', () => {
   it('keeps the system dashboard (and its polling) for managers', async () => {
     const { el, store } = await setup('Manager');
     expect(store.startDashboardPolling).toHaveBeenCalledTimes(1);
-    expect(el.querySelector('h1')?.textContent).toContain('Xin chào');
-    expect(el.querySelector('app-personal-alerts-card')).not.toBeNull();
+    expect(el.querySelector('h1')?.textContent).toContain('Tổng quan vận hành');
+    expect(el.querySelector('.dashboard-ops-page')).not.toBeNull();
     expect(el.querySelector('app-inspector-home')).toBeNull();
   });
 

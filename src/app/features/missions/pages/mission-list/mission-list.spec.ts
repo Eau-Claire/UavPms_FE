@@ -81,7 +81,7 @@ describe('MissionList', () => {
   };
 
   const scopeButtons = (): string[] =>
-    Array.from(fixture.nativeElement.querySelectorAll('.mission-scope-tab') as NodeListOf<HTMLElement>).map((el) =>
+    Array.from(fixture.nativeElement.querySelectorAll('.app-scope-tab') as NodeListOf<HTMLElement>).map((el) =>
       el.textContent!.trim(),
     );
 
@@ -109,13 +109,13 @@ describe('MissionList', () => {
 
   it('sends an Inspector with a pending assignment to the acceptance page', () => {
     setup('Inspector');
-    const link = fixture.nativeElement.querySelector('a.mission-code') as HTMLAnchorElement;
+    const link = fixture.nativeElement.querySelector('a.app-btn-action') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/missions/m1/inspector');
   });
 
   it('sends a Manager to the mission dashboard', () => {
     setup('Manager');
-    const link = fixture.nativeElement.querySelector('a.mission-code') as HTMLAnchorElement;
+    const link = fixture.nativeElement.querySelector('a.app-btn-action') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/missions/m1');
   });
 });

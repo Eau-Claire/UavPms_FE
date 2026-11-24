@@ -6,7 +6,6 @@ import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 import { AppNotification } from '../../../models/notification.models';
 import { Auth } from '../../auth/auth';
-import { FacilityStore } from '../../facility/facility-store';
 import { NotificationsStore } from '../../../features/notifications/data-access/notifications-store';
 import { Header } from './header';
 
@@ -35,7 +34,6 @@ describe('Header', () => {
       setTypeFilter: vi.fn(),
       setSortFilter: vi.fn(),
     };
-    const facility = { id: 'all', name: 'Tất cả khu vực' };
     TestBed.configureTestingModule({
       imports: [Header],
       providers: [
@@ -44,10 +42,6 @@ describe('Header', () => {
         provideHttpClientTesting(),
         { provide: Auth, useValue: { user, logout: vi.fn() } },
         { provide: NotificationsStore, useValue: notifications },
-        {
-          provide: FacilityStore,
-          useValue: { facilities: signal([facility]), selectedFacility: signal(facility), currentFacilityName: signal(facility.name), selectFacility: vi.fn() },
-        },
       ],
     });
     const fixture: ComponentFixture<Header> = TestBed.createComponent(Header);
@@ -70,13 +64,17 @@ describe('Header', () => {
     el.querySelector<HTMLButtonElement>('.app-header-user-btn')?.click();
     fixture.detectChanges();
     expect(el.querySelector('.app-profile-menu-header .menu-user-email')?.textContent?.trim()).toBe('nv.a@evn.vn');
-    expect(el.querySelector('.app-profile-menu-header .menu-user-role')?.textContent?.trim()).toBe('Technician');
+    expect(el.querySelector('.app-profile-menu-header .menu-user-role')?.textContent?.trim()).toBe('Kỹ thuật viên');
     expect(el.querySelector('.app-facility-wrap')).toBeNull();
   });
 
-  it('keeps the region picker for managers', () => {
-    const { el } = setup('Manager');
-    expect(el.querySelector('.app-facility-wrap')).not.toBeNull();
+  it('hides the removed region picker and shows manager role and audit logs in profile menu', () => {
+    const { fixture, el } = setup('Manager');
+    expect(el.querySelector('.app-facility-wrap')).toBeNull();
+    el.querySelector<HTMLButtonElement>('.app-header-user-btn')?.click();
+    fixture.detectChanges();
+    expect(el.querySelector('.app-profile-menu-header .menu-user-role')?.textContent?.trim()).toBe('Quản lý vận hành');
+    expect(el.querySelector('.app-profile-menu')?.textContent).toContain('Nhật ký hệ thống');
   });
 
   it('links an assignment notification to the acceptance page for an inspector', () => {

@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
@@ -19,8 +19,6 @@ import {
   BasicTechnicalCheckRequest,
   CreateUavRequest,
   DroneTechnicalInspectionSummaryDto,
-  GisDroneCapabilityItemDto,
-  GisDroneEstimationResult,
   UAV_OPERATIONAL_STATUSES,
   UAV_TECHNICAL_HEALTHS,
   UavOperationalStatus,
@@ -38,7 +36,7 @@ import { statusColorClass, statusLabel as globalStatusLabel } from '../../../../
 
 @Component({
   selector: 'app-drone-management',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, Pagination],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, Pagination],
   templateUrl: './drone-management.html',
   styleUrl: './drone-management.scss',
   encapsulation: ViewEncapsulation.None,
@@ -53,7 +51,7 @@ export class DroneManagement {
   private readonly auth = inject(Auth);
   private readonly toast = inject(ToastService);
 
-  /** `DELETE /drones/{id}` and the GIS load estimate (fleet planning) are for SystemAdmin/Manager. */
+  /** `DELETE /drones/{id}` is for SystemAdmin/Manager. */
   protected readonly canManageFleet = computed(() => isManagerRole(this.auth.user()?.role));
   /** `POST/PUT /drones` and `POST /drones/{id}/basic-technical-check`: managers and technicians. Others read only. */
   protected readonly canEditDrone = computed(() => this.canManageFleet() || isTechnicianRole(this.auth.user()?.role));
@@ -101,10 +99,6 @@ export class DroneManagement {
 
   protected readonly techCheckModalOpen = signal(false);
   protected readonly targetDroneForCheck = signal<UavRecord | null>(null);
-
-  protected readonly gisModalOpen = signal(false);
-  protected readonly gisBusy = signal(false);
-  protected readonly gisResult = signal<GisDroneEstimationResult | null>(null);
 
   // Statistics
   protected readonly stats = computed(() => {
@@ -183,12 +177,6 @@ export class DroneManagement {
     flightControllerFirmware: ['Betaflight 4.5.1'],
     flightControllerNotes: ['Bo mạch phản hồi MSP_UID chuẩn xác'],
     notes: ['Kiểm định tiền bay đạt điều kiện khai thác an toàn.'],
-  });
-
-  // GIS Drone Scope Estimation Form
-  protected readonly gisForm = this.fb.nonNullable.group({
-    corridorLengthKm: [5.0, [Validators.required, Validators.min(0.1)]],
-    assetCount: [12, [Validators.required, Validators.min(1)]],
   });
 
   // Flight Controller (FC) Update & Pairing Modal State
@@ -636,37 +624,6 @@ export class DroneManagement {
       });
   }
 
-  // --- GIS Scope & Drone Estimation ---
-  protected openGisModal(): void {
-    this.gisModalOpen.set(true);
-    this.runGisEstimation();
-  }
-
-  protected closeGisModal(): void {
-    this.gisModalOpen.set(false);
-  }
-
-  protected runGisEstimation(): void {
-    if (this.gisForm.invalid) return;
-
-    const val = this.gisForm.getRawValue();
-    this.gisBusy.set(true);
-
-    this.api
-      .estimateGisScope({
-        corridorLengthKm: Number(val.corridorLengthKm),
-        assetCount: Number(val.assetCount),
-      })
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.gisBusy.set(false)),
-      )
-      .subscribe({
-        next: (result) => this.gisResult.set(result),
-        error: (err: unknown) => this.error.set(describeHttpError(err, 'Không thể tính toán ước tính tải GIS.')),
-      });
-  }
-
   // --- Helpers ---
   protected statusLabel(status: string): string {
     return status ? sharedStatusLabel(status) : 'Chưa rõ';
@@ -722,13 +679,6 @@ export class DroneManagement {
       default:
         return 'neutral';
     }
-  }
-
-  protected suitabilityBadgeClass(suitability: string): string {
-    const s = (suitability || '').toUpperCase();
-    if (s === 'SUITABLE') return 'badge-suitable';
-    if (s === 'SUITABLE_WITH_SPLIT') return 'badge-split';
-    return 'badge-unsuitable';
   }
 
   private showNotification(msg: string): void {

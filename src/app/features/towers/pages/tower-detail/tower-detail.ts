@@ -82,6 +82,7 @@ export class TowerDetail {
     from: '',
     to: '',
   });
+  private lastValidationStatus: AnomalyValidationStatus | '' = '';
 
   protected readonly fromDateInput = signal('');
   protected readonly toDateInput = signal('');
@@ -269,9 +270,14 @@ export class TowerDetail {
         this.error.set(status === 403 ? 'Bạn không có quyền xem cột điện này (ngoài phạm vi khu vực được phân công).' : error);
       });
 
-    this.filters.controls.validationStatus.valueChanges
+    this.filters.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.applyFilters());
+      .subscribe((val) => {
+        const nextStatus = val.validationStatus ?? '';
+        if (nextStatus === this.lastValidationStatus) return;
+        this.lastValidationStatus = nextStatus;
+        this.applyFilters();
+      });
 
     effect(() => {
       const id = this.id();
@@ -341,6 +347,7 @@ export class TowerDetail {
     this.historySearch.set('');
     this.fromDateInput.set('');
     this.toDateInput.set('');
+    this.lastValidationStatus = '';
     this.filters.reset({ validationStatus: '', from: '', to: '' }, { emitEvent: false });
     this.applyFilters();
   }

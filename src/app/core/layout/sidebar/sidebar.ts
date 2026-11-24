@@ -1,18 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, input, output, untracked } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { Auth } from '../../auth/auth';
 import { roleFamily, RoleFamily } from '../../auth/roles';
-import { AnomalyApi } from '../../../features/analyst-review/data-access/anomaly-api';
-import { EmergencyAlertsApi } from '../../../features/emergency-alerts/data-access/emergency-alerts-api';
 
 export interface NavLinkItem {
   readonly path: string;
   readonly icon: string;
   readonly label: string;
   readonly exact?: boolean;
-  readonly badgeCount?: number;
 }
 
 const AI_REVIEW_PATH = '/ai-review';
@@ -111,53 +107,13 @@ export const SECONDARY_LINKS: Record<RoleFamily, readonly NavLinkItem[]> = {
 })
 export class Sidebar {
   private readonly auth = inject(Auth);
-  private readonly alertsApi = inject(EmergencyAlertsApi);
-  private readonly anomalyApi = inject(AnomalyApi, { optional: true });
-  private readonly destroyRef = inject(DestroyRef);
 
   readonly open = input(false);
   readonly closed = output<void>();
 
   protected readonly family = computed(() => roleFamily(this.auth.user()?.role));
-  protected readonly activeAlertCount = computed(() => {
-    const pendingTotal = this.anomalyApi?.pendingCount();
-    if (pendingTotal !== null && pendingTotal !== undefined) {
-      return Math.max(pendingTotal, this.alertsApi.activeCount());
-    }
-    return this.alertsApi.activeCount();
-  });
-  private readonly showsAlerts = computed(() => PRIMARY_LINKS[this.family()].some((item) => item.path === AI_REVIEW_PATH));
 
   protected readonly primaryLinks = computed<readonly NavLinkItem[]>(() => PRIMARY_LINKS[this.family()]);
 
   protected readonly secondaryLinks = computed<readonly NavLinkItem[]>(() => SECONDARY_LINKS[this.family()]);
-
-  constructor() {
-    // Load active alerts + pending anomalies (both normal & emergency) once for roles with /ai-review.
-    let loadedFor: RoleFamily | null = null;
-    effect(() => {
-      const family = this.family();
-      if (!this.showsAlerts() || loadedFor === family) return;
-      loadedFor = family;
-      untracked(() => {
-        this.alertsApi
-          .fetchActiveAlerts()
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe({
-            next: () => {
-              this.anomalyApi
-                ?.listPending({ pageIndex: 1, pageSize: 15 })
-                .pipe(takeUntilDestroyed(this.destroyRef))
-                .subscribe({ error: () => undefined });
-            },
-            error: () => {
-              this.anomalyApi
-                ?.listPending({ pageIndex: 1, pageSize: 15 })
-                .pipe(takeUntilDestroyed(this.destroyRef))
-                .subscribe({ error: () => undefined });
-            },
-          });
-      });
-    });
-  }
 }
