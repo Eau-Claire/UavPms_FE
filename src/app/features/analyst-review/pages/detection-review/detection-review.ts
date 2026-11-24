@@ -20,6 +20,9 @@ import { isMaintenanceManager } from '../../../maintenance/data-access/maintenan
 import { ToastService } from '../../../../core/toast/toast.service';
 import { roleFamily } from '../../../../core/auth/roles';
 import { statusColorClass, statusLabel } from '../../../../shared/status/status';
+import { ActiveLearningGateway } from '../../active-learning/active-learning-gateway';
+import { SaveImageLabelsResult } from '../../active-learning/active-learning.models';
+import { LabelEditorModal } from '../../active-learning/label-editor-modal/label-editor-modal';
 import { AnomalyHistoryService } from '../../data-access/anomaly-history.service';
 import {
   AnalysisRunInfo,
@@ -50,7 +53,7 @@ const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'adm
 
 @Component({
   selector: 'app-detection-review',
-  imports: [DatePipe, RouterLink, FormsModule],
+  imports: [DatePipe, RouterLink, FormsModule, LabelEditorModal],
   templateUrl: './detection-review.html',
   styleUrl: './detection-review.scss',
   encapsulation: ViewEncapsulation.None,
@@ -60,6 +63,7 @@ export class DetectionReview {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(AnomalyApi);
+  private readonly activeLearning = inject(ActiveLearningGateway);
   private readonly history = inject(AnomalyHistoryService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly notificationsStore = inject(NotificationsStore, { optional: true });
@@ -115,6 +119,33 @@ export class DetectionReview {
   protected readonly selectedRejectReason = signal<string>(REJECT_REASONS[0].value);
   protected readonly rejectDetailNotes = signal('');
   protected readonly rejectReasons = REJECT_REASONS;
+
+  // Active Learning (isolated behind feature flag — only enabled after rejection)
+  protected readonly activeLearningEnabled = this.activeLearning.enabled;
+  protected readonly canEditLabels = computed(
+    () =>
+      this.activeLearningEnabled &&
+      this.canReview() &&
+      this.detection()?.validationStatus === 'Rejected',
+  );
+  protected readonly showLabelEditor = signal(false);
+  protected readonly showPostRejectPrompt = signal(false);
+  private postRejectNextId: string | null = null;
+
+  protected readonly currentLabelStatus = computed(() => {
+    const item = this.detection();
+    if (!item || !this.activeLearningEnabled) return null;
+    return this.activeLearning.statusFor(item);
+  });
+
+  protected readonly modelDisplayName = computed(() => {
+    const run = this.analysisRun();
+    if (run?.modelName) {
+      return run.modelVersion ? `${run.modelName} (${run.modelVersion})` : run.modelName;
+    }
+    const source = this.detection()?.aiSource?.trim();
+    return source || null;
+  });
 
   protected readonly canReview = computed(() => {
     const family = roleFamily(this.auth.user()?.role);
@@ -448,9 +479,16 @@ export class DetectionReview {
           );
 
           const next = this.nextPendingId();
-          if (next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000') {
+          const validNext =
+            next && next !== item.id && next !== '00000000-0000-0000-0000-000000000000' ? next : null;
+
+          if (this.activeLearningEnabled) {
+            this.postRejectNextId = validNext;
+            this.toast.warning(`Đã từ chối phát hiện #${item.id}.`);
+            this.showPostRejectPrompt.set(true);
+          } else if (validNext) {
             this.toast.warning(`Đã từ chối phát hiện #${item.id}. Đang chuyển sang sự cố tiếp theo...`);
-            void this.router.navigate(['/ai-review', next]);
+            void this.router.navigate(['/ai-review', validNext]);
           } else {
             this.toast.warning(`Đã từ chối phát hiện #${item.id}. Hoàn tất toàn bộ hàng đợi thẩm định!`);
             void this.router.navigate(['/ai-review']);
@@ -516,6 +554,39 @@ export class DetectionReview {
           this.toast.error(msg);
         },
       });
+  }
+
+  protected openLabelEditor(): void {
+    if (!this.canEditLabels()) return;
+    this.showPostRejectPrompt.set(false);
+    this.showLabelEditor.set(true);
+  }
+
+  protected closeLabelEditor(): void {
+    this.showLabelEditor.set(false);
+  }
+
+  protected onLabelsSaved(result: SaveImageLabelsResult): void {
+    this.showLabelEditor.set(false);
+    this.detection.update((current) =>
+      current ? { ...current, labelStatus: result.labelStatus } : null,
+    );
+    const labelText =
+      result.labelStatus === 'FullyReviewed'
+        ? 'Đã lưu nhãn toàn ảnh (Đã gắn nhãn).'
+        : 'Đã lưu nhãn ở trạng thái Nháp.';
+    this.toast.success(labelText);
+  }
+
+  protected skipPostRejectLabeling(): void {
+    const next = this.postRejectNextId;
+    this.postRejectNextId = null;
+    this.showPostRejectPrompt.set(false);
+    if (next) {
+      void this.router.navigate(['/ai-review', next]);
+    } else {
+      void this.router.navigate(['/ai-review']);
+    }
   }
 
   protected goBack(): void {

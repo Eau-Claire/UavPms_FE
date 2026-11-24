@@ -40,6 +40,16 @@
           </div>
 
           <div class="toolbar-tools">
+            @if (canEditLabels()) {
+              <button
+                type="button"
+                class="active-learning-edit-btn"
+                title="Mở trình sửa nhãn toàn ảnh (chỉ áp dụng cho ảnh đã từ chối)"
+                (click)="openLabelEditor()"
+              >
+                Sửa nhãn
+              </button>
+            }
             <button
               type="button"
               [class.active]="showBoundingBox()"
@@ -109,6 +119,14 @@
                 <span class="meta-sep" aria-hidden="true">·</span>
                 <span class="text-rose-600 font-semibold">Khẩn cấp</span>
               }
+              @if (currentLabelStatus(); as ls) {
+                <span class="meta-sep" aria-hidden="true">·</span>
+                <span
+                  [class]="ls === 'FullyReviewed' ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-medium'"
+                >
+                  {{ ls === 'FullyReviewed' ? 'Đã gắn nhãn' : 'Nháp' }}
+                </span>
+              }
             </div>
           </div>
 
@@ -133,6 +151,12 @@
               <span class="prop-label">Thời điểm ghi nhận:</span>
               <span class="prop-value tabular-nums">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
             </div>
+            @if (modelDisplayName(); as modelName) {
+              <div class="prop-item">
+                <span class="prop-label">Mô hình AI:</span>
+                <span class="prop-value">{{ modelName }}</span>
+              </div>
+            }
           </div>
 
           @if (item.supersededById) {
@@ -334,4 +358,36 @@
       </div>
     </div>
   </div>
+}
+
+@if (activeLearningEnabled && showPostRejectPrompt()) {
+  <div class="confirm-modal-backdrop" (click)="skipPostRejectLabeling()">
+    <div class="confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="post-reject-al-title" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <h3 id="post-reject-al-title">Kiểm tra toàn bộ ảnh để cải thiện AI?</h3>
+        <button type="button" class="app-btn-action" aria-label="Đóng" (click)="skipPostRejectLabeling()">Đóng</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="confirm-sub">
+          Phát hiện đã được từ chối. Bạn có thể mở trình sửa nhãn toàn ảnh để chỉnh lại các khung vật thể (tùy chọn — không làm thay đổi trạng thái từ chối).
+        </p>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" class="app-btn-secondary" (click)="skipPostRejectLabeling()">Bỏ qua</button>
+        <button type="button" class="app-btn-primary" (click)="openLabelEditor()">Sửa nhãn</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (activeLearningEnabled && showLabelEditor() && detection(); as activeItem) {
+  <app-label-editor-modal
+    [anomaly]="activeItem"
+    [naturalWidth]="imgNaturalWidth()"
+    [naturalHeight]="imgNaturalHeight()"
+    (saved)="onLabelsSaved($event)"
+    (closed)="closeLabelEditor()"
+  />
 }

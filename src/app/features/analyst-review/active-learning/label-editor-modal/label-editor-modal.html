@@ -1,0 +1,328 @@
+<div
+  class="le-backdrop"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="label-editor-title"
+>
+  <div class="le-shell">
+    <!-- Top toolbar -->
+    <header class="le-header">
+      <div class="le-title-group">
+        <h2 id="label-editor-title">Sửa nhãn toàn ảnh</h2>
+        @if (loadedImageWidth() > 0) {
+          <span class="le-meta-pill tabular-nums">
+            {{ loadedImageWidth() }} × {{ loadedImageHeight() }} px
+          </span>
+        }
+        @if (context()?.frameIndex !== null && context()?.frameIndex !== undefined) {
+          <span class="le-meta-pill tabular-nums">Frame #{{ context()?.frameIndex }}</span>
+        }
+        @if (isLocalMode) {
+          <span
+            class="le-local-note"
+            title="Dữ liệu nhãn hiện lưu tạm trên trình duyệt, sẵn sàng nối API khi backend hoàn tất"
+          >
+            Lưu cục bộ · chờ API
+          </span>
+        }
+      </div>
+
+      <div class="le-toolbar" role="toolbar" aria-label="Công cụ chỉnh sửa nhãn">
+        <div class="le-tool-group" role="group" aria-label="Chế độ con trỏ">
+          <button
+            type="button"
+            class="le-tool-btn"
+            [class.active]="effectiveTool() === 'select'"
+            (click)="setTool('select')"
+            title="Chọn và kéo/đổi kích thước khung (V)"
+          >
+            Chọn (V)
+          </button>
+          <button
+            type="button"
+            class="le-tool-btn"
+            [class.active]="effectiveTool() === 'draw'"
+            (click)="setTool('draw')"
+            title="Vẽ khung mới cho vật thể bị sót (N)"
+          >
+            Vẽ khung (N)
+          </button>
+          <button
+            type="button"
+            class="le-tool-btn"
+            [class.active]="effectiveTool() === 'pan'"
+            (click)="setTool('pan')"
+            title="Kéo di chuyển ảnh (giữ Space)"
+          >
+            Di chuyển
+          </button>
+        </div>
+
+        <div class="le-tool-group" role="group" aria-label="Thu phóng">
+          <button type="button" class="le-tool-btn" aria-label="Thu nhỏ" (click)="zoomOut()">−</button>
+          <button type="button" class="le-tool-btn tabular-nums" (click)="resetView()" title="Đặt lại tỉ lệ 100%">
+            {{ zoomPercent() }}
+          </button>
+          <button type="button" class="le-tool-btn" aria-label="Phóng to" (click)="zoomIn()">+</button>
+        </div>
+
+        <div class="le-tool-group" role="group" aria-label="Lịch sử chỉnh sửa">
+          <button
+            type="button"
+            class="le-tool-btn"
+            [disabled]="!canUndo()"
+            (click)="undo()"
+            title="Hoàn tác (Ctrl+Z)"
+          >
+            Hoàn tác
+          </button>
+          <button
+            type="button"
+            class="le-tool-btn"
+            [disabled]="!canRedo()"
+            (click)="redo()"
+            title="Làm lại (Ctrl+Y)"
+          >
+            Làm lại
+          </button>
+          <button
+            type="button"
+            class="le-tool-btn"
+            [disabled]="!canResetToAi()"
+            (click)="resetToAiBoxes()"
+            title="Khôi phục toàn bộ về khung gốc của AI"
+          >
+            Hoàn tác tất cả
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="le-close-btn"
+          aria-label="Đóng trình sửa nhãn"
+          [disabled]="saving()"
+          (click)="close()"
+        >
+          Đóng
+        </button>
+      </div>
+    </header>
+
+    @if (error()) {
+      <div class="le-error-bar" role="alert">{{ error() }}</div>
+    }
+
+    <!-- Main workspace -->
+    <div class="le-workspace">
+      <!-- Left/Center: Interactive image canvas -->
+      <section
+        class="le-stage"
+        [class.mode-draw]="effectiveTool() === 'draw'"
+        [class.mode-pan]="effectiveTool() === 'pan'"
+        aria-label="Vùng vẽ và chỉnh sửa khung nhãn"
+        (wheel)="onStageWheel($event)"
+        (pointerdown)="onStagePointerDown($event)"
+        (pointermove)="onStagePointerMove($event)"
+        (pointerup)="onStagePointerUp($event)"
+        (pointercancel)="onStagePointerUp($event)"
+      >
+        @if (loading() || frameExtracting()) {
+          <div class="le-stage-placeholder">
+            {{ frameExtracting() ? 'Đang trích xuất frame từ video...' : 'Đang tải ảnh và danh sách nhãn...' }}
+          </div>
+        } @else if (frameExtractError()) {
+          <div class="le-stage-placeholder le-stage-error" role="alert">
+            {{ frameExtractError() }}
+          </div>
+        } @else if (displayImageUrl()) {
+          <div class="le-canvas-wrap" [style.transform]="stageTransform()">
+            <img
+              #editorImage
+              class="le-image"
+              [src]="displayImageUrl()"
+              [alt]="anomaly().categoryName || 'Ảnh kiểm tra'"
+              draggable="false"
+              (load)="onImageLoad($event)"
+            />
+
+            <div class="le-overlay-layer">
+              @for (box of boxes(); track box.id) {
+                @let meta = getLabelClassMeta(box.className);
+                @let isSelected = selectedBoxId() === box.id;
+                <div
+                  class="le-box"
+                  [class.selected]="isSelected"
+                  [style.left]="boxPercent(box.x)"
+                  [style.top]="boxPercent(box.y)"
+                  [style.width]="boxPercent(box.width)"
+                  [style.height]="boxPercent(box.height)"
+                  [style.border-color]="meta.color"
+                  [style.background-color]="meta.fill"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-label]="meta.label"
+                  (pointerdown)="onBoxPointerDown(box, $event)"
+                  (click)="$event.stopPropagation(); selectBox(box.id)"
+                  (keydown.enter)="selectBox(box.id)"
+                >
+                  <span class="le-box-tag" [style.background-color]="meta.color">
+                    {{ meta.shortLabel }}
+                    @if (box.confidence !== null) {
+                      · {{ box.confidence }}%
+                    } @else {
+                      · Thủ công
+                    }
+                  </span>
+
+                  @if (isSelected && effectiveTool() === 'select') {
+                    @for (handle of resizeHandles; track handle) {
+                      <span
+                        class="le-handle"
+                        [class]="'le-handle le-handle-' + handle"
+                        [style.border-color]="meta.color"
+                        (pointerdown)="onHandlePointerDown(box, handle, $event)"
+                      ></span>
+                    }
+                  }
+                </div>
+              }
+
+              @if (draftDrawRect(); as draft) {
+                @let drawMeta = getLabelClassMeta(activeDrawClass());
+                <div
+                  class="le-box le-box-draft"
+                  [style.left]="boxPercent(draft.x)"
+                  [style.top]="boxPercent(draft.y)"
+                  [style.width]="boxPercent(draft.width)"
+                  [style.height]="boxPercent(draft.height)"
+                  [style.border-color]="drawMeta.color"
+                  [style.background-color]="drawMeta.fill"
+                ></div>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="le-stage-placeholder">Không có hình ảnh khả dụng cho phát hiện này.</div>
+        }
+
+        <div class="le-shortcuts-hint" aria-hidden="true">
+          Phím tắt: 1–6 đổi lớp · Del xóa khung · N vẽ khung · Space + kéo để di chuyển · Cuộn chuột để phóng to
+        </div>
+      </section>
+
+      <!-- Right sidebar: Boxes list + Fully reviewed confirmation -->
+      <aside class="le-sidebar" aria-label="Danh sách nhãn và lưu thay đổi">
+        <div class="le-side-section">
+          <label for="le-draw-class" class="le-field-label">Lớp mặc định khi vẽ khung mới</label>
+          <select
+            id="le-draw-class"
+            class="le-select"
+            [value]="activeDrawClass()"
+            (change)="onDefaultDrawClassChange($event)"
+          >
+            @for (cls of classes; track cls.code) {
+              <option [value]="cls.code">[{{ cls.shortcut }}] {{ cls.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="le-boxes-section">
+          <div class="le-section-head">
+            <span>Khung nhãn trên ảnh</span>
+            <span class="le-count-badge tabular-nums">{{ boxes().length }}</span>
+          </div>
+
+          @if (boxes().length === 0) {
+            <div class="le-empty-boxes" role="status">
+              <strong>Ảnh không có vật thể/lỗi</strong>
+              <p>Vẫn có thể lưu làm mẫu âm hợp lệ cho huấn luyện, hoặc chọn "Vẽ khung (N)" để thêm mới.</p>
+            </div>
+          } @else {
+            <ul class="le-box-list">
+              @for (box of boxes(); track box.id; let idx = $index) {
+                @let meta = getLabelClassMeta(box.className);
+                <li
+                  class="le-box-row"
+                  [class.selected]="selectedBoxId() === box.id"
+                  (click)="selectBox(box.id)"
+                >
+                  <span class="le-color-dot" [style.background-color]="meta.color" aria-hidden="true"></span>
+
+                  <div class="le-box-row-main">
+                    <select
+                      class="le-row-select"
+                      [attr.aria-label]="'Chọn lớp cho khung số ' + (idx + 1)"
+                      [value]="box.className"
+                      (click)="$event.stopPropagation()"
+                      (change)="onBoxClassSelect(box.id, $event)"
+                    >
+                      @for (cls of classes; track cls.code) {
+                        <option [value]="cls.code">{{ cls.label }}</option>
+                      }
+                    </select>
+                    <div class="le-box-row-meta tabular-nums">
+                      @if (box.confidence !== null) {
+                        <span>AI · {{ box.confidence }}%</span>
+                      } @else {
+                        <span>Vẽ thủ công</span>
+                      }
+                      <span>·</span>
+                      <span>{{ (box.width * 100).toFixed(0) }}% × {{ (box.height * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="le-row-delete"
+                    [attr.aria-label]="'Xóa khung ' + meta.label"
+                    (click)="$event.stopPropagation(); deleteBox(box.id)"
+                  >
+                    Xóa
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <footer class="le-save-footer">
+          <label class="le-confirm-check">
+            <input
+              type="checkbox"
+              [checked]="fullyReviewed()"
+              (change)="onFullyReviewedChange($event)"
+            />
+            <span>Tôi đã kiểm tra toàn bộ ảnh, mọi vật thể đều đã được gắn nhãn</span>
+          </label>
+
+          <p class="le-convention-note">
+            @if (fullyReviewed()) {
+              Ảnh sẽ được đánh dấu <strong>Đã gắn nhãn</strong> để đưa vào tập huấn luyện AI.
+            } @else {
+              Chưa đánh dấu kiểm tra đủ → lưu ở trạng thái <strong>Nháp</strong> (chưa dùng huấn luyện).
+            }
+          </p>
+
+          <div class="le-save-actions">
+            <button
+              type="button"
+              class="app-btn-secondary"
+              [disabled]="saving()"
+              (click)="close()"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              class="app-btn-primary"
+              [disabled]="loading() || saving() || frameExtracting()"
+              (click)="save()"
+            >
+              {{ saving() ? 'Đang lưu...' : 'Lưu nhãn' }}
+            </button>
+          </div>
+        </footer>
+      </aside>
+    </div>
+  </div>
+</div>

@@ -14,6 +14,14 @@ import { debounceTime, distinctUntilChanged, finalize, Subject, Subscription } f
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { statusColorClass, statusLabel } from '../../../../shared/status/status';
+import { ToastService } from '../../../../core/toast/toast.service';
+import { ActiveLearningGateway } from '../../active-learning/active-learning-gateway';
+import {
+  LabelStatus,
+  LearningAcceptanceStatus,
+  SaveImageLabelsResult,
+} from '../../active-learning/active-learning.models';
+import { LabelEditorModal } from '../../active-learning/label-editor-modal/label-editor-modal';
 import {
   AnomalyApi,
   anomalyErrorMessage,
@@ -23,11 +31,11 @@ import {
   groupSuperseded,
 } from '../../data-access/anomaly-api';
 
-type ReviewStatusFilter = 'Pending' | 'Confirmed' | 'Rejected';
+type ReviewStatusFilter = 'Pending' | 'Confirmed' | 'Rejected' | 'Labeling';
 
 @Component({
   selector: 'app-detection-list',
-  imports: [DatePipe, RouterLink, Pagination],
+  imports: [DatePipe, RouterLink, Pagination, LabelEditorModal],
   templateUrl: './detection-list.html',
   styleUrl: './detection-list.scss',
   encapsulation: ViewEncapsulation.None,
@@ -35,12 +43,19 @@ type ReviewStatusFilter = 'Pending' | 'Confirmed' | 'Rejected';
 })
 export class DetectionList {
   private readonly api = inject(AnomalyApi);
+  private readonly activeLearning = inject(ActiveLearningGateway);
+  private readonly toast = inject(ToastService);
   private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly searchSubject = new Subject<string>();
   private activeSub: Subscription | null = null;
+
+  protected readonly activeLearningEnabled = this.activeLearning.enabled;
+  protected readonly activeLearningLocalMode = this.activeLearning.isLocalMode;
+  protected readonly editingLabelItem = signal<AnomalyItem | null>(null);
+  protected readonly submittingLearningId = signal<string | null>(null);
 
   protected readonly initialLoading = signal(true);
   protected readonly fetching = signal(false);
@@ -99,6 +114,8 @@ export class DetectionList {
         return 'Chưa có phát hiện nào được chấp nhận';
       case 'Rejected':
         return 'Không có phát hiện nào bị từ chối';
+      case 'Labeling':
+        return 'Chưa có ảnh bị từ chối nào để sửa nhãn';
       case 'Pending':
       default:
         return 'Không có phát hiện nào cần thẩm định';
@@ -111,6 +128,8 @@ export class DetectionList {
         return 'Các kết quả phát hiện khuyết tật sau khi được chấp nhận sẽ hiển thị tại đây.';
       case 'Rejected':
         return 'Các kết quả phát hiện bị từ chối hoặc báo động giả sẽ hiển thị tại đây.';
+      case 'Labeling':
+        return 'Các ảnh đã bị từ chối sẽ xuất hiện tại đây để chuyên viên sửa nhãn và gửi thử cho AI học.';
       case 'Pending':
       default:
         return 'Tất cả các kết quả phát hiện khuyết tật đã được xử lý hoàn tất hoặc không có dữ liệu phù hợp.';
@@ -289,6 +308,55 @@ export class DetectionList {
       item.validationStatus === 'Rejected' ||
       item.validationStatus === 'Resolved'
     );
+  }
+
+  protected labelStatusFor(item: AnomalyItem): LabelStatus | null {
+    return this.activeLearning.statusFor(item);
+  }
+
+  protected learningStatusFor(item: AnomalyItem): LearningAcceptanceStatus | null {
+    return this.activeLearning.learningStatusFor(item);
+  }
+
+  protected openLabelEditorFor(item: AnomalyItem): void {
+    if (!this.activeLearningEnabled) return;
+    this.editingLabelItem.set(item);
+  }
+
+  protected closeLabelEditor(): void {
+    this.editingLabelItem.set(null);
+  }
+
+  protected onListLabelsSaved(result: SaveImageLabelsResult): void {
+    this.editingLabelItem.set(null);
+    const msg =
+      result.labelStatus === 'FullyReviewed'
+        ? 'Đã lưu nhãn toàn ảnh (Đã gắn nhãn). Bạn có thể bấm "Gửi AI học" để kiểm tra.'
+        : 'Đã lưu nhãn ở trạng thái Nháp.';
+    this.toast.success(msg);
+  }
+
+  protected submitForAiLearning(item: AnomalyItem): void {
+    if (!this.activeLearningEnabled || this.submittingLearningId()) return;
+    this.submittingLearningId.set(item.id);
+    this.activeLearning
+      .submitForLearning(item)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.submittingLearningId.set(null)),
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.status === 'Accepted') {
+            this.toast.success(res.message);
+          } else {
+            this.toast.warning(res.message);
+          }
+        },
+        error: () => {
+          this.toast.error('Không thể gửi ảnh kiểm tra học AI.');
+        },
+      });
   }
 
   protected handleImageError(event: Event): void {
