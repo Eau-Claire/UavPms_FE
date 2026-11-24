@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MaintenanceTicket } from '../../../../models/maintenance.models';
 import { DataState } from '../../../../shared/components/data-state/data-state';
@@ -16,7 +16,6 @@ import {
 } from '../../data-access/field-dashboard';
 import { pollResource } from '../../data-access/polled-resource';
 import { FieldHomeHeader } from '../field-home-header/field-home-header';
-import { PersonalAlertsCard } from '../personal-alerts-card/personal-alerts-card';
 
 interface TicketGroupView {
   readonly key: TechnicianTicketGroupKey;
@@ -31,7 +30,7 @@ const DRONE_PREVIEW = 8;
 /** "Việc của tôi" for Technician / MaintenanceTechnician: my maintenance tickets and drones needing a technical check. */
 @Component({
   selector: 'app-technician-home',
-  imports: [DatePipe, RouterLink, DataState, FieldHomeHeader, PersonalAlertsCard],
+  imports: [DatePipe, RouterLink, DataState, FieldHomeHeader],
   templateUrl: './technician-home.html',
   styleUrl: './technician-home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,7 +38,6 @@ const DRONE_PREVIEW = 8;
 export class TechnicianHome {
   private readonly maintenanceApi = inject(MaintenanceApi);
   private readonly droneApi = inject(DroneManagementApi);
-  private readonly alertsCard = viewChild(PersonalAlertsCard);
 
   protected readonly tickets = pollResource(() => this.maintenanceApi.mine(), {
     errorMessage: 'Không thể tải phiếu bảo trì của bạn.',
@@ -88,6 +86,5 @@ export class TechnicianHome {
   protected refresh(): void {
     this.tickets.refresh();
     this.drones.refresh();
-    this.alertsCard()?.refresh();
   }
 }

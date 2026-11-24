@@ -1,4 +1,4 @@
-<div class="field-home">
+<div class="ops-page field-home">
   <app-field-home-header
     subtitle="Phát hiện AI chờ thẩm định và cảnh báo khẩn cấp cần xử lý."
     [loading]="loading()"
@@ -27,13 +27,13 @@
     </li>
   </ul>
 
-  <div class="home-grid">
-    <div class="home-main">
+  <div class="home-main">
+    <div class="field-overview-grid">
       <!-- Pending AI detections -->
-      <section class="panel" [class.panel-accent]="pendingTotal() > 0" aria-labelledby="analyst-pending-title">
+      <section class="panel" aria-labelledby="analyst-pending-title">
         <header>
           <h2 id="analyst-pending-title">Phát hiện AI chờ duyệt <span class="group-count">{{ pendingTotal() }}</span></h2>
-          <a routerLink="/ai-review">Duyệt ngay</a>
+          <a routerLink="/ai-review">Duyệt ngay →</a>
         </header>
         @if (pending.loading() && !pending.value()) {
           <app-data-state kind="loading" title="Đang tải phát hiện AI" />
@@ -77,7 +77,7 @@
       <section class="panel" aria-labelledby="analyst-emergency-title">
         <header>
           <h2 id="analyst-emergency-title">Cảnh báo khẩn cấp đang hoạt động <span class="group-count">{{ emergencyItems().length }}</span></h2>
-          <a routerLink="/emergency-alerts">Xử lý cảnh báo</a>
+          <a routerLink="/emergency-alerts">Xử lý cảnh báo →</a>
         </header>
         @if (emergencies.loading() && !emergencies.value()) {
           <app-data-state kind="loading" title="Đang tải cảnh báo khẩn cấp" />
@@ -110,29 +110,25 @@
           <p class="panel-empty">Không có cảnh báo khẩn cấp nào đang hoạt động.</p>
         }
       </section>
-
-      <!-- System recent defects -->
-      <section class="panel panel-defects" aria-labelledby="analyst-defects-title">
-        <header>
-          <h2 id="analyst-defects-title">Sự cố gần đây trên toàn hệ thống</h2>
-          <a routerLink="/inspections">Xem lịch sử kiểm tra</a>
-        </header>
-        @if (defects.value(); as page) {
-          @if (page.items.length) {
-            <app-recent-defects-table [data]="page" (pageChanged)="changeDefectsPage($event)" />
-          } @else {
-            <p class="panel-empty">Chưa có sự cố gần đây.</p>
-          }
-        } @else if (defects.error()) {
-          <app-data-state kind="error" [message]="defects.error() || ''" (retry)="defects.refresh()" />
-        } @else {
-          <app-data-state kind="loading" title="Đang tải sự cố gần đây" />
-        }
-      </section>
     </div>
 
-    <aside class="home-side" aria-label="Thông báo của tôi">
-      <app-personal-alerts-card />
-    </aside>
+    <!-- System recent defects (full-width — no horizontal clipping) -->
+    <section class="panel panel-defects" aria-labelledby="analyst-defects-title">
+      <header>
+        <h2 id="analyst-defects-title">Sự cố gần đây trên toàn hệ thống</h2>
+        <a routerLink="/inspections">Xem lịch sử kiểm tra →</a>
+      </header>
+      @if (defects.value(); as page) {
+        @if (page.items.length) {
+          <app-recent-defects-table [data]="page" (pageChanged)="changeDefectsPage($event)" />
+        } @else {
+          <p class="panel-empty">Chưa có sự cố gần đây.</p>
+        }
+      } @else if (defects.error()) {
+        <app-data-state kind="error" [message]="defects.error() || ''" (retry)="defects.refresh()" />
+      } @else {
+        <app-data-state kind="loading" title="Đang tải sự cố gần đây" />
+      }
+    </section>
   </div>
 </div>

@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { AnomalyApi } from '../../../analyst-review/data-access/anomaly-api';
@@ -8,7 +8,6 @@ import { ALERT_PRIORITY_LABELS, ActiveEmergencyAlert } from '../../../emergency-
 import { MonitorApi } from '../../data-access/monitor-api';
 import { pollResource } from '../../data-access/polled-resource';
 import { FieldHomeHeader } from '../field-home-header/field-home-header';
-import { PersonalAlertsCard } from '../personal-alerts-card/personal-alerts-card';
 import { RecentDefectsTable } from '../recent-defects-table/recent-defects-table';
 
 export const ANALYST_PENDING_PREVIEW = 5;
@@ -19,7 +18,7 @@ const PRIORITY_TONES: Record<string, string> = { Critical: 'danger', High: 'dang
 /** "Việc của tôi" for Analyst: AI detections waiting for review, active emergency alerts, recent system defects. */
 @Component({
   selector: 'app-analyst-home',
-  imports: [DatePipe, DecimalPipe, RouterLink, DataState, FieldHomeHeader, PersonalAlertsCard, RecentDefectsTable],
+  imports: [DatePipe, DecimalPipe, RouterLink, DataState, FieldHomeHeader, RecentDefectsTable],
   templateUrl: './analyst-home.html',
   styleUrl: './analyst-home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -28,7 +27,6 @@ export class AnalystHome {
   private readonly anomalyApi = inject(AnomalyApi);
   private readonly emergencyApi = inject(EmergencyAlertsApi);
   private readonly monitorApi = inject(MonitorApi);
-  private readonly alertsCard = viewChild(PersonalAlertsCard);
   private readonly defectsPage = signal(1);
 
   protected readonly pending = pollResource(() => this.anomalyApi.listPending({ pageIndex: 1, pageSize: ANALYST_PENDING_PREVIEW }), {
@@ -72,6 +70,5 @@ export class AnalystHome {
     this.pending.refresh();
     this.emergencies.refresh();
     this.defects.refresh();
-    this.alertsCard()?.refresh();
   }
 }

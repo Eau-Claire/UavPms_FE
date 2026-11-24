@@ -81,6 +81,12 @@ export interface AnomalyItem {
   readonly createdAt: string;
   readonly severity: number | null;
   readonly isEmergency: boolean;
+  /** Optional metadata for Active Learning (whole-image & video-frame labeling). */
+  readonly mediaId?: string | null;
+  readonly frameIndex?: number | null;
+  readonly timestampSeconds?: number | null;
+  readonly frameImageUrl?: string | null;
+  readonly labelStatus?: 'FullyReviewed' | 'Draft' | null;
 }
 
 export interface AnomalyPage {
@@ -775,6 +781,17 @@ export const normalizeAnomalyItem = (item: unknown, index = 0): AnomalyItem => {
     createdAt: stringValue(source['createdAt']),
     severity: Number.isFinite(severity) && severity > 0 ? severity : null,
     isEmergency: Boolean(pick(source, 'isEmergency', 'isEmergencyClass')),
+    mediaId: optionalString(pick(source, 'mediaId', 'imageId', 'fileId')),
+    frameIndex: source['frameIndex'] !== undefined && source['frameIndex'] !== null ? numberValue(source['frameIndex']) : null,
+    timestampSeconds:
+      source['timestampSeconds'] !== undefined && source['timestampSeconds'] !== null
+        ? numberValue(source['timestampSeconds'])
+        : null,
+    frameImageUrl: optionalString(pick(source, 'frameImageUrl', 'frameUrl')),
+    labelStatus:
+      source['labelStatus'] === 'FullyReviewed' || source['labelStatus'] === 'Draft'
+        ? source['labelStatus']
+        : null,
   };
 };
 

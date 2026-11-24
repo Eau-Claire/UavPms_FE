@@ -44,7 +44,33 @@
     >
       <span>Từ chối</span>
     </button>
+
+    @if (activeLearningEnabled) {
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="statusFilter() === 'Labeling'"
+        [class.active]="statusFilter() === 'Labeling'"
+        (click)="setStatusFilter('Labeling')"
+      >
+        <span>Sửa nhãn</span>
+      </button>
+    }
   </nav>
+
+  @if (activeLearningEnabled && statusFilter() === 'Labeling') {
+    <div
+      role="note"
+      style="margin-bottom: 10px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 12.5px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;"
+    >
+      <span>Chỉ gồm ảnh đã từ chối — chuyên viên có thể sửa nhãn khi rảnh rồi bấm <strong>Gửi AI học</strong> để kiểm tra tiếp nhận.</span>
+      @if (activeLearningLocalMode) {
+        <span style="font-size: 11px; font-weight: 500; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; padding: 1px 8px; border-radius: 999px;">
+          Tạm thời · lưu cục bộ
+        </span>
+      }
+    </div>
+  }
 
   <!-- Compact Flat Filter Toolbar (36px Controls, 0 Icons) -->
   <section class="app-filter-bar" role="search" aria-label="Bộ lọc kết quả thẩm định">
@@ -203,18 +229,48 @@
                     <span [class]="itemStatusColorClass(item)">
                       {{ statusText(item) }}
                     </span>
+                    @if (labelStatusFor(item); as ls) {
+                      <span
+                        [class]="ls === 'FullyReviewed' ? 'text-emerald-700 font-medium' : 'text-amber-700 font-medium'"
+                        style="display: block; font-size: 11px; margin-top: 2px;"
+                      >
+                        {{ ls === 'FullyReviewed' ? 'Đã gắn nhãn' : 'Nháp' }}
+                      </span>
+                    }
                   </td>
                   <td class="tabular-nums cell-secondary">
                     {{ item.createdAt | date: 'dd/MM/yyyy' }}
                   </td>
                   <td class="col-center col-sticky-right">
-                    <button
-                      type="button"
-                      class="app-btn-action"
-                      (click)="$event.stopPropagation(); openDetail(item)"
-                    >
-                      {{ isItemFinalized(item) ? 'Chi tiết' : 'Thẩm định' }}
-                    </button>
+                    @if (statusFilter() === 'Labeling' && activeLearningEnabled) {
+                      <div style="display: inline-flex; gap: 6px; align-items: center;">
+                        <button
+                          type="button"
+                          class="app-btn-action"
+                          (click)="$event.stopPropagation(); openLabelEditorFor(item)"
+                        >
+                          Sửa nhãn
+                        </button>
+                        @if (labelStatusFor(item) === 'FullyReviewed') {
+                          <button
+                            type="button"
+                            class="app-btn-action"
+                            [disabled]="submittingLearningId() === item.id"
+                            (click)="$event.stopPropagation(); submitForAiLearning(item)"
+                          >
+                            {{ learningStatusFor(item) === 'Accepted' ? 'AI đã nhận' : 'Gửi AI học' }}
+                          </button>
+                        }
+                      </div>
+                    } @else {
+                      <button
+                        type="button"
+                        class="app-btn-action"
+                        (click)="$event.stopPropagation(); openDetail(item)"
+                      >
+                        {{ isItemFinalized(item) ? 'Chi tiết' : 'Thẩm định' }}
+                      </button>
+                    }
                   </td>
                 </tr>
               }
@@ -286,6 +342,14 @@
               <div class="card-body">
                 <div class="card-status-row">
                   <span [class]="itemStatusColorClass(item)">{{ statusText(item) }}</span>
+                  @if (labelStatusFor(item); as ls) {
+                    <span
+                      [class]="ls === 'FullyReviewed' ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-medium'"
+                      style="font-size: 11.5px;"
+                    >
+                      {{ ls === 'FullyReviewed' ? 'Đã gắn nhãn' : 'Nháp' }}
+                    </span>
+                  }
                   <span class="tabular-nums" [class]="confidenceColorClass(item.confidenceScore)">{{ item.confidenceScore }}%</span>
                 </div>
 
@@ -313,13 +377,35 @@
 
               <div class="card-footer">
                 <span class="time-text tabular-nums">{{ item.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-                <button
-                  type="button"
-                  class="app-btn-action"
-                  (click)="openDetail(item)"
-                >
-                  {{ isItemFinalized(item) ? 'Xem chi tiết' : 'Thẩm định' }}
-                </button>
+                @if (statusFilter() === 'Labeling' && activeLearningEnabled) {
+                  <div style="display: inline-flex; gap: 6px; align-items: center;">
+                    <button
+                      type="button"
+                      class="app-btn-action"
+                      (click)="openLabelEditorFor(item)"
+                    >
+                      Sửa nhãn
+                    </button>
+                    @if (labelStatusFor(item) === 'FullyReviewed') {
+                      <button
+                        type="button"
+                        class="app-btn-action"
+                        [disabled]="submittingLearningId() === item.id"
+                        (click)="submitForAiLearning(item)"
+                      >
+                        {{ learningStatusFor(item) === 'Accepted' ? 'AI đã nhận' : 'Gửi AI học' }}
+                      </button>
+                    }
+                  </div>
+                } @else {
+                  <button
+                    type="button"
+                    class="app-btn-action"
+                    (click)="openDetail(item)"
+                  >
+                    {{ isItemFinalized(item) ? 'Xem chi tiết' : 'Thẩm định' }}
+                  </button>
+                }
               </div>
             </article>
           }
@@ -340,3 +426,12 @@
     </div>
   }
 </div>
+
+@if (activeLearningEnabled && editingLabelItem(); as editItem) {
+  <app-label-editor-modal
+    [anomaly]="editItem"
+    [siblingDetections]="displayedItems()"
+    (saved)="onListLabelsSaved($event)"
+    (closed)="closeLabelEditor()"
+  />
+}

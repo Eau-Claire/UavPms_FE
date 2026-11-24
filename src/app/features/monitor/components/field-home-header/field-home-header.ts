@@ -3,51 +3,63 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output } f
 import { Auth } from '../../../../core/auth/auth';
 import { roleLabel } from '../../../../core/auth/roles';
 
-/** Compact greeting header shared by the field-role dashboards ("Việc của tôi"). */
+/** Quiet Chrome header shared by the field-role dashboards ("Việc của tôi"), aligned with Admin/Manager dashboard. */
 @Component({
   selector: 'app-field-home-header',
   imports: [DatePipe],
   template: `
-    <header class="field-heading">
-      <div class="heading-left">
+    <header class="page-header field-page-header">
+      <div>
         <nav class="page-breadcrumb" aria-label="Đường dẫn">
           <span>Tổng quan</span>
           <span class="separator">/</span>
           <strong>Việc của tôi</strong>
         </nav>
         <h1>Xin chào, {{ displayName() }}</h1>
-        <p class="subtitle">
-          <span class="role-chip">{{ role() }}</span>
+        <p>
+          <span class="role-label">{{ role() }}</span>
+          <span class="role-sep" aria-hidden="true">·</span>
           <span>{{ subtitle() }}</span>
         </p>
       </div>
-      <div class="heading-actions">
-        <span class="updated" role="status" aria-live="polite">
-          @if (loading()) {
-            Đang cập nhật…
-          } @else if (loadedAt(); as at) {
-            Cập nhật lúc {{ at | date: 'HH:mm' }} · tự làm mới mỗi 60 giây
-          }
-        </span>
-        <button type="button" class="refresh-btn" (click)="refresh.emit()" [disabled]="loading()">Làm mới</button>
+      <div class="head-actions">
+        @if (loading()) {
+          <span class="dash-updated" role="status" aria-live="polite">Đang cập nhật…</span>
+        } @else if (loadedAt(); as at) {
+          <span class="dash-updated tabular-nums" role="status" aria-live="polite">
+            Cập nhật {{ at | date: 'HH:mm' }} · tự làm mới 60 giây
+          </span>
+        }
+        <button
+          type="button"
+          class="app-btn-secondary"
+          (click)="refresh.emit()"
+          [disabled]="loading()"
+        >
+          {{ loading() ? 'Đang tải...' : 'Làm mới' }}
+        </button>
       </div>
     </header>
   `,
   styles: `
-    :host { display: block; }
-    .field-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-    .heading-left { display: flex; flex-direction: column; min-width: 0; }
-    .page-breadcrumb { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; color: #64748b; font-size: 12px; font-weight: 500; }
-    .page-breadcrumb strong { color: #0f172a; font-weight: 600; }
-    h1 { margin: 0 0 4px; color: #0f172a; font-size: 20px; font-weight: 700; line-height: 1.25; }
-    .subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: #64748b; font-size: 13px; line-height: 1.4; }
-    .role-chip { color: #1d4f91; font-size: 12.5px; font-weight: 600; }
-    .heading-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .updated { color: #475569; font-size: 11.5px; }
-    .refresh-btn { height: 30px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #10387d; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .refresh-btn:hover:not(:disabled) { background: #f1f5f9; }
-    .refresh-btn:disabled { cursor: progress; opacity: 0.7; }
-    .refresh-btn:focus-visible { outline: 2px solid #10387d; outline-offset: 1px; }
+    :host {
+      display: block;
+    }
+    .field-page-header {
+      margin-bottom: 14px;
+    }
+    .role-label {
+      color: #1d4f91;
+      font-weight: 600;
+    }
+    .role-sep {
+      margin: 0 6px;
+      color: #cbd5e1;
+    }
+    .dash-updated {
+      font-size: 12.5px;
+      color: #64748b;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

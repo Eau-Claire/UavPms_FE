@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Auth } from '../../../../core/auth/auth';
 import { Mission, missionStatusLabel, normalizeMissionStatus } from '../../../../models/missions.models';
@@ -8,7 +8,6 @@ import { MissionsApi } from '../../../missions/data-access/missions-api';
 import { InspectorGroupKey, groupInspectorMissions, inspectorMissionLink, myResponseStatus } from '../../data-access/field-dashboard';
 import { pollResource } from '../../data-access/polled-resource';
 import { FieldHomeHeader } from '../field-home-header/field-home-header';
-import { PersonalAlertsCard } from '../personal-alerts-card/personal-alerts-card';
 
 interface MissionGroupView {
   readonly key: InspectorGroupKey;
@@ -35,7 +34,7 @@ const STATUS_TONES: Record<string, Tone> = {
 /** "Việc của tôi" for Inspector / Pilot: my missions grouped by what I have to do next (`GET /missions/my`). */
 @Component({
   selector: 'app-inspector-home',
-  imports: [DatePipe, RouterLink, DataState, FieldHomeHeader, PersonalAlertsCard],
+  imports: [DatePipe, RouterLink, DataState, FieldHomeHeader],
   templateUrl: './inspector-home.html',
   styleUrl: './inspector-home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,7 +42,6 @@ const STATUS_TONES: Record<string, Tone> = {
 export class InspectorHome {
   private readonly missionsApi = inject(MissionsApi);
   private readonly auth = inject(Auth);
-  private readonly alertsCard = viewChild(PersonalAlertsCard);
 
   protected readonly missions = pollResource(() => this.missionsApi.my(), {
     errorMessage: 'Không thể tải danh sách nhiệm vụ của bạn.',
@@ -83,6 +81,5 @@ export class InspectorHome {
 
   protected refresh(): void {
     this.missions.refresh();
-    this.alertsCard()?.refresh();
   }
 }
