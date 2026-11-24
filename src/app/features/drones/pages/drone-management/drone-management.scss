@@ -301,24 +301,6 @@
     color: #64748b;
     border: 1px solid #e2e8f0;
   }
-
-  &.badge-suitable {
-    background: #dcfce7;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-  }
-
-  &.badge-split {
-    background: #fef3c7;
-    color: #b45309;
-    border: 1px solid #fde68a;
-  }
-
-  &.badge-unsuitable {
-    background: #fee2e2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-  }
 }
 
 /* Actions cell */
@@ -585,108 +567,6 @@
     border: 1px solid #cbd8e5;
     border-radius: 4px;
     font-size: 12px;
-  }
-}
-
-/* GIS Scope Modal Specifics */
-.gis-intro-text {
-  font-size: 12px;
-  color: #64748b;
-  margin-bottom: 14px;
-  line-height: 1.5;
-}
-
-.gis-calc-form {
-  background: #f8fafc;
-  border: 1px solid #cbd8e5;
-  border-radius: 6px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
-}
-
-.gis-results-box {
-  .gis-summary-bar {
-    display: flex;
-    gap: 16px;
-    padding: 10px 14px;
-    background: #e7f0f9;
-    border-radius: 6px;
-    border: 1px solid #cbd8e5;
-    flex-wrap: wrap;
-
-    .summary-stat {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      .stat-lbl {
-        font-size: 10.5px;
-        color: #526b82;
-        font-weight: 600;
-      }
-
-      .stat-val {
-        font-size: 14px;
-        font-weight: 700;
-        color: #10387d;
-      }
-    }
-  }
-
-  .gis-drones-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-
-    .gis-drone-card {
-      background: #ffffff;
-      border: 1px solid #cbd8e5;
-      border-radius: 6px;
-      padding: 10px 12px;
-
-      &.unsuitable {
-        background: #fef2f2;
-        border-color: #fecaca;
-      }
-
-      .card-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 6px;
-
-        .drone-meta {
-          font-size: 12.5px;
-          color: #0f172a;
-
-          .endurance-tag {
-            font-size: 11px;
-            color: #64748b;
-            margin-left: 6px;
-          }
-        }
-      }
-
-      .card-desc {
-        p {
-          font-size: 11.5px;
-          color: #334155;
-          margin: 0 0 4px 0;
-        }
-
-        .card-specs {
-          display: flex;
-          gap: 16px;
-          font-size: 11px;
-          color: #64748b;
-
-          strong {
-            color: #0f172a;
-          }
-        }
-      }
-    }
   }
 }
 

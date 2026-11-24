@@ -24,7 +24,6 @@ const ticket = (overrides: Partial<MaintenanceTicket> = {}): MaintenanceTicket =
 
 interface ListHarness {
   goToPage(index: number): void;
-  filters: { setValue(value: { status: string; priority: string }): void };
 }
 
 describe('MaintenanceList', () => {
@@ -49,13 +48,19 @@ describe('MaintenanceList', () => {
 
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
+  const setSelect = (id: string, value: string) => {
+    const select = (fixture.nativeElement as HTMLElement).querySelector(`#${id}`) as HTMLSelectElement;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+  };
+
   beforeEach(() => {
     api = {
       list: vi.fn().mockReturnValue(of({
         items: [ticket(), ticket({ id: 't2', ticketCode: 'TKT-2', status: 'InProgress', priority: 'Emergency', technicianId: 'tech1' })],
         totalCount: 45,
         pageIndex: 0,
-        pageSize: 20,
+        pageSize: 10,
       })),
       mine: vi.fn().mockReturnValue(of([
         ticket({ id: 'm1', ticketCode: 'TKT-MY-1', technicianId: 'u1', status: 'InProgress' }),
@@ -67,22 +72,23 @@ describe('MaintenanceList', () => {
 
   it('shows all tickets to a manager, with technician names and unassigned Open tickets', async () => {
     await setup('Manager');
-    expect(api.list).toHaveBeenCalledWith({ pageIndex: 0, pageSize: 20, status: '', priority: '' });
+    expect(api.list).toHaveBeenCalledWith({ pageIndex: 0, pageSize: 10, status: '', priority: '' });
     expect(api.mine).not.toHaveBeenCalled();
     expect(text()).toContain('TKT-20261031-0001');
     expect(text()).toContain('Chưa giao');
     expect(text()).toContain('Nguyễn Văn Thợ');
     expect(text()).toContain('Khẩn cấp');
-    expect(text()).toContain('Đang xử lý');
+    expect(text()).toContain('Đang thực hiện');
   });
 
   it('sends filters and the 0-based page to GET /maintenance/tickets', async () => {
     await setup('SystemAdmin');
     const component = fixture.componentInstance as unknown as ListHarness;
     component.goToPage(1);
-    expect(api.list).toHaveBeenLastCalledWith(expect.objectContaining({ pageIndex: 1 }));
-    component.filters.setValue({ status: 'PendingVerification', priority: 'Emergency' });
-    expect(api.list).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 20, status: 'PendingVerification', priority: 'Emergency' });
+    expect(api.list).toHaveBeenLastCalledWith(expect.objectContaining({ pageIndex: 1, pageSize: 10 }));
+    setSelect('maintenance-status', 'PendingVerification');
+    setSelect('maintenance-priority', 'Emergency');
+    expect(api.list).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 10, status: 'PendingVerification', priority: 'Emergency' });
   });
 
   it('shows a technician only their own tickets from /my and filters them in the browser', async () => {
@@ -93,8 +99,7 @@ describe('MaintenanceList', () => {
     expect(text()).toContain('Phiếu bảo trì của tôi');
     expect(text()).toContain('TKT-MY-1');
     expect(text()).toContain('TKT-MY-2');
-    const component = fixture.componentInstance as unknown as ListHarness;
-    component.filters.setValue({ status: 'Closed', priority: '' });
+    setSelect('maintenance-status', 'Closed');
     fixture.detectChanges();
     expect(text()).not.toContain('TKT-MY-1');
     expect(text()).toContain('TKT-MY-2');

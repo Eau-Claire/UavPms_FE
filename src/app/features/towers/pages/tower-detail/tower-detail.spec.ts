@@ -53,9 +53,11 @@ describe('TowerDetail', () => {
   it('loads GET /towers/{id}/history for the route id and shows live counts', async () => {
     await setup();
     expect(api.history).toHaveBeenCalledWith('t1', { page: 1, pageSize: 20, validationStatus: undefined, from: undefined, to: undefined });
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
     expect(text).toContain('T-01');
-    expect(text).toContain('Bất thường đang mở');
+    expect(el.querySelector('#tower-tab-anomalies')?.textContent).toContain('Bất thường');
+    expect(el.querySelector('#tower-tab-anomalies')?.textContent).toContain('1');
     expect(text).toContain('Nứt sứ');
   });
 
@@ -112,7 +114,7 @@ describe('TowerDetail', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const actions = (fixture.nativeElement as HTMLElement).querySelector('.tower-actions');
+    const actions = (fixture.nativeElement as HTMLElement).querySelector('.head-actions');
     expect(actions?.textContent).toContain('Quay lại Bản đồ GIS');
     const gisLink = actions?.querySelector('a[href="/gis"]');
     expect(gisLink).not.toBeNull();

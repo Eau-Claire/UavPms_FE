@@ -64,7 +64,7 @@ describe('AnalystHome', () => {
   it('shows the pending AI detections count and the top 5 with review links', async () => {
     const { el, anomalyApi } = await setup();
     expect(anomalyApi.listPending).toHaveBeenCalledWith({ pageIndex: 1, pageSize: 5 });
-    expect(el.textContent).toContain('Analyst');
+    expect(el.textContent).toContain('Chuyên viên phân tích');
 
     const pending = el.querySelector('[aria-labelledby="analyst-pending-title"]') as HTMLElement;
     expect(pending.querySelector('.group-count')?.textContent?.trim()).toBe('17');

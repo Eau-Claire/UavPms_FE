@@ -48,7 +48,7 @@ describe('Status Utility', () => {
       expect(statusLabel('PASSED')).toBe('Đạt');
       expect(statusLabel('FAIL')).toBe('Không đạt');
       expect(statusLabel('FAILED')).toBe('Không đạt');
-      expect(statusLabel('PENDING')).toBe('Chờ xử lý');
+      expect(statusLabel('PENDING')).toBe('Chờ duyệt');
     });
 
     it('returns unknown custom status text unchanged', () => {

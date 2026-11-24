@@ -69,15 +69,6 @@ describe('DroneManagement Component', () => {
       deleteDrone: vi.fn().mockReturnValue(of(undefined)),
       getTechnicalInspections: vi.fn().mockReturnValue(of([{ id: 'i1', status: 'Passed', health: 'Healthy', technicianName: 'KTV A', completedAt: '2026-10-30T08:00:00Z', metricCount: 8 }])),
       submitBasicTechnicalCheck: vi.fn().mockReturnValue(of({ status: 'Passed', health: 'Healthy' })),
-      estimateGisScope: vi.fn().mockReturnValue(of({
-        corridorLengthKm: 5,
-        assetCount: 10,
-        estimatedMissionDurationMinutes: 28,
-        averageSpeedKmh: 36,
-        reserveBatteryPercent: 20,
-        inspectionMinutesPerAsset: 3,
-        drones: [],
-      })),
     };
 
     await TestBed.configureTestingModule({
@@ -127,13 +118,13 @@ describe('DroneManagement Component', () => {
   const buttonTitles = (): string[] =>
     Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map((b) => b.getAttribute('title') ?? b.textContent?.trim() ?? '');
 
-  it('shows add, edit, delete and the GIS estimate to managers', () => {
+  it('shows add, edit and delete to managers without removed GIS estimate', () => {
     (component as any).openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Xóa UAV');
     expect(titles).toContain('Chỉnh sửa thông số UAV');
-    expect(titles).toContain('Ước tính tải Drone theo hành lang GIS');
+    expect(titles).not.toContain('Ước tính tải Drone theo hành lang GIS');
     expect(titles.some((t) => t.includes('Thêm UAV mới'))).toBe(true);
   });
 

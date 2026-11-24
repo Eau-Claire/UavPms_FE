@@ -35,7 +35,7 @@ interface DetailHarness {
 
 describe('MaintenanceDetail', () => {
   let fixture: ComponentFixture<MaintenanceDetail>;
-  let api: Record<'get' | 'technicians' | 'assign' | 'updateStatus' | 'close' | 'uploadProof' | 'logMaterial', ReturnType<typeof vi.fn>>;
+  let api: Record<'get' | 'technicians' | 'assign' | 'updateStatus' | 'close' | 'uploadProof', ReturnType<typeof vi.fn>>;
 
   const setup = async (role: string, data: MaintenanceTicket, userId = 'u1') => {
     api.get.mockReturnValue(of(data));
@@ -68,7 +68,6 @@ describe('MaintenanceDetail', () => {
       updateStatus: vi.fn().mockReturnValue(of(ticket({ status: 'InProgress' }))),
       close: vi.fn().mockReturnValue(of(ticket({ status: 'Closed' }))),
       uploadProof: vi.fn(),
-      logMaterial: vi.fn(),
     };
   });
 
@@ -76,7 +75,7 @@ describe('MaintenanceDetail', () => {
     await setup('Manager', ticket());
     expect(api.get).toHaveBeenCalledWith('t1');
     expect(text()).toContain('TKT-1');
-    expect(text()).toContain('Mới mở');
+    expect(text()).toContain('Đang mở');
     const links = Array.from(element().querySelectorAll('a')).map((anchor) => anchor.getAttribute('href'));
     expect(links).toContain('/towers/tw1');
     expect(links).toContain('/missions/ms1');
@@ -106,11 +105,11 @@ describe('MaintenanceDetail', () => {
     expect(api.get).toHaveBeenCalledTimes(2);
   });
 
-  it('disables "Gửi nghiệm thu" until a proof exists and shows the evidence forms while in progress', async () => {
+  it('disables "Gửi nghiệm thu" until a proof exists and shows only proof upload while in progress', async () => {
     await setup('MaintenanceTechnician', ticket({ technicianId: 'u1', status: 'InProgress' }));
     expect(button('Gửi nghiệm thu')?.disabled).toBe(true);
     expect(element().querySelector('app-proof-upload')).not.toBeNull();
-    expect(element().querySelector('app-material-form')).not.toBeNull();
+    expect(element().querySelector('app-material-form')).toBeNull();
   });
 
   it('enables "Gửi nghiệm thu" when a proof exists and submits PendingVerification', async () => {
