@@ -124,7 +124,7 @@ describe('Auth', () => {
     expect(trustedDevice.isDeviceTrusted('operator@evn.vn')).toBe(true);
 
     // 2. Perform login which asks for OTP from server
-    let result: any;
+    let result: { otpRequired?: boolean } | undefined;
     auth.login({ username: 'operator@evn.vn', password: 'secret12' }).subscribe((val) => (result = val));
 
     const loginReq = http.expectOne(`${environment.apiBaseUrl}/auth/login`);
@@ -143,7 +143,7 @@ describe('Auth', () => {
       },
     });
 
-    expect(result.otpRequired).toBe(false);
+    expect(result?.otpRequired).toBe(false);
     expect(auth.isAuthenticated()).toBe(true);
     expect(auth.user()?.id).toBe('u-trusted');
   });

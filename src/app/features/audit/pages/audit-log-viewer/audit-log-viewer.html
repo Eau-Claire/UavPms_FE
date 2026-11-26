@@ -148,8 +148,16 @@
   </section>
 
   @if (selectedRecord(); as selected) {
-    <div class="audit-modal-backdrop" (click)="closeDetail()" role="dialog" aria-modal="true" aria-labelledby="audit-modal-title">
-      <div class="audit-modal" (click)="$event.stopPropagation()">
+    <div
+      class="audit-modal-backdrop"
+      tabindex="-1"
+      (click)="$event.target === $event.currentTarget && closeDetail()"
+      (keydown.escape)="closeDetail()"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="audit-modal-title"
+    >
+      <div class="audit-modal">
         <header class="audit-modal-header">
           <div>
             <h2 id="audit-modal-title" class="modal-title">Chi tiết nhật ký hệ thống</h2>

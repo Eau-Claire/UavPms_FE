@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { GisAlert, GisAnomalyFeature, GisApi, GisDataSnapshot, GisTower } from '../../data-access/gis-api';
+import { GisAnomalyFeature, GisApi, GisDataSnapshot } from '../../data-access/gis-api';
 import { MissionTargetSelection } from '../../../missions/data-access/mission-target-selection';
 import { GeoJsonPolygon, SelectableAsset } from '../../../../models/assets.models';
 import { GisMonitoring, rectangleToPolygon } from './gis-monitoring';

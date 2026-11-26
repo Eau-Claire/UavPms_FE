@@ -10,10 +10,31 @@ import { DroneManagementApi } from '../../data-access/drone-management-api';
 import { UavRecord } from '../../../../models/drone-management.models';
 import { Auth } from '../../../../core/auth/auth';
 
+interface DroneManagementApiMock {
+  getDrones: ReturnType<typeof vi.fn>;
+  createDrone: ReturnType<typeof vi.fn>;
+  updateDrone: ReturnType<typeof vi.fn>;
+  deleteDrone: ReturnType<typeof vi.fn>;
+  getTechnicalInspections: ReturnType<typeof vi.fn>;
+  submitBasicTechnicalCheck: ReturnType<typeof vi.fn>;
+}
+
+interface DroneManagementHarness {
+  drones(): readonly UavRecord[];
+  stats(): { total: number; available: number; maintenance: number; healthy: number; critical: number };
+  search: { set(value: string): void };
+  statusFilter: { set(value: string): void };
+  healthFilter: { set(value: string): void };
+  filteredDrones(): readonly UavRecord[];
+  historyItems(): readonly unknown[];
+  openHistory(drone: UavRecord): void;
+}
+
 describe('DroneManagement Component', () => {
   let component: DroneManagement;
+  let harness: DroneManagementHarness;
   let fixture: ComponentFixture<DroneManagement>;
-  let apiMock: any;
+  let apiMock: DroneManagementApiMock;
   const authUser = signal<{ id: string; role: string } | null>({ id: 'u1', role: 'Manager' });
 
   const mockDrones: UavRecord[] = [
@@ -85,17 +106,18 @@ describe('DroneManagement Component', () => {
     authUser.set({ id: 'u1', role: 'Manager' });
     fixture = TestBed.createComponent(DroneManagement);
     component = fixture.componentInstance;
+    harness = component as unknown as DroneManagementHarness;
     fixture.detectChanges();
   });
 
   it('should create and load drones list', () => {
     expect(component).toBeTruthy();
     expect(apiMock.getDrones).toHaveBeenCalled();
-    expect((component as any).drones().length).toBe(2);
+    expect(harness.drones().length).toBe(2);
   });
 
   it('should compute KPI statistics properly', () => {
-    const stats = (component as any).stats();
+    const stats = harness.stats();
     expect(stats.total).toBe(2);
     expect(stats.available).toBe(1);
     expect(stats.maintenance).toBe(1);
@@ -104,22 +126,22 @@ describe('DroneManagement Component', () => {
   });
 
   it('should filter drones by search keyword', () => {
-    (component as any).search.set('UAV-001');
-    expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].code).toBe('UAV-001');
+    harness.search.set('UAV-001');
+    expect(harness.filteredDrones().length).toBe(1);
+    expect(harness.filteredDrones()[0].code).toBe('UAV-001');
   });
 
   it('should filter drones by operational status', () => {
-    (component as any).statusFilter.set('Maintenance');
-    expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].code).toBe('UAV-002');
+    harness.statusFilter.set('Maintenance');
+    expect(harness.filteredDrones().length).toBe(1);
+    expect(harness.filteredDrones()[0].code).toBe('UAV-002');
   });
 
   const buttonTitles = (): string[] =>
     Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map((b) => b.getAttribute('title') ?? b.textContent?.trim() ?? '');
 
   it('shows add, edit and delete to managers without removed GIS estimate', () => {
-    (component as any).openHistory(mockDrones[0]);
+    harness.openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Xóa UAV');
@@ -130,7 +152,7 @@ describe('DroneManagement Component', () => {
 
   it('lets technicians edit and check drones but not delete or plan', () => {
     authUser.set({ id: 'u2', role: 'MaintenanceTechnician' });
-    (component as any).openHistory(mockDrones[0]);
+    harness.openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Chỉnh sửa thông số UAV');
@@ -152,16 +174,16 @@ describe('DroneManagement Component', () => {
   });
 
   it('loads the technical inspection history of a drone', () => {
-    (component as any).openHistory(mockDrones[0]);
+    harness.openHistory(mockDrones[0]);
     expect(apiMock.getTechnicalInspections).toHaveBeenCalledWith('d-001', 1, 20);
-    expect((component as any).historyItems().length).toBe(1);
+    expect(harness.historyItems().length).toBe(1);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('KTV A');
   });
 
   it('should filter drones by technical health', () => {
-    (component as any).healthFilter.set('Critical');
-    expect((component as any).filteredDrones().length).toBe(1);
-    expect((component as any).filteredDrones()[0].technicalHealth).toBe('Critical');
+    harness.healthFilter.set('Critical');
+    expect(harness.filteredDrones().length).toBe(1);
+    expect(harness.filteredDrones()[0].technicalHealth).toBe('Critical');
   });
 });

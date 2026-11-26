@@ -1,4 +1,4 @@
-<dialog #dialog class="tower-dialog" aria-labelledby="tower-form-title" (cancel)="onCancel($event)" (click)="onBackdropClick($event)">
+<dialog #dialog class="tower-dialog" tabindex="-1" aria-labelledby="tower-form-title" (cancel)="onCancel($event)" (keydown.escape)="onCancel($event)" (click)="onBackdropClick($event)">
   <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <header class="tower-dialog-head">
       <h2 id="tower-form-title">{{ tower() ? 'Cập nhật cột điện' : 'Thêm cột điện' }}</h2>

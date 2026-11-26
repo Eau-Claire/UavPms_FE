@@ -206,7 +206,7 @@ export class NotificationsStore {
       .markRead(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        error: () => {},
+        error: () => undefined,
       });
   }
 

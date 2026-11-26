@@ -4,7 +4,7 @@ import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, input,
 @Component({
   selector: 'app-tower-confirm-dialog',
   template: `
-    <dialog #dialog class="tower-dialog" role="alertdialog" aria-labelledby="tower-confirm-title" aria-describedby="tower-confirm-message" (cancel)="onCancel($event)" (click)="onBackdropClick($event)">
+    <dialog #dialog class="tower-dialog" role="alertdialog" aria-labelledby="tower-confirm-title" aria-describedby="tower-confirm-message" (cancel)="onCancel($event)" (keydown.escape)="onCancel($event)" (click)="onBackdropClick($event)">
       <header class="tower-dialog-head">
         <h2 id="tower-confirm-title">{{ title() }}</h2>
         <button type="button" class="tower-dialog-close" aria-label="Đóng" [disabled]="busy()" (click)="close()">×</button>

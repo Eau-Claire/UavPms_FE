@@ -206,17 +206,15 @@
             <h3>Danh sách {{ selectedFiles().length }} tệp đã chọn</h3>
             <div class="queued-grid">
               @for (item of selectedFiles(); track item.id) {
-                <div
-                  class="queued-card"
-                  [class.active]="item.id === activeMediaId()"
-                  (click)="selectMedia(item.id)"
-                >
-                  <img [src]="item.thumbnailUrl || item.previewUrl" [alt]="item.name" class="queued-thumb" loading="lazy" decoding="async" />
-                  <div class="queued-info">
-                    <strong [title]="item.name">{{ item.name }}</strong>
-                    <span class="tabular-nums">{{ item.sizeFormatted }} · {{ item.resolution }}</span>
-                  </div>
-                  <button type="button" class="btn-remove-queued" (click)="removeFile(item.id, $event)" aria-label="Xóa">×</button>
+                <div class="queued-card" [class.active]="item.id === activeMediaId()">
+                  <button type="button" class="queued-card-select" (click)="selectMedia(item.id)">
+                    <img [src]="item.thumbnailUrl || item.previewUrl" [alt]="item.name" class="queued-thumb" loading="lazy" decoding="async" />
+                    <div class="queued-info">
+                      <strong [title]="item.name">{{ item.name }}</strong>
+                      <span class="tabular-nums">{{ item.sizeFormatted }} · {{ item.resolution }}</span>
+                    </div>
+                  </button>
+                  <button type="button" class="btn-remove-queued" (click)="removeFile(item.id, $event)" [attr.aria-label]="'Xóa ' + item.name">×</button>
                 </div>
               }
             </div>
@@ -433,9 +431,12 @@
                         [class.emergency]="marker.isEmergency"
                         [style.left.%]="marker.percent"
                         (click)="seekVideo(marker.timestampSeconds); $event.stopPropagation()"
+                        (keydown.enter)="seekVideo(marker.timestampSeconds); $event.stopPropagation()"
+                        (keydown.space)="$event.preventDefault(); seekVideo(marker.timestampSeconds); $event.stopPropagation()"
                         (mouseenter)="setTimelineHoverMarker(marker)"
                         (mouseleave)="setTimelineHoverMarker(null)"
                         role="button"
+                        tabindex="0"
                         [attr.aria-label]="marker.title + ' tại ' + marker.timestampLabel"
                       >
                         <span class="marker-time-tag tabular-nums">{{ marker.timestampLabel }}</span>
@@ -530,7 +531,10 @@
                               [style.width.%]="box.width"
                               [style.height.%]="box.height"
                               (click)="selectDetection(det); $event.stopPropagation()"
+                              (keydown.enter)="selectDetection(det); $event.stopPropagation()"
+                              (keydown.space)="$event.preventDefault(); selectDetection(det); $event.stopPropagation()"
                               role="button"
+                              tabindex="0"
                               [attr.aria-label]="det.title"
                             >
                               <span class="bbox-label-tag">
@@ -554,7 +558,11 @@
                       <div
                         class="strip-item-card"
                         [class.active]="selectedDetection()?.id === det.id"
+                        role="button"
+                        tabindex="0"
                         (click)="selectDetection(det)"
+                        (keydown.enter)="selectDetection(det)"
+                        (keydown.space)="$event.preventDefault(); selectDetection(det)"
                       >
                         <img [src]="det.cropImageUrl || det.imageUrl" [alt]="det.title" class="strip-thumb" loading="lazy" decoding="async" />
                         <div class="strip-info">
