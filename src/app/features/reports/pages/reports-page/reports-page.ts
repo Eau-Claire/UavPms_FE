@@ -8,6 +8,7 @@ import { finalize, Subscription } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { statusColorClass } from '../../../../shared/status/status';
+import { formatVietnameseDateInput, parseDateInputToIso } from '../../../../shared/utils';
 import {
   RegionOption,
   REPORT_TYPE_LABELS,
@@ -21,36 +22,6 @@ import { ReportsApi } from '../../data-access/reports-api';
 
 const FORMAT_LABELS: Record<ReportFileFormat, string> = { pdf: 'PDF', excel: 'Excel' };
 const FORMAT_EXTENSIONS: Record<ReportFileFormat, string> = { pdf: 'pdf', excel: 'xlsx' };
-
-/** Auto-formats numeric input into `dd/MM/yyyy`. */
-const formatDateInput = (raw: string): string => {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-};
-
-/** Converts valid `dd/MM/yyyy` to `yyyy-MM-dd`, rejecting impossible calendar dates (e.g. 31/02/2026). */
-const parseDateInputToIso = (display: string): string => {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
-  if (!match) return '';
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
-  const probe = new Date(year, month - 1, day);
-  if (probe.getFullYear() !== year || probe.getMonth() !== month - 1 || probe.getDate() !== day) {
-    return '';
-  }
-  return `${year}-${match[2]}-${match[1]}`;
-};
-
-/** Converts a `yyyy-MM-dd` date string to an ISO timestamp at the start or end of that local day. */
-const dayBoundary = (value: string, end: boolean): string | undefined => {
-  if (!value) return undefined;
-  const date = new Date(`${value}T${end ? '23:59:59' : '00:00:00'}`);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
-};
 
 @Component({
   selector: 'app-reports-page',
@@ -372,7 +343,7 @@ export class ReportsPage implements OnInit {
 
   protected onCreateDateEvent(controlName: 'dateFrom' | 'dateTo', event: Event): void {
     const target = event.target as HTMLInputElement | null;
-    const formatted = formatDateInput(target?.value ?? '');
+    const formatted = formatVietnameseDateInput(target?.value ?? '');
     this.createForm.controls[controlName].setValue(formatted);
     if (target && target.value !== formatted) {
       target.value = formatted;
@@ -394,8 +365,8 @@ export class ReportsPage implements OnInit {
       return;
     }
     const value = this.createForm.getRawValue();
-    const fromIso = parseDateInputToIso(value.dateFrom);
-    const toIso = parseDateInputToIso(value.dateTo);
+    const fromIso = parseDateInputToIso(value.dateFrom, 'start');
+    const toIso = parseDateInputToIso(value.dateTo, 'end');
     if ((value.dateFrom.trim() && !fromIso) || (value.dateTo.trim() && !toIso)) {
       this.showToast('Định dạng ngày không hợp lệ. Vui lòng nhập theo dạng dd/MM/yyyy.', 'error');
       return;
@@ -409,8 +380,8 @@ export class ReportsPage implements OnInit {
       title: value.title.trim(),
       type: value.type,
       regionId: value.regionId || undefined,
-      dateFrom: dayBoundary(fromIso, false),
-      dateTo: dayBoundary(toIso, true),
+      dateFrom: fromIso ?? undefined,
+      dateTo: toIso ?? undefined,
       description: value.description.trim() || undefined,
     };
 

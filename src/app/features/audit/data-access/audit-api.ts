@@ -4,6 +4,7 @@ import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { AuditFilters, AuditLogPage, AuditRecord } from '../../../models/audit.models';
+import { asRecord, readArray, readOptionalNumber, readOptionalString, readString } from '../../../shared/utils';
 
 @Injectable({ providedIn: 'root' })
 export class AuditApi {
@@ -48,30 +49,34 @@ export class AuditApi {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const stringValue = (value: unknown, fallback = '') =>
-  value === undefined || value === null ? fallback : String(value);
-
-const numberValue = (value: unknown, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+const readFirstString = (source: Record<string, unknown> | null, keys: readonly string[], fallback = ''): string => {
+  for (const key of keys) {
+    const value = readOptionalString(source, key);
+    if (value !== null) return value;
+  }
+  return fallback;
 };
 
-const itemsValue = (value: unknown): readonly unknown[] => {
+const readFirstNumber = (source: Record<string, unknown> | null, keys: readonly string[]): number | null => {
+  for (const key of keys) {
+    const value = readOptionalNumber(source, key);
+    if (value !== null) return value;
+  }
+  return null;
+};
+
+const itemsValue = (value: unknown): unknown[] => {
   if (Array.isArray(value)) return value;
-  const source = record(value);
-  const items = pick(source, 'items', 'records', 'results', 'data');
-  return Array.isArray(items) ? items : [];
+  const source = asRecord(value);
+  for (const key of ['items', 'records', 'results', 'data']) {
+    if (Array.isArray(source?.[key])) return readArray(source[key]);
+  }
+  return [];
 };
 
 const normalizeAuditLogPage = (value: unknown, filters: AuditFilters): AuditLogPage => {
-  const source = record(value);
-  const paginationSource = record(source['pagination']);
+  const source = asRecord(value);
+  const paginationSource = asRecord(source?.['pagination']);
   const rawItems = itemsValue(value).map(normalizeAuditRecord);
 
   const query = filters.search?.trim().toLowerCase();
@@ -91,14 +96,13 @@ const normalizeAuditLogPage = (value: unknown, filters: AuditFilters): AuditLogP
   const totalItems =
     query && items.length !== rawItems.length
       ? items.length
-      : numberValue(pick(source, 'totalItems', 'totalCount', 'count') ?? paginationSource['totalItems']) ||
+      : (readFirstNumber(source, ['totalItems', 'totalCount', 'count']) ?? readOptionalNumber(paginationSource, 'totalItems')) ||
         items.length;
-  const page =
-    numberValue(pick(source, 'page') ?? paginationSource['page']) || filters.page;
+  const page = (readOptionalNumber(source, 'page') ?? readOptionalNumber(paginationSource, 'page')) || filters.page;
   const pageSize =
-    numberValue(pick(source, 'pageSize') ?? paginationSource['pageSize']) || filters.pageSize;
+    (readOptionalNumber(source, 'pageSize') ?? readOptionalNumber(paginationSource, 'pageSize')) || filters.pageSize;
   const totalPages =
-    numberValue(pick(source, 'totalPages') ?? paginationSource['totalPages']) ||
+    (readOptionalNumber(source, 'totalPages') ?? readOptionalNumber(paginationSource, 'totalPages')) ||
     Math.max(1, Math.ceil(totalItems / pageSize));
 
   return {
@@ -113,18 +117,18 @@ const normalizeAuditLogPage = (value: unknown, filters: AuditFilters): AuditLogP
 };
 
 const normalizeAuditRecord = (value: unknown): AuditRecord => {
-  const source = record(value);
+  const source = asRecord(value);
   return {
-    id: stringValue(source['id']),
-    userId: source['userId'] ? String(source['userId']) : null,
-    operatorEmail: stringValue(pick(source, 'operatorEmail', 'userEmail', 'email'), 'Hệ thống'),
-    tableName: stringValue(pick(source, 'tableName', 'table', 'entity', 'resource'), 'Không xác định'),
-    recordId: stringValue(pick(source, 'recordId', 'entityId', 'id')),
-    actionType: stringValue(pick(source, 'actionType', 'action'), 'Modified'),
-    oldValues: source['oldValues'] !== undefined && source['oldValues'] !== null ? String(source['oldValues']) : null,
-    newValues: source['newValues'] !== undefined && source['newValues'] !== null ? String(source['newValues']) : null,
-    ipAddress: stringValue(source['ipAddress'], '-'),
-    userAgent: stringValue(source['userAgent'], '-'),
-    createdAt: stringValue(source['createdAt'], new Date().toISOString()),
+    id: readString(source, 'id'),
+    userId: source?.['userId'] ? String(source['userId']) : null,
+    operatorEmail: readFirstString(source, ['operatorEmail', 'userEmail', 'email'], 'Hệ thống'),
+    tableName: readFirstString(source, ['tableName', 'table', 'entity', 'resource'], 'Không xác định'),
+    recordId: readFirstString(source, ['recordId', 'entityId', 'id']),
+    actionType: readFirstString(source, ['actionType', 'action'], 'Modified'),
+    oldValues: source?.['oldValues'] !== undefined && source['oldValues'] !== null ? String(source['oldValues']) : null,
+    newValues: source?.['newValues'] !== undefined && source['newValues'] !== null ? String(source['newValues']) : null,
+    ipAddress: readString(source, 'ipAddress', '-'),
+    userAgent: readString(source, 'userAgent', '-'),
+    createdAt: readString(source, 'createdAt', new Date().toISOString()),
   };
 };
