@@ -30,7 +30,7 @@ const formatDateInput = (raw: string): string => {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 };
 
-/** Converts valid `dd/MM/yyyy` to `yyyy-MM-dd`. */
+/** Converts valid `dd/MM/yyyy` to `yyyy-MM-dd`, rejecting impossible calendar dates (e.g. 31/02/2026). */
 const parseDateInputToIso = (display: string): string => {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
   if (!match) return '';
@@ -38,6 +38,10 @@ const parseDateInputToIso = (display: string): string => {
   const month = Number(match[2]);
   const year = Number(match[3]);
   if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+  const probe = new Date(year, month - 1, day);
+  if (probe.getFullYear() !== year || probe.getMonth() !== month - 1 || probe.getDate() !== day) {
+    return '';
+  }
   return `${year}-${match[2]}-${match[1]}`;
 };
 
@@ -210,9 +214,20 @@ export class ReportsPage implements OnInit {
           this.initialLoading.set(false);
           this.fetching.set(false);
         },
-        error: () => {
+        error: (err: unknown) => {
           this.initialLoading.set(false);
           this.fetching.set(false);
+          if (err instanceof HttpErrorResponse && err.status === 403) {
+            this.pageCache.clear();
+            this.reports.set([]);
+            this.selectedReportId.set(null);
+            this.totalItems.set(0);
+            this.totalPages.set(1);
+            const message = 'Bạn không có quyền xem danh sách báo cáo.';
+            this.loadError.set(message);
+            this.showToast(message, 'error');
+            return;
+          }
           this.loadError.set('Không thể tải danh sách báo cáo. Vui lòng thử lại.');
           this.showToast('Không thể tải danh sách báo cáo. Vui lòng thử lại.', 'error');
         },
@@ -369,7 +384,11 @@ export class ReportsPage implements OnInit {
   }
 
   protected createReport(): void {
-    if (this.createForm.invalid) {
+    const rawTitle = this.createForm.controls.title.value.trim();
+    if (this.createForm.invalid || !rawTitle) {
+      if (!rawTitle) {
+        this.createForm.controls.title.setValue('');
+      }
       this.createForm.markAllAsTouched();
       this.showToast('Vui lòng nhập tiêu đề báo cáo.', 'error');
       return;
