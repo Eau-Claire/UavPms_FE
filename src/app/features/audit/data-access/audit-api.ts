@@ -4,7 +4,7 @@ import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { AuditFilters, AuditLogPage, AuditRecord } from '../../../models/audit.models';
-import { asRecord, readArray, readOptionalNumber, readOptionalString, readString } from '../../../shared/utils';
+import { asRecord, readArray, readFirstString, readOptionalNumber, readString } from '../../../shared/utils';
 
 @Injectable({ providedIn: 'root' })
 export class AuditApi {
@@ -49,15 +49,7 @@ export class AuditApi {
   }
 }
 
-const readFirstString = (source: Record<string, unknown> | null, keys: readonly string[], fallback = ''): string => {
-  for (const key of keys) {
-    const value = readOptionalString(source, key);
-    if (value !== null) return value;
-  }
-  return fallback;
-};
-
-const readFirstNumber = (source: Record<string, unknown> | null, keys: readonly string[]): number | null => {
+const readFirstOptionalNumber = (source: Record<string, unknown> | null, keys: readonly string[]): number | null => {
   for (const key of keys) {
     const value = readOptionalNumber(source, key);
     if (value !== null) return value;
@@ -96,7 +88,7 @@ const normalizeAuditLogPage = (value: unknown, filters: AuditFilters): AuditLogP
   const totalItems =
     query && items.length !== rawItems.length
       ? items.length
-      : (readFirstNumber(source, ['totalItems', 'totalCount', 'count']) ?? readOptionalNumber(paginationSource, 'totalItems')) ||
+      : (readFirstOptionalNumber(source, ['totalItems', 'totalCount', 'count']) ?? readOptionalNumber(paginationSource, 'totalItems')) ||
         items.length;
   const page = (readOptionalNumber(source, 'page') ?? readOptionalNumber(paginationSource, 'page')) || filters.page;
   const pageSize =

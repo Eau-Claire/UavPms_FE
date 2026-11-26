@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readFirstNumber, readFirstString, readOptionalNumber, readString } from '../../../shared/utils';
 
 export type AnalysisType =
   | 'DefectDetection'
@@ -117,27 +118,22 @@ export class AiAnalysisApi {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const pick = (source: Record<string, unknown> | null, ...keys: string[]) =>
+  keys.map((key) => source?.[key]).find((value) => value !== undefined && value !== null);
 
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const stringValue = (value: unknown, fallback = '') =>
-  value === undefined || value === null ? fallback : String(value);
-
-const numberValue = (value: unknown) => Number(value ?? 0) || 0;
-
-const nullableNumber = (value: unknown): number | null => {
-  if (value === undefined || value === null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+const parseFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 };
 
 const parseTimestampSeconds = (value: unknown): number | null => {
-  const direct = nullableNumber(value);
+  const direct = parseFiniteNumber(value);
   if (direct !== null) return direct;
-  const text = stringValue(value);
+  const text = typeof value === 'string' ? value : '';
   const match = /(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)/.exec(text);
   if (!match) return null;
   const hours = Number(match[1] ?? 0);
@@ -162,7 +158,7 @@ export const normalizeBoundingBox = (value: unknown): DetectionBoundingBox | und
     }
   }
   if (Array.isArray(value) && value.length >= 4) {
-    let [x, y, width, height] = value.map(numberValue);
+    let [x, y, width, height] = value.map((item) => parseFiniteNumber(item) ?? 0);
     if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
       x *= 100;
       y *= 100;
@@ -171,12 +167,12 @@ export const normalizeBoundingBox = (value: unknown): DetectionBoundingBox | und
     }
     return { x, y, width, height };
   }
-  if (!value || typeof value !== 'object') return undefined;
-  const source = record(value);
-  let x = numberValue(source['x'] ?? source['left']);
-  let y = numberValue(source['y'] ?? source['top']);
-  let width = numberValue(source['width'] ?? source['w']);
-  let height = numberValue(source['height'] ?? source['h']);
+  const source = asRecord(value);
+  if (!source) return undefined;
+  let x = readFirstNumber(source, ['x', 'left']);
+  let y = readFirstNumber(source, ['y', 'top']);
+  let width = readFirstNumber(source, ['width', 'w']);
+  let height = readFirstNumber(source, ['height', 'h']);
   if (x <= 1 && y <= 1 && width <= 1 && height <= 1) {
     x *= 100;
     y *= 100;
@@ -254,57 +250,54 @@ export function captureVideoFrameAtTime(videoUrl: string, seconds: number): Prom
 }
 
 export const normalizeDetectionItem = (item: unknown, index: number, userMediaUrl?: string): AiDetection => {
-  const source = record(item);
-  const confidence = numberValue(pick(source, 'confidence', 'score', 'confidenceScore', 'conf'));
+  const source = asRecord(item);
+  const confidence = readFirstNumber(source, ['confidence', 'score', 'confidenceScore', 'conf']);
   const timestampSec = parseTimestampSeconds(pick(source, 'timestampSeconds', 'timestamp', 'timeOffset', 'videoTimestamp'));
-  const rawMediaType = stringValue(pick(source, 'mediaType', 'kind', 'type'), 'image').toLowerCase();
+  const rawMediaType = readFirstString(source, ['mediaType', 'kind', 'type'], 'image').toLowerCase();
   const mediaType: 'image' | 'video' = rawMediaType.includes('video') ? 'video' : 'image';
-  const imgUrl = stringValue(pick(source, 'imageUrl', 'thumbnailUrl', 'fileUrl', 'mediaUrl'), userMediaUrl || '');
+  const imgUrl = readFirstString(source, ['imageUrl', 'thumbnailUrl', 'fileUrl', 'mediaUrl'], userMediaUrl || '');
 
-  const rawPriority = stringValue(pick(source, 'priority', 'severity', 'severityWeight')).toLowerCase();
+  const rawPriority = readFirstString(source, ['priority', 'severity', 'severityWeight']).toLowerCase();
   const isEmergency = Boolean(pick(source, 'isEmergency', 'isEmergencyClass')) || rawPriority === 'critical' || rawPriority === 'high';
+  const frameIdx = readOptionalNumber(source, 'frameIndex') ?? readOptionalNumber(source, 'frameNumber');
 
   return {
-    id: stringValue(pick(source, 'id', 'detectionId', 'trackId', 'anomalyId'), `det-${index + 1}`),
-    title: stringValue(pick(source, 'title', 'defectType', 'categoryName', 'className', 'label', 'name'), 'Khuyết tật phát hiện'),
+    id: readFirstString(source, ['id', 'detectionId', 'trackId', 'anomalyId'], `det-${index + 1}`),
+    title: readFirstString(source, ['title', 'defectType', 'categoryName', 'className', 'label', 'name'], 'Khuyết tật phát hiện'),
     confidence: confidence > 1 ? Math.round(confidence) : confidence > 0 ? Math.round(confidence * 100) : 0,
-    categoryCode: stringValue(pick(source, 'categoryCode', 'code', 'alertType'), '-'),
-    description: stringValue(pick(source, 'description', 'categoryDescription')),
+    categoryCode: readFirstString(source, ['categoryCode', 'code', 'alertType'], '-'),
+    description: readFirstString(source, ['description', 'categoryDescription']),
     mediaType,
     timestampSeconds: timestampSec,
     timestampLabel: timestampSec !== null ? formatTime(timestampSec) : `Frame ${index + 1}`,
-    frameIndex: nullableNumber(pick(source, 'frameIndex', 'frameNumber')) ?? index + 1,
-    gps: stringValue(pick(source, 'gps', 'coordinates', 'location'), '-'),
-    tower: stringValue(pick(source, 'tower', 'towerCode', 'poleId'), '-'),
-    missionName: stringValue(pick(source, 'missionName', 'missionCode'), 'Phân tích độc lập'),
+    frameIndex: frameIdx ?? index + 1,
+    gps: readFirstString(source, ['gps', 'coordinates', 'location'], '-'),
+    tower: readFirstString(source, ['tower', 'towerCode', 'poleId'], '-'),
+    missionName: readFirstString(source, ['missionName', 'missionCode'], 'Phân tích độc lập'),
     imageUrl: imgUrl,
-    sourceUrl: stringValue(pick(source, 'sourceUrl', 'fileUrl', 'mediaUrl'), userMediaUrl),
-    cropImageUrl: stringValue(pick(source, 'cropImageUrl', 'cropUrl'), imgUrl),
+    sourceUrl: readFirstString(source, ['sourceUrl', 'fileUrl', 'mediaUrl'], userMediaUrl ?? '') || undefined,
+    cropImageUrl: readFirstString(source, ['cropImageUrl', 'cropUrl'], imgUrl),
     boundingBox: normalizeBoundingBox(pick(source, 'boundingBox', 'box', 'rawBoundingBox', 'bbox')),
-    severityWeight: numberValue(pick(source, 'severityWeight', 'severity')) || (isEmergency ? 5 : 1),
+    severityWeight: readFirstNumber(source, ['severityWeight', 'severity']) || (isEmergency ? 5 : 1),
     isEmergency,
-    status: (stringValue(pick(source, 'status', 'reviewStatus', 'validationStatus'), 'Pending')) as 'Pending' | 'Approved' | 'Rejected',
-    analystNotes: stringValue(source['analystNotes']),
-    detectedAt: stringValue(pick(source, 'detectedAt', 'createdAt', 'timestamp', 'triggeredAt'), new Date().toISOString()),
+    status: readFirstString(source, ['status', 'reviewStatus', 'validationStatus'], 'Pending') as 'Pending' | 'Approved' | 'Rejected',
+    analystNotes: readString(source, 'analystNotes'),
+    detectedAt: readFirstString(source, ['detectedAt', 'createdAt', 'timestamp', 'triggeredAt'], new Date().toISOString()),
   };
 };
 
 export const normalizeAnalysisResult = (value: unknown, fallbackId: string): AnalysisSessionResult => {
-  const source = record(value);
+  const source = asRecord(value);
   const detectionsRaw = pick(source, 'detections', 'items', 'results', 'anomalies', 'defects', 'predictions');
-  const rawList = Array.isArray(detectionsRaw) ? detectionsRaw : [];
-  const detections = rawList.map((item, idx) => normalizeDetectionItem(item, idx));
+  const detections = readArray(detectionsRaw).map((item, idx) => normalizeDetectionItem(item, idx));
 
   return {
-    id: stringValue(pick(source, 'id', 'sessionId', 'analysisId'), fallbackId),
-    status: stringValue(pick(source, 'status', 'state'), 'Processing'),
-    analysisType: (stringValue(pick(source, 'analysisType', 'type'), 'DefectDetection')) as AnalysisType,
-    notes: stringValue(pick(source, 'notes', 'description')),
-    createdAt: stringValue(
-      pick(source, 'createdAt', 'timestamp', 'date'),
-      new Date().toISOString(),
-    ),
-    filesCount: Array.isArray(source['files']) ? source['files'].length : Math.max(1, detections.length),
+    id: readFirstString(source, ['id', 'sessionId', 'analysisId'], fallbackId),
+    status: readFirstString(source, ['status', 'state'], 'Processing'),
+    analysisType: readFirstString(source, ['analysisType', 'type'], 'DefectDetection') as AnalysisType,
+    notes: readFirstString(source, ['notes', 'description']),
+    createdAt: readFirstString(source, ['createdAt', 'timestamp', 'date'], new Date().toISOString()),
+    filesCount: Array.isArray(source?.['files']) ? source['files'].length : Math.max(1, detections.length),
     detections,
     raw: value,
   };

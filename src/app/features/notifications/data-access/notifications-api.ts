@@ -4,6 +4,7 @@ import { catchError, map } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { AppNotification } from '../../../models/notification.models';
+import { asRecord, readArray, readFirstString } from '../../../shared/utils';
 
 @Injectable({
   providedIn: 'root',
@@ -40,44 +41,39 @@ export class NotificationsApi {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const stringValue = (value: unknown, fallback = '') =>
-  value === undefined || value === null ? fallback : String(value);
+const pick = (source: Record<string, unknown> | null, ...keys: string[]) =>
+  keys.map((key) => source?.[key]).find((value) => value !== undefined && value !== null);
 
 const boolValue = (value: unknown) => value === true || value === 'true' || value === 1;
 
-const normalizeArray = (value: unknown): readonly unknown[] => {
+const normalizeArray = (value: unknown): unknown[] => {
   if (Array.isArray(value)) return value;
-  const source = record(value);
+  const source = asRecord(value);
   const list = pick(source, 'items', 'results', 'records', 'notifications', 'data', 'Items', 'Results', 'Records', 'Notifications', 'Data');
-  return Array.isArray(list) ? list : [];
+  return readArray(list);
 };
 
 const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
 export const normalizeNotification = (value: unknown, fallbackId = ''): AppNotification => {
-  const source = record(value);
-  const id = stringValue(pick(source, 'id', 'notificationId', 'Id', 'NotificationId'), fallbackId);
-  const createdAt = stringValue(
-    pick(source, 'createdAt', 'createdTime', 'createdDate', 'timestamp', 'sentAt', 'CreatedAt', 'Timestamp'),
+  const source = asRecord(value);
+  const id = readFirstString(source, ['id', 'notificationId', 'Id', 'NotificationId'], fallbackId);
+  const createdAt = readFirstString(
+    source,
+    ['createdAt', 'createdTime', 'createdDate', 'timestamp', 'sentAt', 'CreatedAt', 'Timestamp'],
     new Date(0).toISOString(),
   );
   const readAt = pick(source, 'readAt', 'readTime', 'ReadAt', 'ReadTime');
-  const rawRefId = stringValue(pick(source, 'referenceId', 'entityId', 'ReferenceId', 'EntityId')).trim();
+  const rawRefId = readFirstString(source, ['referenceId', 'entityId', 'ReferenceId', 'EntityId']);
   const referenceId = !rawRefId || rawRefId === EMPTY_GUID ? undefined : rawRefId;
   return {
     id,
-    userId: stringValue(pick(source, 'userId', 'recipientId', 'UserId', 'RecipientId')) || undefined,
-    type: stringValue(pick(source, 'type', 'notificationType', 'Type', 'NotificationType')) || undefined,
-    referenceType: stringValue(pick(source, 'referenceType', 'entityType', 'ReferenceType', 'EntityType')) || undefined,
+    userId: readFirstString(source, ['userId', 'recipientId', 'UserId', 'RecipientId']) || undefined,
+    type: readFirstString(source, ['type', 'notificationType', 'Type', 'NotificationType']) || undefined,
+    referenceType: readFirstString(source, ['referenceType', 'entityType', 'ReferenceType', 'EntityType']) || undefined,
     referenceId,
-    title: stringValue(pick(source, 'title', 'subject', 'Title', 'Subject'), 'Notification'),
-    body: stringValue(pick(source, 'body', 'message', 'content', 'description', 'Body', 'Message', 'Content', 'Description')),
+    title: readFirstString(source, ['title', 'subject', 'Title', 'Subject'], 'Notification'),
+    body: readFirstString(source, ['body', 'message', 'content', 'description', 'Body', 'Message', 'Content', 'Description']),
     createdAt,
     isRead: boolValue(pick(source, 'isRead', 'read', 'seen', 'IsRead', 'Read', 'Seen')) || Boolean(readAt),
   };

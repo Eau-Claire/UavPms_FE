@@ -4,7 +4,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../models/monitor.models';
-import { asRecord, readArray, readBoolean, readNumber, readOptionalString, readString } from '../../../shared/utils';
+import { asRecord, readArray, readBoolean, readFirstString, readNumber, readOptionalString, readString } from '../../../shared/utils';
 
 export const LOCAL_STORAGE_READ_ALERTS_KEY = 'uav_pms_read_alerts_v1';
 
@@ -108,14 +108,6 @@ export class MonitorApi {
 const itemsOf = (value: unknown): unknown[] =>
   Array.isArray(value) ? value : readArray(asRecord(value)?.['items']);
 
-const firstString = (source: Record<string, unknown> | null, keys: readonly string[], fallback = ''): string => {
-  for (const key of keys) {
-    const val = readOptionalString(source, key);
-    if (val !== null) return val;
-  }
-  return fallback;
-};
-
 /** `GET /monitor/summary` → DashboardSummaryDto. */
 const normalizeSummary = (value: unknown): MonitorSummary => {
   const s = asRecord(value);
@@ -148,12 +140,12 @@ const normalizePage = <T>(value: unknown, page: number, pageSize: number, mapper
 const normalizeDefect = (value: unknown, index: number): RecentDefect => {
   const s = asRecord(value);
   return {
-    id: firstString(s, ['inspectionId', 'id'], `defect-${index}`),
+    id: readFirstString(s, ['inspectionId', 'id'], `defect-${index}`),
     missionId: readOptionalString(s, 'missionId') ?? undefined,
-    missionName: firstString(s, ['missionTitle', 'missionName'], 'Nhiệm vụ không xác định'),
+    missionName: readFirstString(s, ['missionTitle', 'missionName'], 'Nhiệm vụ không xác định'),
     defectType: readString(s, 'defectType', 'Chưa phân loại'),
     detectedAt: readString(s, 'detectedAt', new Date(0).toISOString()),
-    imageUrl: firstString(s, ['imageUrl', 'mediaUrl', 'thumbnailUrl', 'cropUrl', 'fileUrl']) || undefined,
+    imageUrl: readFirstString(s, ['imageUrl', 'mediaUrl', 'thumbnailUrl', 'cropUrl', 'fileUrl']) || undefined,
   };
 };
 
@@ -162,7 +154,7 @@ const normalizeInspection = (value: unknown, index: number): InspectionRecord =>
   const d = normalizeDefect(value, index);
   const s = asRecord(value);
   const defectType = readOptionalString(s, 'defectType');
-  const thumbnailUrl = firstString(s, ['thumbnailUrl', 'cropUrl']) || undefined;
+  const thumbnailUrl = readFirstString(s, ['thumbnailUrl', 'cropUrl']) || undefined;
   return {
     id: d.id,
     missionId: d.missionId ?? '',
@@ -181,14 +173,14 @@ const normalizeStatistics = (value: unknown): readonly DefectStatistic[] => {
   const list = Array.isArray(byType) ? byType : itemsOf(value);
   return list.map((item) => {
     const s = asRecord(item);
-    return { defectType: firstString(s, ['type', 'defectType'], 'Khác'), count: readNumber(s, 'count') };
+    return { defectType: readFirstString(s, ['type', 'defectType'], 'Khác'), count: readNumber(s, 'count') };
   });
 };
 
 /** `ActiveAlertDto { notificationId, title, message, createdAt, isRead }` inside `{ items }`. */
 const normalizeAlert = (value: unknown, index: number, readSet: Set<string> = new Set()): MonitorAlert => {
   const s = asRecord(value);
-  const id = firstString(s, ['notificationId', 'id'], `alert-${index}`);
+  const id = readFirstString(s, ['notificationId', 'id'], `alert-${index}`);
   const isRead = readBoolean(s, 'isRead') || readSet.has(id);
   return {
     id,
