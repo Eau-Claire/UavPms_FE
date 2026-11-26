@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readFirstString, readNumber, readOptionalString, readString } from '../../../shared/utils';
 import {
   PaginationMeta,
   TowerAnomaly,
@@ -30,8 +31,8 @@ export class TowersApi {
     return this.http.get<unknown>(this.url, { params }).pipe(
       map((response) => {
         const data = asRecord(unwrapApiData(response));
-        const items = arrayOf(data['items']).map(normalizeTower);
-        return { items, pagination: normalizePagination(data['pagination'], filters.page, filters.pageSize, items.length) };
+        const items = readArray(data?.['items']).map(normalizeTower);
+        return { items, pagination: normalizePagination(data?.['pagination'], filters.page, filters.pageSize, items.length) };
       }),
     );
   }
@@ -69,7 +70,7 @@ export class TowersApi {
     return this.http.post<unknown>(`${this.url}/import`, form).pipe(
       map((response) => {
         const data = asRecord(unwrapApiData(response));
-        return { importedCount: numberOf(data['importedCount']), skippedCount: numberOf(data['skippedCount']) };
+        return { importedCount: readNumber(data, 'importedCount'), skippedCount: readNumber(data, 'skippedCount') };
       }),
     );
   }
@@ -77,26 +78,14 @@ export class TowersApi {
 
 /** Extracts the backend's ApiResponse message from an HttpErrorResponse, if any. */
 export const apiErrorMessage = (error: unknown, fallback: string): string => {
-  const body = asRecord(asRecord(error)['error']);
-  const message = body['message'] ?? body['title'];
-  return typeof message === 'string' && message.trim() ? message : fallback;
+  const body = asRecord(asRecord(error)?.['error']);
+  return readFirstString(body, ['message', 'title'], fallback);
 };
 
-export const apiErrorStatus = (error: unknown): number => numberOf(asRecord(error)['status']);
+export const apiErrorStatus = (error: unknown): number => readNumber(asRecord(error), 'status');
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-
-const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
-
-const stringOf = (value: unknown): string => (value === undefined || value === null ? '' : String(value));
-
-const optionalString = (value: unknown): string | undefined => stringOf(value) || undefined;
-
-const numberOf = (value: unknown): number => {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+const optionalText = (source: Record<string, unknown> | null, key: string): string | undefined =>
+  readOptionalString(source, key) ?? undefined;
 
 /**
  * Date inputs give a local calendar day (yyyy-MM-dd). The backend compares against timestamptz columns,
@@ -121,80 +110,80 @@ const cleanRequest = (request: TowerUpsertRequest): TowerUpsertRequest => ({
 export const normalizeTower = (value: unknown): TowerSummary => {
   const source = asRecord(value);
   return {
-    id: stringOf(source['id']),
-    regionId: stringOf(source['regionId']),
-    regionName: optionalString(source['regionName']),
-    towerCode: stringOf(source['towerCode']),
-    poleType: optionalString(source['poleType']),
-    address: optionalString(source['address']),
-    latitude: numberOf(source['latitude']),
-    longitude: numberOf(source['longitude']),
+    id: readString(source, 'id'),
+    regionId: readString(source, 'regionId'),
+    regionName: optionalText(source, 'regionName'),
+    towerCode: readString(source, 'towerCode'),
+    poleType: optionalText(source, 'poleType'),
+    address: optionalText(source, 'address'),
+    latitude: readNumber(source, 'latitude'),
+    longitude: readNumber(source, 'longitude'),
   };
 };
 
 const normalizePagination = (value: unknown, page: number, pageSize: number, count: number): PaginationMeta => {
   const source = asRecord(value);
-  const totalItems = numberOf(source['totalItems']) || count;
+  const totalItems = readNumber(source, 'totalItems') || count;
   return {
-    page: numberOf(source['page']) || page,
-    pageSize: numberOf(source['pageSize']) || pageSize,
+    page: readNumber(source, 'page') || page,
+    pageSize: readNumber(source, 'pageSize') || pageSize,
     totalItems,
-    totalPages: numberOf(source['totalPages']) || Math.max(1, Math.ceil(totalItems / pageSize)),
+    totalPages: readNumber(source, 'totalPages') || Math.max(1, Math.ceil(totalItems / pageSize)),
   };
 };
 
 const normalizeAnomaly = (value: unknown): TowerAnomaly => {
   const source = asRecord(value);
   return {
-    id: stringOf(source['id']),
-    mediaId: stringOf(source['mediaId']),
-    missionId: stringOf(source['missionId']),
-    categoryCode: optionalString(source['categoryCode']),
-    categoryName: optionalString(source['categoryName']),
-    confidenceScore: numberOf(source['confidenceScore']),
-    validationStatus: stringOf(source['validationStatus']),
-    aiSource: stringOf(source['aiSource']),
-    imageUrl: optionalString(source['imageUrl']),
-    cropUrl: optionalString(source['cropUrl']),
-    detectedAt: stringOf(source['detectedAt']),
-    validatedAt: optionalString(source['validatedAt']),
+    id: readString(source, 'id'),
+    mediaId: readString(source, 'mediaId'),
+    missionId: readString(source, 'missionId'),
+    categoryCode: optionalText(source, 'categoryCode'),
+    categoryName: optionalText(source, 'categoryName'),
+    confidenceScore: readNumber(source, 'confidenceScore'),
+    validationStatus: readString(source, 'validationStatus'),
+    aiSource: readString(source, 'aiSource'),
+    imageUrl: optionalText(source, 'imageUrl'),
+    cropUrl: optionalText(source, 'cropUrl'),
+    detectedAt: readString(source, 'detectedAt'),
+    validatedAt: optionalText(source, 'validatedAt'),
   };
 };
 
 const normalizeMaintenance = (value: unknown): TowerMaintenanceRecord => {
   const source = asRecord(value);
   return {
-    id: stringOf(source['id']),
-    ticketCode: stringOf(source['ticketCode']),
-    anomalyId: stringOf(source['anomalyId']),
-    status: stringOf(source['status']),
-    priority: stringOf(source['priority']),
-    description: stringOf(source['description']),
-    managerId: stringOf(source['managerId']),
-    technicianId: optionalString(source['technicianId']),
-    createdAt: stringOf(source['createdAt']),
-    dueDate: optionalString(source['dueDate']),
-    startedAt: optionalString(source['startedAt']),
-    resolvedAt: optionalString(source['resolvedAt']),
-    proofs: arrayOf(source['proofs']).map((item) => {
+    id: readString(source, 'id'),
+    ticketCode: readString(source, 'ticketCode'),
+    anomalyId: readString(source, 'anomalyId'),
+    status: readString(source, 'status'),
+    priority: readString(source, 'priority'),
+    description: readString(source, 'description'),
+    managerId: readString(source, 'managerId'),
+    technicianId: optionalText(source, 'technicianId'),
+    createdAt: readString(source, 'createdAt'),
+    dueDate: optionalText(source, 'dueDate'),
+    startedAt: optionalText(source, 'startedAt'),
+    resolvedAt: optionalText(source, 'resolvedAt'),
+    proofs: readArray(source?.['proofs']).map((item) => {
       const proof = asRecord(item);
       return {
-        id: stringOf(proof['id']),
-        proofType: stringOf(proof['proofType']),
-        fileUrl: stringOf(proof['fileUrl']),
-        technicianNotes: stringOf(proof['technicianNotes']),
-        uploadedAt: stringOf(proof['uploadedAt']),
+        id: readString(proof, 'id'),
+        proofType: readString(proof, 'proofType'),
+        fileUrl: readString(proof, 'fileUrl'),
+        technicianNotes: readString(proof, 'technicianNotes'),
+        uploadedAt: readString(proof, 'uploadedAt'),
       };
     }),
-    materials: arrayOf(source['materials']).map((item) => {
+    materials: readArray(source?.['materials']).map((item) => {
       const material = asRecord(item);
       return {
-        id: stringOf(material['id']),
-        componentCode: stringOf(material['componentCode']),
-        componentName: stringOf(material['componentName']),
-        quantityUsed: numberOf(material['quantityUsed']),
-        unit: stringOf(material['unit']),
-        loggedAt: stringOf(material['loggedAt']),
+        id: readString(material, 'id'),
+        componentCode: readString(material, 'componentCode'),
+        componentName: readString(material, 'componentName'),
+        quantityUsed: readNumber(material, 'quantityUsed'),
+        unit: readString(material, 'unit'),
+        loggedAt: readString(material, 'loggedAt'),
       };
     }),
   };
@@ -203,28 +192,28 @@ const normalizeMaintenance = (value: unknown): TowerMaintenanceRecord => {
 const normalizeStats = (value: unknown): TowerHistoryStats => {
   const source = asRecord(value);
   return {
-    totalAnomalies: numberOf(source['totalAnomalies']),
-    pendingAnomalies: numberOf(source['pendingAnomalies']),
-    confirmedAnomalies: numberOf(source['confirmedAnomalies']),
-    openAnomalies: numberOf(source['openAnomalies']),
-    totalTickets: numberOf(source['totalTickets']),
-    openTickets: numberOf(source['openTickets']),
-    inProgressTickets: numberOf(source['inProgressTickets']),
-    activeTickets: numberOf(source['activeTickets']),
-    lastInspectedAt: optionalString(source['lastInspectedAt']),
+    totalAnomalies: readNumber(source, 'totalAnomalies'),
+    pendingAnomalies: readNumber(source, 'pendingAnomalies'),
+    confirmedAnomalies: readNumber(source, 'confirmedAnomalies'),
+    openAnomalies: readNumber(source, 'openAnomalies'),
+    totalTickets: readNumber(source, 'totalTickets'),
+    openTickets: readNumber(source, 'openTickets'),
+    inProgressTickets: readNumber(source, 'inProgressTickets'),
+    activeTickets: readNumber(source, 'activeTickets'),
+    lastInspectedAt: optionalText(source, 'lastInspectedAt'),
   };
 };
 
 const normalizeHistory = (value: unknown, filters: TowerHistoryFilters): TowerHistory => {
   const source = asRecord(value);
-  const anomalies = arrayOf(source['anomalies']).map(normalizeAnomaly);
-  const maintenanceHistory = arrayOf(source['maintenanceHistory']).map(normalizeMaintenance);
+  const anomalies = readArray(source?.['anomalies']).map(normalizeAnomaly);
+  const maintenanceHistory = readArray(source?.['maintenanceHistory']).map(normalizeMaintenance);
   return {
-    tower: normalizeTower(source['tower']),
+    tower: normalizeTower(source?.['tower']),
     anomalies,
     maintenanceHistory,
-    stats: normalizeStats(source['stats']),
-    anomaliesPagination: normalizePagination(source['anomaliesPagination'], filters.page, filters.pageSize, anomalies.length),
-    maintenancePagination: normalizePagination(source['maintenancePagination'], filters.page, filters.pageSize, maintenanceHistory.length),
+    stats: normalizeStats(source?.['stats']),
+    anomaliesPagination: normalizePagination(source?.['anomaliesPagination'], filters.page, filters.pageSize, anomalies.length),
+    maintenancePagination: normalizePagination(source?.['maintenancePagination'], filters.page, filters.pageSize, maintenanceHistory.length),
   };
 };

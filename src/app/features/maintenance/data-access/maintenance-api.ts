@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readBoolean, readFirstString, readNumber, readOptionalString, readString } from '../../../shared/utils';
 import {
   AssignTechnicianRequest,
   LogMaterialRequest,
@@ -52,13 +53,14 @@ export class MaintenanceApi {
     if (filters.priority) params = params.set('priority', filters.priority);
     return this.http.get<unknown>(this.url, { params }).pipe(
       map((response) => {
-        const data = asRecord(unwrapApiData(response));
-        const backendItems = arrayOf(Array.isArray(data) ? data : data['items']).map(normalizeTicket);
+        const unwrapped = unwrapApiData(response);
+        const data = asRecord(unwrapped);
+        const backendItems = (Array.isArray(unwrapped) ? unwrapped : readArray(data?.['items'])).map(normalizeTicket);
         return {
           items: backendItems,
-          totalCount: numberOf(data['totalCount']) || backendItems.length,
-          pageIndex: numberOf(data['pageIndex'] ?? filters.pageIndex),
-          pageSize: numberOf(data['pageSize']) || filters.pageSize,
+          totalCount: readNumber(data, 'totalCount') || backendItems.length,
+          pageIndex: readNumber(data, 'pageIndex', filters.pageIndex),
+          pageSize: readNumber(data, 'pageSize') || filters.pageSize,
         };
       }),
       catchError(() => {
@@ -89,10 +91,10 @@ export class MaintenanceApi {
         itemsOf(unwrapApiData(response)).map((item) => {
           const source = asRecord(item);
           return {
-            id: stringOf(source['id']),
-            fullName: stringOf(source['fullName']),
-            email: stringOf(source['email']),
-            activeTicketCount: numberOf(source['activeTicketCount']),
+            id: readString(source, 'id'),
+            fullName: readString(source, 'fullName'),
+            email: readString(source, 'email'),
+            activeTicketCount: readNumber(source, 'activeTicketCount'),
           };
         }),
       ),
@@ -104,14 +106,14 @@ export class MaintenanceApi {
             const techs = list
               .map((u) => asRecord(u))
               .filter((u) => {
-                const r = String(u['role'] ?? '');
-                const roles = Array.isArray(u['roles']) ? u['roles'].map(String) : [];
+                const r = readString(u, 'role');
+                const roles = readArray(u?.['roles']).map(String);
                 return r.toLowerCase().includes('tech') || roles.some((x) => x.toLowerCase().includes('tech'));
               })
               .map((u) => ({
-                id: stringOf(u['id']),
-                fullName: stringOf(u['fullName'] ?? u['username']),
-                email: stringOf(u['email']),
+                id: readString(u, 'id'),
+                fullName: readFirstString(u, ['fullName', 'username']),
+                email: readString(u, 'email'),
                 activeTicketCount: 0,
               }));
             return techs.length > 0 ? techs : REAL_DB_TECHNICIANS;
@@ -191,14 +193,14 @@ const ERROR_MESSAGES: readonly (readonly [string, string])[] = [
 
 export const maintenanceErrorMessage = (error: unknown, fallback: string): string => {
   const source = asRecord(error);
-  const status = numberOf(source['status']);
-  const body = asRecord(source['error']);
-  const code = stringOf(body['errorCode']);
-  const message = stringOf(body['message'] ?? body['title'] ?? body['detail']);
+  const status = readNumber(source, 'status');
+  const body = asRecord(source?.['error']);
+  const code = readString(body, 'errorCode');
+  const message = readFirstString(body, ['message', 'title', 'detail']);
   const haystack = `${code} ${message}`.toLowerCase();
   const known = ERROR_MESSAGES.find(([needle]) => haystack.includes(needle.toLowerCase()));
   if (known) return known[1];
-  if (status === 0 && 'status' in source) return 'Không thể kết nối đến máy chủ.';
+  if (status === 0 && source && 'status' in source) return 'Không thể kết nối đến máy chủ.';
   if (status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
   if (status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
   if (status === 404) return 'Không tìm thấy phiếu bảo trì.';
@@ -206,27 +208,16 @@ export const maintenanceErrorMessage = (error: unknown, fallback: string): strin
   return fallback;
 };
 
-export const maintenanceErrorStatus = (error: unknown): number => numberOf(asRecord(error)['status']);
+export const maintenanceErrorStatus = (error: unknown): number => readNumber(asRecord(error), 'status');
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const itemsOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : readArray(asRecord(value)?.['items']));
 
-const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
-
-const itemsOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : arrayOf(asRecord(value)['items']));
-
-const stringOf = (value: unknown): string => (value === undefined || value === null ? '' : String(value));
-
-const optionalString = (value: unknown): string | undefined => stringOf(value) || undefined;
-
-const numberOf = (value: unknown): number => {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+const optionalText = (source: Record<string, unknown> | null, key: string): string | undefined =>
+  readOptionalString(source, key) ?? undefined;
 
 const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
-const optionalId = (value: unknown): string | undefined => {
-  const id = stringOf(value);
+const optionalId = (source: Record<string, unknown> | null, key: string): string | undefined => {
+  const id = readOptionalString(source, key);
   return id && id !== EMPTY_GUID ? id : undefined;
 };
 
@@ -241,87 +232,87 @@ export const toDueDateIso = (value: string): string => {
 
 const normalizePerson = (value: unknown): MaintenancePerson | undefined => {
   const source = asRecord(value);
-  const id = optionalId(source['id']);
+  const id = optionalId(source, 'id');
   if (!id) return undefined;
-  return { id, email: stringOf(source['email']), fullName: stringOf(source['fullName'] ?? source['username']) };
+  return { id, email: readString(source, 'email'), fullName: readFirstString(source, ['fullName', 'username']) };
 };
 
 const normalizeTower = (value: unknown): MaintenanceTowerRef | undefined => {
   const source = asRecord(value);
-  const id = optionalId(source['id']);
+  const id = optionalId(source, 'id');
   if (!id) return undefined;
-  return { id, towerCode: stringOf(source['towerCode']), poleType: optionalString(source['poleType']), regionId: optionalId(source['regionId']) };
+  return { id, towerCode: readString(source, 'towerCode'), poleType: optionalText(source, 'poleType'), regionId: optionalId(source, 'regionId') };
 };
 
 const normalizeAnomaly = (value: unknown): MaintenanceAnomalyRef | undefined => {
   const source = asRecord(value);
-  const id = optionalId(source['id']);
+  const id = optionalId(source, 'id');
   if (!id) return undefined;
-  const confidence = numberOf(source['confidenceScore']);
+  const confidence = readNumber(source, 'confidenceScore');
   return {
     id,
-    validationStatus: stringOf(source['validationStatus']),
+    validationStatus: readString(source, 'validationStatus'),
     confidenceScore: confidence <= 1 ? confidence * 100 : confidence,
-    mediaId: optionalId(source['mediaId']),
-    missionId: optionalId(source['missionId']),
-    categoryCode: optionalString(source['categoryCode']),
-    categoryName: optionalString(source['categoryName']),
-    isEmergencyClass: source['isEmergencyClass'] === true,
-    imageUrl: optionalString(source['imageUrl']),
-    cropUrl: optionalString(source['cropUrl']),
-    boundingBox: parseBoundingBox(source['boundingBox']),
-    analystNotes: optionalString(source['analystNotes']),
-    validatedAt: optionalString(source['validatedAt']),
+    mediaId: optionalId(source, 'mediaId'),
+    missionId: optionalId(source, 'missionId'),
+    categoryCode: optionalText(source, 'categoryCode'),
+    categoryName: optionalText(source, 'categoryName'),
+    isEmergencyClass: readBoolean(source, 'isEmergencyClass'),
+    imageUrl: optionalText(source, 'imageUrl'),
+    cropUrl: optionalText(source, 'cropUrl'),
+    boundingBox: parseBoundingBox(source?.['boundingBox']),
+    analystNotes: optionalText(source, 'analystNotes'),
+    validatedAt: optionalText(source, 'validatedAt'),
   };
 };
 
 export const normalizeProof = (value: unknown): MaintenanceProof => {
   const source = asRecord(value);
   return {
-    id: stringOf(source['id']),
-    proofType: stringOf(source['proofType']) || 'After',
-    fileUrl: stringOf(source['fileUrl'] || source['afterRepairImageUrl']),
-    technicianNotes: stringOf(source['technicianNotes']),
-    uploadedAt: stringOf(source['uploadedAt']),
+    id: readString(source, 'id'),
+    proofType: readString(source, 'proofType', 'After'),
+    fileUrl: readFirstString(source, ['fileUrl', 'afterRepairImageUrl']),
+    technicianNotes: readString(source, 'technicianNotes'),
+    uploadedAt: readString(source, 'uploadedAt'),
   };
 };
 
 export const normalizeMaterial = (value: unknown): MaterialLog => {
   const source = asRecord(value);
   return {
-    id: stringOf(source['id']),
-    componentName: stringOf(source['componentName']),
-    componentCode: stringOf(source['componentCode']),
-    quantityUsed: numberOf(source['quantityUsed']),
-    unit: stringOf(source['unit']),
-    fieldObservations: stringOf(source['fieldObservations']),
-    loggedAt: stringOf(source['loggedAt']),
+    id: readString(source, 'id'),
+    componentName: readString(source, 'componentName'),
+    componentCode: readString(source, 'componentCode'),
+    quantityUsed: readNumber(source, 'quantityUsed'),
+    unit: readString(source, 'unit'),
+    fieldObservations: readString(source, 'fieldObservations'),
+    loggedAt: readString(source, 'loggedAt'),
   };
 };
 
 export const normalizeTicket = (value: unknown): MaintenanceTicket => {
   const source = asRecord(value);
-  const tower = normalizeTower(source['tower']);
+  const tower = normalizeTower(source?.['tower']);
   return {
-    id: stringOf(source['id']),
-    ticketCode: stringOf(source['ticketCode']),
-    anomalyId: stringOf(source['anomalyId']),
-    towerId: optionalId(source['towerId']) ?? tower?.id,
-    managerId: stringOf(source['managerId']),
-    technicianId: optionalId(source['technicianId']),
-    status: stringOf(source['status']),
-    priority: stringOf(source['priority']),
-    description: stringOf(source['description']),
-    dueDate: optionalString(source['dueDate']),
-    assignedAt: optionalString(source['assignedAt']),
-    startedAt: optionalString(source['startedAt']),
-    resolvedAt: optionalString(source['resolvedAt']),
-    createdAt: stringOf(source['createdAt']),
+    id: readString(source, 'id'),
+    ticketCode: readString(source, 'ticketCode'),
+    anomalyId: readString(source, 'anomalyId'),
+    towerId: optionalId(source, 'towerId') ?? tower?.id,
+    managerId: readString(source, 'managerId'),
+    technicianId: optionalId(source, 'technicianId'),
+    status: readString(source, 'status'),
+    priority: readString(source, 'priority'),
+    description: readString(source, 'description'),
+    dueDate: optionalText(source, 'dueDate'),
+    assignedAt: optionalText(source, 'assignedAt'),
+    startedAt: optionalText(source, 'startedAt'),
+    resolvedAt: optionalText(source, 'resolvedAt'),
+    createdAt: readString(source, 'createdAt'),
     tower,
-    anomaly: normalizeAnomaly(source['anomaly']),
-    manager: normalizePerson(source['manager']),
-    technician: normalizePerson(source['technician']),
-    proofs: arrayOf(source['maintenanceProofs'] ?? source['proofs']).map(normalizeProof),
-    materials: arrayOf(source['materialLogs'] ?? source['materials']).map(normalizeMaterial),
+    anomaly: normalizeAnomaly(source?.['anomaly']),
+    manager: normalizePerson(source?.['manager']),
+    technician: normalizePerson(source?.['technician']),
+    proofs: readArray(source?.['maintenanceProofs'] ?? source?.['proofs']).map(normalizeProof),
+    materials: readArray(source?.['materialLogs'] ?? source?.['materials']).map(normalizeMaterial),
   };
 };
