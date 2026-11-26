@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { canAccess, ROUTE_ROLES } from '../../../../core/auth/route-access';
@@ -34,7 +34,6 @@ import {
   StandaloneMediaPreview,
   StandaloneWorkflowStage,
 } from '../../data-access/ai-analysis-session-store';
-import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 
 export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowStage };
 
@@ -48,11 +47,9 @@ export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowSt
 })
 export class StandaloneUpload {
   private readonly api = inject(AiAnalysisApi);
-  private readonly emergencyApi = inject(EmergencyAlertsApi);
   private readonly store = inject(AiAnalysisSessionStore);
   private readonly auth = inject(Auth);
   private readonly fb = inject(FormBuilder);
-  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('videoPlayer') private readonly videoPlayer?: ElementRef<HTMLVideoElement>;
@@ -75,7 +72,6 @@ export class StandaloneUpload {
   protected readonly reviewNotes = this.store.reviewNotes;
   protected readonly reviewFeedback = this.store.reviewFeedback;
   protected readonly uploadSuccessResult = this.store.uploadSuccessResult;
-  protected readonly lastTriggeredEmergencyAlert = this.store.lastTriggeredEmergencyAlert;
   protected readonly videoTimelineMarkers = this.store.videoTimelineMarkers;
   protected readonly availableCategories = this.store.availableCategories;
 
@@ -353,7 +349,6 @@ export class StandaloneUpload {
               };
               this.store.setUploadResult(result);
               void this.applyDetectionsWithCrops(detections, isVideo, userMediaUrl);
-              this.checkAndLinkActiveEmergencyAlert(detections);
             } else {
               // Asynchronous background processing: poll for analysis result and check active alerts
               this.startPollingAnalysisResult(serverId, formValues.analysisType, formValues.notes, files.length, isVideo, userMediaUrl);
@@ -446,34 +441,11 @@ export class StandaloneUpload {
     };
     this.store.setUploadResult(result);
     void this.applyDetectionsWithCrops([], isVideo, userMediaUrl);
-    this.store.setLastTriggeredEmergencyAlert(null);
   }
 
   private finishAnalysis(res: AnalysisSessionResult, isVideo: boolean, userMediaUrl: string): void {
     this.store.setUploadResult(res);
     void this.applyDetectionsWithCrops(res.detections, isVideo, userMediaUrl);
-    this.checkAndLinkActiveEmergencyAlert(res.detections);
-  }
-
-  private checkAndLinkActiveEmergencyAlert(detections: readonly AiDetection[]): void {
-    if (!detections.length) {
-      this.store.setLastTriggeredEmergencyAlert(null);
-      return;
-    }
-    this.emergencyApi
-      .fetchActiveAlerts()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (alerts) => {
-          const matchedAlert = alerts.find((a) =>
-            detections.some((d) => d.id && (d.id === a.id || d.id === a.anomalyId))
-          );
-          this.store.setLastTriggeredEmergencyAlert(matchedAlert ?? null);
-        },
-        error: () => {
-          // ignore
-        },
-      });
   }
 
   private async applyDetectionsWithCrops(
@@ -513,14 +485,6 @@ export class StandaloneUpload {
     );
 
     this.store.setDetections(updatedDetections);
-  }
-
-  navigateToEmergencyAlert(alertIdOrAnomalyId?: string): void {
-    const alert = this.lastTriggeredEmergencyAlert();
-    const targetId = alertIdOrAnomalyId || alert?.id || alert?.anomalyId;
-    void this.router.navigate(['/emergency-alerts'], {
-      queryParams: targetId ? { id: targetId } : undefined,
-    });
   }
 
   // Inspection UI Actions

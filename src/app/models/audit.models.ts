@@ -50,7 +50,6 @@ export const AUDIT_TABLE_OPTIONS: readonly TableOption[] = [
   { value: 'PreMissionAssessments', label: 'Đánh giá tiền khả thi (PreMissionAssessments)' },
   { value: 'InspectionMedia', label: 'Ảnh / video kiểm tra (InspectionMedia)' },
   { value: 'DetectedAnomalies', label: 'Bất thường phát hiện (DetectedAnomalies)' },
-  { value: 'EmergencyAlerts', label: 'Cảnh báo khẩn cấp (EmergencyAlerts)' },
   { value: 'MaintenanceTickets', label: 'Phiếu bảo trì (MaintenanceTickets)' },
   { value: 'Reports', label: 'Báo cáo (Reports)' },
   { value: 'Regions', label: 'Khu vực (Regions)' },

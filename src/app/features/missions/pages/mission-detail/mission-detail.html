@@ -15,7 +15,7 @@
           <span class="emergency-banner-msg">{{ em.message }}</span>
         </div>
         <div class="emergency-banner-actions">
-          @if (canOpenEmergencyCenter()) {
+          @if (canReviewEmergencyAnomalies()) {
             <a routerLink="/ai-review" [queryParams]="{ priority: 'emergency' }" class="app-btn-secondary">
               Khuyết tật khẩn cấp →
             </a>

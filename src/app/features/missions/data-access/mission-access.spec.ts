@@ -6,7 +6,6 @@ import {
   assignmentRoleLabel,
   canManageMission,
   canPostponeWholeMission,
-  canOpenEmergencyAlerts,
   canOpenMaintenanceTicket,
   canOpenPreMissionAssessment,
   canOperateFlight,
@@ -118,12 +117,11 @@ describe('mission access rules', () => {
       }
     });
 
-    it('limits detection review and the emergency centre to managers and analysts', () => {
+    it('limits detection review to managers and analysts', () => {
       expect(canReviewDetections('Analyst')).toBe(true);
       expect(canReviewDetections('Manager')).toBe(true);
       expect(canReviewDetections('Inspector')).toBe(false);
       expect(canReviewDetections('Technician')).toBe(false);
-      expect(canOpenEmergencyAlerts('Inspector')).toBe(false);
     });
 
     it('hides the pre-mission link for analysts and maintenance links for non-technicians', () => {

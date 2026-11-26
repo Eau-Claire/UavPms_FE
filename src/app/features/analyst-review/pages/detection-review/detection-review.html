@@ -229,18 +229,6 @@
                 {{ actionBusy() ? 'Đang xử lý...' : 'Xác nhận' }}
               </button>
             </div>
-
-            @if (item.isEmergency) {
-              <button
-                type="button"
-                class="app-btn-secondary"
-                style="width: 100%;"
-                [disabled]="actionBusy()"
-                (click)="triggerEmergencyAlert()"
-              >
-                Kích hoạt cảnh báo khẩn cấp
-              </button>
-            }
           </section>
         } @else if (canReview() && !item.supersededById && (item.validationStatus === 'Confirmed' || item.validationStatus === 'Rejected' || item.validationStatus === 'Resolved')) {
           <section class="review-actions-panel" aria-label="Trạng thái thẩm định">
