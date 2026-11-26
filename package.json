@@ -8,6 +8,13 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
+    "lint:changed": "node scripts/lint-changed.mjs",
+    "check:policy": "node scripts/check-uav-policy.mjs",
+    "check:policy:strict": "node scripts/check-uav-policy.mjs --strict",
+    "check:arch": "node scripts/check-arch-boundaries.mjs",
+    "check:arch:strict": "node scripts/check-arch-boundaries.mjs --strict",
+    "verify:harness": "npm run check:policy && npm run check:arch && npm run lint:changed",
+    "verify:all": "npm run verify:harness && npx ng test --watch=false && npm run build",
     "test:e2e": "playwright test"
   },
   "private": true,

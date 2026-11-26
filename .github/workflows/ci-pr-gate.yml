@@ -1,0 +1,81 @@
+name: CI - AI-Native PR Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  harness-gate:
+    name: Outer Harness (Policy, Arch, Lint Ratchet, PR Size)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with history for diff ratchet)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Small Batches Check (PR size advisory)
+        shell: bash
+        run: |
+          BASE_REF="origin/${{ github.base_ref }}"
+          CHANGED_LINES=$(git diff --numstat "$BASE_REF...HEAD" -- . ':(exclude)package-lock.json' ':(exclude)scripts/harness-baseline.json' ':(exclude)*.png' | awk '{ add += $1; del += $2 } END { print add + del + 0 }')
+          echo "### Small Batches Check" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Changed lines (excluding lockfile/baseline/images): **$CHANGED_LINES**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CHANGED_LINES" -gt 400 ]; then
+            echo "::warning::PR has $CHANGED_LINES changed lines (Small Batches target <= 400). Consider splitting into stacked PRs."
+            echo "- Status: ⚠️ Exceeds 400-line Small Batches guideline" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Status: ✅ Within Small Batches guideline (<= 400 lines)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: UAV Security Policy Guard (local-only GIS, no PII logs)
+        run: npm run check:policy
+
+      - name: Architecture Boundary Guard (layers & feature isolation)
+        run: npm run check:arch
+
+      - name: Diff-Aware ESLint Ratchet (0 errors on touched files)
+        env:
+          LINT_BASE_REF: origin/${{ github.base_ref }}
+        run: npm run lint:changed
+
+      - name: Dependency Security Audit (Audit mode)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+  test-and-build:
+    name: Unit Tests & Production Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests (Vitest)
+        run: npx ng test --watch=false
+
+      - name: Build production bundle
+        run: npm run build
