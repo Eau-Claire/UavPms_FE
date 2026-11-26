@@ -33,7 +33,6 @@ import {
   AnomalyTowerAssignment,
   apiErrorCode,
   EXECUTION_LOCATION_LABELS,
-  groupSuperseded,
   REJECT_REASONS,
 } from '../../data-access/anomaly-api';
 
@@ -48,8 +47,6 @@ interface ReviewNavigationState {
   readonly anomaly?: AnomalyItem;
   readonly superseded?: readonly AnomalyItem[];
 }
-
-const REVIEW_ROLES = new Set(['analyst', 'manager', 'admin', 'systemadmin', 'administrator']);
 
 @Component({
   selector: 'app-detection-review',

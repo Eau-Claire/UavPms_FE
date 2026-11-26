@@ -274,8 +274,13 @@
 </div>
 
 @if (showConfirmModal()) {
-  <div class="confirm-modal-backdrop" (click)="closeConfirmModal()">
-    <div class="confirm-modal-card" (click)="$event.stopPropagation()">
+  <div
+    class="confirm-modal-backdrop"
+    tabindex="-1"
+    (click)="$event.target === $event.currentTarget && closeConfirmModal()"
+    (keydown.escape)="closeConfirmModal()"
+  >
+    <div class="confirm-modal-card" role="dialog" aria-modal="true">
       <div class="modal-head">
         <h3>Xác nhận kết quả phát hiện khuyết tật</h3>
         <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeConfirmModal()">Đóng</button>
@@ -316,8 +321,13 @@
 }
 
 @if (showRejectModal()) {
-  <div class="reject-modal-backdrop" (click)="closeRejectModal()">
-    <div class="reject-modal-card" (click)="$event.stopPropagation()">
+  <div
+    class="reject-modal-backdrop"
+    tabindex="-1"
+    (click)="$event.target === $event.currentTarget && closeRejectModal()"
+    (keydown.escape)="closeRejectModal()"
+  >
+    <div class="reject-modal-card" role="dialog" aria-modal="true">
       <div class="modal-head">
         <h3>Từ chối kết quả phát hiện</h3>
         <button type="button" class="app-btn-action" aria-label="Đóng" (click)="closeRejectModal()">Đóng</button>
@@ -361,8 +371,13 @@
 }
 
 @if (activeLearningEnabled && showPostRejectPrompt()) {
-  <div class="confirm-modal-backdrop" (click)="skipPostRejectLabeling()">
-    <div class="confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="post-reject-al-title" (click)="$event.stopPropagation()">
+  <div
+    class="confirm-modal-backdrop"
+    tabindex="-1"
+    (click)="$event.target === $event.currentTarget && skipPostRejectLabeling()"
+    (keydown.escape)="skipPostRejectLabeling()"
+  >
+    <div class="confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="post-reject-al-title">
       <div class="modal-head">
         <h3 id="post-reject-al-title">Kiểm tra toàn bộ ảnh để cải thiện AI?</h3>
         <button type="button" class="app-btn-action" aria-label="Đóng" (click)="skipPostRejectLabeling()">Đóng</button>

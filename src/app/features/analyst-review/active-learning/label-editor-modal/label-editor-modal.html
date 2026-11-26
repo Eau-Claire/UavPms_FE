@@ -243,8 +243,11 @@
                 @let meta = getLabelClassMeta(box.className);
                 <li
                   class="le-box-row"
+                  tabindex="0"
                   [class.selected]="selectedBoxId() === box.id"
                   (click)="selectBox(box.id)"
+                  (keydown.enter)="selectBox(box.id)"
+                  (keydown.space)="$event.preventDefault(); selectBox(box.id)"
                 >
                   <span class="le-color-dot" [style.background-color]="meta.color" aria-hidden="true"></span>
 
