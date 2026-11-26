@@ -216,23 +216,23 @@
       <form [formGroup]="droneForm" (ngSubmit)="saveDrone()">
         <div class="form-row">
           <div class="form-group">
-            <label>Mã UAV (Drone Code) <span class="req">*</span></label>
-            <input type="text" formControlName="code" placeholder="Ví dụ: UAV-001" [readonly]="!!editingDrone()" />
+            <label for="drone-code">Mã UAV (Drone Code) <span class="req">*</span></label>
+            <input id="drone-code" type="text" formControlName="code" placeholder="Ví dụ: UAV-001" [readonly]="!!editingDrone()" />
           </div>
           <div class="form-group">
-            <label>Tên định danh UAV <span class="req">*</span></label>
-            <input type="text" formControlName="name" placeholder="Ví dụ: UAV Khảo sát nhiệt 01" />
+            <label for="drone-name">Tên định danh UAV <span class="req">*</span></label>
+            <input id="drone-name" type="text" formControlName="name" placeholder="Ví dụ: UAV Khảo sát nhiệt 01" />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>Model thiết bị <span class="req">*</span></label>
-            <input type="text" formControlName="model" placeholder="Ví dụ: Matrice 350 RTK" />
+            <label for="drone-model">Model thiết bị <span class="req">*</span></label>
+            <input id="drone-model" type="text" formControlName="model" placeholder="Ví dụ: Matrice 350 RTK" />
           </div>
           <div class="form-group">
-            <label>Phân loại (Category)</label>
-            <select formControlName="category">
+            <label for="drone-category">Phân loại (Category)</label>
+            <select id="drone-category" formControlName="category">
               <option value="Quadcopter">Quadcopter (4 cánh)</option>
               <option value="Hexacopter">Hexacopter (6 cánh)</option>
               <option value="Octocopter">Octocopter (8 cánh)</option>
@@ -243,44 +243,44 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label>Số Serial thiết bị</label>
-            <input type="text" formControlName="serialNumber" placeholder="Ví dụ: SN-EVN-998822" />
+            <label for="drone-serial">Số Serial thiết bị</label>
+            <input id="drone-serial" type="text" formControlName="serialNumber" placeholder="Ví dụ: SN-EVN-998822" />
           </div>
           <div class="form-group">
-            <label>Khu vực quản lý (Region ID)</label>
-            <input type="text" formControlName="assignedRegionId" placeholder="Ví dụ: reg-cpc" />
+            <label for="drone-region">Khu vực quản lý (Region ID)</label>
+            <input id="drone-region" type="text" formControlName="assignedRegionId" placeholder="Ví dụ: reg-cpc" />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>Thời gian bay tối đa (Phút) <span class="req">*</span></label>
-            <input type="number" formControlName="flightEnduranceMinutes" min="5" max="180" />
+            <label for="drone-endurance">Thời gian bay tối đa (Phút) <span class="req">*</span></label>
+            <input id="drone-endurance" type="number" formControlName="flightEnduranceMinutes" min="5" max="180" />
           </div>
           <div class="form-group">
-            <label>Bán kính hoạt động (km) <span class="req">*</span></label>
-            <input type="number" formControlName="operationalRangeKm" min="1" max="100" />
+            <label for="drone-range">Bán kính hoạt động (km) <span class="req">*</span></label>
+            <input id="drone-range" type="number" formControlName="operationalRangeKm" min="1" max="100" />
           </div>
         </div>
 
         <div class="form-group">
-          <label>Cảm biến / Tải trọng (Camera Payload)</label>
-          <input type="text" formControlName="cameraPayloadInfo"
+          <label for="drone-payload">Cảm biến / Tải trọng (Camera Payload)</label>
+          <input id="drone-payload" type="text" formControlName="cameraPayloadInfo"
             placeholder="Ví dụ: Zenmuse H20T Thermal & Optical 4K" />
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>Trạng thái vận hành</label>
-            <select formControlName="operationalStatus">
+            <label for="drone-operational-status">Trạng thái vận hành</label>
+            <select id="drone-operational-status" formControlName="operationalStatus">
               @for (opt of operationalStatuses; track opt.value) {
               <option [value]="opt.value">{{ opt.label }}</option>
               }
             </select>
           </div>
           <div class="form-group">
-            <label>Sức khỏe kỹ thuật</label>
-            <select formControlName="technicalHealth">
+            <label for="drone-technical-health">Sức khỏe kỹ thuật</label>
+            <select id="drone-technical-health" formControlName="technicalHealth">
               @for (opt of technicalHealths; track opt.value) {
               <option [value]="opt.value">{{ opt.label }}</option>
               }
@@ -302,10 +302,10 @@
 
 <!-- ================= MODAL: BASIC TECHNICAL CHECK ================= -->
 @if (techCheckModalOpen()) {
-<div class="modal-backdrop" (click)="closeTechCheck()">
-  <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="drone-tech-check-title" tabindex="-1" (click)="$event.target === $event.currentTarget && closeTechCheck()" (keydown.escape)="closeTechCheck()">
+  <div class="modal-dialog modal-lg">
     <div class="modal-header">
-      <h3>Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}</h3>
+      <h3 id="drone-tech-check-title">Kiểm Định Kỹ Thuật An Toàn Tiền Bay: {{ targetDroneForCheck()?.code }}</h3>
       <button type="button" class="close-x" (click)="closeTechCheck()" aria-label="Đóng">×</button>
     </div>
 
@@ -390,16 +390,16 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Điện áp tổng (V)</label>
-              <input type="number" formControlName="batteryVoltage" step="0.1" />
+              <label for="check-battery-voltage">Điện áp tổng (V)</label>
+              <input id="check-battery-voltage" type="number" formControlName="batteryVoltage" step="0.1" />
             </div>
             <div class="form-group">
-              <label>Phần trăm dung lượng (%)</label>
-              <input type="number" formControlName="batteryPercent" min="0" max="100" />
+              <label for="check-battery-percent">Phần trăm dung lượng (%)</label>
+              <input id="check-battery-percent" type="number" formControlName="batteryPercent" min="0" max="100" />
             </div>
             <div class="form-group">
-              <label>Số Cell pin</label>
-              <input type="number" formControlName="batteryCellCount" min="1" max="14" />
+              <label for="check-battery-cells">Số Cell pin</label>
+              <input id="check-battery-cells" type="number" formControlName="batteryCellCount" min="1" max="14" />
             </div>
           </div>
           <input type="text" formControlName="batteryNotes" placeholder="Ghi chú độ phồng pin, cân bằng cell..." />
@@ -418,12 +418,12 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Trạng thái Fix</label>
-              <input type="text" formControlName="gpsFixStatus" placeholder="3D_FIX / RTK_FIX" />
+              <label for="check-gps-fix">Trạng thái Fix</label>
+              <input id="check-gps-fix" type="text" formControlName="gpsFixStatus" placeholder="3D_FIX / RTK_FIX" />
             </div>
             <div class="form-group">
-              <label>Số lượng vệ tinh kết nối</label>
-              <input type="number" formControlName="gpsSatelliteCount" min="0" max="40" />
+              <label for="check-gps-sats">Số lượng vệ tinh kết nối</label>
+              <input id="check-gps-sats" type="number" formControlName="gpsSatelliteCount" min="0" max="40" />
             </div>
           </div>
           <input type="text" formControlName="gpsNotes" placeholder="Ghi chú độ trôi vị trí, nhiễu từ trường..." />
@@ -465,29 +465,29 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Flight Controller Hardware UID (MSP_UID)</label>
-              <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: BF-F405-A1B2C3D4" />
+              <label for="check-fc-uid">Flight Controller Hardware UID (MSP_UID)</label>
+              <input id="check-fc-uid" type="text" formControlName="flightControllerUid" placeholder="Ví dụ: BF-F405-A1B2C3D4" />
             </div>
             <div class="form-group">
-              <label>Bo mạch (Board Identifier)</label>
-              <input type="text" formControlName="flightControllerBoard" placeholder="Ví dụ: MATEKF722" />
+              <label for="check-fc-board">Bo mạch (Board Identifier)</label>
+              <input id="check-fc-board" type="text" formControlName="flightControllerBoard" placeholder="Ví dụ: MATEKF722" />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Firmware Version</label>
-              <input type="text" formControlName="flightControllerFirmware" placeholder="Betaflight 4.5.1" />
+              <label for="check-fc-firmware">Firmware Version</label>
+              <input id="check-fc-firmware" type="text" formControlName="flightControllerFirmware" placeholder="Betaflight 4.5.1" />
             </div>
             <div class="form-group">
-              <label>Ghi chú FC</label>
-              <input type="text" formControlName="flightControllerNotes" placeholder="Trạng thái giao thức MSP..." />
+              <label for="check-fc-notes">Ghi chú FC</label>
+              <input id="check-fc-notes" type="text" formControlName="flightControllerNotes" placeholder="Trạng thái giao thức MSP..." />
             </div>
           </div>
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
-          <label>Kết luận chung biên bản kiểm định</label>
-          <textarea formControlName="notes" rows="2" placeholder="Ghi chú kết luận của kỹ thuật viên..."></textarea>
+          <label for="check-general-notes">Kết luận chung biên bản kiểm định</label>
+          <textarea id="check-general-notes" formControlName="notes" rows="2" placeholder="Ghi chú kết luận của kỹ thuật viên..."></textarea>
         </div>
 
         <div class="modal-footer">
@@ -598,10 +598,10 @@
 
 <!-- ================= MODAL: FLIGHT CONTROLLER (FC) BINDING ================= -->
 @if (fcModalOpen()) {
-<div class="modal-backdrop" (click)="closeFcModal()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
+<div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="drone-fc-modal-title" tabindex="-1" (click)="$event.target === $event.currentTarget && !fcBusy() && closeFcModal()" (keydown.escape)="!fcBusy() && closeFcModal()">
+  <div class="modal-dialog">
     <div class="modal-header">
-      <h3>Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}</h3>
+      <h3 id="drone-fc-modal-title">Cập nhật Flight Controller cho UAV {{ targetDroneForFc()?.code }}</h3>
       <button type="button" class="close-x" (click)="closeFcModal()" [disabled]="fcBusy()" aria-label="Đóng">×</button>
     </div>
 
@@ -625,26 +625,26 @@
 
       <form [formGroup]="fcForm" (ngSubmit)="saveFcBinding()">
         <div class="form-group">
-          <label>Mã UID phần cứng FC (Hardware UID) <span class="req">*</span></label>
-          <input type="text" formControlName="flightControllerUid" placeholder="Ví dụ: 002100373038510b34313936"
+          <label for="fc-binding-uid">Mã UID phần cứng FC (Hardware UID) <span class="req">*</span></label>
+          <input id="fc-binding-uid" type="text" formControlName="flightControllerUid" placeholder="Ví dụ: 002100373038510b34313936"
             class="tabular-nums" />
           <small class="field-hint">Chuỗi định danh độc nhất đọc từ vi điều khiển STM32 qua lệnh MSP_UID.</small>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>Tên bo mạch (Board Identifier)</label>
-            <input type="text" formControlName="boardIdentifier" placeholder="Ví dụ: Betaflight STM32F405" />
+            <label for="fc-binding-board">Tên bo mạch (Board Identifier)</label>
+            <input id="fc-binding-board" type="text" formControlName="boardIdentifier" placeholder="Ví dụ: Betaflight STM32F405" />
           </div>
           <div class="form-group">
-            <label>Phần mềm / Firmware</label>
-            <input type="text" formControlName="firmwareName" placeholder="Ví dụ: Betaflight" />
+            <label for="fc-binding-firmware-name">Phần mềm / Firmware</label>
+            <input id="fc-binding-firmware-name" type="text" formControlName="firmwareName" placeholder="Ví dụ: Betaflight" />
           </div>
         </div>
 
         <div class="form-group">
-          <label>Phiên bản Firmware (Version)</label>
-          <input type="text" formControlName="firmwareVersion" placeholder="Ví dụ: 4.5.1" />
+          <label for="fc-binding-firmware-version">Phiên bản Firmware (Version)</label>
+          <input id="fc-binding-firmware-version" type="text" formControlName="firmwareVersion" placeholder="Ví dụ: 4.5.1" />
         </div>
 
         <div class="modal-footer">

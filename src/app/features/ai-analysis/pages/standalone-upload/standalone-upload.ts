@@ -35,7 +35,6 @@ import {
   StandaloneWorkflowStage,
 } from '../../data-access/ai-analysis-session-store';
 import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
-import { ActiveEmergencyAlert } from '../../../emergency-alerts/models/emergency-alert.models';
 
 export type { AnalysisWorkflowMode, StandaloneMediaPreview, StandaloneWorkflowStage };
 

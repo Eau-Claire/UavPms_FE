@@ -7,7 +7,6 @@ import { unwrapApiData } from '../../../models/api.models';
 import { AnomalyHistoryService } from '../../analyst-review/data-access/anomaly-history.service';
 import {
   ActiveEmergencyAlert,
-  ALERT_STATUSES,
   AlertBoundingBox,
   AlertEscalation,
   AlertHistoryQuery,

@@ -162,7 +162,9 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     if (this.map) {
       try {
         this.map.remove();
-      } catch {}
+      } catch {
+        // Bỏ qua nếu instance bản đồ đã bị hủy trước đó
+      }
       this.map = null;
       this.currentTileLayer = null;
     }
@@ -266,8 +268,8 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
 
   protected onQuotaInput(
     name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit',
-    min: number = 1,
-    max: number = 10,
+    min = 1,
+    max = 10,
   ): void {
     const control = this.form.get(name);
     if (!control) return;
@@ -283,7 +285,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     control.markAsDirty();
   }
 
-  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max: number = 10): void {
+  protected incrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', max = 10): void {
     const control = this.form.get(name);
     if (!control) return;
     const current = Number(control.value) || 1;
@@ -293,7 +295,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min: number = 1): void {
+  protected decrementQuota(name: 'requiredInspectors' | 'requiredAnalysts' | 'requiredTechnicians' | 'maxDronesLimit', min = 1): void {
     const control = this.form.get(name);
     if (!control) return;
     const current = Number(control.value) || 1;
@@ -480,7 +482,9 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
               if (typeof findingsObj?.maxDronesLimit === 'number') {
                 this.form.controls.maxDronesLimit.setValue(findingsObj.maxDronesLimit);
               }
-            } catch {}
+            } catch {
+              // Giữ định mức mặc định nếu findings nguồn không phải JSON hợp lệ
+            }
           }
           this.loadTowers(
             a.regionId,
@@ -500,7 +504,9 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     if (this.map) {
       try {
         this.map.remove();
-      } catch {}
+      } catch {
+        // Bỏ qua nếu instance bản đồ đã bị hủy trước đó
+      }
       this.map = null;
     }
 
@@ -535,7 +541,7 @@ export class AssessmentCreate implements AfterViewInit, OnDestroy {
     }, 300);
   }
 
-  private renderMap(fit: boolean = false): void {
+  private renderMap(fit = false): void {
     if (!this.map) {
       this.initMap();
       return;

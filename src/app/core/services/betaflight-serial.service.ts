@@ -157,6 +157,19 @@ const MSP_BOARD_INFO = 4;
 const MSP_NAME = 11;
 const MSP_UID = 160;
 
+interface WebSerialPort {
+  open(options: { baudRate: number }): Promise<void>;
+  close(): Promise<void>;
+  writable: WritableStream<Uint8Array>;
+  readable: ReadableStream<Uint8Array>;
+}
+
+interface WebSerialNavigator {
+  serial: {
+    requestPort(options: { filters: { usbVendorId: number }[] }): Promise<WebSerialPort>;
+  };
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -166,9 +179,9 @@ export class BetaflightSerialService {
   readonly isSimulated = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
 
-  private port: any = null;
-  private reader: any = null;
-  private writer: any = null;
+  private port: WebSerialPort | null = null;
+  private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  private writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
 
   isWebSerialSupported(): boolean {
     return typeof navigator !== 'undefined' && 'serial' in navigator;
@@ -187,7 +200,7 @@ export class BetaflightSerialService {
       this.errorMessage.set(null);
       this.isSimulated.set(false);
 
-      const nav = navigator as any;
+      const nav = navigator as unknown as WebSerialNavigator;
       this.port = await nav.serial.requestPort({
         filters: [
           { usbVendorId: 0x0483 }, // STMicroelectronics
@@ -204,8 +217,11 @@ export class BetaflightSerialService {
       this.activeMetadata.set(metadata);
       this.connectionState.set('connected');
       return metadata;
-    } catch (err: any) {
-      const message = err?.message || 'Không thể kết nối đến cổng Serial của Flight Controller.';
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Không thể kết nối đến cổng Serial của Flight Controller.';
       this.errorMessage.set(message);
       this.connectionState.set('error');
       await this.disconnect();
@@ -255,7 +271,7 @@ export class BetaflightSerialService {
   async disconnect(): Promise<void> {
     try {
       if (this.reader) {
-        await this.reader.cancel().catch(() => {});
+        await this.reader.cancel().catch(() => undefined);
         this.reader.releaseLock?.();
         this.reader = null;
       }
@@ -264,7 +280,7 @@ export class BetaflightSerialService {
         this.writer = null;
       }
       if (this.port) {
-        await this.port.close().catch(() => {});
+        await this.port.close().catch(() => undefined);
         this.port = null;
       }
     } catch {
@@ -289,7 +305,9 @@ export class BetaflightSerialService {
         if (variantStr === 'BTFL') firmwareName = 'Betaflight';
         else if (variantStr === 'INAV') firmwareName = 'INAV';
       }
-    } catch {}
+    } catch {
+      // Giữ tên firmware mặc định nếu mạch điều khiển không phản hồi lệnh MSP_FC_VARIANT
+    }
 
     let firmwareVersion = '4.5.0';
     try {
@@ -297,7 +315,9 @@ export class BetaflightSerialService {
       if (versionResp && versionResp.length >= 3) {
         firmwareVersion = `${versionResp[0]}.${versionResp[1]}.${versionResp[2]}`;
       }
-    } catch {}
+    } catch {
+      // Giữ phiên bản firmware mặc định nếu không đọc được MSP_FC_VERSION
+    }
 
     let boardIdentifier = 'STM32F405';
     try {
@@ -305,7 +325,9 @@ export class BetaflightSerialService {
       if (boardResp && boardResp.length >= 4) {
         boardIdentifier = String.fromCharCode(...boardResp.slice(0, 4)).trim() || 'STM32F405';
       }
-    } catch {}
+    } catch {
+      // Giữ mã board mặc định nếu không đọc được MSP_BOARD_INFO
+    }
 
     let deviceName = 'Betaflight-Drone';
     try {
@@ -313,7 +335,9 @@ export class BetaflightSerialService {
       if (nameResp && nameResp.length > 0) {
         deviceName = String.fromCharCode(...nameResp).trim() || 'Betaflight-Drone';
       }
-    } catch {}
+    } catch {
+      // Giữ tên thiết bị mặc định nếu không đọc được MSP_NAME
+    }
 
     return {
       uid,
@@ -345,15 +369,19 @@ export class BetaflightSerialService {
   }
 
   private async readMspResponse(expectedCode: number, timeoutMs = 800): Promise<Uint8Array> {
+    const reader = this.reader;
+    if (!reader) {
+      throw new Error('Cổng Serial chưa được mở hoặc không khả dụng.');
+    }
     const start = Date.now();
     const buffer: number[] = [];
 
     while (Date.now() - start < timeoutMs) {
-      const { value, done } = await this.reader.read();
+      const { value, done } = await reader.read();
       if (done) break;
       if (value) {
-        for (let i = 0; i < value.length; i++) {
-          buffer.push(value[i]);
+        for (const byte of value) {
+          buffer.push(byte);
         }
         for (let i = 0; i <= buffer.length - 6; i++) {
           if (buffer[i] === 36 && buffer[i + 1] === 77 && buffer[i + 2] === 62) {

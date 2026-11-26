@@ -1,5 +1,4 @@
 import { DatePipe, SlicePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -12,7 +11,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
+import { debounceTime, finalize } from 'rxjs';
 import {
   AUDIT_ACTION_OPTIONS,
   AUDIT_TABLE_OPTIONS,

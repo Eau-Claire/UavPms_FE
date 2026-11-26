@@ -108,7 +108,9 @@ export class MissionCreate implements OnDestroy {
         if (typeof parsed?.requiredAnalysts === 'number') reqAnalysts = Math.max(1, parsed.requiredAnalysts);
         if (typeof parsed?.requiredTechnicians === 'number') reqTechnicians = Math.max(1, parsed.requiredTechnicians);
         if (typeof parsed?.maxDronesLimit === 'number') maxDronesLimit = Math.max(1, parsed.maxDronesLimit);
-      } catch {}
+      } catch {
+        // Giữ định mức mặc định nếu findings không phải JSON hợp lệ
+      }
     }
     return { reqInspectors, reqAnalysts, reqTechnicians, maxDronesLimit };
   });

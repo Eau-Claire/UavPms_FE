@@ -296,11 +296,12 @@
             </p>
             @for (d of eligibleDrones(); track d.id) {
               <div class="candidate-row" [class.selected]="isDroneSelected(d.id)">
-                <label class="candidate-check">
+                <label class="candidate-check" [attr.for]="'drone-candidate-' + d.id">
                   @if (maxDronesLimit() === 1) {
-                    <input type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
+                    <input [id]="'drone-candidate-' + d.id" type="radio" name="primary-drone" [checked]="isDroneSelected(d.id)" (change)="selectDrone(d.id)" />
                   } @else {
                     <input
+                      [id]="'drone-candidate-' + d.id"
                       type="checkbox"
                       [checked]="isDroneSelected(d.id)"
                       [disabled]="!isDroneSelected(d.id) && selectedDroneIds().length >= maxDronesLimit()"

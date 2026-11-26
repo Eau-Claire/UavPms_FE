@@ -164,10 +164,10 @@ export class NotificationsRealtime {
     if (!missionId) return;
     this.activeMissionGroups.add(missionId);
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('JoinMissionGroup', missionId).catch(() => {});
-      this.connection.invoke('JoinMission', missionId).catch(() => {});
-      this.connection.invoke('JoinGroup', `mission_${missionId}`).catch(() => {});
-      this.connection.invoke('JoinGroup', missionId).catch(() => {});
+      this.connection.invoke('JoinMissionGroup', missionId).catch(() => undefined);
+      this.connection.invoke('JoinMission', missionId).catch(() => undefined);
+      this.connection.invoke('JoinGroup', `mission_${missionId}`).catch(() => undefined);
+      this.connection.invoke('JoinGroup', missionId).catch(() => undefined);
     }
   }
 
@@ -175,10 +175,10 @@ export class NotificationsRealtime {
     if (!missionId) return;
     this.activeMissionGroups.delete(missionId);
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('LeaveMissionGroup', missionId).catch(() => {});
-      this.connection.invoke('LeaveMission', missionId).catch(() => {});
-      this.connection.invoke('LeaveGroup', `mission_${missionId}`).catch(() => {});
-      this.connection.invoke('LeaveGroup', missionId).catch(() => {});
+      this.connection.invoke('LeaveMissionGroup', missionId).catch(() => undefined);
+      this.connection.invoke('LeaveMission', missionId).catch(() => undefined);
+      this.connection.invoke('LeaveGroup', `mission_${missionId}`).catch(() => undefined);
+      this.connection.invoke('LeaveGroup', missionId).catch(() => undefined);
     }
   }
 
@@ -187,8 +187,8 @@ export class NotificationsRealtime {
     if (!assessmentId) return;
     this.activeAssessmentGroups.add(assessmentId);
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('JoinAssessmentGroup', assessmentId).catch(() => {});
-      this.connection.invoke('JoinGroup', 'assessment_' + assessmentId).catch(() => {});
+      this.connection.invoke('JoinAssessmentGroup', assessmentId).catch(() => undefined);
+      this.connection.invoke('JoinGroup', 'assessment_' + assessmentId).catch(() => undefined);
     }
   }
 
@@ -196,24 +196,24 @@ export class NotificationsRealtime {
     if (!assessmentId) return;
     this.activeAssessmentGroups.delete(assessmentId);
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('LeaveAssessmentGroup', assessmentId).catch(() => {});
-      this.connection.invoke('LeaveGroup', 'assessment_' + assessmentId).catch(() => {});
+      this.connection.invoke('LeaveAssessmentGroup', assessmentId).catch(() => undefined);
+      this.connection.invoke('LeaveGroup', 'assessment_' + assessmentId).catch(() => undefined);
     }
   }
 
   joinAssessmentsList(): void {
     this.isInAssessmentsListGroup = true;
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('JoinAssessmentsListGroup').catch(() => {});
-      this.connection.invoke('JoinGroup', 'assessments').catch(() => {});
+      this.connection.invoke('JoinAssessmentsListGroup').catch(() => undefined);
+      this.connection.invoke('JoinGroup', 'assessments').catch(() => undefined);
     }
   }
 
   leaveAssessmentsList(): void {
     this.isInAssessmentsListGroup = false;
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.invoke('LeaveAssessmentsListGroup').catch(() => {});
-      this.connection.invoke('LeaveGroup', 'assessments').catch(() => {});
+      this.connection.invoke('LeaveAssessmentsListGroup').catch(() => undefined);
+      this.connection.invoke('LeaveGroup', 'assessments').catch(() => undefined);
     }
   }
 
@@ -230,8 +230,8 @@ export class NotificationsRealtime {
 
     // 3. Emit via SignalR Hub WebSocket
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.send('SendAssessmentEvent', event).catch(() => {});
-      this.connection.send('BroadcastAssessmentEvent', event).catch(() => {});
+      this.connection.send('SendAssessmentEvent', event).catch(() => undefined);
+      this.connection.send('BroadcastAssessmentEvent', event).catch(() => undefined);
     }
   }
 
@@ -248,9 +248,9 @@ export class NotificationsRealtime {
 
     // 3. Emit via SignalR Hub WebSocket to server and other network clients
     if (this.connection && this.connection.state === HubConnectionState.Connected) {
-      this.connection.send('SendMissionEvent', event).catch(() => {});
-      this.connection.send('BroadcastMissionLifecycle', event).catch(() => {});
-      this.connection.send('BroadcastEvent', event).catch(() => {});
+      this.connection.send('SendMissionEvent', event).catch(() => undefined);
+      this.connection.send('BroadcastMissionLifecycle', event).catch(() => undefined);
+      this.connection.send('BroadcastEvent', event).catch(() => undefined);
     }
   }
 
@@ -501,7 +501,7 @@ function normalizeMissionLifecycleEvent(
       senderId: stringValue(l['senderId'], 'user'),
       senderName: stringValue(l['senderName'], actorName || 'Hệ thống'),
       senderRole: (stringValue(l['senderRole']).toUpperCase() as 'MANAGER' | 'INSPECTOR' | 'SYSTEM') || 'SYSTEM',
-      type: (stringValue(l['type']).toUpperCase() as any) || 'DISPATCH',
+      type: (stringValue(l['type']).toUpperCase() as MissionCommunicationLog['type']) || 'DISPATCH',
       content: stringValue(l['content'], message || ''),
       timestamp: stringValue(l['timestamp'], timestamp),
     };

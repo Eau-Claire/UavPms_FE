@@ -765,7 +765,7 @@ export class MissionDetail {
           this.loadDetections(mission.id);
           this.loadMaintenanceTasks(mission.id);
           this.loadActivities(mission.id);
-          this.loadMediaQueue(mission.id);
+          this.loadMediaQueue();
         },
         error: (error: unknown) => this.error.set(this.errorMessage(error, 'Không thể tải chi tiết nhiệm vụ.')),
       });
@@ -786,7 +786,7 @@ export class MissionDetail {
     if (!missionId) return;
 
     if (tab === 'results' || tab === 'processing' || tab === 'upload') {
-      this.loadMediaQueue(missionId);
+      this.loadMediaQueue();
       this.loadDetections(missionId);
       if (tab === 'processing') {
         if (this.detections().length > 0) {
@@ -1002,7 +1002,6 @@ export class MissionDetail {
     this.uploadProgress.set(0);
     this.uploadMessage.set('');
     this.selectedDetection.set(null);
-    const missionId = this.mission()?.id;
 
     previews.forEach((media) => {
       if (media.kind === 'image') {
@@ -2019,7 +2018,7 @@ export class MissionDetail {
       this.detectionsLoading.set(false);
       this.detections.set([]);
       this.selectedDetection.set(null);
-      this.loadMediaQueue(missionId);
+      this.loadMediaQueue();
       return;
     }
     this.detectionsLoading.set(true);
@@ -2035,13 +2034,13 @@ export class MissionDetail {
           this.resultPage.set(1);
           this.detections.set(mapped);
           this.selectedDetection.set(mapped[0] ?? null);
-          this.loadMediaQueue(missionId);
+          this.loadMediaQueue();
         },
         error: () => {
           this.resultPage.set(1);
           this.detections.set([]);
           this.selectedDetection.set(null);
-          this.loadMediaQueue(missionId);
+          this.loadMediaQueue();
         },
       });
   }
@@ -2576,26 +2575,14 @@ export class MissionDetail {
     const randCode = Math.floor(100 + Math.random() * 900);
     const ticketCode = `MT-${cleanMissionSuffix}-${towerPart}-${randCode}`;
 
-    // Get REAL manager from current authenticated session or mission record
-    const currentUser = this.auth.user();
-    const realManagerId =
-      mission.managerId && mission.managerId !== '00000000-0000-0000-0000-000000000000'
-        ? mission.managerId
-        : currentUser?.id || '11111111-1111-1111-1111-111111111111';
-    const realManagerName = currentUser?.fullName || mission.managerUsername || 'An Nguyen';
-    const realManagerEmail = currentUser?.email || 'an.nguyen@evn.vn';
-
     // Get REAL technician from mission team or user directory (from DB)
     const teamTech = mission.team?.find(
       (m) => (m.assignmentRole || '').toUpperCase().includes('TECH') || (m.assignmentRole || '').toUpperCase().includes('KTV')
     );
     const availableTech = this.availableUsers().find((u) => u.role === 'Technician');
 
-    const realTechId = teamTech?.userId || availableTech?.id || '5c2d008d-b68e-4975-9a0d-93c42cd306b4';
     const realTechName =
       teamTech?.userFullName || teamTech?.userName || availableTech?.fullName || availableTech?.username || 'Regression Technician';
-    const realTechEmail =
-      availableTech?.email || `${(teamTech?.userName || 'tech.regression').toLowerCase()}@uavpms.local`;
 
     // Real team name based on mission region and real technician
     const realTeamName = mission.regionName
@@ -2681,7 +2668,7 @@ export class MissionDetail {
     this.resultMessage.set(`✅ Đã lập thành công ${count} phiếu bảo trì từ các khuyết tật AI.`);
   }
 
-  private loadMediaQueue(missionId: string): void {
+  private loadMediaQueue(): void {
     if (this.mediaQueue().length > 0) {
       if (this.detections().length > 0) {
         this.isAiProcessingComplete.set(true);

@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
@@ -21,6 +21,7 @@ function makeAlert(id: string, isRead = false, index = 1): MonitorAlert {
 
 @Component({
   imports: [ActiveAlertsPanel],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-active-alerts-panel
       [alerts]="alerts()"
