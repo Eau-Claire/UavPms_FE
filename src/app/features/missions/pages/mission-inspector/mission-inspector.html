@@ -254,20 +254,22 @@
               <small class="tabular-nums">{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí có tọa độ</small>
             </div>
           </div>
-          <div class="map-layer-switch" role="group" aria-label="Lớp bản đồ">
+          <div class="map-layer-switch" role="group" aria-label="Chế độ bản đồ địa phương">
             <button
               type="button"
-              [class.active]="mapType() === 'satellite'"
-              [attr.aria-pressed]="mapType() === 'satellite'"
-              (click)="setMapType('satellite')">
-              Vệ tinh
+              [class.active]="mapMode() === 'pmtiles'"
+              [attr.aria-pressed]="mapMode() === 'pmtiles'"
+              aria-label="Bản đồ địa phương (PMTiles)"
+              (click)="setMapMode('pmtiles')">
+              Bản đồ địa phương
             </button>
             <button
               type="button"
-              [class.active]="mapType() === 'streets'"
-              [attr.aria-pressed]="mapType() === 'streets'"
-              (click)="setMapType('streets')">
-              Đường phố
+              [class.active]="mapMode() === 'schematic'"
+              [attr.aria-pressed]="mapMode() === 'schematic'"
+              aria-label="Sơ đồ lưới (Schematic)"
+              (click)="setMapMode('schematic')">
+              Sơ đồ lưới
             </button>
           </div>
         </header>

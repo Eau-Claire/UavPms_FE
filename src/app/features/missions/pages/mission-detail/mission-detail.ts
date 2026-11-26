@@ -17,7 +17,18 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import * as L from 'leaflet';
+import { Map as MapLibreMap, Marker, Popup } from 'maplibre-gl';
+import {
+  LocalMapMode,
+  buildLocalGisStyle,
+  createLocalGisMap,
+  filterValidCoordinates,
+  fitLocalGisBounds,
+  isValidCoordinate,
+  isWithinEvnspcCoverage,
+  resolveLocalMapMode,
+  setLocalGisRouteLine,
+} from '../../../../shared/gis/local-gis';
 import { Observable, catchError, concatMap, finalize, from, of, switchMap, tap } from 'rxjs';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { priorityColorClass, statusColorClass, statusLabel as globalStatusLabel } from '../../../../shared/status/status';
@@ -262,12 +273,13 @@ export class MissionDetail {
   });
   private readonly aiStatusEvents = new Map<string, AiAnalysisStatusChangedEvent>();
   private readonly missionMapContainer = viewChild<ElementRef<HTMLDivElement>>('missionMap');
-  private map: L.Map | null = null;
-  private currentTileLayer: L.TileLayer | null = null;
-  private targetMarkers: L.Marker[] = [];
-  private routePolyline: L.Polyline | null = null;
+  private map: MapLibreMap | null = null;
+  private targetMarkers: Marker[] = [];
+  private routeCoords: [number, number][] = [];
   private mapResizeObserver: ResizeObserver | null = null;
-  protected readonly mapType = signal<'satellite' | 'streets'>('satellite');
+  private mapInitTimer: ReturnType<typeof setTimeout> | null = null;
+  private mapResizeTimers: ReturnType<typeof setTimeout>[] = [];
+  protected readonly mapMode = signal<LocalMapMode>('pmtiles');
 
   @ViewChild('resultVideo') private readonly resultVideo?: ElementRef<HTMLVideoElement>;
 
@@ -449,13 +461,15 @@ export class MissionDetail {
     if (!m) return [];
     return m.communicationLogs ?? [];
   });
-  protected readonly targetsWithCoordinates = computed(() => this.mission()?.targets.filter((target) =>
-    Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
-      && Math.abs(target.latitude!) <= 90 && Math.abs(target.longitude!) <= 180,
-  ) ?? []);
-  protected readonly targetsInEvnspcCoverage = computed(() => this.targetsWithCoordinates().filter((target) =>
-    target.latitude! >= 8 && target.latitude! <= 16.2 && target.longitude! >= 102 && target.longitude! <= 109.6,
-  ));
+  protected readonly targetsWithCoordinates = computed(() =>
+    filterValidCoordinates(this.mission()?.targets ?? [], (target) => ({
+      latitude: target.latitude,
+      longitude: target.longitude,
+    })),
+  );
+  protected readonly targetsInEvnspcCoverage = computed(() =>
+    this.targetsWithCoordinates().filter((target) => isWithinEvnspcCoverage(target.latitude!, target.longitude!)),
+  );
   protected readonly hasTargetsOutsideEvnspcCoverage = computed(
     () => this.targetsInEvnspcCoverage().length !== this.targetsWithCoordinates().length,
   );
@@ -542,8 +556,15 @@ export class MissionDetail {
   private readonly missionMapEffect = effect(() => {
     const mission = this.mission();
     const tab = this.activeTab();
-    if (!mission || tab !== 'overview') return;
-    setTimeout(() => this.renderMissionMap(), 0);
+    if (!mission || tab !== 'overview') {
+      this.cleanupMap();
+      return;
+    }
+    if (this.mapInitTimer !== null) clearTimeout(this.mapInitTimer);
+    this.mapInitTimer = setTimeout(() => {
+      this.mapInitTimer = null;
+      this.renderMissionMap();
+    }, 0);
   });
 
   // Video Inspection Playback State
@@ -807,42 +828,20 @@ export class MissionDetail {
     }
   }
 
-  protected setMapType(type: 'satellite' | 'streets'): void {
-    this.mapType.set(type);
+  protected setMapMode(mode: LocalMapMode): void {
+    this.mapMode.set(mode);
     if (!this.map) return;
-    if (this.currentTileLayer) {
-      this.map.removeLayer(this.currentTileLayer);
-      this.currentTileLayer = null;
+    this.map.setStyle(buildLocalGisStyle(mode));
+    if (this.routeCoords.length > 1) {
+      setLocalGisRouteLine(this.map, this.routeCoords, { color: '#0284c7', width: 3 });
     }
-
-    const tileUrl = type === 'satellite'
-      ? 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
-      : 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-
-    const tileLayer = L.tileLayer(tileUrl, {
-      maxZoom: 20,
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      attribution: '© Google Maps | EVN UAV-PMS',
-      keepBuffer: 6,
-    });
-
-    let hasFallenBack = false;
-    tileLayer.on('tileerror', () => {
-      if (!hasFallenBack) {
-        hasFallenBack = true;
-        tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-      }
-    });
-
-    this.currentTileLayer = tileLayer;
-    this.currentTileLayer.addTo(this.map);
   }
 
   protected selectTarget(towerId: string): void {
     this.selectedTargetId.set(towerId);
     const target = this.mission()?.targets.find((item) => item.towerId === towerId);
-    if (!target || !target.latitude || !target.longitude || !this.map) return;
-    this.map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.5 });
+    if (!target || !isValidCoordinate(target.latitude, target.longitude) || !this.map) return;
+    this.map.easeTo({ center: [target.longitude!, target.latitude!], duration: 500 });
   }
 
   private renderMissionMap(): void {
@@ -853,96 +852,130 @@ export class MissionDetail {
       this.cleanupMap();
     }
 
-    if (!this.map) {
-      (container as unknown as { _leaflet_id: number | null })._leaflet_id = null;
-      this.map = L.map(container, {
-        zoomControl: false,
-        attributionControl: false,
-        scrollWheelZoom: false,
-      });
+    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
 
-      L.control.zoom({ position: 'topright' }).addTo(this.map);
-      this.setMapType(this.mapType());
+    if (!this.map) {
+      const effectiveMode = resolveLocalMapMode(
+        targets.map((target) => ({ latitude: target.latitude!, longitude: target.longitude! })),
+        this.mapMode(),
+      );
+      if (effectiveMode !== this.mapMode()) {
+        this.mapMode.set(effectiveMode);
+      }
+
+      const map = createLocalGisMap(container, {
+        mode: effectiveMode,
+        scrollZoom: false,
+        onFallbackToSchematic: () => {
+          this.mapMode.set('schematic');
+          if (this.map && this.routeCoords.length > 1) {
+            setLocalGisRouteLine(this.map, this.routeCoords, { color: '#0284c7', width: 3 });
+          }
+        },
+      });
+      this.map = map;
+      if (!map) return;
 
       this.mapResizeObserver = new ResizeObserver(() => {
-        this.map?.invalidateSize();
+        this.map?.resize();
       });
       this.mapResizeObserver.observe(container);
     }
 
-    this.renderTargetsOnMap();
+    this.renderTargetsOnMap(targets);
   }
 
-  private renderTargetsOnMap(): void {
+  private renderTargetsOnMap(targets: readonly Mission['targets'][number][]): void {
     if (!this.map) return;
 
     this.targetMarkers.forEach((m) => m.remove());
     this.targetMarkers = [];
-    if (this.routePolyline) {
-      this.routePolyline.remove();
-      this.routePolyline = null;
-    }
+    this.clearMapResizeTimers();
 
-    const targets = [...this.targetsWithCoordinates()].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-    if (!targets.length) {
-      this.map.setView([10.7769, 106.7009], 12);
+    const coords: [number, number][] = targets.map((target) => [target.longitude!, target.latitude!]);
+    this.routeCoords = coords;
+
+    if (!coords.length) {
+      setLocalGisRouteLine(this.map, []);
+      fitLocalGisBounds(this.map, []);
       return;
     }
-
-    const latLngs: L.LatLngExpression[] = [];
 
     targets.forEach((target, index) => {
       const lat = target.latitude!;
       const lng = target.longitude!;
-      latLngs.push([lat, lng]);
-
       const sequence = target.sequence || index + 1;
       const code = target.towerCode || `Cột ${sequence}`;
 
-      const icon = L.divIcon({
-        className: 'custom-tower-marker',
-        html: `
-          <div class="tower-pin">
-            <span class="pin-badge">${sequence}</span>
-            <span class="pin-code">${code}</span>
-          </div>
-        `,
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
-      });
+      const markerEl = this.createTowerMarkerElement(sequence, code);
+      markerEl.addEventListener('click', () => this.selectTarget(target.towerId));
 
-      const marker = L.marker([lat, lng], { icon })
-        .addTo(this.map!)
-        .bindPopup(`<strong>${code}</strong><br/>GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      const popup = new Popup({ offset: 20 }).setDOMContent(this.createTowerPopupElement(code, lat, lng));
+      const marker = new Marker({ element: markerEl })
+        .setLngLat([lng, lat])
+        .setPopup(popup)
+        .addTo(this.map!);
 
-      marker.on('click', () => this.selectTarget(target.towerId));
       this.targetMarkers.push(marker);
     });
 
-    if (latLngs.length > 1) {
-      this.routePolyline = L.polyline(latLngs, {
-        color: '#0284c7',
-        weight: 3,
-        dashArray: '6, 6',
-        opacity: 0.9,
-      }).addTo(this.map);
-    }
+    setLocalGisRouteLine(this.map, coords, { color: '#0284c7', width: 3 });
+    fitLocalGisBounds(this.map, coords, 50, 17);
+    this.mapResizeTimers.push(
+      setTimeout(() => this.map?.resize(), 100),
+      setTimeout(() => this.map?.resize(), 300),
+    );
+  }
 
-    const bounds = L.latLngBounds(latLngs);
-    this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
-    setTimeout(() => this.map?.invalidateSize(), 100);
-    setTimeout(() => this.map?.invalidateSize(), 300);
+  private createTowerMarkerElement(sequence: number, code: string): HTMLDivElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-tower-marker';
+    wrapper.style.cursor = 'pointer';
+
+    const pin = document.createElement('div');
+    pin.className = 'tower-pin';
+
+    const badge = document.createElement('span');
+    badge.className = 'pin-badge';
+    badge.textContent = String(sequence);
+
+    const label = document.createElement('span');
+    label.className = 'pin-code';
+    label.textContent = code;
+
+    pin.append(badge, label);
+    wrapper.append(pin);
+    return wrapper;
+  }
+
+  private createTowerPopupElement(code: string, lat: number, lng: number): HTMLDivElement {
+    const content = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = code;
+    const coordsLine = document.createElement('div');
+    coordsLine.textContent = `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    content.append(title, coordsLine);
+    return content;
+  }
+
+  private clearMapResizeTimers(): void {
+    for (const timer of this.mapResizeTimers) {
+      clearTimeout(timer);
+    }
+    this.mapResizeTimers = [];
   }
 
   private cleanupMap(): void {
+    if (this.mapInitTimer !== null) {
+      clearTimeout(this.mapInitTimer);
+      this.mapInitTimer = null;
+    }
+    this.clearMapResizeTimers();
     this.mapResizeObserver?.disconnect();
     this.mapResizeObserver = null;
     this.targetMarkers.forEach((m) => m.remove());
     this.targetMarkers = [];
-    if (this.routePolyline) {
-      this.routePolyline.remove();
-      this.routePolyline = null;
-    }
+    this.routeCoords = [];
     if (this.map) {
       this.map.remove();
       this.map = null;
