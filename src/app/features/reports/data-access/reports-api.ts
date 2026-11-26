@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readBoolean, readNumber, readOptionalString, readString } from '../../../shared/utils';
 import {
   RegionOption,
   REPORT_STATUS_LABELS,
@@ -119,130 +120,116 @@ export class ReportsApi {
     const params = new HttpParams().set('page', 1).set('pageSize', 100);
     return this.http
       .get<unknown>(this.regionsUrl, { params })
-      .pipe(map((response) => arrayOf(recordOf(unwrapApiData(response))['items']).map(normalizeRegion)));
+      .pipe(map((response) => readArray(asRecord(unwrapApiData(response))?.['items']).map(normalizeRegion)));
   }
 }
 
 // ---------------- Normalization ----------------
 
-const recordOf = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-
-const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
-
-const stringOf = (value: unknown, fallback = ''): string => (value == null ? fallback : String(value));
-
-const optionalString = (value: unknown): string | null => {
-  const text = stringOf(value).trim();
-  return text ? text : null;
-};
-
-const numberOf = (value: unknown, fallback = 0): number => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-};
-
-const toType = (value: unknown): ReportType => {
-  const type = stringOf(value).toLowerCase();
+const toType = (value: string): ReportType => {
+  const type = value.toLowerCase();
   return type in REPORT_TYPE_LABELS ? (type as ReportType) : 'defect';
 };
 
-const toStatus = (value: unknown): ReportStatus => {
-  const status = stringOf(value).toLowerCase();
+const toStatus = (value: string): ReportStatus => {
+  const status = value.toLowerCase();
   return status in REPORT_STATUS_LABELS ? (status as ReportStatus) : 'draft';
 };
 
 const normalizePerson = (value: unknown): ReportCreator | null => {
-  const source = recordOf(value);
-  const id = optionalString(source['id']);
-  return id ? { id, fullName: stringOf(source['fullName']) } : null;
+  const source = asRecord(value);
+  const id = readOptionalString(source, 'id');
+  return id ? { id, fullName: readString(source, 'fullName') } : null;
 };
 
 const normalizeRegion = (value: unknown): RegionOption => {
-  const source = recordOf(value);
-  return { id: stringOf(source['id']), name: stringOf(source['name'] ?? source['regionName']) };
+  const source = asRecord(value);
+  return {
+    id: readString(source, 'id'),
+    name: readString(source, 'name') || readString(source, 'regionName'),
+  };
 };
 
 export function normalizeReportItem(value: unknown): ReportItem {
-  const r = recordOf(value);
-  const type = toType(r['type']);
-  const status = toStatus(r['status']);
-  const region = r['region'] ? normalizeRegion(r['region']) : null;
+  const r = asRecord(value);
+  const type = toType(readString(r, 'type'));
+  const status = toStatus(readString(r, 'status'));
+  const region = r?.['region'] ? normalizeRegion(r['region']) : null;
 
   return {
-    id: stringOf(r['id']),
-    code: stringOf(r['code']),
-    title: stringOf(r['title']),
+    id: readString(r, 'id'),
+    code: readString(r, 'code'),
+    title: readString(r, 'title'),
     type,
     typeName: REPORT_TYPE_LABELS[type],
     status,
     statusName: REPORT_STATUS_LABELS[status],
-    createdAt: stringOf(r['createdAt']),
+    createdAt: readString(r, 'createdAt'),
     region: region?.id ? region : null,
-    creator: normalizePerson(r['creator']),
-    defectCount: numberOf(r['defectCount']),
-    hasSnapshot: r['hasSnapshot'] === true,
+    creator: normalizePerson(r?.['creator']),
+    defectCount: readNumber(r, 'defectCount'),
+    hasSnapshot: readBoolean(r, 'hasSnapshot'),
   };
 }
 
 function normalizeReportDetail(value: unknown): ReportDetail {
-  const r = recordOf(value);
+  const r = asRecord(value);
   return {
     ...normalizeReportItem(value),
-    description: optionalString(r['description']),
-    updatedAt: optionalString(r['updatedAt']),
-    dateFrom: optionalString(r['dateFrom']),
-    dateTo: optionalString(r['dateTo']),
-    rejectionReason: optionalString(r['rejectionReason']),
-    approvedBy: normalizePerson(r['approvedBy']),
-    approvedAt: optionalString(r['approvedAt']),
-    missions: arrayOf(r['missions']).map((mission): ReportMissionSummary => {
-      const m = recordOf(mission);
+    description: readOptionalString(r, 'description'),
+    updatedAt: readOptionalString(r, 'updatedAt'),
+    dateFrom: readOptionalString(r, 'dateFrom'),
+    dateTo: readOptionalString(r, 'dateTo'),
+    rejectionReason: readOptionalString(r, 'rejectionReason'),
+    approvedBy: normalizePerson(r?.['approvedBy']),
+    approvedAt: readOptionalString(r, 'approvedAt'),
+    missions: readArray(r?.['missions']).map((mission): ReportMissionSummary => {
+      const m = asRecord(mission);
       return {
-        id: stringOf(m['id']),
-        missionCode: stringOf(m['missionCode']),
-        title: stringOf(m['title']),
-        status: stringOf(m['status']),
-        plannedStart: optionalString(m['plannedStart']),
+        id: readString(m, 'id'),
+        missionCode: readString(m, 'missionCode'),
+        title: readString(m, 'title'),
+        status: readString(m, 'status'),
+        plannedStart: readOptionalString(m, 'plannedStart'),
       };
     }),
   };
 }
 
 function normalizeReportPage(value: unknown, page: number, pageSize: number): ReportListResult {
-  const r = recordOf(value);
-  const items = arrayOf(r['items']).map(normalizeReportItem);
-  const pagination = recordOf(r['pagination']);
-  const totalItems = numberOf(pagination['totalItems'], items.length);
+  const r = asRecord(value);
+  const items = readArray(r?.['items']).map(normalizeReportItem);
+  const pagination = asRecord(r?.['pagination']);
+  const totalItems = readNumber(pagination, 'totalItems', items.length);
 
   return {
     items,
     pagination: {
-      page: numberOf(pagination['page'], page),
-      pageSize: numberOf(pagination['pageSize'], pageSize),
+      page: readNumber(pagination, 'page', page),
+      pageSize: readNumber(pagination, 'pageSize', pageSize),
       totalItems,
-      totalPages: Math.max(1, numberOf(pagination['totalPages'], Math.ceil(totalItems / pageSize))),
+      totalPages: Math.max(1, readNumber(pagination, 'totalPages', Math.ceil(totalItems / pageSize))),
     },
   };
 }
 
 function normalizeStatistics(value: unknown): ReportStatistics {
-  const r = recordOf(value);
-  const byType = recordOf(r['byType']);
-  const byStatus = recordOf(r['byStatus']);
+  const r = asRecord(value);
+  const byType = asRecord(r?.['byType']);
+  const byStatus = asRecord(r?.['byStatus']);
 
   return {
-    total: numberOf(r['total']),
+    total: readNumber(r, 'total'),
     byType: {
-      defect: numberOf(byType['defect']),
-      periodic: numberOf(byType['periodic']),
-      thermal: numberOf(byType['thermal']),
-      corridor: numberOf(byType['corridor']),
+      defect: readNumber(byType, 'defect'),
+      periodic: readNumber(byType, 'periodic'),
+      thermal: readNumber(byType, 'thermal'),
+      corridor: readNumber(byType, 'corridor'),
     },
     byStatus: {
-      approved: numberOf(byStatus['approved']),
-      pending: numberOf(byStatus['pending']),
-      draft: numberOf(byStatus['draft']),
+      approved: readNumber(byStatus, 'approved'),
+      pending: readNumber(byStatus, 'pending'),
+      draft: readNumber(byStatus, 'draft'),
     },
   };
 }

@@ -4,6 +4,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { DashboardSnapshot, DefectStatistic, InspectionFilters, InspectionRecord, MissionStatus, MonitorAlert, MonitorSummary, PagedResponse, RecentDefect } from '../../../models/monitor.models';
+import { asRecord, readArray, readBoolean, readNumber, readOptionalString, readString } from '../../../shared/utils';
 
 export const LOCAL_STORAGE_READ_ALERTS_KEY = 'uav_pms_read_alerts_v1';
 
@@ -104,104 +105,106 @@ export class MonitorApi {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
-const numberValue = (value: unknown): number => Number(value ?? 0) || 0;
-const stringValue = (value: unknown, fallback = ''): string => value == null ? fallback : String(value);
-const itemsOf = (value: unknown): readonly unknown[] => {
-  if (Array.isArray(value)) return value;
-  const items = record(value)['items'];
-  return Array.isArray(items) ? items : [];
+const itemsOf = (value: unknown): unknown[] =>
+  Array.isArray(value) ? value : readArray(asRecord(value)?.['items']);
+
+const firstString = (source: Record<string, unknown> | null, keys: readonly string[], fallback = ''): string => {
+  for (const key of keys) {
+    const val = readOptionalString(source, key);
+    if (val !== null) return val;
+  }
+  return fallback;
 };
 
 /** `GET /monitor/summary` → DashboardSummaryDto. */
 const normalizeSummary = (value: unknown): MonitorSummary => {
-  const s = record(value);
+  const s = asRecord(value);
   return {
-    totalMissions: numberValue(s['totalMissions']),
-    pendingMissions: numberValue(s['pendingMissions']),
-    inProgressMissions: numberValue(s['inProgressMissions']),
-    completedMissions: numberValue(s['completedMissions']),
-    totalInspections: numberValue(s['totalInspections']),
-    totalDefects: numberValue(s['totalDefects']),
-    criticalDefects: numberValue(s['criticalDefects']),
+    totalMissions: readNumber(s, 'totalMissions'),
+    pendingMissions: readNumber(s, 'pendingMissions'),
+    inProgressMissions: readNumber(s, 'inProgressMissions'),
+    completedMissions: readNumber(s, 'completedMissions'),
+    totalInspections: readNumber(s, 'totalInspections'),
+    totalDefects: readNumber(s, 'totalDefects'),
+    criticalDefects: readNumber(s, 'criticalDefects'),
   };
 };
 
 /** Paged monitor responses are `{ items, pagination: { page, pageSize, totalItems, totalPages } }`. */
 const normalizePage = <T>(value: unknown, page: number, pageSize: number, mapper: (value: unknown, index: number) => T): PagedResponse<T> => {
   const items = itemsOf(value).map(mapper);
-  const pagination = record(record(value)['pagination']);
-  const totalCount = numberValue(pagination['totalItems']) || items.length;
+  const pagination = asRecord(asRecord(value)?.['pagination']);
+  const totalCount = readNumber(pagination, 'totalItems') || items.length;
   return {
     items,
-    page: numberValue(pagination['page']) || page,
-    pageSize: numberValue(pagination['pageSize']) || pageSize,
+    page: readNumber(pagination, 'page') || page,
+    pageSize: readNumber(pagination, 'pageSize') || pageSize,
     totalCount,
-    totalPages: numberValue(pagination['totalPages']) || Math.max(1, Math.ceil(totalCount / pageSize)),
+    totalPages: readNumber(pagination, 'totalPages') || Math.max(1, Math.ceil(totalCount / pageSize)),
   };
 };
 
 /** `RecentDefectDto { inspectionId, missionId, missionTitle, imageUrl, defectType, detectedAt }`. */
 const normalizeDefect = (value: unknown, index: number): RecentDefect => {
-  const s = record(value);
+  const s = asRecord(value);
   return {
-    id: stringValue(s['inspectionId'] ?? s['id'], `defect-${index}`),
-    missionId: stringValue(s['missionId']) || undefined,
-    missionName: stringValue(s['missionTitle'] ?? s['missionName'], 'Nhiệm vụ không xác định'),
-    defectType: stringValue(s['defectType'], 'Chưa phân loại'),
-    detectedAt: stringValue(s['detectedAt'], new Date(0).toISOString()),
-    imageUrl: stringValue(s['imageUrl'] ?? s['mediaUrl'] ?? s['thumbnailUrl'] ?? s['cropUrl'] ?? s['fileUrl']) || undefined,
+    id: firstString(s, ['inspectionId', 'id'], `defect-${index}`),
+    missionId: readOptionalString(s, 'missionId') ?? undefined,
+    missionName: firstString(s, ['missionTitle', 'missionName'], 'Nhiệm vụ không xác định'),
+    defectType: readString(s, 'defectType', 'Chưa phân loại'),
+    detectedAt: readString(s, 'detectedAt', new Date(0).toISOString()),
+    imageUrl: firstString(s, ['imageUrl', 'mediaUrl', 'thumbnailUrl', 'cropUrl', 'fileUrl']) || undefined,
   };
 };
 
 /** `InspectionHistoryDto` = RecentDefectDto + `isDefect`. */
 const normalizeInspection = (value: unknown, index: number): InspectionRecord => {
   const d = normalizeDefect(value, index);
-  const s = record(value);
-  const defectType = stringValue(s['defectType']);
-  const thumbnailUrl = stringValue(s['thumbnailUrl'] ?? s['cropUrl']) || undefined;
+  const s = asRecord(value);
+  const defectType = readOptionalString(s, 'defectType');
+  const thumbnailUrl = firstString(s, ['thumbnailUrl', 'cropUrl']) || undefined;
   return {
     id: d.id,
     missionId: d.missionId ?? '',
     missionName: d.missionName,
     imageUrl: d.imageUrl,
     thumbnailUrl: thumbnailUrl && thumbnailUrl !== d.imageUrl ? thumbnailUrl : undefined,
-    isDefect: Boolean(s['isDefect']),
-    defectType: defectType || undefined,
+    isDefect: readBoolean(s, 'isDefect'),
+    defectType: defectType ?? undefined,
     detectedAt: d.detectedAt,
   };
 };
 
 /** `DefectStatisticsDto { totalDefects, byType: [{ type, count }] }`. */
 const normalizeStatistics = (value: unknown): readonly DefectStatistic[] => {
-  const byType = record(value)['byType'];
+  const byType = asRecord(value)?.['byType'];
   const list = Array.isArray(byType) ? byType : itemsOf(value);
   return list.map((item) => {
-    const s = record(item);
-    return { defectType: stringValue(s['type'] ?? s['defectType'], 'Khác'), count: numberValue(s['count']) };
+    const s = asRecord(item);
+    return { defectType: firstString(s, ['type', 'defectType'], 'Khác'), count: readNumber(s, 'count') };
   });
 };
 
 /** `ActiveAlertDto { notificationId, title, message, createdAt, isRead }` inside `{ items }`. */
 const normalizeAlert = (value: unknown, index: number, readSet: Set<string> = new Set()): MonitorAlert => {
-  const s = record(value);
-  const id = stringValue(s['notificationId'] ?? s['id'], `alert-${index}`);
-  const isRead = Boolean(s['isRead']) || readSet.has(id);
+  const s = asRecord(value);
+  const id = firstString(s, ['notificationId', 'id'], `alert-${index}`);
+  const isRead = readBoolean(s, 'isRead') || readSet.has(id);
   return {
     id,
-    title: stringValue(s['title'], 'Cảnh báo hệ thống'),
-    message: stringValue(s['message']),
-    createdAt: stringValue(s['createdAt'], new Date(0).toISOString()),
+    title: readString(s, 'title', 'Cảnh báo hệ thống'),
+    message: readString(s, 'message'),
+    createdAt: readString(s, 'createdAt', new Date(0).toISOString()),
     isRead,
   };
 };
 
 /** `MissionStatusOverviewDto { pending, inProgress, completed }`. */
 const normalizeMissionStatuses = (value: unknown): readonly MissionStatus[] => {
-  const s = record(value);
+  const s = asRecord(value);
   return [
-    { status: 'Pending', count: numberValue(s['pending']) },
-    { status: 'InProgress', count: numberValue(s['inProgress']) },
-    { status: 'Completed', count: numberValue(s['completed']) },
+    { status: 'Pending', count: readNumber(s, 'pending') },
+    { status: 'InProgress', count: readNumber(s, 'inProgress') },
+    { status: 'Completed', count: readNumber(s, 'completed') },
   ];
 };
