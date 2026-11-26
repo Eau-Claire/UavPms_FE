@@ -24,7 +24,6 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   TOWER_OUTSIDE_REGION_OR_SCOPE: 'Có cột điện nằm ngoài khu vực của nhiệm vụ hoặc ngoài phạm vi quản lý.',
   USER_NOT_ASSIGNED: 'Bạn không phải thành viên của nhiệm vụ này nên không thể xác nhận hoặc thao tác.',
   USER_NOT_ASSIGNED_TO_MISSION: 'Bạn không phải thành viên của nhiệm vụ này.',
-  RECEIVER_NOT_ASSIGNED: 'Người nhận bàn giao không phải thành viên của nhiệm vụ.',
 
   // --- MF01: hồ sơ đánh giá tiền nhiệm vụ ---
   ASSESSMENT_CANCELLED: 'Hồ sơ đánh giá đã bị hủy trước đó, không thể thao tác tiếp.',
@@ -87,8 +86,7 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   INVALID_MISSION_STATE: 'Trạng thái hiện tại của nhiệm vụ không cho phép thao tác này. Vui lòng tải lại nhiệm vụ.',
   REQUIRED_ACCEPTANCE_PENDING: 'Chưa thể bắt đầu bay: còn thành viên bắt buộc chưa chấp nhận nhiệm vụ.',
   MISSION_START_TOO_EARLY: 'Chưa đến khung giờ cho phép bắt đầu bay (sớm nhất 2 giờ trước giờ bay dự kiến).',
-  DRONE_IN_USE: 'UAV đang được dùng ở nhiệm vụ khác hoặc đang bay/bàn giao, chưa thể bắt đầu.',
-  HANDOVER_REJECTED: 'UAV đã bị từ chối khi bàn giao. Hãy đổi UAV hoặc ghi nhận bàn giao mới.',
+  DRONE_IN_USE: 'UAV đang được dùng ở nhiệm vụ khác hoặc đang bay, chưa thể bắt đầu.',
   DRONE_NOT_AVAILABLE: 'UAV không ở trạng thái sẵn sàng (đang bảo trì, không khả dụng, thất lạc hoặc đang sử dụng).',
   DRONE_UNAVAILABLE: 'UAV không khả dụng.',
   DRONE_CRITICAL_HEALTH: 'UAV có sức khỏe kỹ thuật ở mức nguy hiểm (Critical), không được phép bay.',
@@ -100,14 +98,11 @@ export const BUSINESS_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   SCOPE_REASSESSMENT_REQUIRED: 'Phạm vi nhiệm vụ đã thay đổi, cần đánh giá lại trước khi tiếp tục.',
   CHECK_IN_INVALID_STATE: 'Trạng thái nhiệm vụ không cho phép check-in.',
   CHECKIN_OUTSIDE_GEOFENCE: 'Vị trí check-in nằm ngoài vùng cho phép.',
-  HANDOVER_INVALID_STATE: 'Trạng thái nhiệm vụ không cho phép bàn giao UAV.',
-  RETURN_HANDOVER_INVALID_STATE: 'Chỉ hoàn trả UAV khi nhiệm vụ đang bay, đã hoàn thành hoặc đã hủy.',
   MISSION_NOT_FOUND: 'Không tìm thấy nhiệm vụ.',
 
   // --- Xung đột dữ liệu (409) ---
   RESOURCE_BOOKING_CONFLICT: 'Nhân sự hoặc UAV đã bị đặt lịch trùng khung giờ. Vui lòng chọn nguồn lực khác hoặc đánh giá lại.',
   DUPLICATE_CHECK_IN: 'Bạn đã check-in nhiệm vụ này rồi.',
-  DUPLICATE_HANDOVER: 'UAV đang có một biên bản bàn giao chưa đóng.',
   DUPLICATE_RESOURCE: 'Bản ghi đã tồn tại.',
   CONCURRENCY_CONFLICT: 'Dữ liệu vừa được thay đổi bởi thao tác khác. Vui lòng tải lại và thử lại.',
   ANOMALY_NOT_IN_REVIEW: 'Sự cố này đã được thẩm định trước đó (không còn ở trạng thái chờ duyệt).',

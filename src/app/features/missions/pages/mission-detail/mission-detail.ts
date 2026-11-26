@@ -1458,7 +1458,7 @@ export class MissionDetail {
           });
         },
         error: (err: unknown) => {
-          // REQUIRED_ACCEPTANCE_PENDING, MISSION_START_TOO_EARLY, DRONE_IN_USE, HANDOVER_REJECTED, ... (Vietnamese).
+          // REQUIRED_ACCEPTANCE_PENDING, MISSION_START_TOO_EARLY, DRONE_IN_USE, ... (Vietnamese).
           this.actionMessage.set(this.errorMessage(err, 'Không thể bắt đầu chuyến bay.'));
           this.reloadMission(currentMission.id);
         },
