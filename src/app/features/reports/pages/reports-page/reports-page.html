@@ -144,8 +144,12 @@
             @for (item of reports(); track item.id) {
               <tr
                 class="cursor-pointer"
+                tabindex="0"
+                [attr.aria-selected]="selectedReportId() === item.id"
                 [class.is-row-selected]="selectedReportId() === item.id"
                 (click)="selectReport(item)"
+                (keydown.enter)="selectReport(item)"
+                (keydown.space)="$event.preventDefault(); selectReport(item)"
               >
                 <td>
                   <span
