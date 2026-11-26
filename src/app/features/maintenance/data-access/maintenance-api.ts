@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
-import { asRecord, readArray, readBoolean, readFirstString, readNumber, readOptionalString, readString } from '../../../shared/utils';
+import { asRecord, readArray, readBoolean, readFirstString, readNumber, readOptionalNumber, readOptionalString, readString } from '../../../shared/utils';
 import {
   AssignTechnicianRequest,
   LogMaterialRequest,
@@ -193,14 +193,14 @@ const ERROR_MESSAGES: readonly (readonly [string, string])[] = [
 
 export const maintenanceErrorMessage = (error: unknown, fallback: string): string => {
   const source = asRecord(error);
-  const status = readNumber(source, 'status');
+  const status = readOptionalNumber(source, 'status');
   const body = asRecord(source?.['error']);
   const code = readString(body, 'errorCode');
   const message = readFirstString(body, ['message', 'title', 'detail']);
   const haystack = `${code} ${message}`.toLowerCase();
   const known = ERROR_MESSAGES.find(([needle]) => haystack.includes(needle.toLowerCase()));
   if (known) return known[1];
-  if (status === 0 && source && 'status' in source) return 'Không thể kết nối đến máy chủ.';
+  if (status === 0) return 'Không thể kết nối đến máy chủ.';
   if (status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
   if (status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
   if (status === 404) return 'Không tìm thấy phiếu bảo trì.';
