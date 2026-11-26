@@ -1,54 +1,60 @@
-You are an expert in TypeScript, Angular, and scalable web application development. You write functional, maintainable, performant, and accessible code following Angular and TypeScript best practices.
+# UAV-PMS Frontend — AI-Native Engineering Map
 
-## TypeScript Best Practices
+Angular 21 frontend for UAV Powerline Monitoring System (UAV-PMS).
+Keep this file concise (~100 lines). Detailed workflows live in `.agents/skills/` (load on demand) and `docs/`.
 
-- Use strict type checking
-- Prefer type inference when the type is obvious
-- Avoid the `any` type; use `unknown` when type is uncertain
+## 1. Fast Verification Commands
 
-## Angular Best Practices
+Run the narrowest check during iteration and `npm run verify:all` before any PR:
 
-- Always use standalone components over NgModules
-- Must NOT set `standalone: true` inside Angular decorators. It's the default in Angular v20+.
-- Use signals for state management
-- Implement lazy loading for feature routes
-- Do NOT use the `@HostBinding` and `@HostListener` decorators. Put host bindings inside the `host` object of the `@Component` or `@Directive` decorator instead
-- Use `NgOptimizedImage` for all static images.
-  - `NgOptimizedImage` does not work for inline base64 images.
+```bash
+npm run verify:all                                  # policy + arch + lint + unit tests + build
+npm run check:policy                                # UAV security guard (no online maps, secret/log leaks)
+npm run check:arch                                  # Feature/layer import boundary check
+npm run lint                                        # ESLint (TS + Angular + template a11y)
+npx ng test --watch=false --include=<spec-path>     # Targeted Vitest spec
+npx ng test --watch=false                           # Full Vitest suite
+npm run build                                       # Production bundle check
+npm run test:e2e                                    # Playwright E2E suite
+```
 
-## Accessibility Requirements
+## 2. Repository Map
 
-- It MUST pass all AXE checks.
-- It MUST follow all WCAG AA minimums, including focus management, color contrast, and ARIA attributes.
+- `src/app/core/` — Auth (`authGuard`, `roleGuard`, JWT interceptor), facility store, HTTP interceptors, layout shell, SignalR/serial services.
+- `src/app/models/` — Strict domain TypeScript interfaces (no Angular UI dependencies).
+- `src/app/shared/` — Reusable UI primitives, pipes, error/status mappers, idempotency helpers (must NOT import from `features/`).
+- `src/app/features/<domain>/` — Lazy-loaded feature modules:
+  - `data-access/` — API transport, payload normalizers, signal stores (ONLY layer allowed to parse raw API payloads or inject `HttpClient`).
+  - `pages/` & `components/` — Presentation & orchestration (`OnPush`, signals). Features must NOT cross-import each other.
+- `specs/` — Living specs (`spec.md`, `acceptance.md`, `tasks.md`) and 10-column traceability matrix (`specs/RTM.md`).
+- `docs/` — Reference specs: `AI_SECURITY_AND_GOVERNANCE.md` (mandatory), `api_spec.md`, `ANGULAR_ARCHITECTURE.md`, `mainflows/`. *(Note: ignore legacy React sections in `CODING_STANDARDS.md`.)*
 
-### Components
+## 3. Non-Negotiable Engineering Rules
 
-- Keep components small and focused on a single responsibility
-- Use `input()` and `output()` functions instead of decorators
-- Use `computed()` for derived state
-- Set `changeDetection: ChangeDetectionStrategy.OnPush` in `@Component` decorator
-- Prefer inline templates for small components
-- Prefer Reactive forms instead of Template-driven ones
-- Do NOT use `ngClass`, use `class` bindings instead
-- Do NOT use `ngStyle`, use `style` bindings instead
-- When using external templates/styles, use paths relative to the component TS file.
+- **TypeScript**: Strict mode; infer obvious types; never use `any` (use `unknown` + boundary validation).
+- **Angular 21**: Standalone components by default (**do NOT** set `standalone: true` in decorators); `ChangeDetectionStrategy.OnPush`; `inject()` instead of constructor DI; `input()`/`output()`/`computed()`; signals with `.set()`/`.update()` (never `.mutate()`).
+- **Templates**: Native control flow (`@if`, `@for`, `@switch`); no `ngClass`/`ngStyle` (use `[class.*]`/`[style.*]`); no `@HostBinding`/`@HostListener` (use `host` metadata); `NgOptimizedImage` for static images (not base64); Reactive forms; no unguarded globals (`new Date()`).
+- **Accessibility**: Must pass AXE / WCAG 2.2 AA (keyboard focus, contrast, ARIA, semantic roles).
 
-## State Management
+## 4. Security & High-Risk Boundaries
 
-- Use signals for local component state
-- Use `computed()` for derived state
-- Keep state transformations pure and predictable
-- Do NOT use `mutate` on signals, use `update` or `set` instead
+Read `docs/AI_SECURITY_AND_GOVERNANCE.md` before touching auth, GIS, upload, or logging:
+- **Sensitive data**: GIS coordinates, UAV images, defects, maintenance tickets, emails, JWTs. Never send to third-party AI/map/analytics services or log raw payloads.
+- **Local-only GIS**: Maps MUST use local PMTiles / GeoJSON / local assets. Never add Google Maps, OSM, Mapbox, or remote tile/CDN fallbacks.
+- **RBAC**: Roles are strictly `SystemAdmin`, `Manager`, `Inspector`, `Analyst`, `Technician`. Never invent roles; backend enforces authority; handle 401/403/refresh-loading gates safely.
+- **Human-Approval-Required Zones** (stop & confirm plan before editing): `src/app/core/auth/**`, `src/app/features/gis/**`, `docs/AI_SECURITY_AND_GOVERNANCE.md`, `.github/workflows/**`.
 
-## Templates
+## 5. AI-Native Execution Workflow
 
-- Keep templates simple and avoid complex logic
-- Use native control flow (`@if`, `@for`, `@switch`) instead of `*ngIf`, `*ngFor`, `*ngSwitch`
-- Use the async pipe to handle observables
-- Do not assume globals like (`new Date()`) are available.
+1. **Explore → Plan → Verify Plan → Code → Verify**: Read target files first, state scope & non-goals, get plan approval for non-trivial changes, then edit and verify.
+2. **Spec & Gate 5 (Features)**: For new features or mainflow changes, create `specs/<REQ-ID>-<slug>/` (`spec.md` + `acceptance.md`) and lock acceptance tests BEFORE generating implementation code. Update `specs/RTM.md`.
+3. **Small Batches**: Keep PRs under 300–400 changed lines. Split large changes into stacked PRs (`models + data-access` → `UI + E2E`).
+4. **Independent Verification**: Never rely on the coding session alone to declare quality. Run `npm run verify:all` and perform an independent diff review using `.agents/skills/pr-review-judge/SKILL.md`.
 
-## Services
+## 6. On-Demand Skills (`.agents/skills/`)
 
-- Design services around a single responsibility
-- Use the `providedIn: 'root'` option for singleton services
-- Use the `inject()` function instead of constructor injection
+Load only the skill relevant to the current task:
+- `angular-feature/SKILL.md` — Implementing or refactoring Angular 21 features (`data-access` → store → UI → Vitest).
+- `uav-security-gate/SKILL.md` — Auditing UAV-PMS security, RBAC, local-only GIS, and PII/secret hygiene.
+- `playwright-e2e/SKILL.md` — Writing role-based Playwright E2E and WCAG AA accessibility tests.
+- `pr-review-judge/SKILL.md` — Running an independent LLM-as-Judge review on a PR diff against its spec.
