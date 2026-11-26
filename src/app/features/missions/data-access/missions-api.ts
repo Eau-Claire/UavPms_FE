@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { map, Observable, switchMap } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readBoolean, readFirstNumber, readFirstString, readNumber, readOptionalNumber, readOptionalString, readString } from '../../../shared/utils';
 import {
   IncidentReport,
   Mission,
@@ -342,37 +343,25 @@ export class MissionsApi {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const optionalText = (source: Record<string, unknown> | null, key: string): string | undefined =>
+  readOptionalString(source, key) ?? undefined;
 
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const stringValue = (value: unknown, fallback = '') =>
-  value === undefined || value === null ? fallback : String(value);
-
-const optionalString = (value: unknown): string | undefined =>
-  value === undefined || value === null || value === '' ? undefined : String(value);
-
-const optionalNumber = (value: unknown): number | undefined => {
-  if (value === undefined || value === null || value === '') return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-};
+const optionalNum = (source: Record<string, unknown> | null, key: string): number | undefined =>
+  readOptionalNumber(source, key) ?? undefined;
 
 const normalizeTargets = (source: unknown): readonly MissionTarget[] => {
   if (!Array.isArray(source)) return [];
   return source.map((item, index) => {
-    const r = record(item);
+    const r = asRecord(item);
     return {
-      id: stringValue(r['id'] ?? r['towerId'] ?? `target-${index}`),
-      towerId: stringValue(r['towerId']),
-      towerCode: stringValue(r['towerCode']),
-      sequence: optionalNumber(r['sequence']) ?? index + 1,
-      inspectionStatus: stringValue(r['inspectionStatus'], 'Pending'),
-      latitude: optionalNumber(r['latitude']),
-      longitude: optionalNumber(r['longitude']),
-      regionId: optionalString(r['regionId']),
+      id: readFirstString(r, ['id', 'towerId'], `target-${index}`),
+      towerId: readString(r, 'towerId'),
+      towerCode: readString(r, 'towerCode'),
+      sequence: readOptionalNumber(r, 'sequence') ?? index + 1,
+      inspectionStatus: readString(r, 'inspectionStatus', 'Pending'),
+      latitude: optionalNum(r, 'latitude'),
+      longitude: optionalNum(r, 'longitude'),
+      regionId: optionalText(r, 'regionId'),
     };
   });
 };
@@ -387,47 +376,47 @@ function normalizeResponseStatus(val: unknown): 'PENDING' | 'ACCEPTED' | 'POSTPO
 }
 
 const normalizeAssignment = (item: unknown, missionId?: string): MissionAssignment => {
-  const r = record(item);
+  const r = asRecord(item);
   return {
-    id: stringValue(r['id']),
-    missionId: optionalString(r['missionId']) ?? missionId,
-    userId: stringValue(r['userId']),
-    userName: stringValue(pick(r, 'userFullName', 'userName')),
-    userFullName: optionalString(r['userFullName']),
-    assignmentRole: stringValue(r['assignmentRole']).toUpperCase(),
-    status: stringValue(r['status'], 'Active'),
-    responseStatus: normalizeResponseStatus(r['responseStatus']),
-    isRequired: r['isRequired'] !== false,
-    assignedAt: optionalString(r['assignedAt']),
-    respondedAt: optionalString(r['respondedAt']) ?? null,
-    responseReason: optionalString(r['responseReason']) ?? null,
-    checkedInAt: optionalString(r['checkedInAt']) ?? null,
+    id: readString(r, 'id'),
+    missionId: optionalText(r, 'missionId') ?? missionId,
+    userId: readString(r, 'userId'),
+    userName: readFirstString(r, ['userFullName', 'userName']),
+    userFullName: optionalText(r, 'userFullName'),
+    assignmentRole: readString(r, 'assignmentRole').toUpperCase(),
+    status: readString(r, 'status', 'Active'),
+    responseStatus: normalizeResponseStatus(r?.['responseStatus']),
+    isRequired: r?.['isRequired'] !== false,
+    assignedAt: optionalText(r, 'assignedAt'),
+    respondedAt: readOptionalString(r, 'respondedAt'),
+    responseReason: readOptionalString(r, 'responseReason'),
+    checkedInAt: readOptionalString(r, 'checkedInAt'),
   };
 };
 
 export const normalizeAssignmentsOverview = (source: unknown, missionId: string): MissionAssignmentsOverview => {
-  const r = record(source);
-  const assignments = Array.isArray(r['assignments']) ? r['assignments'].map((a) => normalizeAssignment(a, missionId)) : [];
+  const r = asRecord(source);
+  const assignments = readArray(r?.['assignments']).map((a) => normalizeAssignment(a, missionId));
   return {
-    missionId: stringValue(r['missionId'], missionId),
-    totalRequiredCount: Number(r['totalRequiredCount'] ?? 0),
-    confirmedCount: Number(r['confirmedCount'] ?? 0),
-    allConfirmed: r['allConfirmed'] === true,
-    confirmationDeadline: optionalString(r['confirmationDeadline']) ?? null,
+    missionId: readString(r, 'missionId', missionId),
+    totalRequiredCount: readNumber(r, 'totalRequiredCount'),
+    confirmedCount: readNumber(r, 'confirmedCount'),
+    allConfirmed: readBoolean(r, 'allConfirmed'),
+    confirmationDeadline: readOptionalString(r, 'confirmationDeadline'),
     assignments,
   };
 };
 
 export const normalizeMission = (source: unknown): Mission => {
-  const r = record(source);
-  const id = stringValue(r['id']);
-  const team = Array.isArray(r['team']) ? r['team'].map((a) => normalizeAssignment(a, id)) : [];
+  const r = asRecord(source);
+  const id = readString(r, 'id');
+  const team = readArray(r?.['team']).map((a) => normalizeAssignment(a, id));
   const required = team.filter((t) => t.isRequired !== false && t.status !== 'Revoked');
   const confirmedCount = required.filter((t) => t.responseStatus === 'ACCEPTED').length;
   const totalRequiredCount = required.length;
   const allConfirmed = totalRequiredCount > 0 && confirmedCount >= totalRequiredCount;
 
-  const rawStatus = stringValue(r['status']);
+  const rawStatus = readString(r, 'status');
   let status = normalizeMissionStatus(rawStatus);
   if (allConfirmed && (status === 'Assigned' || status === 'PendingAcceptance' || rawStatus === 'Assigned' || rawStatus === 'CONFIRMED')) {
     status = 'Confirmed';
@@ -435,131 +424,131 @@ export const normalizeMission = (source: unknown): Mission => {
 
   return {
     id,
-    missionCode: stringValue(r['missionCode'], id),
-    title: stringValue(r['title']),
-    routeData: stringValue(r['routeData']),
-    assignedToUserId: stringValue(pick(r, 'assignedToUserId', 'inspectorId')),
-    assignedToUsername: stringValue(pick(r, 'assignedToUsername', 'assignedToEmail', 'inspectorEmail')),
-    droneCode: stringValue(r['droneCode']),
-    droneId: optionalString(pick(r, 'droneId', 'uavId')) ?? null,
+    missionCode: readString(r, 'missionCode', id),
+    title: readString(r, 'title'),
+    routeData: readString(r, 'routeData'),
+    assignedToUserId: readFirstString(r, ['assignedToUserId', 'inspectorId']),
+    assignedToUsername: readFirstString(r, ['assignedToUsername', 'assignedToEmail', 'inspectorEmail']),
+    droneCode: readString(r, 'droneCode'),
+    droneId: readFirstString(r, ['droneId', 'uavId']) || null,
     status,
-    description: stringValue(r['description']),
-    managerId: stringValue(r['managerId']),
-    managerUsername: stringValue(r['managerEmail']),
-    createdAt: stringValue(r['createdAt']),
-    updatedAt: optionalString(r['updatedAt']) ?? null,
-    scheduledStartAt: optionalString(pick(r, 'scheduledStartAt', 'plannedStart')) ?? null,
-    plannedStart: optionalString(r['plannedStart']) ?? null,
-    plannedEnd: optionalString(r['plannedEnd']) ?? null,
-    actualStart: optionalString(r['actualStart']) ?? null,
-    actualCompleted: optionalString(r['actualCompleted']) ?? null,
-    regionId: optionalString(r['regionId']),
-    regionName: optionalString(r['regionName']),
-    missionType: optionalString(r['missionType']),
-    triggerReason: optionalString(r['triggerReason']) ?? null,
-    boundaryWkt: optionalString(r['boundaryWkt']) ?? null,
-    confirmationDeadline: optionalString(r['confirmationDeadline']) ?? null,
-    managerInstructions: optionalString(r['managerInstructions']) ?? null,
-    priority: stringValue(r['priority'], 'Normal').toUpperCase(),
-    objective: normalizeObjective(r['objective']),
-    priorityDefects: Array.isArray(r['priorityDefects']) ? r['priorityDefects'].map(String) : [],
-    emergencyReason: optionalString(r['emergencyReason']) ?? null,
-    isImmediate: r['isImmediate'] === true,
+    description: readString(r, 'description'),
+    managerId: readString(r, 'managerId'),
+    managerUsername: readString(r, 'managerEmail'),
+    createdAt: readString(r, 'createdAt'),
+    updatedAt: readOptionalString(r, 'updatedAt'),
+    scheduledStartAt: readFirstString(r, ['scheduledStartAt', 'plannedStart']) || null,
+    plannedStart: readOptionalString(r, 'plannedStart'),
+    plannedEnd: readOptionalString(r, 'plannedEnd'),
+    actualStart: readOptionalString(r, 'actualStart'),
+    actualCompleted: readOptionalString(r, 'actualCompleted'),
+    regionId: optionalText(r, 'regionId'),
+    regionName: optionalText(r, 'regionName'),
+    missionType: optionalText(r, 'missionType'),
+    triggerReason: readOptionalString(r, 'triggerReason'),
+    boundaryWkt: readOptionalString(r, 'boundaryWkt'),
+    confirmationDeadline: readOptionalString(r, 'confirmationDeadline'),
+    managerInstructions: readOptionalString(r, 'managerInstructions'),
+    priority: readString(r, 'priority', 'Normal').toUpperCase(),
+    objective: normalizeObjective(r?.['objective']),
+    priorityDefects: readArray(r?.['priorityDefects']).map(String),
+    emergencyReason: readOptionalString(r, 'emergencyReason'),
+    isImmediate: readBoolean(r, 'isImmediate'),
     team,
     confirmedCount,
     totalRequiredCount,
     allConfirmed,
     confirmationProgress: `${confirmedCount}/${totalRequiredCount}`,
     communicationLogs: [],
-    sourceAssessmentId: optionalString(pick(r, 'sourceAssessmentId', 'preMissionAssessmentId', 'assessmentId')) ?? null,
-    targets: normalizeTargets(r['targets']),
+    sourceAssessmentId: readFirstString(r, ['sourceAssessmentId', 'preMissionAssessmentId', 'assessmentId']) || null,
+    targets: normalizeTargets(r?.['targets']),
   };
 };
 
 /** `ListMissions` trả `{ items, pagination: { page, pageSize, totalItems, totalPages } }`. */
 export const normalizePage = (source: unknown, filters: MissionFilters): MissionPage => {
-  const r = record(source);
-  const pagination = record(r['pagination']);
+  const r = asRecord(source);
+  const pagination = asRecord(r?.['pagination']);
   const items = itemsValue(source).map(normalizeMission);
-  const totalCount = Number(pick(pagination, 'totalItems', 'totalCount') ?? pick(r, 'totalCount', 'totalItems') ?? items.length);
-  const pageSize = Number(pick(pagination, 'pageSize') ?? filters.pageSize);
-  const totalPages = Number(
-    pick(pagination, 'totalPages') ?? pick(r, 'totalPages') ?? Math.max(1, Math.ceil(totalCount / pageSize)),
-  );
+  const totalCount =
+    readFirstNumber(pagination, ['totalItems', 'totalCount'], -1) >= 0
+      ? readFirstNumber(pagination, ['totalItems', 'totalCount'])
+      : readFirstNumber(r, ['totalCount', 'totalItems'], items.length);
+  const pageSize = readNumber(pagination, 'pageSize', filters.pageSize);
+  const fallbackPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages =
+    readOptionalNumber(pagination, 'totalPages') ?? readOptionalNumber(r, 'totalPages') ?? fallbackPages;
 
   return {
     items,
-    page: Number(pick(pagination, 'page') ?? filters.page),
+    page: readNumber(pagination, 'page', filters.page),
     pageSize,
     totalCount,
     totalPages,
   };
 };
 
-export const itemsValue = (source: unknown): readonly unknown[] => {
-  if (Array.isArray(source)) return source;
-  const candidate = record(source)['items'];
-  return Array.isArray(candidate) ? candidate : [];
-};
+export const itemsValue = (source: unknown): unknown[] =>
+  Array.isArray(source) ? source : readArray(asRecord(source)?.['items']);
 
 export function normalizeBackendDetection(raw: unknown): MissionBackendDetection {
-  const r = record(raw);
-  const box = record(r['boundingBox']);
+  const r = asRecord(raw);
+  const box = asRecord(r?.['boundingBox']);
   return {
-    id: stringValue(r['id']),
-    missionId: stringValue(r['missionId']),
-    mediaId: optionalString(r['mediaId']),
-    towerId: optionalString(r['towerId']),
-    tower: optionalString(r['tower']),
-    gps: optionalString(r['gps']),
-    title: stringValue(r['title']),
-    confidence: Number(r['confidence'] ?? 0),
-    categoryCode: optionalString(r['categoryCode']),
-    severityWeight: optionalNumber(r['severityWeight']),
-    isEmergency: r['isEmergency'] === true,
-    status: stringValue(r['status'], 'Pending'),
-    boundingBox: r['boundingBox']
-      ? { x: Number(box['x'] ?? 0), y: Number(box['y'] ?? 0), width: Number(box['width'] ?? 0), height: Number(box['height'] ?? 0) }
+    id: readString(r, 'id'),
+    missionId: readString(r, 'missionId'),
+    mediaId: optionalText(r, 'mediaId'),
+    towerId: optionalText(r, 'towerId'),
+    tower: optionalText(r, 'tower'),
+    gps: optionalText(r, 'gps'),
+    title: readString(r, 'title'),
+    confidence: readNumber(r, 'confidence'),
+    categoryCode: optionalText(r, 'categoryCode'),
+    severityWeight: optionalNum(r, 'severityWeight'),
+    isEmergency: readBoolean(r, 'isEmergency'),
+    status: readString(r, 'status', 'Pending'),
+    boundingBox: box
+      ? { x: readNumber(box, 'x'), y: readNumber(box, 'y'), width: readNumber(box, 'width'), height: readNumber(box, 'height') }
       : undefined,
-    timestampSeconds: optionalNumber(r['timestampSeconds']) ?? null,
-    timestampLabel: optionalString(r['timestampLabel']),
-    frameIndex: optionalNumber(r['frameIndex']) ?? null,
-    imageUrl: optionalString(r['imageUrl']),
-    sourceUrl: optionalString(r['sourceUrl']),
-    description: optionalString(r['description']),
-    detectedAt: optionalString(r['detectedAt']),
-    reviewedByUserId: optionalString(r['reviewedByUserId']) ?? null,
-    reviewedAt: optionalString(r['reviewedAt']) ?? null,
-    reviewNotes: optionalString(r['reviewNotes']) ?? null,
+    timestampSeconds: readOptionalNumber(r, 'timestampSeconds'),
+    timestampLabel: optionalText(r, 'timestampLabel'),
+    frameIndex: readOptionalNumber(r, 'frameIndex'),
+    imageUrl: optionalText(r, 'imageUrl'),
+    sourceUrl: optionalText(r, 'sourceUrl'),
+    description: optionalText(r, 'description'),
+    detectedAt: optionalText(r, 'detectedAt'),
+    reviewedByUserId: readOptionalString(r, 'reviewedByUserId'),
+    reviewedAt: readOptionalString(r, 'reviewedAt'),
+    reviewNotes: readOptionalString(r, 'reviewNotes'),
   };
 }
 
 export function normalizeBackendMaintenanceTask(raw: unknown): MissionBackendMaintenanceTask {
-  const r = record(raw);
+  const r = asRecord(raw);
   return {
-    id: stringValue(r['id']),
-    missionId: stringValue(r['missionId']),
-    detectionId: optionalString(r['detectionId']),
-    title: stringValue(r['title']),
-    priority: stringValue(r['priority'], 'Medium'),
-    towerCode: optionalString(r['towerCode']),
-    defectDescription: optionalString(r['defectDescription']),
-    suggestedAction: optionalString(r['suggestedAction']),
-    status: stringValue(r['status'], 'Pending'),
-    assignedTeam: optionalString(r['assignedTeam']),
-    createdAt: optionalString(r['createdAt']),
+    id: readString(r, 'id'),
+    missionId: readString(r, 'missionId'),
+    detectionId: optionalText(r, 'detectionId'),
+    title: readString(r, 'title'),
+    priority: readString(r, 'priority', 'Medium'),
+    towerCode: optionalText(r, 'towerCode'),
+    defectDescription: optionalText(r, 'defectDescription'),
+    suggestedAction: optionalText(r, 'suggestedAction'),
+    status: readString(r, 'status', 'Pending'),
+    assignedTeam: optionalText(r, 'assignedTeam'),
+    createdAt: optionalText(r, 'createdAt'),
   };
 }
 
 export function normalizeBackendActivity(raw: unknown): MissionBackendActivity {
-  const r = record(raw);
+  const r = asRecord(raw);
   return {
-    id: stringValue(r['id']),
-    missionId: stringValue(r['missionId']),
-    senderUserId: optionalString(r['senderUserId']),
-    senderName: stringValue(r['senderName'], 'Hệ thống'),
-    senderRole: stringValue(r['senderRole'], 'SYSTEM'),
-    content: stringValue(r['content']),
-    timestamp: stringValue(r['timestamp']),
+    id: readString(r, 'id'),
+    missionId: readString(r, 'missionId'),
+    senderUserId: optionalText(r, 'senderUserId'),
+    senderName: readString(r, 'senderName', 'Hệ thống'),
+    senderRole: readString(r, 'senderRole', 'SYSTEM'),
+    content: readString(r, 'content'),
+    timestamp: readString(r, 'timestamp'),
   };
 }

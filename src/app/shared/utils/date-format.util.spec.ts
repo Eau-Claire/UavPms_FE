@@ -69,6 +69,7 @@ describe('date-format.util', () => {
         expect(formatVietnamDateTime(input, '—')).toBe('—');
         expect(formatVietnamDateTimeWithSeconds(input, '—')).toBe('—');
         expect(formatVietnamDateTime(input)).not.toContain('Invalid Date');
+        expect(formatVietnamDateTimeWithSeconds(input)).not.toContain('Invalid Date');
       }
     });
   });

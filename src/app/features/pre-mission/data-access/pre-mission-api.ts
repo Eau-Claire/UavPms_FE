@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
+import { asRecord, readArray, readOptionalNumber } from '../../../shared/utils';
 import { CreateMissionFromAssessmentRequest, CreatedMission } from '../../../models/missions.models';
 import {
   AssessmentCreateRequest,
@@ -326,22 +327,17 @@ export class PreMissionApi {
   }
 }
 
-const objectOf = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const objectOf = (value: unknown): Record<string, unknown> => asRecord(value) ?? {};
 
-const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
+const arrayOf = readArray;
 
-const itemsOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : arrayOf(objectOf(value)['items']));
+const itemsOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : readArray(asRecord(value)?.['items']));
 
 const stringOf = (value: unknown, fallback = '') => (value == null ? fallback : String(value));
 
 const optionalStringOf = (value: unknown): string | null => (value == null || value === '' ? null : String(value));
 
-const optionalNumberOf = (value: unknown): number | null => {
-  if (value == null || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-};
+const optionalNumberOf = (value: unknown): number | null => readOptionalNumber({ value }, 'value');
 
 function toIsoString(value: string): string {
   const d = new Date(value);
