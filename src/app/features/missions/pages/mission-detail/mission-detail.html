@@ -467,18 +467,22 @@
             <strong>{{ mission.regionName || 'Khu vực chưa xác định' }}</strong>
           </div>
           <div class="map-controls-row">
-            <div class="map-layer-switch">
+            <div class="map-layer-switch" role="group" aria-label="Chế độ bản đồ địa phương">
               <button
                 type="button"
-                [class.active]="mapType() === 'satellite'"
-                (click)="setMapType('satellite')">
-                Vệ tinh
+                [class.active]="mapMode() === 'pmtiles'"
+                [attr.aria-pressed]="mapMode() === 'pmtiles'"
+                aria-label="Bản đồ địa phương (PMTiles)"
+                (click)="setMapMode('pmtiles')">
+                Bản đồ địa phương
               </button>
               <button
                 type="button"
-                [class.active]="mapType() === 'streets'"
-                (click)="setMapType('streets')">
-                Đường phố
+                [class.active]="mapMode() === 'schematic'"
+                [attr.aria-pressed]="mapMode() === 'schematic'"
+                aria-label="Sơ đồ lưới (Schematic)"
+                (click)="setMapMode('schematic')">
+                Sơ đồ lưới
               </button>
             </div>
             <small>{{ targetsWithCoordinates().length }}/{{ mission.targets.length }} vị trí có tọa độ</small>
