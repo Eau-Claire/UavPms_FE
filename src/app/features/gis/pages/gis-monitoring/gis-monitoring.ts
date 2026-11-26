@@ -15,9 +15,24 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import * as L from 'leaflet';
-import 'leaflet-draw';
+import type { Feature, FeatureCollection, LineString, Polygon } from 'geojson';
+import {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  MapMouseEvent,
+  Marker,
+  Popup,
+} from 'maplibre-gl';
 import { finalize } from 'rxjs';
+import {
+  LocalMapMode,
+  buildLocalGisStyle,
+  createLocalGisMap,
+  filterValidCoordinates,
+  fitLocalGisBounds,
+  isValidCoordinate,
+  resolveLocalMapMode,
+} from '../../../../shared/gis/local-gis';
 import { ToastService } from '../../../../core/toast/toast.service';
 import { GeoJsonPolygon, RegionLookup, SelectableAsset } from '../../../../models/assets.models';
 import { Auth } from '../../../../core/auth/auth';
@@ -35,9 +50,19 @@ import {
   GisTower,
 } from '../../data-access/gis-api';
 
-export type MapType = 'google-streets' | 'google-hybrid' | 'google-terrain' | 'osm';
+export type MapType = LocalMapMode;
 export type SelectionDrawMode = 'none' | 'rectangle' | 'polygon';
 export type SelectionUxState = 'idle' | 'choosing' | 'drawing-rectangle' | 'drawing-polygon' | 'editing' | 'querying' | 'success' | 'empty' | 'error';
+
+interface GisLatLng {
+  lat: number;
+  lng: number;
+}
+
+const SELECTION_SOURCE_ID = 'gis-selection-overlay';
+const SELECTION_FILL_LAYER_ID = 'gis-selection-fill';
+const SELECTION_LINE_LAYER_ID = 'gis-selection-line';
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export const rectangleToPolygon = (first: { lat: number; lng: number }, second: { lat: number; lng: number }): GeoJsonPolygon => {
   const west = Math.min(first.lng, second.lng); const east = Math.max(first.lng, second.lng);
@@ -75,30 +100,25 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   /** The anomaly drawer links to `/ai-review/:id` only for roles that route allows. */
   protected readonly canReviewAnomalies = computed(() => canAccess(this.auth.user()?.role, ROUTE_ROLES.aiReview));
 
-  private map: L.Map | null = null;
-  private currentTileLayer: L.TileLayer | null = null;
-  private towersLayer = L.layerGroup();
-  private defectsLayer = L.layerGroup();
-  private alertsLayer = L.layerGroup();
-  private selectionResultsLayer = L.layerGroup();
-  private confirmedTargetsLayer = L.layerGroup();
-  private selectionBoundary: L.Polygon | L.Rectangle | null = null;
-  private readonly editableLayers = L.featureGroup();
-  private editHandler: L.EditToolbar.Edit | null = null;
+  private map: MapLibreMap | null = null;
+  private towerMarkers: Marker[] = [];
+  private selectionResultMarkers: Marker[] = [];
+  private confirmedTargetMarkers: Marker[] = [];
+  private tempVertexMarkers: Marker[] = [];
+  private activeTooltipPopup: Popup | null = null;
+  private rafId: number | null = null;
+  private layoutTimers: ReturnType<typeof setTimeout>[] = [];
   private currentGeometry: GeoJsonPolygon | null = null;
 
-  // Custom Live Drawing Layers & State
-  private tempDrawLayer = L.layerGroup();
-  private tempRect: L.Rectangle | null = null;
-  private rectStartLatLng: L.LatLng | null = null;
+  // Custom Live Drawing State
+  private tempRectGeometry: GeoJsonPolygon | null = null;
+  private tempRubberbandEnd: GisLatLng | null = null;
+  private rectStartLatLng: GisLatLng | null = null;
   private isRectDragging = false;
-  protected readonly polygonVertices = signal<L.LatLng[]>([]);
-  private tempPolyline: L.Polyline | null = null;
-  private tempRubberband: L.Polyline | null = null;
-  private tempVertexMarkers: L.Marker[] = [];
+  protected readonly polygonVertices = signal<GisLatLng[]>([]);
 
-  // Map type state
-  protected readonly currentMapType = signal<MapType>('google-streets');
+  // Local-only map mode state (PMTiles / Schematic)
+  protected readonly mapMode = signal<LocalMapMode>('pmtiles');
 
   // GIS remains empty until authorized API data arrives.
   protected readonly towers = signal<readonly GisTower[]>([]);
@@ -196,8 +216,8 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected focusTowerAsset(tower: GisTower): void {
-    if (this.map) {
-      this.map.flyTo([tower.latitude, tower.longitude], 17, { duration: 0.8 });
+    if (this.map && isValidCoordinate(tower.latitude, tower.longitude)) {
+      this.map.flyTo({ center: [tower.longitude, tower.latitude], zoom: 17, duration: 800 });
       this.selectedEntity.set({ type: 'tower', data: tower });
     }
   }
@@ -247,33 +267,35 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   });
 
   ngAfterViewInit(): void {
-    this.initLeafletMap();
+    this.initLocalGisMap();
 
     // 1. Initialize empty map layers
     this.renderAllLayers();
     this.fitMapBounds();
 
     // 2. Multi-stage layout synchronization across browser paint lifecycle
-    requestAnimationFrame(() => {
+    this.rafId = requestAnimationFrame(() => {
+      this.rafId = null;
       if (!this.map) return;
-      this.map.invalidateSize();
+      this.map.resize();
       this.renderAllLayers();
       this.fitMapBounds();
     });
 
-    setTimeout(() => {
-      if (!this.map) return;
-      this.map.invalidateSize();
-      this.renderAllLayers();
-      this.fitMapBounds();
-    }, 200);
-
-    setTimeout(() => {
-      if (!this.map) return;
-      this.map.invalidateSize();
-      this.renderAllLayers();
-      this.fitMapBounds();
-    }, 500);
+    this.layoutTimers.push(
+      setTimeout(() => {
+        if (!this.map) return;
+        this.map.resize();
+        this.renderAllLayers();
+        this.fitMapBounds();
+      }, 200),
+      setTimeout(() => {
+        if (!this.map) return;
+        this.map.resize();
+        this.renderAllLayers();
+        this.fitMapBounds();
+      }, 500),
+    );
 
     // 3. Refresh live data from server asynchronously
     this.loadRegions();
@@ -281,7 +303,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     // 4. Responsive map resize synchronization
     const onResize = () => {
-      this.map?.invalidateSize();
+      this.map?.resize();
     };
     window.addEventListener('resize', onResize);
     this.destroyRef.onDestroy(() => {
@@ -290,55 +312,54 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    for (const timer of this.layoutTimers) {
+      clearTimeout(timer);
+    }
+    this.layoutTimers = [];
+    this.clearMarkers(this.towerMarkers);
+    this.clearMarkers(this.selectionResultMarkers);
+    this.clearMarkers(this.confirmedTargetMarkers);
+    this.clearMarkers(this.tempVertexMarkers);
+    this.activeTooltipPopup?.remove();
+    this.activeTooltipPopup = null;
     if (this.map) {
       this.map.remove();
       this.map = null;
     }
   }
 
-  private initLeafletMap(): void {
+  private initLocalGisMap(): void {
     const container = this.mapContainer()?.nativeElement;
     if (!container) return;
 
-    const vietnamBounds = L.latLngBounds([8.15, 102.0], [23.5, 110.0]);
-    this.map = L.map(container, {
-      center: [10.7769, 106.7009],
+    const map = createLocalGisMap(container, {
+      mode: this.mapMode(),
       zoom: 12,
-      zoomControl: false,
-      maxBounds: vietnamBounds,
-      maxBoundsViscosity: 1,
+      onFallbackToSchematic: () => {
+        this.mapMode.set('schematic');
+        this.syncSelectionOverlay();
+      },
     });
+    this.map = map;
+    if (!map) return;
 
-    // Custom zoom control in bottom right
-    L.control.zoom({ position: 'bottomright' }).addTo(this.map);
-
-    // Apply initial Tile Layer (Google Maps Streets)
-    this.setMapType('google-streets');
-
-    // Add Layer Groups
-    this.towersLayer.addTo(this.map);
-    this.defectsLayer.addTo(this.map);
-    this.alertsLayer.addTo(this.map);
-    this.selectionResultsLayer.addTo(this.map);
-    this.confirmedTargetsLayer.addTo(this.map);
-    this.editableLayers.addTo(this.map);
-    this.tempDrawLayer.addTo(this.map);
-
-    // When map is ready in DOM, force immediate projection and layer rendering
-    this.map.whenReady(() => {
-      this.map?.invalidateSize();
-      this.map?.fitBounds(vietnamBounds);
+    map.on('load', () => {
+      this.map?.resize();
       this.renderAllLayers();
+      this.syncSelectionOverlay();
       this.fitMapBounds();
     });
 
     // Register Map Event Listeners for Live Custom Drawing
-    this.map.on('mousedown', (e: L.LeafletMouseEvent) => this.onMapMouseDown(e));
-    this.map.on('mousemove', (e: L.LeafletMouseEvent) => this.onMapMouseMove(e));
-    this.map.on('mouseup', (e: L.LeafletMouseEvent) => this.onMapMouseUp(e));
-    this.map.on('click', (e: L.LeafletMouseEvent) => this.onMapClick(e));
-    this.map.on('dblclick', (e: L.LeafletMouseEvent) => this.onMapDblClick(e));
-    this.map.on(L.Draw.Event.EDITED, () => this.onEditCompleted());
+    map.on('mousedown', (e: MapMouseEvent) => this.onMapMouseDown(e));
+    map.on('mousemove', (e: MapMouseEvent) => this.onMapMouseMove(e));
+    map.on('mouseup', (e: MapMouseEvent) => this.onMapMouseUp(e));
+    map.on('click', (e: MapMouseEvent) => this.onMapClick(e));
+    map.on('dblclick', (e: MapMouseEvent) => this.onMapDblClick(e));
   }
 
   /** Bật/tắt bảng bộ lọc (tự động đóng chú giải & khoanh vùng để tránh đè lấn) */
@@ -391,13 +412,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   /** Redraw: clear candidates + geometry, return to shape chooser, preserve confirmed targets. */
   protected redraw(): void {
     this.cancelActiveTool();
-    this.editableLayers.clearLayers();
-    this.selectionBoundary?.remove();
-    this.selectionBoundary = null;
     this.currentGeometry = null;
     this.hasBoundary.set(false);
     this.spatialAssets.set([]);
-    this.selectionResultsLayer.clearLayers();
+    this.clearMarkers(this.selectionResultMarkers);
+    this.syncSelectionOverlay();
     this.renderConfirmedTargetMarkers();
     this.spatialMessage.set('');
     this.uxState.set('choosing');
@@ -410,7 +429,7 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
     if (this.map) {
       if (mode === 'rectangle') {
-        this.map.dragging.disable();
+        this.map.dragPan.disable();
       } else if (mode === 'polygon') {
         this.map.doubleClickZoom.disable();
         this.polygonVertices.set([]);
@@ -422,138 +441,86 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   // Custom Live Rectangle & Polygon Drawing Handlers
   // ─────────────────────────────────────────────────────────────
 
-  private onMapMouseDown(e: L.LeafletMouseEvent): void {
+  private onMapMouseDown(e: MapMouseEvent): void {
     if (this.drawMode() !== 'rectangle' || !this.map) return;
-    if (e.originalEvent) {
-      L.DomEvent.preventDefault(e.originalEvent);
-    }
+    e.preventDefault();
     this.isRectDragging = true;
-    this.rectStartLatLng = e.latlng;
-
-    if (this.tempRect) {
-      this.tempRect.remove();
-    }
-
-    const bounds = L.latLngBounds(e.latlng, e.latlng);
-    this.tempRect = L.rectangle(bounds, {
-      color: '#4f46e5',
-      weight: 2,
-      fillColor: '#6366f1',
-      fillOpacity: 0.16,
-      dashArray: '6 4',
-    }).addTo(this.tempDrawLayer);
+    this.rectStartLatLng = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+    this.tempRectGeometry = rectangleToPolygon(this.rectStartLatLng, this.rectStartLatLng);
+    this.syncSelectionOverlay();
   }
 
-  private onMapMouseMove(e: L.LeafletMouseEvent): void {
+  private onMapMouseMove(e: MapMouseEvent): void {
     if (!this.map) return;
+    const current = { lat: e.lngLat.lat, lng: e.lngLat.lng };
 
-    // Rectangle live preview during drag
-    if (this.drawMode() === 'rectangle' && this.isRectDragging && this.rectStartLatLng && this.tempRect) {
-      if (e.originalEvent) {
-        L.DomEvent.preventDefault(e.originalEvent);
-      }
-      const bounds = L.latLngBounds(this.rectStartLatLng, e.latlng);
-      this.tempRect.setBounds(bounds);
+    if (this.drawMode() === 'rectangle' && this.isRectDragging && this.rectStartLatLng) {
+      e.preventDefault();
+      this.tempRectGeometry = rectangleToPolygon(this.rectStartLatLng, current);
+      this.syncSelectionOverlay();
       return;
     }
 
-    // Polygon live rubberband guide line
-    if (this.drawMode() === 'polygon') {
-      const points = this.polygonVertices();
-      if (points.length > 0) {
-        const lastPoint = points[points.length - 1];
-        if (!this.tempRubberband) {
-          this.tempRubberband = L.polyline([lastPoint, e.latlng], {
-            color: '#4f46e5',
-            weight: 2,
-            dashArray: '4 4',
-            opacity: 0.8,
-          }).addTo(this.tempDrawLayer);
-        } else {
-          this.tempRubberband.setLatLngs([lastPoint, e.latlng]);
-        }
-      }
+    if (this.drawMode() === 'polygon' && this.polygonVertices().length > 0) {
+      this.tempRubberbandEnd = current;
+      this.syncSelectionOverlay();
     }
   }
 
-  private onMapMouseUp(e: L.LeafletMouseEvent): void {
+  private onMapMouseUp(e: MapMouseEvent): void {
     if (this.drawMode() !== 'rectangle' || !this.isRectDragging || !this.rectStartLatLng || !this.map) return;
-    if (e.originalEvent) {
-      L.DomEvent.preventDefault(e.originalEvent);
-    }
+    e.preventDefault();
     this.isRectDragging = false;
 
-    const bounds = L.latLngBounds(this.rectStartLatLng, e.latlng);
-    const startPoint = this.map.latLngToLayerPoint(this.rectStartLatLng);
-    const endPoint = this.map.latLngToLayerPoint(e.latlng);
-    const distance = startPoint.distanceTo(endPoint);
-
-    this.tempRect?.remove();
-    this.tempRect = null;
+    const startPoint = this.map.project([this.rectStartLatLng.lng, this.rectStartLatLng.lat]);
+    const distance = Math.hypot(startPoint.x - e.point.x, startPoint.y - e.point.y);
+    const start = this.rectStartLatLng;
+    this.tempRectGeometry = null;
     this.rectStartLatLng = null;
+    this.syncSelectionOverlay();
 
     if (distance >= 8) {
-      const geojson = rectangleToPolygon(bounds.getNorthEast(), bounds.getSouthWest());
-      this.resolveGeometry(geojson);
+      this.resolveGeometry(rectangleToPolygon(start, { lat: e.lngLat.lat, lng: e.lngLat.lng }));
     }
   }
 
-  private onMapClick(e: L.LeafletMouseEvent): void {
+  private onMapClick(e: MapMouseEvent): void {
     if (this.drawMode() !== 'polygon' || !this.map) return;
 
     const currentPoints = this.polygonVertices();
-
-    // Check if clicked near the first point to close polygon
     if (currentPoints.length >= 3) {
-      const firstPointPx = this.map.latLngToLayerPoint(currentPoints[0]);
-      const clickPx = this.map.latLngToLayerPoint(e.latlng);
-      if (firstPointPx.distanceTo(clickPx) <= 18) {
+      const firstPx = this.map.project([currentPoints[0].lng, currentPoints[0].lat]);
+      if (Math.hypot(firstPx.x - e.point.x, firstPx.y - e.point.y) <= 18) {
         this.completePolygon();
         return;
       }
     }
 
-    // Add new vertex to polygon
-    const newPoints = [...currentPoints, e.latlng];
+    const point: GisLatLng = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+    const newPoints = [...currentPoints, point];
     this.polygonVertices.set(newPoints);
 
-    // Create marker for this vertex
     const isFirst = newPoints.length === 1;
-    const markerIcon = L.divIcon({
-      className: `leaflet-editing-icon ${isFirst ? 'first-vertex-marker' : ''}`,
-      iconSize: isFirst ? [14, 14] : [10, 10],
-      iconAnchor: isFirst ? [7, 7] : [5, 5],
-    });
-
-    const marker = L.marker(e.latlng, { icon: markerIcon }).addTo(this.tempDrawLayer);
+    const vertexEl = document.createElement('div');
+    vertexEl.className = isFirst ? 'leaflet-editing-icon first-vertex-marker' : 'leaflet-editing-icon';
+    vertexEl.style.width = isFirst ? '14px' : '10px';
+    vertexEl.style.height = isFirst ? '14px' : '10px';
 
     if (isFirst) {
-      marker.bindTooltip('Nhấp vào đây để hoàn tất vùng', { direction: 'top', offset: [0, -8] });
-      marker.on('click', (ev: L.LeafletMouseEvent) => {
-        L.DomEvent.stopPropagation(ev);
-        if (this.polygonVertices().length >= 3) {
-          this.completePolygon();
-        }
+      vertexEl.title = 'Nhấp vào đây để hoàn tất vùng';
+      vertexEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (this.polygonVertices().length >= 3) this.completePolygon();
       });
     }
 
-    this.tempVertexMarkers.push(marker);
-
-    // Update connecting polyline
-    if (!this.tempPolyline) {
-      this.tempPolyline = L.polyline(newPoints, {
-        color: '#4f46e5',
-        weight: 2.5,
-        opacity: 0.9,
-      }).addTo(this.tempDrawLayer);
-    } else {
-      this.tempPolyline.setLatLngs(newPoints);
-    }
+    this.tempVertexMarkers.push(new Marker({ element: vertexEl }).setLngLat([point.lng, point.lat]).addTo(this.map));
+    this.syncSelectionOverlay();
   }
 
-  private onMapDblClick(e: L.LeafletMouseEvent): void {
+  private onMapDblClick(e: MapMouseEvent): void {
     if (this.drawMode() === 'polygon' && this.polygonVertices().length >= 3) {
-      L.DomEvent.stopPropagation(e);
+      e.preventDefault();
       this.completePolygon();
     }
   }
@@ -621,49 +588,70 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   private drawSelectionBoundary(geometry: GeoJsonPolygon): void {
-    if (!this.map) return;
-    this.selectionBoundary?.remove();
-    const points = geometry.coordinates[0].map(([lng, lat]) => [lat, lng] as L.LatLngTuple);
-    this.selectionBoundary = L.polygon(points, {
-      color: '#4f46e5',
-      weight: 2.5,
-      fillColor: '#6366f1',
-      fillOpacity: 0.14,
-      dashArray: '6 4',
-    }).addTo(this.map);
-    this.editableLayers.clearLayers();
-    this.editableLayers.addLayer(this.selectionBoundary);
+    this.currentGeometry = geometry;
     this.hasBoundary.set(true);
+    this.syncSelectionOverlay();
   }
 
-  private queryLayer(layer: L.Polygon | L.Rectangle): void {
-    const geoJson = layer.toGeoJSON().geometry;
-    if (geoJson.type !== 'Polygon') return;
-    this.resolveGeometry({ type: 'Polygon', coordinates: geoJson.coordinates as unknown as GeoJsonPolygon['coordinates'] });
+  private syncSelectionOverlay(): void {
+    if (!this.map) return;
+    const features: Feature<Polygon | LineString>[] = [];
+    const activePolygon = this.tempRectGeometry ?? this.currentGeometry;
+    if (activePolygon) {
+      features.push({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: activePolygon.coordinates.map((ring) => ring.map(([lng, lat]) => [lng, lat])),
+        },
+      });
+    }
+    const vertices = this.polygonVertices();
+    if (vertices.length > 0) {
+      const lineCoords = vertices.map((p) => [p.lng, p.lat]);
+      if (this.tempRubberbandEnd) lineCoords.push([this.tempRubberbandEnd.lng, this.tempRubberbandEnd.lat]);
+      if (lineCoords.length > 1) {
+        features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: lineCoords } });
+      }
+    }
+
+    const data: FeatureCollection<Polygon | LineString> = { type: 'FeatureCollection', features };
+    const map = this.map;
+    const apply = () => {
+      const existing = map.getSource<GeoJSONSource>(SELECTION_SOURCE_ID);
+      if (existing) {
+        existing.setData(data);
+        return;
+      }
+      map.addSource(SELECTION_SOURCE_ID, { type: 'geojson', data });
+      map.addLayer({
+        id: SELECTION_FILL_LAYER_ID,
+        type: 'fill',
+        source: SELECTION_SOURCE_ID,
+        filter: ['==', '$type', 'Polygon'],
+        paint: { 'fill-color': '#6366f1', 'fill-opacity': 0.14 },
+      });
+      map.addLayer({
+        id: SELECTION_LINE_LAYER_ID,
+        type: 'line',
+        source: SELECTION_SOURCE_ID,
+        paint: { 'line-color': '#4f46e5', 'line-width': 2.5, 'line-dasharray': [6, 4] },
+      });
+    };
+
+    if (map.isStyleLoaded()) apply();
+    else map.once('style.load', apply);
   }
 
   protected startEditing(): void {
     if (!this.hasBoundary()) return;
     this.cancelActiveTool();
     this.uxState.set('editing');
-    if (!this.map) return;
-    this.editHandler = new L.EditToolbar.Edit(this.map as unknown as L.DrawMap, {
-      featureGroup: this.editableLayers,
-      selectedPathOptions: { color: '#4338ca', weight: 3, fillOpacity: 0.18, dashArray: undefined },
-    });
-    this.editHandler.enable();
   }
 
   protected finishEditing(): void {
-    if (!this.editHandler) return;
-    this.editHandler.save();
-    this.editHandler.disable();
-    this.editHandler = null;
-  }
-
-  protected onEditCompleted(): void {
-    const layer = this.editableLayers.getLayers()[0];
-    if (layer instanceof L.Polygon) this.queryLayer(layer);
+    if (this.currentGeometry) this.resolveGeometry(this.currentGeometry);
   }
 
   protected completeEditedGeometry(geometry: GeoJsonPolygon): void {
@@ -684,28 +672,19 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 
   protected cancelActiveTool(): void {
-    // Reset Custom Drawing State
     this.isRectDragging = false;
     this.rectStartLatLng = null;
-    this.tempRect?.remove();
-    this.tempRect = null;
-    this.tempPolyline?.remove();
-    this.tempPolyline = null;
-    this.tempRubberband?.remove();
-    this.tempRubberband = null;
-    this.tempVertexMarkers.forEach((m) => m.remove());
-    this.tempVertexMarkers = [];
+    this.tempRectGeometry = null;
+    this.tempRubberbandEnd = null;
+    this.clearMarkers(this.tempVertexMarkers);
     this.polygonVertices.set([]);
-    this.tempDrawLayer.clearLayers();
+    this.syncSelectionOverlay();
 
     if (this.map) {
-      this.map.dragging.enable();
+      this.map.dragPan.enable();
       this.map.doubleClickZoom.enable();
     }
 
-    this.editHandler?.revertLayers();
-    this.editHandler?.disable();
-    this.editHandler = null;
     this.drawMode.set('none');
 
     if (this.spatialAssets().length) {
@@ -721,39 +700,58 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected clearBoundary(): void {
     this.cancelActiveTool();
-    this.editableLayers.clearLayers();
-    this.selectionBoundary?.remove();
-    this.selectionBoundary = null;
     this.currentGeometry = null;
     this.hasBoundary.set(false);
     this.spatialAssets.set([]);
-    this.selectionResultsLayer.clearLayers();
+    this.clearMarkers(this.selectionResultMarkers);
+    this.syncSelectionOverlay();
     this.renderConfirmedTargetMarkers();
     this.spatialMessage.set('');
     this.uxState.set(this.showSelectionPopup() ? 'choosing' : 'idle');
   }
 
   protected renderSpatialAssets(): void {
-    this.selectionResultsLayer.clearLayers();
-    this.spatialAssets().forEach((asset) => {
+    this.clearMarkers(this.selectionResultMarkers);
+    if (!this.map) {
+      this.renderConfirmedTargetMarkers();
+      return;
+    }
+
+    const validAssets = filterValidCoordinates(this.spatialAssets(), (asset) => ({
+      latitude: asset.latitude,
+      longitude: asset.longitude,
+    }));
+    validAssets.forEach((asset) => {
       const selected = this.targetSelection.has(asset.towerId);
-      const marker = L.circleMarker([asset.latitude, asset.longitude], {
-        radius: 8, color: selected ? '#15803d' : '#7c3aed', fillColor: selected ? '#22c55e' : '#a78bfa', fillOpacity: 0.9,
+      const dot = document.createElement('div');
+      dot.style.cssText = `width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid ${selected ? '#15803d' : '#7c3aed'};background:${selected ? '#22c55e' : '#a78bfa'};opacity:0.9;`;
+      dot.title = `${asset.code} — ${asset.name}`;
+      dot.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        this.toggleAsset(asset);
       });
-      marker.bindTooltip(`<strong>${asset.code}</strong><br>${asset.name}`);
-      marker.on('click', () => { this.toggleAsset(asset); });
-      this.selectionResultsLayer.addLayer(marker);
+      this.selectionResultMarkers.push(new Marker({ element: dot }).setLngLat([asset.longitude, asset.latitude]).addTo(this.map!));
     });
     this.renderConfirmedTargetMarkers();
   }
 
   private renderConfirmedTargetMarkers(): void {
-    this.confirmedTargetsLayer.clearLayers();
-    this.targetSelection.selected().forEach((asset) => {
-      const icon = L.divIcon({ className: 'confirmed-target-marker', html: '<span class="target-select-ring"></span>', iconSize: [28, 28], iconAnchor: [14, 14] });
-      L.marker([asset.latitude, asset.longitude], { icon, zIndexOffset: 900 })
-        .bindTooltip(`<strong>Đã chọn: ${asset.towerCode}</strong>`)
-        .addTo(this.confirmedTargetsLayer);
+    this.clearMarkers(this.confirmedTargetMarkers);
+    if (!this.map) return;
+
+    const validSelected = filterValidCoordinates(this.targetSelection.selected(), (asset) => ({
+      latitude: asset.latitude,
+      longitude: asset.longitude,
+    }));
+    validSelected.forEach((asset) => {
+      const el = document.createElement('div');
+      el.className = 'confirmed-target-marker';
+      el.style.zIndex = '900';
+      el.title = `Đã chọn: ${asset.towerCode}`;
+      const ring = document.createElement('span');
+      ring.className = 'target-select-ring';
+      el.append(ring);
+      this.confirmedTargetMarkers.push(new Marker({ element: el }).setLngLat([asset.longitude, asset.latitude]).addTo(this.map!));
     });
   }
 
@@ -768,49 +766,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.renderSpatialAssets();
   }
 
-  protected setMapType(type: MapType): void {
+  protected setMapMode(mode: LocalMapMode): void {
+    this.mapMode.set(mode);
     if (!this.map) return;
-    this.currentMapType.set(type);
-
-    if (this.currentTileLayer) {
-      this.map.removeLayer(this.currentTileLayer);
-      this.currentTileLayer = null;
-    }
-
-    let tileUrl: string;
-    let maxZoom = 20;
-    let subdomains: string[] = ['mt0', 'mt1', 'mt2', 'mt3'];
-    let attribution = '© Google Maps | UAV-PMS Power Grid GIS';
-
-    switch (type) {
-      case 'google-streets':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
-        break;
-      case 'google-hybrid':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-        break;
-      case 'google-terrain':
-        tileUrl = 'https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}';
-        break;
-      case 'osm':
-      default:
-        tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        subdomains = ['a', 'b', 'c'];
-        maxZoom = 19;
-        attribution = '© OpenStreetMap contributors | UAV-PMS Power Grid GIS';
-        break;
-    }
-
-    this.currentTileLayer = L.tileLayer(tileUrl, {
-      maxZoom,
-      subdomains,
-      attribution,
-      updateWhenIdle: false,
-      updateWhenZooming: false,
-      keepBuffer: 6,
-    });
-
-    this.currentTileLayer.addTo(this.map);
+    this.map.setStyle(buildLocalGisStyle(mode));
+    this.syncSelectionOverlay();
   }
 
   protected loadGisData(): void {
@@ -835,6 +795,11 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
           this.towers.set(data.towers);
           this.anomalies.set(data.anomalies);
           this.alerts.set(data.alerts);
+          const validTowers = filterValidCoordinates(data.towers, (t) => ({ latitude: t.latitude, longitude: t.longitude }));
+          const resolvedMode = resolveLocalMapMode(validTowers, this.mapMode());
+          if (resolvedMode !== this.mapMode()) {
+            this.setMapMode(resolvedMode);
+          }
           this.renderAllLayers();
           this.fitMapBounds();
         },
@@ -867,11 +832,23 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
     this.renderAlerts();
   }
 
-  private renderTowers(): void {
-    this.towersLayer.clearLayers();
-    if (!this.showTowersLayer()) return;
+  private clearMarkers(list: Marker[]): void {
+    list.forEach((marker) => marker.remove());
+    list.length = 0;
+  }
 
-    this.towers().forEach((tower) => {
+  private renderTowers(): void {
+    this.clearMarkers(this.towerMarkers);
+    this.activeTooltipPopup?.remove();
+    this.activeTooltipPopup = null;
+    if (!this.map || !this.showTowersLayer()) return;
+
+    const validTowers = filterValidCoordinates(this.towers(), (tower) => ({
+      latitude: tower.latitude,
+      longitude: tower.longitude,
+    }));
+
+    validTowers.forEach((tower) => {
       const isSelected = this.selectedMarkerId() === tower.id;
       const towerAlerts = this.alertsForTower(tower.id, tower.towerCode);
       const allTowerAnomalies = this.anomaliesForTower(tower.id, tower.towerCode);
@@ -887,49 +864,61 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
       else if (hasAnomaly) markerClass += ' has-anomaly';
       if (isSelected) markerClass += ' is-selected';
 
-      const icon = L.divIcon({
-        className: markerClass,
-        html: `<svg class="tower-node-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l6.5 19H5.5L12 2z"/><path d="M7.5 14h9"/><path d="M9.5 9h5"/></svg>`,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
-      });
+      const markerEl = document.createElement('div');
+      markerEl.className = markerClass;
+      markerEl.style.zIndex = String(isSelected ? 1200 : hasAlert ? 800 : hasAnomaly ? 400 : 100);
+      markerEl.append(createTowerSvgIcon());
 
-      const marker = L.marker([tower.latitude, tower.longitude], {
-        icon,
-        zIndexOffset: isSelected ? 1200 : hasAlert ? 800 : hasAnomaly ? 400 : 100,
-      });
+      const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
+      const tooltipEl = document.createElement('div');
+      const codeEl = document.createElement('div');
+      codeEl.style.cssText = 'font-weight:700;font-size:13px;';
+      codeEl.textContent = tower.towerCode;
+      tooltipEl.append(codeEl);
 
-      marker.on('click', () => {
+      if (hasAlert || hasAnomaly) {
+        const badgeEl = document.createElement('div');
+        badgeEl.style.cssText = hasAlert ? 'color:#dc2626;font-weight:600;' : 'color:#b45309;font-weight:600;';
+        badgeEl.textContent = hasAlert ? 'Cảnh báo khẩn cấp' : `Có ${openAnomalies.length} sự cố phát hiện`;
+        tooltipEl.append(badgeEl);
+      }
+
+      if (subtitle) {
+        const subEl = document.createElement('div');
+        subEl.style.cssText = 'font-size:11px;color:#64748b;';
+        subEl.textContent = subtitle;
+        tooltipEl.append(subEl);
+      }
+
+      markerEl.addEventListener('mouseenter', () => {
+        if (!this.map) return;
+        this.activeTooltipPopup?.remove();
+        this.activeTooltipPopup = new Popup({ offset: 14, closeButton: false, closeOnClick: false })
+          .setLngLat([tower.longitude, tower.latitude])
+          .setDOMContent(tooltipEl)
+          .addTo(this.map);
+      });
+      markerEl.addEventListener('mouseleave', () => {
+        this.activeTooltipPopup?.remove();
+        this.activeTooltipPopup = null;
+      });
+      markerEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
         this.selectedMarkerId.set(tower.id);
         this.selectedEntity.set({ type: 'tower', data: tower });
         this.renderAllLayers();
       });
 
-      const statusBadge = hasAlert
-        ? '<div style="color: #dc2626; font-weight: 600;">Cảnh báo khẩn cấp</div>'
-        : hasAnomaly
-        ? `<div style="color: #b45309; font-weight: 600;">Có ${openAnomalies.length} sự cố phát hiện</div>`
-        : '';
-      const subtitle = [this.regionName(tower.regionId), tower.poleType].filter(Boolean).join(' · ');
-      marker.bindTooltip(
-        `<div style="font-weight: 700; font-size: 13px;">${escapeHtml(tower.towerCode)}</div>${statusBadge}<div style="font-size: 11px; color: #64748b;">${escapeHtml(subtitle)}</div>`,
-        { direction: 'top', offset: [0, -10] },
-      );
-
-      this.towersLayer.addLayer(marker);
+      this.towerMarkers.push(new Marker({ element: markerEl }).setLngLat([tower.longitude, tower.latitude]).addTo(this.map!));
     });
   }
 
   private renderDefects(): void {
-    this.defectsLayer.clearLayers();
     // Toàn bộ bất thường gắn với cột điện được thể hiện trực quan bằng cột điện màu vàng (hoặc đỏ nếu khẩn cấp).
-    // Không hiển thị marker bất thường nằm chơ trọi riêng lẻ trên bản đồ.
   }
 
   private renderAlerts(): void {
-    this.alertsLayer.clearLayers();
     // Toàn bộ cảnh báo khẩn cấp gắn với cột điện được thể hiện trực quan bằng cột điện màu đỏ (renderTowers).
-    // Không hiển thị marker cảnh báo nằm chơ trọi riêng lẻ trên bản đồ.
   }
 
   protected applyFilters(): void {
@@ -966,12 +955,12 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected fitMapBounds(): void {
     if (!this.map) return;
-    const points = this.towers().map((tower) => L.latLng(tower.latitude, tower.longitude));
-    if (points.length) {
-      this.map.fitBounds(L.latLngBounds(points).pad(0.15), { maxZoom: 15 });
-      return;
-    }
-    this.map.fitBounds(L.latLngBounds([8.15, 102.0], [23.5, 110.0]));
+    const validTowers = filterValidCoordinates(this.towers(), (tower) => ({
+      latitude: tower.latitude,
+      longitude: tower.longitude,
+    }));
+    const coords: [number, number][] = validTowers.map((tower) => [tower.longitude, tower.latitude]);
+    fitLocalGisBounds(this.map, coords, 48, 15);
   }
 
   protected closeDrawer(): void {
@@ -1022,7 +1011,6 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
 
   protected navigateToReview(anomalyId: string, anomalyFeature?: GisAnomalyFeature): void {
     this.notificationsStore?.markReadByReference('detectedanomaly', anomalyId);
-    this.notificationsStore?.markReadForEmergencyAlert(undefined, anomalyId);
     const feature = anomalyFeature ?? this.anomalies().find((a) => a.anomalyId === anomalyId || a.id === anomalyId);
     let anomalyItem: AnomalyItem | undefined;
     if (feature) {
@@ -1076,5 +1064,22 @@ export class GisMonitoring implements AfterViewInit, OnDestroy {
   }
 }
 
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
+function createTowerSvgIcon(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'tower-node-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '13');
+  svg.setAttribute('height', '13');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of ['M12 2l6.5 19H5.5L12 2z', 'M7.5 14h9', 'M9.5 9h5']) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  return svg;
+}
