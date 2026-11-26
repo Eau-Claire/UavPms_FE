@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, i
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import * as L from 'leaflet';
+import { Marker, type Map as MapLibreMap } from 'maplibre-gl';
 import { finalize } from 'rxjs';
 import {
   CreateMissionFromAssessmentRequest,
@@ -15,6 +15,7 @@ import {
 } from '../../../../models/missions.models';
 import { PersonnelCandidate, PreMissionAssessment, UavCandidate } from '../../../../models/pre-mission.models';
 import { describeHttpError } from '../../../../shared/errors/business-error-messages';
+import { createLocalGisMap, filterValidCoordinates, fitLocalGisBounds, resolveLocalMapMode, setLocalGisRouteLine } from '../../../../shared/gis/local-gis';
 import { IdempotencyKeyTracker } from '../../../../shared/idempotency/idempotency-key';
 import { PreMissionApi } from '../../../pre-mission/data-access/pre-mission-api';
 import { isValidGuid, MissionsApi } from '../../data-access/missions-api';
@@ -47,8 +48,10 @@ export class MissionCreate implements OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly editMapContainer = viewChild<ElementRef<HTMLDivElement>>('editMapContainer');
-  private editMap: L.Map | null = null;
-  private editMapLayer: L.LayerGroup | null = null;
+  private editMap: MapLibreMap | null = null;
+  private editMapMarkers: Marker[] = [];
+  private editMapInitTimer: ReturnType<typeof setTimeout> | null = null;
+  private editMapResizeTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly defectCategories = PRIORITY_DEFECT_CATEGORIES;
   protected readonly instructionsMax = MANAGER_INSTRUCTIONS_MAX;
@@ -205,7 +208,11 @@ export class MissionCreate implements OnDestroy {
               isImmediate: false,
               managerInstructions: m.managerInstructions ?? '',
             });
-            setTimeout(() => this.initEditMap(m), 80);
+            if (this.editMapInitTimer !== null) clearTimeout(this.editMapInitTimer);
+            this.editMapInitTimer = setTimeout(() => {
+              this.editMapInitTimer = null;
+              this.initEditMap(m);
+            }, 80);
           },
           error: (err: unknown) => {
             this.error.set(describeHttpError(err, 'Không thể tải thông tin nhiệm vụ để chỉnh sửa.'));
@@ -555,51 +562,72 @@ export class MissionCreate implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.editMap) {
-      this.editMap.remove();
-      this.editMap = null;
+    this.destroyEditMap();
+  }
+
+  private destroyEditMap(): void {
+    if (this.editMapInitTimer !== null) {
+      clearTimeout(this.editMapInitTimer);
+      this.editMapInitTimer = null;
     }
+    if (this.editMapResizeTimer !== null) {
+      clearTimeout(this.editMapResizeTimer);
+      this.editMapResizeTimer = null;
+    }
+    this.editMapMarkers.forEach((marker) => marker.remove());
+    this.editMapMarkers = [];
+    this.editMap?.remove();
+    this.editMap = null;
   }
 
   private initEditMap(mission: Mission): void {
     const container = this.editMapContainer()?.nativeElement;
     if (!container) return;
-    if (this.editMap) {
-      this.editMap.remove();
-      this.editMap = null;
-    }
-    this.editMap = L.map(container, { center: [10.7769, 106.7009], zoom: 13, zoomControl: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      subdomains: ['a', 'b', 'c'],
-      attribution: '© OpenStreetMap contributors | UAV-PMS GIS',
-    }).addTo(this.editMap);
-    this.editMapLayer = L.layerGroup().addTo(this.editMap);
+    this.destroyEditMap();
 
-    const coords: [number, number][] = [];
-    mission.targets.forEach((t, idx) => {
-      if (typeof t.latitude === 'number' && typeof t.longitude === 'number' && !Number.isNaN(t.latitude) && !Number.isNaN(t.longitude)) {
-        const pt: [number, number] = [t.latitude, t.longitude];
-        coords.push(pt);
-        L.marker(pt, {
-          icon: L.divIcon({
-            className: 'edit-map-pin-wrap',
-            html: `<div style="width:24px;height:24px;border-radius:50%;background:#1d4f91;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.3);">${t.sequence || idx + 1}</div>`,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          }),
-        })
-          .bindTooltip(`${t.sequence || idx + 1}. ${t.towerCode}`, { direction: 'top' })
-          .addTo(this.editMapLayer!);
-      }
+    const validTargets = filterValidCoordinates(mission.targets, (t) => ({
+      latitude: t.latitude,
+      longitude: t.longitude,
+    }));
+    const coords: [number, number][] = validTargets.map((t) => [t.longitude!, t.latitude!]);
+    const mode = resolveLocalMapMode(
+      validTargets.map((t) => ({ latitude: t.latitude!, longitude: t.longitude! })),
+    );
+
+    const map = createLocalGisMap(container, {
+      mode,
+      zoom: 13,
+      onFallbackToSchematic: () => {
+        if (this.editMap && coords.length > 1) {
+          setLocalGisRouteLine(this.editMap, coords, { color: '#1d4f91', width: 3 });
+        }
+      },
     });
+    this.editMap = map;
+    if (!map) return;
+
+    validTargets.forEach((t, idx) => {
+      const sequence = t.sequence || idx + 1;
+      const pin = document.createElement('div');
+      pin.className = 'edit-map-pin-wrap';
+      pin.title = `${sequence}. ${t.towerCode}`;
+      pin.textContent = String(sequence);
+      pin.style.cssText =
+        'width:24px;height:24px;border-radius:50%;background:#1d4f91;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(15,23,42,.3);';
+
+      this.editMapMarkers.push(new Marker({ element: pin }).setLngLat(coords[idx]).addTo(map));
+    });
+
     if (coords.length > 1) {
-      L.polyline(coords, { color: '#1d4f91', weight: 3, dashArray: '6, 6' }).addTo(this.editMapLayer);
+      setLocalGisRouteLine(map, coords, { color: '#1d4f91', width: 3 });
     }
     if (coords.length > 0) {
-      this.editMap.fitBounds(L.latLngBounds(coords), { padding: [36, 36], maxZoom: 16 });
+      fitLocalGisBounds(map, coords, 36, 16);
     }
-    setTimeout(() => this.editMap?.invalidateSize(), 120);
+    this.editMapResizeTimer = setTimeout(() => {
+      this.editMapResizeTimer = null;
+      this.editMap?.resize();
+    }, 120);
   }
 
   private onPriorityChange(value: MissionPriority): void {
