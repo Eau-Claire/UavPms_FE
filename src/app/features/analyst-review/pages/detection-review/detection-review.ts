@@ -14,7 +14,6 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
-import { alertErrorMessage, EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { NotificationsStore } from '../../../notifications/data-access/notifications-store';
 import { isMaintenanceManager } from '../../../maintenance/data-access/maintenance-labels';
 import { ToastService } from '../../../../core/toast/toast.service';
@@ -62,7 +61,6 @@ export class DetectionReview {
   private readonly api = inject(AnomalyApi);
   private readonly activeLearning = inject(ActiveLearningGateway);
   private readonly history = inject(AnomalyHistoryService);
-  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly notificationsStore = inject(NotificationsStore, { optional: true });
   private readonly auth = inject(Auth);
   private readonly destroyRef = inject(DestroyRef);
@@ -202,7 +200,6 @@ export class DetectionReview {
     }
 
     this.notificationsStore?.markReadByReference('detectedanomaly', currentId);
-    this.notificationsStore?.markReadForEmergencyAlert(undefined, currentId);
 
     // Tải hàng đợi pending để lấy danh sách sự cố tiếp theo
     this.api
@@ -357,16 +354,7 @@ export class DetectionReview {
       .subscribe({
         next: () => {
           this.notificationsStore?.markReadByReference('detectedanomaly', item.id);
-          this.notificationsStore?.markReadForEmergencyAlert(undefined, item.id);
-          const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
-          const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
-          this.history.saveReview(item, 'Confirmed', notes, aliasIds);
-
-          if (matchingAlert) {
-            this.alertsApi.reviewAlert(matchingAlert.id, { status: 'Confirmed', notes }).subscribe({ error: () => undefined });
-            this.alertsApi.removeActive(matchingAlert.id);
-          }
-          this.alertsApi.removeActive(item.id);
+          this.history.saveReview(item, 'Confirmed', notes, [item.id]);
 
           this.detection.update((current) =>
             current ? { ...current, validationStatus: 'Confirmed', analystNotes: notes } : null,
@@ -396,13 +384,7 @@ export class DetectionReview {
           }
 
           if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Confirmed'")) {
-            const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
-            const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
-            this.history.saveReview(item, 'Confirmed', notes, aliasIds);
-            if (matchingAlert) {
-              this.alertsApi.removeActive(matchingAlert.id);
-            }
-            this.alertsApi.removeActive(item.id);
+            this.history.saveReview(item, 'Confirmed', notes, [item.id]);
             this.detection.update((current) => current ? { ...current, validationStatus: 'Confirmed' } : null);
 
             const next = this.nextPendingId();
@@ -460,16 +442,7 @@ export class DetectionReview {
       .subscribe({
         next: () => {
           this.notificationsStore?.markReadByReference('detectedanomaly', item.id);
-          this.notificationsStore?.markReadForEmergencyAlert(undefined, item.id);
-          const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
-          const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
-          this.history.saveReview(item, 'Rejected', fullNotes, aliasIds);
-
-          if (matchingAlert) {
-            this.alertsApi.reviewAlert(matchingAlert.id, { status: 'Dismissed', notes: fullNotes }).subscribe({ error: () => undefined });
-            this.alertsApi.removeActive(matchingAlert.id);
-          }
-          this.alertsApi.removeActive(item.id);
+          this.history.saveReview(item, 'Rejected', fullNotes, [item.id]);
 
           this.detection.update((current) =>
             current ? { ...current, validationStatus: 'Rejected', analystNotes: fullNotes } : null,
@@ -496,13 +469,7 @@ export class DetectionReview {
           const rawMsg = err instanceof HttpErrorResponse && err.error?.message ? String(err.error.message) : '';
 
           if (code === 'ANOMALY_NOT_IN_REVIEW' || rawMsg.includes('ANOMALY_NOT_IN_REVIEW') || rawMsg.includes("Detection is 'Rejected'")) {
-            const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(item.id);
-            const aliasIds = [item.id, matchingAlert?.id, matchingAlert?.anomalyId].filter((id): id is string => Boolean(id?.trim()));
-            this.history.saveReview(item, 'Rejected', fullNotes, aliasIds);
-            if (matchingAlert) {
-              this.alertsApi.removeActive(matchingAlert.id);
-            }
-            this.alertsApi.removeActive(item.id);
+            this.history.saveReview(item, 'Rejected', fullNotes, [item.id]);
             this.detection.update((current) => current ? { ...current, validationStatus: 'Rejected' } : null);
 
             const next = this.nextPendingId();
@@ -517,35 +484,6 @@ export class DetectionReview {
           }
 
           const msg = anomalyErrorMessage(err, 'Không thể từ chối phát hiện.');
-          this.feedbackType.set('error');
-          this.feedbackMessage.set(msg);
-          this.toast.error(msg);
-        },
-      });
-  }
-
-  // --- EMERGENCY ALERT ---
-  protected triggerEmergencyAlert(): void {
-    const item = this.detection();
-    if (!item || this.actionBusy() || item.supersededById) return;
-
-    this.actionBusy.set(true);
-    this.feedbackMessage.set('');
-    this.maintenanceLinkVisible.set(false);
-    this.alertsApi
-      .triggerAlert({ anomalyId: item.id, towerId: item.towerId ?? undefined, priority: 'Critical' })
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.actionBusy.set(false)),
-      )
-      .subscribe({
-        next: () => {
-          this.feedbackType.set('success');
-          this.feedbackMessage.set('Đã kích hoạt cảnh báo khẩn cấp. Cảnh báo đã xuất hiện ở trang Cảnh báo khẩn cấp.');
-          this.toast.success('Đã kích hoạt cảnh báo khẩn cấp thành công.');
-        },
-        error: (err: unknown) => {
-          const msg = alertErrorMessage(err, 'Không thể kích hoạt cảnh báo khẩn cấp.');
           this.feedbackType.set('error');
           this.feedbackMessage.set(msg);
           this.toast.error(msg);

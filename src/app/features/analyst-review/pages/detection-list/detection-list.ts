@@ -11,7 +11,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged, finalize, Subject, Subscription } from 'rxjs';
-import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { statusColorClass, statusLabel } from '../../../../shared/status/status';
 import { ToastService } from '../../../../core/toast/toast.service';
@@ -45,7 +44,6 @@ export class DetectionList {
   private readonly api = inject(AnomalyApi);
   private readonly activeLearning = inject(ActiveLearningGateway);
   private readonly toast = inject(ToastService);
-  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -183,17 +181,7 @@ export class DetectionList {
     this.error.set('');
 
     const filter = this.statusFilter();
-    if (filter === 'Pending') {
-      this.activeSub = this.alertsApi
-        .fetchActiveAlerts()
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: () => this.fetchList(filter),
-          error: () => this.fetchList(filter),
-        });
-    } else {
-      this.fetchList(filter);
-    }
+    this.fetchList(filter);
   }
 
   private fetchList(filter: ReviewStatusFilter): void {

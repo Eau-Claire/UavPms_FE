@@ -49,7 +49,6 @@ import {
   activitySenderLabel,
   activitySenderRole,
   assignmentRoleLabel,
-  canOpenEmergencyAlerts,
   canOpenMaintenanceTicket,
   canOpenPreMissionAssessment,
   canReviewDetections,
@@ -206,7 +205,7 @@ export class MissionDetail {
   });
   /** Detection review: SystemAdmin, Manager and Analyst. */
   protected readonly canReview = computed(() => canReviewDetections(this.userRole()));
-  protected readonly canOpenEmergencyCenter = computed(() => canOpenEmergencyAlerts(this.userRole()));
+  protected readonly canReviewEmergencyAnomalies = computed(() => canReviewDetections(this.userRole()));
   protected readonly canOpenPreMission = computed(() => canOpenPreMissionAssessment(this.userRole()));
   protected readonly canOpenMaintenance = computed(() => canOpenMaintenanceTicket(this.userRole()));
 

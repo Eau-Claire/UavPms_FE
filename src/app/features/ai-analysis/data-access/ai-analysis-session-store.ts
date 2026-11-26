@@ -4,7 +4,6 @@ import {
   AnalysisSessionResult,
   VideoTimelineMarker,
 } from './ai-analysis-api';
-import { ActiveEmergencyAlert } from '../../emergency-alerts/models/emergency-alert.models';
 
 export type AnalysisWorkflowMode = 'image' | 'video';
 export type StandaloneWorkflowStage = 'idle' | 'ready' | 'processing' | 'inspected';
@@ -52,9 +51,8 @@ export class AiAnalysisSessionStore {
   readonly reviewNotes = signal<string>('');
   readonly reviewFeedback = signal<string>('');
 
-  // Results & Emergency alerts
+  // Results
   readonly uploadSuccessResult = signal<AnalysisSessionResult | null>(null);
-  readonly lastTriggeredEmergencyAlert = signal<ActiveEmergencyAlert | null>(null);
 
   // Form persistence
   readonly formNotes = signal<string>('');
@@ -172,7 +170,6 @@ export class AiAnalysisSessionStore {
     this.uploadSuccessResult.set(null);
     this.allDetections.set([]);
     this.selectedDetection.set(null);
-    this.lastTriggeredEmergencyAlert.set(null);
     this.reviewNotes.set('');
     this.reviewFeedback.set('');
   }
@@ -223,10 +220,6 @@ export class AiAnalysisSessionStore {
 
   setUploadResult(result: AnalysisSessionResult | null): void {
     this.uploadSuccessResult.set(result);
-  }
-
-  setLastTriggeredEmergencyAlert(alert: ActiveEmergencyAlert | null): void {
-    this.lastTriggeredEmergencyAlert.set(alert);
   }
 
   resetSession(): void {

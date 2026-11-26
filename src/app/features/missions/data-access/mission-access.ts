@@ -44,9 +44,6 @@ export const canUploadMissionMedia = canOperateFlight;
 /** `POST|PUT /missions/{id}/detections/{d}/review`: SystemAdmin, Manager and Analyst. */
 export const canReviewDetections = (role: RoleInput): boolean => isManagerRole(role) || isAnalystRole(role);
 
-/** Route `/emergency-alerts` allows Admin, Manager and Analyst. */
-export const canOpenEmergencyAlerts = canReviewDetections;
-
 /** `GET /pre-mission-assessments/{id}` is not open to Analyst. */
 export const canOpenPreMissionAssessment = (role: RoleInput): boolean =>
   isManagerRole(role) || isInspectorRole(role) || isTechnicianRole(role);

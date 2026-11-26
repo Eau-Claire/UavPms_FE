@@ -272,29 +272,6 @@
 
     } @else if (workflowStage() === 'inspected') {
       <section class="studio-inspection-workspace" aria-label="Không gian xem kết quả kiểm tra">
-        @if (lastTriggeredEmergencyAlert(); as alert) {
-          <div class="emergency-alert-banner" role="alert">
-            <div class="banner-info-side">
-              <div class="banner-badge-title">
-                <span class="emergency-pill text-rose-600">Cảnh báo khẩn cấp đã được kích hoạt</span>
-                <span class="emergency-time tabular-nums">{{ alert.triggeredAt | date:'HH:mm:ss dd/MM/yyyy' }}</span>
-              </div>
-              <p class="banner-desc">
-                AI đã phát hiện khuyết tật nguy hiểm <strong>{{ alert.categoryName || alert.alertType || 'Khuyết tật khẩn cấp' }}</strong>
-                @if (alert.evidence.confidenceScore) {
-                  với độ tin cậy <strong class="tabular-nums">{{ alert.evidence.confidenceScore }}%</strong>.
-                }
-                Sự cố đã được đẩy vào hàng đợi khẩn cấp để thẩm định ngay lập tức.
-              </p>
-            </div>
-            <div class="banner-action-side">
-              <button type="button" class="app-btn-danger" (click)="navigateToEmergencyAlert(alert.id)">
-                Mở duyệt khuyết tật
-              </button>
-            </div>
-          </div>
-        }
-
         <header class="workbench-toolbar">
           <div class="toolbar-left">
             <span class="session-badge tabular-nums">Mã phiên: {{ uploadSuccessResult()?.id }}</span>
@@ -653,9 +630,9 @@
                         <strong>Sự cố đe dọa khẩn cấp</strong>
                       </div>
                       <p>Khuyết tật này đã được đẩy sang hàng đợi thẩm định khẩn cấp để xử lý ngay tại hiện trường.</p>
-                      <button type="button" class="app-btn-danger" (click)="navigateToEmergencyAlert(selected.id)">
+                      <a class="app-btn-danger" routerLink="/ai-review" [queryParams]="{ priority: 'emergency' }">
                         Mở tại Duyệt khuyết tật
-                      </button>
+                      </a>
                     </div>
                   }
 

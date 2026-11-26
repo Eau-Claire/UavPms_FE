@@ -6,42 +6,7 @@ import { unwrapApiData } from '../../../models/api.models';
 import { TowerSummary } from '../../../models/assets.models';
 import { Auth } from '../../../core/auth/auth';
 import { isAdminRole } from '../../../core/auth/roles';
-import { EmergencyAlertsApi } from '../../emergency-alerts/data-access/emergency-alerts-api';
-import { ActiveEmergencyAlert } from '../../emergency-alerts/models/emergency-alert.models';
 import { AnomalyHistoryService } from './anomaly-history.service';
-
-export function mapAlertToAnomaly(alert: ActiveEmergencyAlert): AnomalyItem {
-  const id = alert.anomalyId || alert.id;
-  return {
-    id,
-    mediaUrl: alert.evidence?.mediaUrl || '',
-    towerId: alert.towerId ?? null,
-    towerCode: alert.towerCode || alert.location?.towerCode || null,
-    missionCode: null,
-    missionName: alert.towerCode ? `Khảo sát vị trí ${alert.towerCode}` : 'Kiểm tra đường dây',
-    categoryName: alert.categoryName || alert.alertType || 'Sự cố khẩn cấp',
-    categoryCode: alert.alertType || null,
-    boundingBox: alert.evidence?.boundingBox
-      ? {
-          x: alert.evidence.boundingBox.x,
-          y: alert.evidence.boundingBox.y,
-          width: alert.evidence.boundingBox.width,
-          height: alert.evidence.boundingBox.height,
-          isNormalized: alert.evidence.boundingBox.isNormalized,
-        }
-      : undefined,
-    confidenceScore: alert.evidence?.confidenceScore ?? 85,
-    validationStatus: 'InReview',
-    analystNotes: '',
-    aiSource: 'Cloud (Server)',
-    analysisRunId: null,
-    executionLocation: 'Cloud',
-    supersededById: null,
-    createdAt: alert.triggeredAt || new Date().toISOString(),
-    severity: alert.priority === 'Critical' ? 5 : alert.priority === 'High' ? 4 : 3,
-    isEmergency: true,
-  };
-}
 
 export type AnomalyValidationStatus = 'Pending' | 'InReview' | 'Confirmed' | 'Rejected' | 'Resolved';
 
@@ -205,7 +170,6 @@ export class AnomalyApi {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(Auth);
   private readonly history = inject(AnomalyHistoryService);
-  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly baseUrl = environment.apiBaseUrl;
   private readonly pendingCountState = signal<number | null>(null);
   private pendingEndpointForbidden = false;
@@ -238,27 +202,15 @@ export class AnomalyApi {
     return source$.pipe(
         map((response) => {
           const page = normalizeAnomalyPage(unwrapApiData(response), pageIndex, pageSize);
-          const activeAlerts = this.alertsApi.activeAlerts();
-
-          const isItemReviewed = (item: AnomalyItem | string | null | undefined): boolean => {
-            if (!item) return false;
-            if (typeof item === 'object') {
-              if (
-                item.validationStatus === 'Confirmed' ||
-                item.validationStatus === 'Rejected' ||
-                item.validationStatus === 'Resolved'
-              ) {
-                return true;
-              }
-              const rev = this.history.getReview(item.id);
-              return (
-                !!rev &&
-                (rev.validationStatus === 'Confirmed' ||
-                  rev.validationStatus === 'Rejected' ||
-                  rev.validationStatus === 'Resolved')
-              );
+          const isItemReviewed = (item: AnomalyItem): boolean => {
+            if (
+              item.validationStatus === 'Confirmed' ||
+              item.validationStatus === 'Rejected' ||
+              item.validationStatus === 'Resolved'
+            ) {
+              return true;
             }
-            const rev = this.history.getReview(item);
+            const rev = this.history.getReview(item.id);
             return (
               !!rev &&
               (rev.validationStatus === 'Confirmed' ||
@@ -267,76 +219,11 @@ export class AnomalyApi {
             );
           };
 
-          // Nếu không có active alerts (hoặc test unit), giữ đúng cấu trúc page gốc
-          if (activeAlerts.length === 0) {
-            const filteredItems = page.items.filter((item) => !isItemReviewed(item));
-            return {
-              ...page,
-              items: filteredItems,
-              totalCount: page.totalCount - (page.items.length - filteredItems.length),
-            };
-          }
-
-          // Chuyển đổi các active alerts chưa review thành AnomalyItem
-          let activePendingAlerts = activeAlerts
-            .filter((alert) => !isItemReviewed(alert.id) && !isItemReviewed(alert.anomalyId))
-            .map(mapAlertToAnomaly);
-
-          if (search) {
-            const s = search.toLowerCase();
-            activePendingAlerts = activePendingAlerts.filter(
-              (i) =>
-                i.categoryName.toLowerCase().includes(s) ||
-                (i.towerCode && i.towerCode.toLowerCase().includes(s)) ||
-                (i.missionName && i.missionName.toLowerCase().includes(s)) ||
-                i.id.toLowerCase().includes(s),
-            );
-          }
-
-          // Tạo Map để gộp và loại bỏ trùng lặp
-          const itemMap = new Map<string, AnomalyItem>();
-
-          for (const item of activePendingAlerts) {
-            itemMap.set(item.id, item);
-          }
-
-          for (const item of page.items) {
-            if (isItemReviewed(item)) continue;
-
-            const matchingAlert = activeAlerts.find(
-              (a) => a.id === item.id || a.anomalyId === item.id,
-            );
-            if (matchingAlert) {
-              if (isItemReviewed(matchingAlert.id) || isItemReviewed(matchingAlert.anomalyId)) {
-                continue;
-              }
-              itemMap.set(item.id, {
-                ...item,
-                isEmergency: true,
-                severity: Math.max(item.severity ?? 0, matchingAlert.priority === 'Critical' ? 5 : 4),
-              });
-            } else if (!itemMap.has(item.id)) {
-              itemMap.set(item.id, item);
-            }
-          }
-
-          const allItems = Array.from(itemMap.values()).sort((a, b) => {
-            if (a.isEmergency !== b.isEmergency) {
-              return a.isEmergency ? -1 : 1;
-            }
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          });
-
-          const totalCount = allItems.length;
-          const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-          const pagedItems = allItems.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
-
+          const filteredItems = page.items.filter((item) => !isItemReviewed(item));
           return {
-            items: pagedItems,
-            totalCount,
-            pageIndex,
-            pageSize,
-            totalPages,
+            ...page,
+            items: filteredItems,
+            totalCount: page.totalCount - (page.items.length - filteredItems.length),
           };
         }),
         tap((page) => {
@@ -504,11 +391,6 @@ export class AnomalyApi {
       return of(fromHistory);
     }
 
-    const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(cleanId);
-    if (matchingAlert) {
-      return of(mapAlertToAnomaly(matchingAlert));
-    }
-
     return this.http.get<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(cleanId)}`).pipe(
       map((res) => normalizeAnomalyItem(unwrapApiData(res))),
       catchError(() =>
@@ -524,25 +406,9 @@ export class AnomalyApi {
   }
 
   validate(id: string, request: AnomalyValidateRequest): Observable<void> {
-    const matchingAlert = this.alertsApi.findActiveByAnomalyOrAlertId(id);
-    const targetAlertId = matchingAlert ? matchingAlert.id : id;
-    const targetAnomalyId = matchingAlert?.anomalyId || id;
-
     return this.http
-      .put<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(targetAnomalyId)}/validate`, request)
-      .pipe(
-        map(() => undefined),
-        catchError((err: unknown) => {
-          if (matchingAlert && err instanceof HttpErrorResponse && (err.status === 404 || err.status === 403)) {
-            const alertStatus = request.status === 'Confirmed' ? 'Confirmed' : 'Dismissed';
-            return this.alertsApi.reviewAlert(targetAlertId, {
-              status: alertStatus,
-              notes: request.analystNotes || 'Đã thẩm định khuyết tật qua hàng đợi.',
-            });
-          }
-          throw err;
-        }),
-      );
+      .put<unknown>(`${this.baseUrl}/anomalies/${encodeURIComponent(id)}/validate`, request)
+      .pipe(map(() => undefined));
   }
 
   assignTower(id: string, towerId: string): Observable<AnomalyTowerAssignment> {
