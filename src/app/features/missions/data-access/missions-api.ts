@@ -256,22 +256,6 @@ export class MissionsApi {
 
   // --- Thực thi hiện trường (MF03) ---
 
-  confirmDroneHandover(
-    id: string,
-    payload: { droneId: string; receivedBy: string; condition: string; accepted?: boolean },
-  ): Observable<unknown> {
-    return this.http.post<unknown>(`${this.url}/${id}/drone-handover`, {
-      droneId: payload.droneId,
-      receivedBy: payload.receivedBy,
-      condition: payload.condition,
-      accepted: payload.accepted ?? true,
-    });
-  }
-
-  returnDroneHandover(id: string, payload: { droneId: string; condition: string }): Observable<unknown> {
-    return this.http.post<unknown>(`${this.url}/${id}/drone-handover/return`, payload);
-  }
-
   uploadFlightLog(id: string, request: UploadFlightLogRequest): Observable<MissionFlightLog> {
     return this.http
       .post<unknown>(`${this.url}/${id}/flight-log`, request)

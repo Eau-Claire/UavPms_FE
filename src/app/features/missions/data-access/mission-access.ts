@@ -108,8 +108,8 @@ export const earliestStartAt = (mission: Mission | null | undefined): Date | nul
 /**
  * Why "Bắt đầu bay" is not available yet (Vietnamese), or `null` when the client-side checks pass. Mirrors the
  * backend checks that the client can see: state, required acceptances (`REQUIRED_ACCEPTANCE_PENDING`), start window
- * (`MISSION_START_TOO_EARLY`) and a UAV on the mission (`DRONE_ASSIGNMENT_REQUIRED`). UAV availability, health and
- * handover are only known to the backend and are reported when the start request fails.
+ * (`MISSION_START_TOO_EARLY`) and a UAV on the mission (`DRONE_ASSIGNMENT_REQUIRED`). UAV availability and health
+ * are only known to the backend and are reported when the start request fails.
  */
 export const missionStartBlocker = (mission: Mission | null | undefined, now: number): string | null => {
   if (!mission) return 'Chưa tải được nhiệm vụ.';

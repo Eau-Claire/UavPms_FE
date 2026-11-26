@@ -55,7 +55,6 @@ describe('business error messages', () => {
       'REQUIRED_ACCEPTANCE_PENDING',
       'MISSION_START_TOO_EARLY',
       'DRONE_IN_USE',
-      'HANDOVER_REJECTED',
       'DRONE_NOT_AVAILABLE',
       'DRONE_CRITICAL_HEALTH',
       'DRONE_ASSIGNMENT_REQUIRED',
@@ -64,7 +63,6 @@ describe('business error messages', () => {
       'RESOURCE_BOOKING_CONFLICT',
       'DUPLICATE_ASSIGNMENT',
       'DUPLICATE_CHECK_IN',
-      'DUPLICATE_HANDOVER',
       'CONCURRENCY_CONFLICT',
     ];
     for (const code of codes) {
