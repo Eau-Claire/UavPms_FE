@@ -22,10 +22,9 @@ describe('canAccess', () => {
     expect(canAccess('Analyst', ROUTE_ROLES.preMission)).toBe(false);
   });
 
-  it('limits review, alerts and maintenance pages to their roles', () => {
+  it('limits review and maintenance pages to their roles', () => {
     expect(canAccess('Analyst', ROUTE_ROLES.aiReview)).toBe(true);
     expect(canAccess('Inspector', ROUTE_ROLES.aiReview)).toBe(false);
-    expect(canAccess('Technician', ROUTE_ROLES.emergencyAlerts)).toBe(false);
     expect(canAccess('MaintenanceTechnician', ROUTE_ROLES.maintenance)).toBe(true);
     expect(canAccess('Analyst', ROUTE_ROLES.maintenance)).toBe(false);
   });

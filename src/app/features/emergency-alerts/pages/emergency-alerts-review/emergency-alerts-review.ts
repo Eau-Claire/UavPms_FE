@@ -114,7 +114,7 @@ export class EmergencyAlertsReview {
   // --- Permissions ---
   protected readonly user = computed(() => this.auth.user());
   /** `PUT /alerts/{id}/review` and `POST /alerts/{id}/escalate`: SystemAdmin, Manager, Analyst. */
-  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.emergencyAlerts));
+  protected readonly canReview = computed(() => canAccess(this.user()?.role, ROUTE_ROLES.aiReview));
 
   // --- Evidence viewer ---
   protected readonly zoomLevel = signal(1);

@@ -13,8 +13,6 @@ export const ROUTE_ROLES = {
   aiReview: ['Admin', 'Manager', 'Analyst'],
   /** `/ai-analysis/upload`: standalone AI analysis. */
   aiAnalysis: ['Admin', 'Manager', 'Analyst'],
-  /** `/emergency-alerts`: `GET /alerts*` is SystemAdmin, Manager, Analyst. */
-  emergencyAlerts: ['Admin', 'Manager', 'Analyst'],
   /** `/maintenance`, `/maintenance/:id`. */
   maintenance: ['Admin', 'Manager', 'Technician', 'MaintenanceTechnician'],
   /** `/gis`: `GET /gis/infrastructure` allows every role. */

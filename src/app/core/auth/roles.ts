@@ -37,7 +37,7 @@ export const isManagerRole = (role: RoleInput): boolean => ['admin', 'manager'].
 export const isAdminRole = (role: RoleInput): boolean => roleFamily(role) === 'admin';
 /** Flight crew (Inspector, Pilot): accepts missions, flies, uploads media. */
 export const isInspectorRole = (role: RoleInput): boolean => roleFamily(role) === 'inspector';
-/** Reviews AI detections and handles emergency alerts. */
+/** Reviews AI detections and prioritizes emergency anomalies. */
 export const isAnalystRole = (role: RoleInput): boolean => roleFamily(role) === 'analyst';
 /** Technician or MaintenanceTechnician: drone technical checks and maintenance tickets. */
 export const isTechnicianRole = (role: RoleInput): boolean => roleFamily(role) === 'technician';

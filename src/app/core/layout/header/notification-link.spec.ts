@@ -41,13 +41,10 @@ describe('notificationLink', () => {
     expect(notificationLink(emptyGuidAnomaly, 'Analyst')?.commands).toEqual(['/ai-review']);
   });
 
-  it('opens emergency alerts only for roles allowed on /emergency-alerts', () => {
+  it('returns null for decommissioned emergency alert references', () => {
     const alert = { type: 'EmergencyAlert', referenceType: 'EmergencyAlert', referenceId: 'e1' };
-    expect(notificationLink(alert, 'Analyst')?.commands).toEqual(['/emergency-alerts']);
+    expect(notificationLink(alert, 'Analyst')).toBeNull();
     expect(notificationLink(alert, 'Inspector')).toBeNull();
-
-    const emptyGuidAlert = { type: 'EmergencyAlert', referenceType: 'EmergencyAlert', referenceId: '00000000-0000-0000-0000-000000000000' };
-    expect(notificationLink(emptyGuidAlert, 'Analyst')?.queryParams).toBeUndefined();
   });
 
   it('has no link for unknown or empty references', () => {

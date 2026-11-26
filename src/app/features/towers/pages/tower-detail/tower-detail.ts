@@ -7,7 +7,6 @@ import { catchError, map, of, Subject, switchMap, tap } from 'rxjs';
 import { Auth } from '../../../../core/auth/auth';
 import { AnomalyValidationStatus, TowerAnomaly, TowerHistory, TowerHistoryFilters, TowerHistoryStats } from '../../../../models/assets.models';
 import { AnomalyHistoryService } from '../../../analyst-review/data-access/anomaly-history.service';
-import { EmergencyAlertsApi } from '../../../emergency-alerts/data-access/emergency-alerts-api';
 import { DataState } from '../../../../shared/components/data-state/data-state';
 import { Pagination } from '../../../../shared/components/pagination/pagination';
 import { priorityColorClass, statusColorClass } from '../../../../shared/status/status';
@@ -41,7 +40,6 @@ export class TowerDetail {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly anomalyHistory = inject(AnomalyHistoryService);
-  private readonly alertsApi = inject(EmergencyAlertsApi);
   private readonly request$ = new Subject<HistoryRequest>();
 
   /** Route parameter (bound through withComponentInputBinding). */
@@ -118,13 +116,6 @@ export class TowerDetail {
       return false;
     });
 
-    const activeAlerts = this.alertsApi.activeAlerts();
-    const matchingAlerts = activeAlerts.filter((alert) => {
-      if (alert.towerId && (alert.towerId === towerId || norm(alert.towerId) === targetNormId)) return true;
-      if (alert.towerCode && targetNormCode && norm(alert.towerCode) === targetNormCode) return true;
-      return false;
-    });
-
     const map = new Map<string, TowerAnomaly>();
 
     for (const anom of serverAnomalies) {
@@ -145,24 +136,6 @@ export class TowerDetail {
           imageUrl: it.mediaUrl,
           detectedAt: it.createdAt,
           validatedAt: it.validationStatus !== 'Pending' && it.validationStatus !== 'InReview' ? it.createdAt : undefined,
-        });
-      }
-    }
-
-    for (const alert of matchingAlerts) {
-      const alertId = alert.anomalyId || alert.id;
-      if (!map.has(alertId)) {
-        map.set(alertId, {
-          id: alertId,
-          mediaId: '',
-          missionId: '',
-          categoryCode: alert.alertType,
-          categoryName: alert.categoryName || alert.alertType || 'Sự cố khẩn cấp',
-          confidenceScore: alert.evidence?.confidenceScore ?? 85,
-          validationStatus: 'InReview',
-          aiSource: 'Cloud (Server)',
-          imageUrl: alert.evidence?.mediaUrl || '/images/defect-preview-frame.png',
-          detectedAt: alert.triggeredAt || new Date().toISOString(),
         });
       }
     }

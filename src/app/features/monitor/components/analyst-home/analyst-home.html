@@ -1,6 +1,6 @@
 <div class="ops-page field-home">
   <app-field-home-header
-    subtitle="Phát hiện AI chờ thẩm định và cảnh báo khẩn cấp cần xử lý."
+    subtitle="Phát hiện AI chờ thẩm định và sự cố gần đây trên toàn hệ thống."
     [loading]="loading()"
     [loadedAt]="loadedAt()"
     (refresh)="refresh()"
@@ -12,18 +12,6 @@
         <span class="tile-label">Phát hiện AI chờ duyệt</span>
         <strong class="tile-value">{{ pendingTotal() }}</strong>
       </a>
-    </li>
-    <li class="count-tile tone-red">
-      <a routerLink="/emergency-alerts">
-        <span class="tile-label">Cảnh báo khẩn cấp đang mở</span>
-        <strong class="tile-value">{{ emergencyItems().length }}</strong>
-      </a>
-    </li>
-    <li class="count-tile tone-red">
-      <div>
-        <span class="tile-label">Trong đó nghiêm trọng</span>
-        <strong class="tile-value">{{ criticalEmergencies() }}</strong>
-      </div>
     </li>
   </ul>
 
@@ -70,44 +58,6 @@
           }
         } @else {
           <p class="panel-empty">Không còn phát hiện AI nào chờ duyệt.</p>
-        }
-      </section>
-
-      <!-- Active emergency alerts -->
-      <section class="panel" aria-labelledby="analyst-emergency-title">
-        <header>
-          <h2 id="analyst-emergency-title">Cảnh báo khẩn cấp đang hoạt động <span class="group-count">{{ emergencyItems().length }}</span></h2>
-          <a routerLink="/emergency-alerts">Xử lý cảnh báo →</a>
-        </header>
-        @if (emergencies.loading() && !emergencies.value()) {
-          <app-data-state kind="loading" title="Đang tải cảnh báo khẩn cấp" />
-        } @else if (emergencies.error() && !emergencies.value()) {
-          <app-data-state kind="error" [message]="emergencies.error() || ''" (retry)="emergencies.refresh()" />
-        } @else if (emergencyPreview().length) {
-          <ul class="item-list">
-            @for (alert of emergencyPreview(); track alert.id) {
-              <li class="item">
-                <div class="item-body">
-                  <p class="item-title">
-                    <span [class]="'badge tone-' + priorityTone(alert)">{{ priorityLabel(alert) }}</span>
-                    <span>{{ alert.categoryName || alert.alertType || 'Cảnh báo khẩn cấp' }}</span>
-                  </p>
-                  <p class="item-meta">
-                    <span>Cột: {{ alert.towerCode || 'Chưa xác định' }}</span>
-                    <span>Kích hoạt lúc {{ alert.triggeredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
-                  </p>
-                </div>
-                <a class="action-link secondary" routerLink="/emergency-alerts" [attr.aria-label]="'Xử lý cảnh báo tại cột ' + (alert.towerCode || '')">Xử lý</a>
-              </li>
-            }
-          </ul>
-          @if (emergencyItems().length > emergencyPreview().length) {
-            <p class="panel-empty">
-              Còn {{ emergencyItems().length - emergencyPreview().length }} cảnh báo khác. <a routerLink="/emergency-alerts">Xem tất cả</a>
-            </p>
-          }
-        } @else {
-          <p class="panel-empty">Không có cảnh báo khẩn cấp nào đang hoạt động.</p>
         }
       </section>
     </div>
