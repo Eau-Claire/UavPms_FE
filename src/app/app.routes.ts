@@ -1,5 +1,4 @@
-import { inject } from '@angular/core';
-import { Router, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth-guard';
 import { guestGuard } from './core/auth/guest-guard';
 import { roleGuard } from './core/auth/role-guard';
@@ -24,11 +23,6 @@ export const routes: Routes = [
       { path: 'assets/:id', redirectTo: 'towers/:id' },
       { path: 'ai-analysis/upload', canActivate: [roleGuard(ROUTE_ROLES.aiAnalysis)], loadComponent: () => import('./features/ai-analysis/pages/standalone-upload/standalone-upload').then((m) => m.StandaloneUpload), title: 'Phân tích AI | UAV-PMS' },
       { path: 'ai-analysis', redirectTo: 'ai-analysis/upload' },
-      {
-        path: 'emergency-alerts',
-        redirectTo: () => inject(Router).createUrlTree(['/ai-review'], { queryParams: { priority: 'emergency' } }),
-      },
-      { path: 'alerts', redirectTo: 'emergency-alerts' },
       { path: 'ai-review', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-list/detection-list').then((m) => m.DetectionList), title: 'Duyệt sự cố AI | UAV-PMS' },
       { path: 'ai-review/:id', canActivate: [roleGuard(ROUTE_ROLES.aiReview)], loadComponent: () => import('./features/analyst-review/pages/detection-review/detection-review').then((m) => m.DetectionReview), title: 'Thẩm định phát hiện AI | UAV-PMS' },
       { path: 'maintenance', canActivate: [roleGuard(ROUTE_ROLES.maintenance)], loadComponent: () => import('./features/maintenance/pages/maintenance-list/maintenance-list').then((m) => m.MaintenanceList), title: 'Phiếu bảo trì | UAV-PMS' },

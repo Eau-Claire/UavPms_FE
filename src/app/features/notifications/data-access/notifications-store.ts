@@ -303,13 +303,8 @@ export class NotificationsStore {
   private handleAutoReadOnNavigation(url: string): void {
     if (!url) return;
     const cleanUrl = url.split('?')[0];
-    const queryStr = url.includes('?') ? url.split('?')[1] : '';
-    const searchParams = new URLSearchParams(queryStr);
 
-    if (cleanUrl.startsWith('/emergency-alerts')) {
-      const alertId = searchParams.get('id') || searchParams.get('alertId');
-      this.markReadForEmergencyAlert(alertId || undefined);
-    } else if (cleanUrl.startsWith('/missions/')) {
+    if (cleanUrl.startsWith('/missions/')) {
       const parts = cleanUrl.split('/').filter(Boolean);
       if (parts.length >= 2 && parts[1] !== 'new') {
         this.markReadByReference('mission', parts[1]);

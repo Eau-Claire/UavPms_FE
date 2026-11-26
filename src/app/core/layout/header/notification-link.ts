@@ -19,7 +19,6 @@ const REFERENCE_LABELS: Record<string, string> = {
   mission: 'Nhiệm vụ',
   maintenanceticket: 'Phiếu bảo trì',
   detectedanomaly: 'Phát hiện AI',
-  emergencyalert: 'Cảnh báo khẩn cấp',
 };
 
 const normalize = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase();
@@ -60,15 +59,6 @@ export const notificationLink = (notification: NotificationRef, role: RoleInput)
       return id
         ? { commands: ['/ai-review', id], label: 'Thẩm định phát hiện AI' }
         : { commands: ['/ai-review'], label: 'Mở danh sách duyệt khuyết tật' };
-    case 'emergencyalert':
-    case 'alert':
-      return canAccess(role, ROUTE_ROLES.emergencyAlerts)
-        ? {
-            commands: ['/emergency-alerts'],
-            queryParams: id ? { id } : undefined,
-            label: 'Mở cảnh báo khẩn cấp',
-          }
-        : null;
     default:
       return null;
   }
