@@ -264,42 +264,6 @@ export class NotificationsStore {
     unreadMatches.forEach((n) => this.markRead(n.id));
   }
 
-  markReadForEmergencyAlert(alertId?: string, anomalyId?: string, towerCode?: string): void {
-    const unreadMatches = this.notificationsState().filter((item) => {
-      if (item.isRead) return false;
-      const itemRefType = (item.referenceType ?? '').toLowerCase().trim();
-      const itemType = (item.type ?? '').toLowerCase().trim();
-      const title = (item.title ?? '').toLowerCase();
-      const body = (item.body ?? '').toLowerCase();
-
-      const isAlertNotif =
-        itemRefType.includes('alert') ||
-        itemType.includes('alert') ||
-        itemRefType.includes('emergency') ||
-        itemType.includes('emergency') ||
-        title.includes('nghiêm trọng') ||
-        title.includes('khẩn cấp') ||
-        title.includes('báo động') ||
-        body.includes('nghiêm trọng') ||
-        body.includes('khẩn cấp') ||
-        body.includes('báo động');
-
-      if (!isAlertNotif) return false;
-
-      if (alertId || anomalyId || towerCode) {
-        const refId = (item.referenceId ?? '').trim();
-        if (alertId && (refId === alertId.trim() || body.includes(alertId.trim()) || title.includes(alertId.trim()))) return true;
-        if (anomalyId && (refId === anomalyId.trim() || body.includes(anomalyId.trim()) || title.includes(anomalyId.trim()))) return true;
-        if (towerCode && (body.includes(towerCode.trim().toLowerCase()) || title.includes(towerCode.trim().toLowerCase()))) return true;
-        if (!refId) return true;
-        return false;
-      }
-      return true;
-    });
-
-    unreadMatches.forEach((n) => this.markRead(n.id));
-  }
-
   private handleAutoReadOnNavigation(url: string): void {
     if (!url) return;
     const cleanUrl = url.split('?')[0];
