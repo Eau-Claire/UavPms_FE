@@ -5,6 +5,7 @@ import { Auth } from '../../../core/auth/auth';
 import { BackendFallbackService } from '../../../core/http/backend-fallback.service';
 import { Mission, MissionCommunicationLog } from '../../../models/missions.models';
 import { AppNotification } from '../../../models/notification.models';
+import { asRecord, readArray, readFirstNumber, readFirstString, readOptionalNumber, readString } from '../../../shared/utils';
 import { normalizeNotification } from './notifications-api';
 
 export type AiAnalysisRealtimeStatus = 'Pending' | 'Evaluating' | 'Completed' | 'Failed' | string;
@@ -356,32 +357,32 @@ export class NotificationsRealtime {
     };
 
     connection.on('MissionLifecycleEvent', (payload: unknown) => {
-      const data = record(payload);
-      const type = (stringValue(data['type']).toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
+      const data = asRecord(payload);
+      const type = (readString(data, 'type').toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
       emitLifecycle(type, payload);
     });
 
     connection.on('ReceiveMissionLifecycleEvent', (payload: unknown) => {
-      const data = record(payload);
-      const type = (stringValue(data['type']).toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
+      const data = asRecord(payload);
+      const type = (readString(data, 'type').toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
       emitLifecycle(type, payload);
     });
 
     connection.on('ReceiveMissionLifecycle', (payload: unknown) => {
-      const data = record(payload);
-      const type = (stringValue(data['type']).toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
+      const data = asRecord(payload);
+      const type = (readString(data, 'type').toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
       emitLifecycle(type, payload);
     });
 
     connection.on('MissionLifecycleChanged', (payload: unknown) => {
-      const data = record(payload);
-      const type = (stringValue(data['type']).toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
+      const data = asRecord(payload);
+      const type = (readString(data, 'type').toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
       emitLifecycle(type, payload);
     });
 
     connection.on('ReceiveMissionEvent', (payload: unknown) => {
-      const data = record(payload);
-      const type = (stringValue(data['type']).toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
+      const data = asRecord(payload);
+      const type = (readString(data, 'type').toUpperCase() as MissionLifecycleEventType) || 'CONFIRMED';
       emitLifecycle(type, payload);
     });
 
@@ -422,8 +423,8 @@ export class NotificationsRealtime {
     };
 
     connection.on('AssessmentRealtimeEvent', (payload: unknown) => {
-      const data = record(payload);
-      const type = stringValue(pick(data, 'type', 'Type')) || 'AssessmentStatusChanged';
+      const data = asRecord(payload);
+      const type = readFirstString(data, ['type', 'Type'], 'AssessmentStatusChanged');
       emitAssessment(type, payload);
     });
     connection.on('AssessmentStatusChanged', (payload: unknown) => emitAssessment('AssessmentStatusChanged', payload));
@@ -444,32 +445,32 @@ export class NotificationsRealtime {
   }
 }
 
-const record = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? value as Record<string, unknown> : {};
+const optionalFirstString = (source: Record<string, unknown> | null, keys: readonly string[]): string | undefined =>
+  readFirstString(source, keys) || undefined;
 
-const pick = (source: Record<string, unknown>, ...keys: string[]) =>
-  keys.map((key) => source[key]).find((value) => value !== undefined && value !== null);
-
-const stringValue = (value: unknown, fallback = '') =>
-  value === undefined || value === null ? fallback : String(value);
-
-const numberValue = (value: unknown) => Number(value ?? 0) || 0;
+const optionalFirstNumber = (source: Record<string, unknown> | null, keys: readonly string[]): number | undefined => {
+  for (const key of keys) {
+    const val = readOptionalNumber(source, key);
+    if (val !== null) return val;
+  }
+  return undefined;
+};
 
 const normalizeAiAnalysisStatus = (payload: unknown): AiAnalysisStatusChangedEvent => {
-  const source = record(payload);
+  const source = asRecord(payload);
   return {
-    requestId: stringValue(pick(source, 'requestId', 'RequestId')),
-    batchId: stringValue(pick(source, 'batchId', 'BatchId')),
-    missionId: stringValue(pick(source, 'missionId', 'MissionId')),
-    mediaId: stringValue(pick(source, 'mediaId', 'MediaId')),
-    mediaType: stringValue(pick(source, 'mediaType', 'MediaType')),
-    status: stringValue(pick(source, 'status', 'Status')),
-    savedDetections: numberValue(pick(source, 'savedDetections', 'SavedDetections')),
-    createdAlerts: numberValue(pick(source, 'createdAlerts', 'CreatedAlerts')),
-    errorCode: stringValue(pick(source, 'errorCode', 'ErrorCode')),
-    errorMessage: stringValue(pick(source, 'errorMessage', 'ErrorMessage')),
-    createdAt: stringValue(pick(source, 'createdAt', 'CreatedAt')),
-    completedAt: stringValue(pick(source, 'completedAt', 'CompletedAt')),
+    requestId: readFirstString(source, ['requestId', 'RequestId']),
+    batchId: readFirstString(source, ['batchId', 'BatchId']),
+    missionId: readFirstString(source, ['missionId', 'MissionId']),
+    mediaId: readFirstString(source, ['mediaId', 'MediaId']),
+    mediaType: readFirstString(source, ['mediaType', 'MediaType']),
+    status: readFirstString(source, ['status', 'Status']),
+    savedDetections: readFirstNumber(source, ['savedDetections', 'SavedDetections']),
+    createdAlerts: readFirstNumber(source, ['createdAlerts', 'CreatedAlerts']),
+    errorCode: readFirstString(source, ['errorCode', 'ErrorCode']),
+    errorMessage: readFirstString(source, ['errorMessage', 'ErrorMessage']),
+    createdAt: readFirstString(source, ['createdAt', 'CreatedAt']),
+    completedAt: readFirstString(source, ['completedAt', 'CompletedAt']),
   };
 };
 
@@ -477,38 +478,38 @@ function normalizeMissionLifecycleEvent(
   defaultType: MissionLifecycleEventType,
   payload: unknown
 ): MissionLifecycleRealtimeEvent {
-  const raw = record(payload);
-  const source = (raw['data'] && typeof raw['data'] === 'object') ? record(raw['data']) : raw;
-  const rawType = stringValue(pick(source, 'type', 'Type', 'eventType', 'EventType')).toUpperCase();
+  const raw = asRecord(payload);
+  const source = asRecord(raw?.['data']) ?? raw;
+  const rawType = readFirstString(source, ['type', 'Type', 'eventType', 'EventType']).toUpperCase();
   let type: MissionLifecycleEventType = defaultType;
   if (rawType === 'ASSIGNED' || rawType === 'CREATED' || rawType === 'DISPATCHED' || rawType === 'MISSIONDISPATCHED' || rawType === 'MISSIONASSIGNED' || rawType === 'MISSIONCREATED') {
     type = 'DISPATCHED';
   } else if (rawType) {
     type = rawType as MissionLifecycleEventType;
   }
-  const missionId = stringValue(pick(source, 'missionId', 'MissionId', 'id', 'Id', 'entityId', 'EntityId'));
-  const actorRole = (stringValue(pick(source, 'actorRole', 'ActorRole', 'senderRole', 'SenderRole')).toUpperCase() as 'MANAGER' | 'INSPECTOR' | 'SYSTEM') || undefined;
-  const actorName = stringValue(pick(source, 'actorName', 'ActorName', 'senderName', 'SenderName')) || undefined;
-  const reason = stringValue(pick(source, 'reason', 'Reason')) || undefined;
-  const message = stringValue(pick(source, 'message', 'Message', 'content', 'Content')) || undefined;
-  const timestamp = stringValue(pick(source, 'timestamp', 'Timestamp'), new Date().toISOString());
+  const missionId = readFirstString(source, ['missionId', 'MissionId', 'id', 'Id', 'entityId', 'EntityId']);
+  const actorRole = (readFirstString(source, ['actorRole', 'ActorRole', 'senderRole', 'SenderRole']).toUpperCase() as 'MANAGER' | 'INSPECTOR' | 'SYSTEM') || undefined;
+  const actorName = optionalFirstString(source, ['actorName', 'ActorName', 'senderName', 'SenderName']);
+  const reason = optionalFirstString(source, ['reason', 'Reason']);
+  const message = optionalFirstString(source, ['message', 'Message', 'content', 'Content']);
+  const timestamp = readFirstString(source, ['timestamp', 'Timestamp'], new Date().toISOString());
 
   let log: MissionCommunicationLog | undefined = undefined;
-  if (source['log'] && typeof source['log'] === 'object') {
-    const l = record(source['log']);
+  const logRecord = asRecord(source?.['log']);
+  if (logRecord) {
     log = {
-      id: stringValue(l['id'], `log-${Date.now()}`),
-      senderId: stringValue(l['senderId'], 'user'),
-      senderName: stringValue(l['senderName'], actorName || 'Hệ thống'),
-      senderRole: (stringValue(l['senderRole']).toUpperCase() as 'MANAGER' | 'INSPECTOR' | 'SYSTEM') || 'SYSTEM',
-      type: (stringValue(l['type']).toUpperCase() as MissionCommunicationLog['type']) || 'DISPATCH',
-      content: stringValue(l['content'], message || ''),
-      timestamp: stringValue(l['timestamp'], timestamp),
+      id: readString(logRecord, 'id', `log-${Date.now()}`),
+      senderId: readString(logRecord, 'senderId', 'user'),
+      senderName: readString(logRecord, 'senderName', actorName || 'Hệ thống'),
+      senderRole: (readString(logRecord, 'senderRole').toUpperCase() as 'MANAGER' | 'INSPECTOR' | 'SYSTEM') || 'SYSTEM',
+      type: (readString(logRecord, 'type').toUpperCase() as MissionCommunicationLog['type']) || 'DISPATCH',
+      content: readString(logRecord, 'content', message || ''),
+      timestamp: readString(logRecord, 'timestamp', timestamp),
     };
   } else if (message) {
     log = {
       id: `log-${Date.now()}`,
-      senderId: stringValue(pick(source, 'actorId', 'ActorId'), 'user'),
+      senderId: readFirstString(source, ['actorId', 'ActorId'], 'user'),
       senderName: actorName || (actorRole === 'MANAGER' ? 'Quản lý vận hành' : 'Thanh tra viên'),
       senderRole: actorRole || 'SYSTEM',
       type: type === 'CONFIRMED' ? 'CONFIRM' : type === 'REMINDER' ? 'REMINDER' : type === 'SUSPENDED' ? 'SUSPEND' : type === 'POSTPONED' ? 'POSTPONE' : 'DISPATCH',
@@ -517,23 +518,23 @@ function normalizeMissionLifecycleEvent(
     };
   }
 
-  const assignmentId = stringValue(pick(source, 'assignmentId', 'AssignmentId')) || undefined;
-  const allConfirmed = source['allConfirmed'] !== undefined ? Boolean(source['allConfirmed']) : (source['AllConfirmed'] !== undefined ? Boolean(source['AllConfirmed']) : undefined);
-  const confirmedCount = source['confirmedCount'] !== undefined ? Number(source['confirmedCount']) : (source['ConfirmedCount'] !== undefined ? Number(source['ConfirmedCount']) : undefined);
-  const totalRequiredCount = source['totalRequiredCount'] !== undefined ? Number(source['totalRequiredCount']) : (source['TotalRequiredCount'] !== undefined ? Number(source['TotalRequiredCount']) : undefined);
-  const rawPending = pick(source, 'pendingRoles', 'PendingRoles');
-  const pendingRoles = Array.isArray(rawPending) ? rawPending.map(String) : undefined;
-  const detectionId = stringValue(pick(source, 'detectionId', 'DetectionId', 'anomalyId', 'AnomalyId')) || undefined;
-  const taskId = stringValue(pick(source, 'taskId', 'TaskId', 'maintenanceTaskId', 'MaintenanceTaskId')) || undefined;
+  const assignmentId = optionalFirstString(source, ['assignmentId', 'AssignmentId']);
+  const allConfirmed = source?.['allConfirmed'] !== undefined ? Boolean(source['allConfirmed']) : (source?.['AllConfirmed'] !== undefined ? Boolean(source['AllConfirmed']) : undefined);
+  const confirmedCount = optionalFirstNumber(source, ['confirmedCount', 'ConfirmedCount']);
+  const totalRequiredCount = optionalFirstNumber(source, ['totalRequiredCount', 'TotalRequiredCount']);
+  const rawPending = source?.['pendingRoles'] ?? source?.['PendingRoles'];
+  const pendingRoles = Array.isArray(rawPending) ? readArray(rawPending).map(String) : undefined;
+  const detectionId = optionalFirstString(source, ['detectionId', 'DetectionId', 'anomalyId', 'AnomalyId']);
+  const taskId = optionalFirstString(source, ['taskId', 'TaskId', 'maintenanceTaskId', 'MaintenanceTaskId']);
 
   return {
     missionId,
     type,
-    status: stringValue(pick(source, 'status', 'Status')) || undefined,
+    status: optionalFirstString(source, ['status', 'Status']),
     assignmentId,
-    confirmationDeadline: stringValue(pick(source, 'confirmationDeadline', 'ConfirmationDeadline')) || undefined,
-    managerInstructions: stringValue(pick(source, 'managerInstructions', 'ManagerInstructions')) || undefined,
-    actorId: stringValue(pick(source, 'actorId', 'ActorId')) || undefined,
+    confirmationDeadline: optionalFirstString(source, ['confirmationDeadline', 'ConfirmationDeadline']),
+    managerInstructions: optionalFirstString(source, ['managerInstructions', 'ManagerInstructions']),
+    actorId: optionalFirstString(source, ['actorId', 'ActorId']),
     actorName,
     actorRole,
     allConfirmed,
@@ -546,7 +547,7 @@ function normalizeMissionLifecycleEvent(
     detectionId,
     taskId,
     timestamp,
-    mission: source['mission'] && typeof source['mission'] === 'object' ? (source['mission'] as Partial<Mission>) : undefined,
+    mission: asRecord(source?.['mission']) ? (source?.['mission'] as Partial<Mission>) : undefined,
   };
 }
 
@@ -554,29 +555,29 @@ function normalizeAssessmentRealtimeEvent(
   defaultType: AssessmentRealtimeEventType,
   payload: unknown
 ): AssessmentRealtimeEvent {
-  const raw = record(payload);
-  const source = (raw['data'] && typeof raw['data'] === 'object') ? record(raw['data']) : raw;
-  const type = stringValue(pick(source, 'type', 'Type'), defaultType);
-  const assessmentId = stringValue(pick(source, 'assessmentId', 'AssessmentId', 'id', 'Id'));
+  const raw = asRecord(payload);
+  const source = asRecord(raw?.['data']) ?? raw;
+  const type = readFirstString(source, ['type', 'Type'], defaultType);
+  const assessmentId = readFirstString(source, ['assessmentId', 'AssessmentId', 'id', 'Id']);
   return {
     assessmentId,
     type,
-    status: stringValue(pick(source, 'status', 'Status')) || undefined,
-    droneId: stringValue(pick(source, 'droneId', 'DroneId')) || undefined,
-    droneCode: stringValue(pick(source, 'droneCode', 'DroneCode')) || undefined,
-    technicalHealth: stringValue(pick(source, 'technicalHealth', 'TechnicalHealth')) || undefined,
-    technicalStatus: stringValue(pick(source, 'technicalStatus', 'TechnicalStatus')) || undefined,
-    consumedMissionId: stringValue(pick(source, 'completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId')) || undefined,
-    consumedMissionCode: stringValue(pick(source, 'completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
-    completedMissionId: stringValue(pick(source, 'completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId')) || undefined,
-    completedMissionCode: stringValue(pick(source, 'completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode')) || undefined,
-    windSpeed: source['windSpeed'] !== undefined ? Number(source['windSpeed']) : (source['WindSpeed'] !== undefined ? Number(source['WindSpeed']) : undefined),
-    windGust: source['windGust'] !== undefined ? Number(source['windGust']) : (source['WindGust'] !== undefined ? Number(source['WindGust']) : undefined),
-    isMeteoSafe: source['isMeteoSafe'] !== undefined ? Boolean(source['isMeteoSafe']) : (source['IsMeteoSafe'] !== undefined ? Boolean(source['IsMeteoSafe']) : undefined),
-    message: stringValue(pick(source, 'message', 'Message')) || undefined,
-    actorId: stringValue(pick(source, 'actorId', 'ActorId')) || undefined,
-    actorName: stringValue(pick(source, 'actorName', 'ActorName')) || undefined,
-    actorRole: stringValue(pick(source, 'actorRole', 'ActorRole')) || undefined,
-    timestamp: stringValue(pick(source, 'timestamp', 'Timestamp'), new Date().toISOString()),
+    status: optionalFirstString(source, ['status', 'Status']),
+    droneId: optionalFirstString(source, ['droneId', 'DroneId']),
+    droneCode: optionalFirstString(source, ['droneCode', 'DroneCode']),
+    technicalHealth: optionalFirstString(source, ['technicalHealth', 'TechnicalHealth']),
+    technicalStatus: optionalFirstString(source, ['technicalStatus', 'TechnicalStatus']),
+    consumedMissionId: optionalFirstString(source, ['completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId']),
+    consumedMissionCode: optionalFirstString(source, ['completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode']),
+    completedMissionId: optionalFirstString(source, ['completedMissionId', 'CompletedMissionId', 'consumedMissionId', 'ConsumedMissionId']),
+    completedMissionCode: optionalFirstString(source, ['completedMissionCode', 'CompletedMissionCode', 'consumedMissionCode', 'ConsumedMissionCode']),
+    windSpeed: optionalFirstNumber(source, ['windSpeed', 'WindSpeed']),
+    windGust: optionalFirstNumber(source, ['windGust', 'WindGust']),
+    isMeteoSafe: source?.['isMeteoSafe'] !== undefined ? Boolean(source['isMeteoSafe']) : (source?.['IsMeteoSafe'] !== undefined ? Boolean(source['IsMeteoSafe']) : undefined),
+    message: optionalFirstString(source, ['message', 'Message']),
+    actorId: optionalFirstString(source, ['actorId', 'ActorId']),
+    actorName: optionalFirstString(source, ['actorName', 'ActorName']),
+    actorRole: optionalFirstString(source, ['actorRole', 'ActorRole']),
+    timestamp: readFirstString(source, ['timestamp', 'Timestamp'], new Date().toISOString()),
   };
 }
