@@ -169,6 +169,8 @@ export class DetectionList {
   }
 
   protected setStatusFilter(nextFilter: ReviewStatusFilter): void {
+    // Chặn mở tab Sửa nhãn khi Active Learning đang tắt trong vận hành (MASTER_SYSTEM_SPEC.md Mục 2).
+    if (nextFilter === 'Labeling' && !this.activeLearningEnabled) return;
     if (this.statusFilter() === nextFilter) return;
     this.statusFilter.set(nextFilter);
     this.page.set(1);
