@@ -19,7 +19,9 @@ export interface ActiveLearningConfig {
 }
 
 export const DEFAULT_ACTIVE_LEARNING_CONFIG: ActiveLearningConfig = {
-  enabled: true,
+  // Tạm đưa Active Learning vào backlog nghiên cứu sau theo MASTER_SYSTEM_SPEC.md Mục 2 (FE-REQ-003 Phương án 2A).
+  // Tắt cờ này ẩn toàn bộ nút/tab/modal Sửa nhãn & chặn mọi request API Active Learning khỏi luồng vận hành.
+  enabled: false,
   mode: 'local',
   storageKey: 'uavpms.activeLearning.labels.v1',
 };
