@@ -1,6 +1,7 @@
 import {
   formatVietnamDate,
   formatVietnamDateTime,
+  formatVietnamDateTimeWithSeconds,
   formatVietnameseDateInput,
   parseDateInputToIso,
 } from './date-format.util';
@@ -25,15 +26,14 @@ export function formatAsiaDate(
   if (options?.dateOnly) {
     return formatVietnamDate(date, EMPTY_FALLBACK);
   }
-  if (!options?.timeOnly && !options?.includeSeconds) {
-    return formatVietnamDateTime(date, EMPTY_FALLBACK);
+  if (!options?.timeOnly) {
+    return options?.includeSeconds
+      ? formatVietnamDateTimeWithSeconds(date, EMPTY_FALLBACK)
+      : formatVietnamDateTime(date, EMPTY_FALLBACK);
   }
 
   return new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
-    year: options.timeOnly ? undefined : 'numeric',
-    month: options.timeOnly ? undefined : '2-digit',
-    day: options.timeOnly ? undefined : '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: options.includeSeconds ? '2-digit' : undefined,

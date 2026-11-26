@@ -3,6 +3,8 @@ import {
   asRecord,
   readArray,
   readBoolean,
+  readFirstNumber,
+  readFirstString,
   readNumber,
   readOptionalNumber,
   readOptionalString,
@@ -112,5 +114,20 @@ describe('payload-parse.util', () => {
     expect(readNumber(rec, 'confidence', 0)).toBe(0);
     expect(readBoolean(rec, 'isEmergency', false)).toBe(false);
     expect(readArray(rec?.['tags'])).toEqual([]);
+  });
+
+  it('readFirstString & readFirstNumber pick the first valid alias key or fallback', () => {
+    const payload: Record<string, unknown> = {
+      primary: '   ',
+      secondary: '  EVN-CPC  ',
+      badCount: 'abc',
+      totalCount: 0,
+      altCount: 15,
+    };
+
+    expect(readFirstString(payload, ['missing', 'primary', 'secondary'], 'N/A')).toBe('EVN-CPC');
+    expect(readFirstString(payload, ['missing', 'primary'], 'N/A')).toBe('N/A');
+    expect(readFirstNumber(payload, ['missing', 'badCount', 'totalCount', 'altCount'], -1)).toBe(0);
+    expect(readFirstNumber(payload, ['missing', 'badCount'], -1)).toBe(-1);
   });
 });

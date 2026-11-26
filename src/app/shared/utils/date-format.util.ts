@@ -109,3 +109,19 @@ export function formatVietnamDateTime(value: string | Date | null | undefined, f
   const minutes = padTwoDigits(shifted.getUTCMinutes());
   return `${day}/${month}/${shifted.getUTCFullYear()} ${hours}:${minutes}`;
 }
+
+/**
+ * Định dạng mốc UTC sang `dd/MM/yyyy HH:mm:ss` theo `UTC+7` (`Asia/Ho_Chi_Minh`).
+ */
+export function formatVietnamDateTimeWithSeconds(value: string | Date | null | undefined, fallback = ''): string {
+  const timestampMs = parseTimestampMs(value);
+  if (timestampMs === null) return fallback;
+
+  const shifted = new Date(timestampMs + VIETNAM_UTC_OFFSET_MS);
+  const day = padTwoDigits(shifted.getUTCDate());
+  const month = padTwoDigits(shifted.getUTCMonth() + 1);
+  const hours = padTwoDigits(shifted.getUTCHours());
+  const minutes = padTwoDigits(shifted.getUTCMinutes());
+  const seconds = padTwoDigits(shifted.getUTCSeconds());
+  return `${day}/${month}/${shifted.getUTCFullYear()} ${hours}:${minutes}:${seconds}`;
+}

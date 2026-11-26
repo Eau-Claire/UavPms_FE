@@ -3,8 +3,10 @@ import {
   formatVietnamDate,
   formatVietnameseDateInput,
   formatVietnamDateTime,
+  formatVietnamDateTimeWithSeconds,
   parseDateInputToIso,
 } from './date-format.util';
+import { formatAsiaDate } from './date-utils';
 
 describe('date-format.util', () => {
   describe('parseDateInputToIso', () => {
@@ -40,6 +42,8 @@ describe('date-format.util', () => {
   describe('formatVietnamDate & formatVietnamDateTime (UTC -> UTC+7)', () => {
     it('formats UTC timestamps to Vietnam UTC+7 across midnight and start of day', () => {
       expect(formatVietnamDateTime('2026-11-26T17:30:00Z')).toBe('27/11/2026 00:30');
+      expect(formatVietnamDateTimeWithSeconds('2026-11-26T17:30:09Z')).toBe('27/11/2026 00:30:09');
+      expect(formatAsiaDate('2026-11-26T17:30:09Z', { includeSeconds: true })).toBe('27/11/2026 00:30:09');
       expect(formatVietnamDate('2026-11-26T17:30:00Z')).toBe('27/11/2026');
 
       expect(formatVietnamDateTime('2026-11-26T00:05:00Z')).toBe('26/11/2026 07:05');
@@ -50,6 +54,7 @@ describe('date-format.util', () => {
       expect(formatVietnamDateTime(new Date('2026-11-26T17:30:00Z'))).toBe('27/11/2026 00:30');
       expect(formatVietnamDate(new Date('2026-11-26T17:30:00Z'))).toBe('27/11/2026');
       expect(formatVietnamDateTime(new Date('invalid'), '—')).toBe('—');
+      expect(formatVietnamDateTimeWithSeconds(new Date('invalid'), '—')).toBe('—');
       expect(formatVietnamDate(new Date('invalid'))).toBe('');
       expect(formatVietnameseDateInput('26112026')).toBe('26/11/2026');
     });
@@ -62,6 +67,7 @@ describe('date-format.util', () => {
         expect(formatVietnamDate(input, '—')).toBe('—');
         expect(formatVietnamDateTime(input)).toBe('');
         expect(formatVietnamDateTime(input, '—')).toBe('—');
+        expect(formatVietnamDateTimeWithSeconds(input, '—')).toBe('—');
         expect(formatVietnamDateTime(input)).not.toContain('Invalid Date');
       }
     });

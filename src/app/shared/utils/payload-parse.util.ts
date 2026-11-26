@@ -23,6 +23,21 @@ export function readString(record: Record<string, unknown> | null | undefined, k
 }
 
 /**
+ * Đọc khóa chuỗi hợp lệ đầu tiên trong danh sách alias `keys`; trả `fallback` nếu tất cả đều thiếu/rỗng.
+ */
+export function readFirstString(
+  record: Record<string, unknown> | null | undefined,
+  keys: readonly string[],
+  fallback = '',
+): string {
+  for (const key of keys) {
+    const value = readOptionalString(record, key);
+    if (value !== null) return value;
+  }
+  return fallback;
+}
+
+/**
  * Đọc số hữu hạn (gồm `0` và số âm); từ chối `NaN`, `Infinity`, chuỗi rỗng và boolean.
  */
 export function readOptionalNumber(record: Record<string, unknown> | null | undefined, key: string): number | null {
@@ -43,6 +58,21 @@ export function readOptionalNumber(record: Record<string, unknown> | null | unde
 /** Đọc số hữu hạn có giá trị dự phòng khi payload thiếu hoặc không hợp lệ. */
 export function readNumber(record: Record<string, unknown> | null | undefined, key: string, fallback = 0): number {
   return readOptionalNumber(record, key) ?? fallback;
+}
+
+/**
+ * Đọc khóa số hữu hạn hợp lệ đầu tiên trong danh sách alias `keys`; trả `fallback` nếu không khớp.
+ */
+export function readFirstNumber(
+  record: Record<string, unknown> | null | undefined,
+  keys: readonly string[],
+  fallback = 0,
+): number {
+  for (const key of keys) {
+    const value = readOptionalNumber(record, key);
+    if (value !== null) return value;
+  }
+  return fallback;
 }
 
 /** Đọc cờ boolean tường minh; trả `fallback` nếu giá trị khác kiểu `boolean`. */

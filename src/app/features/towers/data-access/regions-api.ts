@@ -4,6 +4,7 @@ import { EMPTY, expand, map, Observable, reduce, shareReplay } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { unwrapApiData } from '../../../models/api.models';
 import { RegionLookup } from '../../../models/assets.models';
+import { asRecord, readArray, readFirstString, readNumber, readString } from '../../../shared/utils';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -20,12 +21,13 @@ export class RegionsApi {
       const page = (number: number) =>
         this.http.get<unknown>(this.url, { params: { page: number, pageSize: MAX_PAGE_SIZE } }).pipe(
           map((response) => {
-            const data = asRecord(unwrapApiData(response));
-            const pagination = asRecord(data['pagination']);
-            const items = Array.isArray(data['items']) ? data['items'] : Array.isArray(data) ? data : [];
+            const unwrapped = unwrapApiData(response);
+            const data = asRecord(unwrapped);
+            const pagination = asRecord(data?.['pagination']);
+            const items = Array.isArray(unwrapped) ? unwrapped : readArray(data?.['items']);
             return {
               page: number,
-              totalPages: Number(pagination['totalPages'] ?? 1) || 1,
+              totalPages: readNumber(pagination, 'totalPages', 1) || 1,
               items: items.map(normalizeRegion).filter((region) => region.id),
             };
           }),
@@ -43,13 +45,10 @@ export class RegionsApi {
   }
 }
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-
 const normalizeRegion = (value: unknown): RegionLookup => {
   const source = asRecord(value);
   return {
-    id: String(source['id'] ?? ''),
-    name: String(source['regionName'] ?? source['name'] ?? ''),
+    id: readString(source, 'id'),
+    name: readFirstString(source, ['regionName', 'name']),
   };
 };
