@@ -141,7 +141,7 @@ describe('DroneManagement Component', () => {
     Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map((b) => b.getAttribute('title') ?? b.textContent?.trim() ?? '');
 
   it('shows add, edit and delete to managers without removed GIS estimate', () => {
-    (component as any).openHistory(mockDrones[0]);
+    harness.openHistory(mockDrones[0]);
     fixture.detectChanges();
     const titles = buttonTitles();
     expect(titles).toContain('Xóa UAV');
